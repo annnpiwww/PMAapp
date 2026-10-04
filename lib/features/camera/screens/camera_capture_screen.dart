@@ -26,6 +26,7 @@ import '../../../data/services/absensi_setup_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/secure_time_service.dart';
 import '../../../data/services/notification_service.dart';
+import '../../../data/services/daily_task_service.dart';
 import '../widgets/interactive_watermark.dart';
 import '../widgets/sop_verification_modal.dart';
 import '../../history/screens/gallery_screen.dart';
@@ -182,6 +183,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     // tombol switch kamera lagi).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _requestInitialPermissionsAndInit();
+      _refreshDailyTasksBadge();
     });
 
     TemplateRepository.instance.addListener(_onTemplateRepoChange);
@@ -287,7 +289,26 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       _initCamera();
       _checkGpsServiceAndPrompt();
       _fetchLocation();
+      _refreshDailyTasksBadge();
     }
+  }
+
+  void _refreshDailyTasksBadge() {
+    final user = AuthRepository.instance.currentUser;
+    if (user?.role != UserRole.petugas) return;
+    final now = DateTime.now();
+    final todayStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    DailyTaskService.getTasksForTeknisi(
+      tanggal: todayStr,
+      teknisiNama: user!.nama,
+    ).then((tasks) {
+      if (mounted) {
+        final pending = tasks.where((t) => !t.isCompleted).length;
+        DailyTaskService.updatePendingCount(pending);
+        NotificationService.instance.showDailyTasksNotification(tasks: tasks);
+      }
+    }).catchError((_) {});
   }
 
   Future<void> _initCamera() async {
@@ -2315,25 +2336,66 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Hamburger Menu / Sidebar Drawer Icon
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.black.withValues(alpha: 0.45) : const Color(0xFFF1F5F9),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: isDark ? Colors.white24 : AppColors.cardBorder, width: 0.8),
-                          ),
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: Icon(
-                              Icons.menu_rounded,
-                              color: isDark ? Colors.white : AppColors.textPrimary,
-                              size: 20,
-                            ),
-                            onPressed: () =>
-                                _scaffoldKey.currentState?.openDrawer(),
-                          ),
+                        // Hamburger Menu / Sidebar Drawer Icon dengan realtime badge Daily Task
+                        ValueListenableBuilder<int>(
+                          valueListenable: DailyTaskService.pendingCountNotifier,
+                          builder: (context, pendingCount, _) {
+                            return Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? Colors.black.withValues(alpha: 0.45)
+                                        : const Color(0xFFF1F5F9),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isDark ? Colors.white24 : AppColors.cardBorder,
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: IconButton(
+                                    padding: EdgeInsets.zero,
+                                    icon: Icon(
+                                      Icons.menu_rounded,
+                                      color: isDark ? Colors.white : AppColors.textPrimary,
+                                      size: 20,
+                                    ),
+                                    onPressed: () =>
+                                        _scaffoldKey.currentState?.openDrawer(),
+                                  ),
+                                ),
+                                if (pendingCount > 0)
+                                  Positioned(
+                                    top: -2,
+                                    right: -2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFEF4444),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 16,
+                                        minHeight: 16,
+                                      ),
+                                      child: Text(
+                                        pendingCount > 99 ? '99+' : '$pendingCount',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w900,
+                                          height: 1.0,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
                         ),
 
                         const SizedBox(width: 8),
@@ -3045,33 +3107,36 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
   }
 
   Widget _buildAppDrawer() {
-    final isDark = ThemeService.isDarkMode(context);
-    final drawerBg = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final textPrimary = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final dividerColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeService.themeModeNotifier,
+      builder: (context, currentMode, _) {
+        final isDark = ThemeService.isDarkMode(context);
+        final drawerBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+        final textPrimary = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
+        final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+        final dividerColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
 
-    return Drawer(
-      width: 310,
-      backgroundColor: drawerBg,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  // Drawer Header with Pure Transparent Logo on Blue Background (Tanpa Tombol Close & Tanpa Kotak Dalam)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(20, 52, 20, 28),
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      border: Border(
-                        bottom: BorderSide(color: AppColors.accent, width: 2.5),
-                      ),
-                    ),
+        return Drawer(
+          width: 310,
+          backgroundColor: drawerBg,
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      // Drawer Header with Pure Transparent Logo on Blue Background (Tanpa Tombol Close & Tanpa Kotak Dalam)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(20, 52, 20, 28),
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          border: Border(
+                            bottom: BorderSide(color: AppColors.accent, width: 2.5),
+                          ),
+                        ),
                     child: Center(
                       child: Image.asset(
                         'foto/bssfotologo_transparent.png',
@@ -3162,13 +3227,37 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                         'List daily yang harus dikerjakan',
                         style: TextStyle(fontSize: 11, color: textSecondary),
                       ),
-                      onTap: () {
+                      trailing: ValueListenableBuilder<int>(
+                        valueListenable: DailyTaskService.pendingCountNotifier,
+                        builder: (context, pendingCount, _) {
+                          if (pendingCount > 0) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '$pendingCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            );
+                          }
+                          return const Icon(Icons.chevron_right_rounded, size: 20);
+                        },
+                      ),
+                      onTap: () async {
                         Navigator.of(context).pop();
-                        Navigator.of(context).push(
+                        await Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => const TeknisiDailyTasksScreen(),
                           ),
                         );
+                        _refreshDailyTasksBadge();
                       },
                     );
                   }),
@@ -3380,27 +3469,34 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
         ),
       ),
     );
+      },
+    );
   }
 
   void _confirmLogout(BuildContext context) {
+    final isDark = ThemeService.isDarkMode(context);
     showDialog(
       context: context,
       builder: (dCtx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.logout_rounded, color: AppColors.danger, size: 24),
-            SizedBox(width: 8),
+            const Icon(Icons.logout_rounded, color: AppColors.danger, size: 24),
+            const SizedBox(width: 8),
             Text(
               'Keluar Akun',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary,
+              ),
             ),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Apakah Anda yakin ingin keluar dari akun ini?',
-          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          style: TextStyle(fontSize: 13, color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
         ),
         actions: [
           TextButton(

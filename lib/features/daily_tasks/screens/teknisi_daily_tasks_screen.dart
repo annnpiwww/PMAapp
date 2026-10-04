@@ -7,6 +7,7 @@ import '../../../data/models/daily_task_model.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/repositories/template_repository.dart';
 import '../../../data/services/daily_task_service.dart';
+import '../../../data/services/notification_service.dart';
 import '../../maintenance/widgets/maintenance_setup_dialog.dart';
 import 'custom_task_execution_screen.dart';
 
@@ -47,6 +48,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
 
     final pendingCount = tasks.where((t) => !t.isCompleted).length;
     DailyTaskService.updatePendingCount(pendingCount);
+    NotificationService.instance.showDailyTasksNotification(tasks: tasks);
 
     if (mounted) {
       setState(() {

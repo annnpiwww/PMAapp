@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'absensi_setup_service.dart';
+import '../models/daily_task_model.dart';
 
 /// Service untuk menangani push / local notification absensi & pengingat jam shift kerja.
 class NotificationService {
@@ -23,6 +24,7 @@ class NotificationService {
   static const int notificationIdMasuk = 1001;
   static const int notificationIdPulang = 1002;
   static const int notificationIdReminderPulang = 2001;
+  static const int notificationIdDailyTasks = 3001;
 
   /// Inisialisasi konfigurasi notifikasi lokal dan timezone
   Future<void> init() async {
@@ -209,6 +211,57 @@ class NotificationService {
     try {
       await _notificationsPlugin.cancel(id: notificationIdReminderPulang);
       debugPrint('[NotificationService] Pengingat jadwal pulang dibatalkan.');
+    } catch (_) {}
+  }
+
+  /// Notifikasi status Daily Task hari ini jika masih ada tugas yang pending
+  Future<void> showDailyTasksNotification({
+    required List<DailyTaskModel> tasks,
+  }) async {
+    await init();
+    try {
+      final pending = tasks.where((t) => !t.isCompleted).toList();
+      if (pending.isEmpty) {
+        await cancelDailyTasksNotification();
+        return;
+      }
+
+      final title = '📋 Daily Task Hari Ini (${pending.length} Tugas)';
+      final lines = pending.take(4).map((t) => '• ${t.judul}').join('\n');
+      final body = pending.length > 4 ? '$lines\n• ...dan ${pending.length - 4} tugas lainnya' : lines;
+
+      const androidDetails = AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: _channelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+        ticker: 'Daily Task Pending',
+        icon: '@mipmap/ic_launcher',
+        color: Color(0xFFF59E0B),
+        styleInformation: BigTextStyleInformation(''),
+      );
+
+      const details = NotificationDetails(android: androidDetails);
+
+      await _notificationsPlugin.show(
+        id: notificationIdDailyTasks,
+        title: title,
+        body: body,
+        notificationDetails: details,
+        payload: 'daily_tasks',
+      );
+      debugPrint('[NotificationService] Notifikasi daily tasks terkirim: $title');
+    } catch (e) {
+      debugPrint('[NotificationService] Error kirim notifikasi daily tasks: $e');
+    }
+  }
+
+  /// Membatalkan notifikasi daily tasks (misal saat semua tugas selesai)
+  Future<void> cancelDailyTasksNotification() async {
+    try {
+      await _notificationsPlugin.cancel(id: notificationIdDailyTasks);
+      debugPrint('[NotificationService] Notifikasi daily tasks dibatalkan.');
     } catch (_) {}
   }
 }
