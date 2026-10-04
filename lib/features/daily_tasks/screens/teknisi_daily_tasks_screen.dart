@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
-import '../../../core/utils/share_helper.dart';
 import '../../../data/models/daily_task_model.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/repositories/template_repository.dart';
@@ -56,104 +54,6 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
         _isLoading = false;
       });
     }
-  }
-
-  void _showFinalDailyReportModal() {
-    final user = AuthRepository.instance.currentUser;
-    if (user == null || _tasks.isEmpty) return;
-
-    final completedTasks = _tasks.where((t) => t.isCompleted).toList();
-    final pendingTasks = _tasks.where((t) => !t.isCompleted).toList();
-    final firstTask = _tasks.first;
-
-    final reportText = DailyTaskService.formatFinalDailyReport(
-      teknisiNama: user.nama,
-      tanggal: _todayStr(),
-      lokasi: firstTask.posName,
-      posTag: firstTask.posTag,
-      completedTasks: completedTasks,
-      pendingTasks: pendingTasks,
-    );
-
-    final isDark = ThemeService.isDarkMode(context);
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF111827) : Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
-          ),
-          title: Row(
-            children: [
-              const Icon(Icons.assignment_turned_in_rounded, color: AppColors.primary, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                'Laporan Daily Hari Ini',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Format teks rangkuman harian siap dikirimkan ke WhatsApp.',
-                  style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0B1120) : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
-                  ),
-                  child: Text(
-                    reportText,
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 11.5,
-                      color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
-                      height: 1.45,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text('Tutup', style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
-            ),
-            ElevatedButton.icon(
-              onPressed: () async {
-                HapticFeedback.lightImpact();
-                final nav = Navigator.of(ctx);
-                await ShareHelper.shareToWhatsApp(text: reportText);
-                nav.pop();
-              },
-              icon: const Icon(Icons.send_rounded, size: 16),
-              label: const Text('Kirim Laporan'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF25D366), // WhatsApp Green
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   void _startTask(DailyTaskModel task) async {
@@ -337,6 +237,35 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                             ],
                           ),
                         ),
+                        const SizedBox(height: 10),
+
+                        // Info Integrasi Laporan Pulang
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.2),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Tugas yang selesai otomatis terintegrasi ke Laporan Pulang saat absensi kepulangan.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark ? const Color(0xFFE2E8F0) : AppColors.textPrimary,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 14),
 
                         // List Tugas
@@ -483,48 +412,6 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                         }),
                       ],
                     ),
-            ),
-      bottomNavigationBar: _tasks.isEmpty
-          ? null
-          : Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              decoration: BoxDecoration(
-                color: bgCard,
-                border: Border(top: BorderSide(color: borderCard)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: _showFinalDailyReportModal,
-                      icon: const Icon(Icons.assignment_turned_in_rounded, size: 20),
-                      label: Text(
-                        done == total && total > 0
-                            ? 'Kirim Laporan Daily Hari Ini (Semua Selesai ✓)'
-                            : 'Kirim Laporan Daily Hari Ini ($done/$total Selesai)',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: done == total && total > 0
-                            ? const Color(0xFF16A34A) // Green Highlight
-                            : AppColors.primary,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        elevation: done == total ? 2 : 0,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
     );
   }

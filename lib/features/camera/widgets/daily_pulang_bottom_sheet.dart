@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/theme_service.dart';
 import '../../../data/services/absensi_setup_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/daily_task_service.dart';
+import '../../../data/repositories/auth_repository.dart';
 
-/// Modal Bottom Sheet 'Isi daily dulu ya!' sebelum absensi kepulangan.
-/// Mengharuskan teknisi memilih IT Support pengganti dan mencatat tugas harian.
 class DailyPulangBottomSheet extends StatefulWidget {
   const DailyPulangBottomSheet({super.key});
 
@@ -25,87 +25,105 @@ class DailyPulangBottomSheet extends StatefulWidget {
 }
 
 class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
-  final setup = AbsensiSetupService.instance;
+  final _selesaiCtrl = TextEditingController();
+  final _belumCtrl = TextEditingController();
 
-  static const List<String> _rekanItOptions = [
-    'Junifer Manua',
-    'Ryan Lumasuge',
-    'Alessandro Sulistyo',
-    'Raldy Sangkop',
-    'Shift Terakhir / Tidak Ada Pengganti',
-  ];
-
-  late String _selectedNextShift;
-  late TextEditingController _selesaiCtrl;
+  String? _selectedNextShift;
   bool _adaPekerjaanBelum = false;
-  late TextEditingController _belumCtrl;
   String? _errorMessage;
+  bool _isLoadingDailyTasks = false;
+  int _syncedCompletedCount = 0;
+
+  // Daftar nama rekan IT Support
+  static const List<String> _rekanItOptions = [
+    'Farhan Lakoro',
+    'Fidel Gimon',
+    'Wahyu Pratama',
+    'Rifky Mokodompit',
+    'Rian Hidayat',
+    'Tidak Ada (Shift Terakhir / Off)',
+  ];
 
   @override
   void initState() {
     super.initState();
-    final savedNext = setup.shiftSelanjutnya.trim();
-    if (savedNext.isNotEmpty && savedNext != '-' && _rekanItOptions.contains(savedNext)) {
-      _selectedNextShift = savedNext;
-    } else if (savedNext.isNotEmpty && savedNext != '-') {
-      _selectedNextShift = savedNext;
-    } else {
-      _selectedNextShift = _rekanItOptions.first;
+    final setup = AbsensiSetupService.instance;
+
+    // Prefill data yang sudah tersimpan sebelumnya
+    if (setup.shiftSelanjutnya.isNotEmpty && setup.shiftSelanjutnya != '-') {
+      _selectedNextShift = setup.shiftSelanjutnya;
     }
-
-    final rawSelesai = setup.pekerjaanSelesai.trim();
-    final rawBelum = setup.pekerjaanBelum.trim();
-    var initialSelesai = rawSelesai.isNotEmpty && rawSelesai != '-' ? rawSelesai : '';
-    var initialBelum = rawBelum.isNotEmpty && rawBelum != '-' ? rawBelum : '';
-
-    // Auto-fill dari Daily Tasks & Maintenance hari ini jika belum ada input manual
-    if (initialSelesai.isEmpty) {
-      final cachedTasks = DailyTaskService.getCachedTasksLocally();
-      final doneTasks = cachedTasks.where((t) => t.isCompleted).toList();
-      final pendingTasks = cachedTasks.where((t) => !t.isCompleted).toList();
-
-      final buffer = StringBuffer();
-      int itemNum = 1;
-
-      // 1. Ambil tugas daily selesai
-      for (final t in doneTasks) {
-        buffer.writeln('$itemNum. [✓] ${t.judul}');
-        itemNum++;
-      }
-
-      // 2. Ambil tugas maintenance selesai hari ini
-      final now = DateTime.now();
-      final allMaint = StorageService.getMaintenanceSubmissions() ?? [];
-      final todayMaint = allMaint.where((s) {
-        return s.createdAt.year == now.year &&
-            s.createdAt.month == now.month &&
-            s.createdAt.day == now.day &&
-            s.isComplete;
-      }).toList();
-
-      for (final m in todayMaint) {
-        buffer.writeln('$itemNum. [✓] Maintenance: ${m.templateName} (${m.posName})');
-        itemNum++;
-      }
-
-      if (buffer.isNotEmpty) {
-        initialSelesai = buffer.toString().trim();
-      }
-
-      if (initialBelum.isEmpty && pendingTasks.isNotEmpty) {
-        final pendingBuffer = StringBuffer();
-        for (int i = 0; i < pendingTasks.length; i++) {
-          pendingBuffer.writeln('- ${pendingTasks[i].judul} (Belum selesai)');
-        }
-        initialBelum = pendingBuffer.toString().trim();
-        _adaPekerjaanBelum = true;
-      }
+    if (setup.pekerjaanSelesai.isNotEmpty && setup.pekerjaanSelesai != '-') {
+      _selesaiCtrl.text = setup.pekerjaanSelesai;
     }
-
-    _selesaiCtrl = TextEditingController(text: initialSelesai);
-    _belumCtrl = TextEditingController(text: initialBelum);
-    if (initialBelum.isNotEmpty) {
+    if (setup.pekerjaanBelum.isNotEmpty && setup.pekerjaanBelum != '-') {
       _adaPekerjaanBelum = true;
+      _belumCtrl.text = setup.pekerjaanBelum;
+    }
+
+    // Auto-fill dari Daily Task jika tersedia
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoFillFromDailyTasks();
+    });
+  }
+
+  Future<void> _autoFillFromDailyTasks({bool force = false}) async {
+    final user = AuthRepository.instance.currentUser;
+    if (user == null) return;
+
+    if (!force && _selesaiCtrl.text.trim().isNotEmpty && _selesaiCtrl.text.trim() != '-') {
+      return;
+    }
+
+    final now = DateTime.now();
+    final todayStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    setState(() => _isLoadingDailyTasks = true);
+
+    try {
+      final tasks = await DailyTaskService.getTasksForTeknisi(
+        tanggal: todayStr,
+        teknisiNama: user.nama,
+      );
+
+      final completed = tasks.where((t) => t.isCompleted).toList();
+      final pending = tasks.where((t) => !t.isCompleted).toList();
+
+      if (completed.isNotEmpty) {
+        final buffer = StringBuffer();
+        for (int i = 0; i < completed.length; i++) {
+          final t = completed[i];
+          buffer.writeln('${i + 1}. ${t.judul}');
+          final note = (t.catatanTeknisi ?? '').trim();
+          if (note.isNotEmpty && note != '-') {
+            buffer.writeln(note);
+          }
+        }
+        _selesaiCtrl.text = buffer.toString().trim();
+      }
+
+      if (pending.isNotEmpty) {
+        _adaPekerjaanBelum = true;
+        final bufferBelum = StringBuffer();
+        for (int i = 0; i < pending.length; i++) {
+          final t = pending[i];
+          bufferBelum.writeln('${i + 1}. ${t.judul}');
+          final note = (t.catatanTeknisi ?? '').trim();
+          if (note.isNotEmpty && note != '-') {
+            bufferBelum.writeln(note);
+          }
+        }
+        _belumCtrl.text = bufferBelum.toString().trim();
+      }
+
+      _syncedCompletedCount = completed.length;
+    } catch (_) {
+      // Abaikan jika offline / gagal fetch
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingDailyTasks = false);
+      }
     }
   }
 
@@ -117,29 +135,43 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
   }
 
   void _handleSave() {
+    final setup = AbsensiSetupService.instance;
     final selesaiText = _selesaiCtrl.text.trim();
-    final belumText = _belumCtrl.text.trim();
 
-    // Validasi: Wajib ada isi pekerjaan selesai
-    if (selesaiText.isEmpty || selesaiText == '-') {
+    // Validasi 1: Teknisi Shift Selanjutnya Wajib Dipilih
+    if (_selectedNextShift == null || _selectedNextShift!.isEmpty) {
+      HapticFeedback.heavyImpact();
       setState(() {
-        _errorMessage = 'Mohon tuliskan pekerjaan yang telah diselesaikan hari ini.';
+        _errorMessage = 'Wajib memilih Teknisi Shift Selanjutnya!';
       });
       return;
     }
 
-    // Validasi: Jika opsi pekerjaan pending diaktifkan, wajib diisi keterangannya
-    if (_adaPekerjaanBelum && (belumText.isEmpty || belumText == '-')) {
+    // Validasi 2: Pekerjaan Selesai Wajib Diisi
+    if (selesaiText.isEmpty) {
+      HapticFeedback.heavyImpact();
       setState(() {
-        _errorMessage = 'Mohon tuliskan rincian pekerjaan pending jika opsi ini diaktifkan.';
+        _errorMessage = 'Wajib mencatat pekerjaan yang telah diselesaikan!';
       });
       return;
     }
 
-    final savedBelum = _adaPekerjaanBelum && belumText.isNotEmpty ? belumText : '-';
+    // Validasi 3: Jika toggle belum selesai aktif, teks tidak boleh kosong
+    String savedBelum = '-';
+    if (_adaPekerjaanBelum) {
+      final belumText = _belumCtrl.text.trim();
+      if (belumText.isEmpty) {
+        HapticFeedback.heavyImpact();
+        setState(() {
+          _errorMessage = 'Tuliskan pekerjaan yang belum selesai atau matikan toggle jika tidak ada.';
+        });
+        return;
+      }
+      savedBelum = belumText;
+    }
 
     // Simpan ke service & storage
-    setup.updateNextShift(_selectedNextShift);
+    setup.updateNextShift(_selectedNextShift!);
     setup.updatePekerjaanSelesai(selesaiText);
     setup.updatePekerjaanBelum(savedBelum);
     StorageService.markDailyReportCompletedToday();
@@ -151,16 +183,31 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final isDark = ThemeService.isDarkMode(context);
+
+    final sheetBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final cardBg = isDark ? const Color(0xFF1E293B) : AppColors.surfaceContainerLow;
+    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+    final inputBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final inputBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+    final inputTextColor = isDark ? Colors.white : AppColors.textPrimary;
+    final hintColor = isDark ? const Color(0xFF64748B) : AppColors.textMuted;
+    final dividerColor = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+    final handleColor = isDark ? const Color(0xFF475569) : AppColors.cardBorder;
+    final toggleCardBg = isDark ? const Color(0xFF1E293B) : AppColors.creamContainer;
+    final toggleInnerBg = isDark ? const Color(0xFF0B1120) : Colors.white;
 
     return Container(
       padding: EdgeInsets.only(bottom: bottomInset),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: const Border(
           top: BorderSide(color: AppColors.accent, width: 3.0),
         ),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             color: Color(0x22000000),
             blurRadius: 30,
@@ -183,7 +230,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                   width: 44,
                   height: 4.5,
                   decoration: BoxDecoration(
-                    color: AppColors.cardBorder,
+                    color: handleColor,
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -208,7 +255,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -217,16 +264,16 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                           style: TextStyle(
                             fontSize: 16.5,
                             fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
+                            color: textTitle,
                             fontFamily: 'PlusJakartaSans',
                           ),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
                           'Ringkasan pekerjaan sebelum absensi pulang',
                           style: TextStyle(
                             fontSize: 11.5,
-                            color: AppColors.textSecondary,
+                            color: textSub,
                             fontFamily: 'PlusJakartaSans',
                           ),
                         ),
@@ -241,12 +288,12 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerLow,
+                        color: isDark ? const Color(0xFF1E293B) : AppColors.surfaceContainerLow,
                         shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.cardBorder),
+                        border: Border.all(color: cardBorder),
                       ),
-                      child: const Center(
-                        child: Icon(Icons.close_rounded, color: AppColors.textSecondary, size: 18),
+                      child: Center(
+                        child: Icon(Icons.close_rounded, color: textSub, size: 18),
                       ),
                     ),
                     onPressed: () {
@@ -257,7 +304,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                 ],
               ),
               const SizedBox(height: 12),
-              const Divider(color: AppColors.cardBorder, height: 1),
+              Divider(color: dividerColor, height: 1),
               const SizedBox(height: 14),
 
               // Error banner jika validasi gagal
@@ -297,15 +344,15 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                   const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.primary),
                   const SizedBox(width: 6),
                   Text.rich(
-                    const TextSpan(
+                    TextSpan(
                       text: 'Teknisi Shift Selanjutnya ',
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                        color: textTitle,
                         fontFamily: 'PlusJakartaSans',
                       ),
-                      children: [
+                      children: const [
                         TextSpan(
                           text: '*',
                           style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold),
@@ -319,19 +366,19 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerLow,
+                  color: cardBg,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.cardBorder, width: 1.2),
+                  border: Border.all(color: cardBorder, width: 1.2),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedNextShift,
                     isExpanded: true,
-                    dropdownColor: Colors.white,
+                    dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                     icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13.5,
-                      color: AppColors.textPrimary,
+                      color: textTitle,
                       fontFamily: 'PlusJakartaSans',
                       fontWeight: FontWeight.w600,
                     ),
@@ -361,8 +408,8 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                             Expanded(
                               child: Text(
                                 name,
-                                style: const TextStyle(
-                                  color: AppColors.textPrimary,
+                                style: TextStyle(
+                                  color: textTitle,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -393,20 +440,61 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                   const Icon(Icons.assignment_outlined, size: 16, color: AppColors.primary),
                   const SizedBox(width: 6),
                   Text.rich(
-                    const TextSpan(
+                    TextSpan(
                       text: 'Pekerjaan Selesai Hari Ini ',
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                        color: textTitle,
                         fontFamily: 'PlusJakartaSans',
                       ),
-                      children: [
+                      children: const [
                         TextSpan(
                           text: '*',
                           style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold),
                         ),
                       ],
+                    ),
+                  ),
+                  const Spacer(),
+                  InkWell(
+                    onTap: _isLoadingDailyTasks ? null : () => _autoFillFromDailyTasks(force: true),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: isDark ? 0.4 : 0.25),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _isLoadingDailyTasks
+                              ? const SizedBox(
+                                  width: 10,
+                                  height: 10,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: AppColors.primary,
+                                  ),
+                                )
+                              : const Icon(Icons.sync_rounded, size: 12, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            _syncedCompletedCount > 0
+                                ? 'Sinkron ($_syncedCompletedCount Selesai)'
+                                : 'Sinkron Daily Task',
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -415,12 +503,12 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
               Container(
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: inputBg,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.cardBorder, width: 1.2),
+                  border: Border.all(color: inputBorder, width: 1.2),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -433,21 +521,21 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                       controller: _selesaiCtrl,
                       maxLines: 4,
                       minLines: 3,
-                      maxLength: 500,
+                      maxLength: 2000,
                       buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.textPrimary,
+                        color: inputTextColor,
                         fontFamily: 'PlusJakartaSans',
                         fontWeight: FontWeight.w600,
                         height: 1.4,
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         isDense: true,
                         hintText: 'Tulis pekerjaan yang selesai hari ini...\nContoh: Pengecekan gate barrier, pembersihan printer pos, update sistem',
                         hintStyle: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textMuted,
+                          color: hintColor,
                           fontFamily: 'PlusJakartaSans',
                           height: 1.4,
                         ),
@@ -461,10 +549,10 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                       },
                     ),
                     Text(
-                      '${_selesaiCtrl.text.length}/500',
-                      style: const TextStyle(
+                      '${_selesaiCtrl.text.length}/2000',
+                      style: TextStyle(
                         fontSize: 10.5,
-                        color: AppColors.textMuted,
+                        color: hintColor,
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.w600,
                       ),
@@ -478,12 +566,12 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.creamContainer,
+                  color: toggleCardBg,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: _adaPekerjaanBelum
                         ? AppColors.accent.withValues(alpha: 0.6)
-                        : AppColors.cardBorder,
+                        : cardBorder,
                     width: 1.2,
                   ),
                 ),
@@ -494,16 +582,16 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                         Icon(
                           Icons.pending_actions_rounded,
                           size: 18,
-                          color: _adaPekerjaanBelum ? AppColors.accent : AppColors.textSecondary,
+                          color: _adaPekerjaanBelum ? AppColors.accent : textSub,
                         ),
                         const SizedBox(width: 8),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Ada pekerjaan belum selesai?',
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
+                              color: textTitle,
                               fontFamily: 'PlusJakartaSans',
                             ),
                           ),
@@ -513,7 +601,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                           activeThumbColor: AppColors.accent,
                           activeTrackColor: AppColors.accent.withValues(alpha: 0.35),
                           inactiveThumbColor: Colors.white,
-                          inactiveTrackColor: AppColors.cardBorder,
+                          inactiveTrackColor: cardBorder,
                           onChanged: (val) {
                             HapticFeedback.selectionClick();
                             setState(() {
@@ -531,12 +619,12 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                       Container(
                         padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: toggleInnerBg,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.accent.withValues(alpha: 0.5), width: 1.2),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
+                              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -549,21 +637,21 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                               controller: _belumCtrl,
                               maxLines: 3,
                               minLines: 2,
-                              maxLength: 500,
+                              maxLength: 2000,
                               buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
-                                color: AppColors.textPrimary,
+                                color: inputTextColor,
                                 fontFamily: 'PlusJakartaSans',
                                 fontWeight: FontWeight.w600,
                                 height: 1.4,
                               ),
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 isDense: true,
                                 hintText: 'Tuliskan pekerjaan atau pendingan yang belum selesai...',
                                 hintStyle: TextStyle(
                                   fontSize: 12,
-                                  color: AppColors.textMuted,
+                                  color: hintColor,
                                   fontFamily: 'PlusJakartaSans',
                                   height: 1.4,
                                 ),
@@ -573,10 +661,10 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                               onChanged: (_) => setState(() {}),
                             ),
                             Text(
-                              '${_belumCtrl.text.length}/500',
-                              style: const TextStyle(
+                              '${_belumCtrl.text.length}/2000',
+                              style: TextStyle(
                                 fontSize: 10.5,
-                                color: AppColors.textMuted,
+                                color: hintColor,
                                 fontFamily: 'monospace',
                                 fontWeight: FontWeight.w600,
                               ),

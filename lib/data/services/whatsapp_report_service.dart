@@ -61,7 +61,8 @@ class WhatsAppReportService {
   }
 
   /// Format daftar baris (multiline) menjadi auto-numbering (1. , 2. , 3. dst)
-  /// Menghilangkan bullet/nomor lama acak dan menomori secara urut dan rapi.
+  /// Menghilangkan bullet/nomor lama acak dan menomori secara urut dan rapi,
+  /// sekaligus mempertahankan baris catatan di bawah setiap poin tugas.
   static String formatAutoNumberedList(String? rawText) {
     if (rawText == null) return '-';
     final trimmed = rawText.trim();
@@ -75,22 +76,33 @@ class WhatsAppReportService {
 
     if (lines.isEmpty) return '-';
 
-    final numberedLines = <String>[];
+    final bulletRegex = RegExp(r'^(\d+[\.\)]|\-|\*|\•)\s*');
+    final hasExistingBullets = lines.any((l) => bulletRegex.hasMatch(l));
+
+    final resultLines = <String>[];
     int counter = 1;
 
-    for (final line in lines) {
-      final numRegex = RegExp(r'^(\d+[\.\)]|\-|\*|\•)\s*');
-      final cleanText = numRegex.hasMatch(line)
-          ? line.replaceFirst(numRegex, '').trim()
-          : line;
-      if (cleanText.isNotEmpty) {
-        numberedLines.add('$counter. $cleanText');
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (hasExistingBullets) {
+        if (bulletRegex.hasMatch(line)) {
+          final clean = line.replaceFirst(bulletRegex, '').trim();
+          if (clean.isNotEmpty) {
+            resultLines.add('$counter. $clean');
+            counter++;
+          }
+        } else {
+          // Baris catatan/penjelasan di bawah item bernomor sebelumnya
+          resultLines.add(line);
+        }
+      } else {
+        resultLines.add('$counter. $line');
         counter++;
       }
     }
 
-    if (numberedLines.isEmpty) return '-';
-    return numberedLines.join('\n');
+    if (resultLines.isEmpty) return '-';
+    return resultLines.join('\n');
   }
 
   /// Membersihkan prefix label agar kalimat menjadi natural seperti contoh laporan resmi

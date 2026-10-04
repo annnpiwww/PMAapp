@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bssparking_timemark/data/models/daily_task_model.dart';
 import 'package:bssparking_timemark/data/services/daily_task_service.dart';
+import 'package:bssparking_timemark/data/services/whatsapp_report_service.dart';
 
 void main() {
   group('DailyTaskService Formatter Tests', () {
@@ -99,6 +100,22 @@ void main() {
       expect(res, contains('Pekerjaan Belum Selesai :'));
       expect(res, contains('- Pengecekan sensor loop gate keluar (Pending)'));
       expect(res, contains('Status : 1 Selesai, 1 Pending'));
+    });
+
+    test('WhatsAppReportService formatAutoNumberedList keeps sub-notes aligned without extra numbering', () {
+      const input = '''1. Pengecekan Barrier Gate & Loop Sensor
+Palang gate berfungsi normal dan baut kencang
+2. Pembersihan Thermal Printer & Scanner
+Printer bersih dan hasil cetak tiket jelas''';
+
+      final formatted = WhatsAppReportService.formatAutoNumberedList(input);
+      expect(formatted, contains('1. Pengecekan Barrier Gate & Loop Sensor'));
+      expect(formatted, contains('Palang gate berfungsi normal dan baut kencang'));
+      expect(formatted, contains('2. Pembersihan Thermal Printer & Scanner'));
+      expect(formatted, contains('Printer bersih dan hasil cetak tiket jelas'));
+      // Pastikan catatan tidak diubah menjadi nomor '2. Palang...' atau '4. Printer...'
+      expect(formatted.contains('2. Palang gate'), isFalse);
+      expect(formatted.contains('4. Printer bersih'), isFalse);
     });
   });
 }
