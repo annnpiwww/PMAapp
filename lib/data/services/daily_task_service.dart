@@ -9,6 +9,15 @@ import '../services/location_service.dart';
 class DailyTaskService {
   static const String _defaultBaseUrl = 'https://bssparking.trakingduit.my.id';
 
+  /// Realtime notifier untuk badge angka tugas pending teknisi aktif di Sidebar Drawer
+  static final ValueNotifier<int> pendingCountNotifier = ValueNotifier<int>(0);
+
+  static void updatePendingCount(int count) {
+    if (pendingCountNotifier.value != count) {
+      pendingCountNotifier.value = count;
+    }
+  }
+
   static String get baseUrl {
     // Bisa dioverride dari storage jika admin ganti domain
     final custom = StorageService.getString('custom_pocketbase_url');
@@ -248,7 +257,68 @@ class DailyTaskService {
     return lokasi.trim();
   }
 
-  /// Format ringkas laporan untuk dibagikan ke WhatsApp / Telegram
+  /// Format mikro pelaporan per-task: Dokumentasi + Notes langsung dikirim dengan foto
+  static String formatPerTaskReport({
+    required String judul,
+    required String notes,
+  }) {
+    final cleanNotes = notes.trim().isNotEmpty ? notes.trim() : '-';
+    return '''Dokumentasi: ${judul.trim()}
+Notes: $cleanNotes''';
+  }
+
+  /// Format makro pelaporan rekapitulasi harian (hanya teks ringkasan)
+  static String formatFinalDailyReport({
+    required String teknisiNama,
+    required String tanggal,
+    required String lokasi,
+    String? posTag,
+    required List<DailyTaskModel> completedTasks,
+    required List<DailyTaskModel> pendingTasks,
+    String? notes,
+  }) {
+    final tglIndo = _formatTanggalIndo(tanggal);
+    final tagLokasi = _resolveTag(lokasi, posTag);
+
+    final sb = StringBuffer();
+    sb.writeln('Laporan Daily Hari ini');
+    sb.writeln('Teknisi : ${teknisiNama.trim()}');
+    sb.writeln('Tanggal : $tglIndo');
+    sb.writeln('Lokasi : $tagLokasi');
+    sb.writeln('');
+    sb.writeln('Daftar list pekerjaan :');
+
+    if (completedTasks.isEmpty) {
+      sb.writeln('(Belum ada pekerjaan yang diselesaikan)');
+    } else {
+      for (int i = 0; i < completedTasks.length; i++) {
+        final t = completedTasks[i];
+        final jam = (t.jamSelesai != null && t.jamSelesai!.isNotEmpty) ? t.jamSelesai! : 'Selesai';
+        sb.writeln('${i + 1}. ${t.judul} (Selesai $jam)');
+        if (t.catatanTeknisi != null && t.catatanTeknisi!.trim().isNotEmpty) {
+          sb.writeln('   ${t.catatanTeknisi!.trim()}');
+        }
+      }
+    }
+
+    if (pendingTasks.isNotEmpty) {
+      sb.writeln('');
+      sb.writeln('Pekerjaan Belum Selesai :');
+      for (final p in pendingTasks) {
+        sb.writeln('- ${p.judul} (Pending)');
+      }
+    }
+
+    sb.writeln('');
+    sb.writeln('Status : ${completedTasks.length} Selesai, ${pendingTasks.length} Pending');
+    sb.writeln('-----');
+    sb.writeln('Notes:');
+    sb.write((notes != null && notes.trim().isNotEmpty) ? notes.trim() : '-');
+
+    return sb.toString();
+  }
+
+  /// Format ringkas laporan lama untuk backward compatibility
   static String formatShortReport({
     required String teknisiNama,
     required String tanggal,
