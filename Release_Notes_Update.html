@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BSS TimeMark - Release Notes</title>
+    <style>
+        :root {
+            --bg-color: #f7f9fc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --primary: #2563eb;
+            --success: #16a34a;
+            --warning: #eab308;
+            --border: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            background: var(--card-bg);
+            max-width: 768px;
+            width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            padding: 2.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .header {
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .badge {
+            display: inline-block;
+            background: var(--success);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            margin-bottom: 1rem;
+        }
+
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-main);
+        }
+
+        .list-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .list-item-icon {
+            color: var(--primary);
+            margin-right: 0.75rem;
+            font-weight: bold;
+        }
+
+        .list-item-content h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .list-item-content p {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .note {
+            background: #fffbeb;
+            border-left: 4px solid var(--warning);
+            padding: 1rem;
+            border-radius: 4px;
+            margin-top: 2rem;
+            font-size: 0.875rem;
+            color: #92400e;
+        }
+
+        .footer {
+            margin-top: 3rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <span class="badge">Update & Hotfix</span>
+        
+        <div class="header">
+            <h1>BSS TimeMark - Release Notes v2.0.17</h1>
+            <p>Direct Share (WA/Telegram) Fixes - Grooming Absensi & Maintenance (ARM64 Optimized)</p>
+        </div>
+
+        <h2 class="section-title">Apa yang Diperbaiki?</h2>
+
+        <div class="list-item">
+            <span class="list-item-icon">✓</span>
+            <div class="list-item-content">
+                <h3>Custom FileProvider Authority</h3>
+                <p>Memisahkan FileProvider dari bawaan package <code>share_plus</code> dengan membuat authority custom (<code>${applicationId}.direct_share_provider</code>) di AndroidManifest. Mencegah bentrok dan limitasi akses native.</p>
+            </div>
+        </div>
+
+        <div class="list-item">
+            <span class="list-item-icon">✓</span>
+            <div class="list-item-content">
+                <h3>Root Path Access (Bebas Path Restriction)</h3>
+                <p>Menambahkan konfigurasi <code>&lt;root-path name="root" path="." /&gt;</code> di <code>provider_paths.xml</code>. Kini semua folder penyimpanan hasil jepretan kamera (app_flutter, external, cache) 100% punya otorisasi share ke aplikasi luar tanpa *throw IllegalArgumentException*.</p>
+            </div>
+        </div>
+
+        <div class="list-item">
+            <span class="list-item-icon">✓</span>
+            <div class="list-item-content">
+                <h3>Extended Telegram Client Support</h3>
+                <p>Dukungan untuk bypass system picker langsung ke aplikasi Mod/Fork Telegram (seperti Telegram X, Plus Messenger, Nekogram, Challegram) tanpa memicu error "Package Not Found".</p>
+            </div>
+        </div>
+
+        <div class="list-item">
+            <span class="list-item-icon">✓</span>
+            <div class="list-item-content">
+                <h3>Single Image Intent Fix (Maintenance & Grooming)</h3>
+                <p>Memperbaiki bug Kotlin di mana lampiran *single image* yang dipassing lewat array <code>imagePaths</code> salah terbaca sebagai `text/plain`. Sekarang fallback antara <code>ACTION_SEND</code> (single) dan <code>ACTION_SEND_MULTIPLE</code> (banyak file) beroperasi sempurna.</p>
+            </div>
+        </div>
+
+        <div class="note">
+            <strong>Catatan Keamanan Android 11+ (Work Profile & Dual Apps)</strong><br>
+            Jika HP yang digunakan mengisolasi WhatsApp/Telegram di dalam <i>Secure Folder</i> (Samsung) atau <i>Work Profile</i>, aplikasi di profil utama secara default diblokir oleh OS Android untuk mengirim *direct intent* ke dalam profil ganda tersebut. Dalam skenario OS strict seperti ini, lemparan ke dialog <i>Share System Chooser</i> adalah perilaku aman bawaan sistem, bukan bug aplikasi.
+        </div>
+
+        <div class="footer">
+            Generated by Agent - BSS Parking Workspace
+        </div>
+    </div>
+
+</body>
+</html>

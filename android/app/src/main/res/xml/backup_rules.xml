@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Backup rules: data sensitif (PIN hash, API key, session user, lokasi,
+  submission) TIDAK ikut ke Google Drive backup / device-to-device transfer.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="."/>
+</full-backup-content>

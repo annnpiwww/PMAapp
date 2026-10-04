@@ -1,0 +1,1161 @@
+<!doctype html>
+<html lang="id">
+<head><script type="application/json" data-od-external-dependencies>["https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"]</script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>BSSPARKING Timemark - Live Camera & HUD Watermark</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Signature BSS Parking: Navy Dominance & Crisp White */
+      --bss-navy: #0F2C59;
+      --bss-navy-dark: #071731;
+      --bss-navy-surface: #14366B;
+      --bss-white: #FFFFFF;
+      --bss-offwhite: #F8FAFC;
+      --bss-slate-border: #E2E8F0;
+      --bss-slate-text: #334155;
+      --bss-slate-muted: #64748B;
+      
+      /* Semantic Highlights */
+      --accent: #F59E0B;
+      --accent-cyan: #06B6D4;
+      --success: #10B981;
+      --danger: #EF4444;
+
+      --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-pill: 9999px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      background-color: #071731;
+      color: #FFFFFF;
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .app-screen {
+      width: 100%;
+      max-width: 412px;
+      height: 100vh;
+      max-height: 892px;
+      background: #000;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+    }
+
+    /* Live Camera Simulation Viewfinder */
+    .viewfinder {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(15,44,89,0.4) 0%, rgba(7,23,49,0.05) 30%, rgba(7,23,49,0.85) 100%),
+                  radial-gradient(circle at 50% 45%, #183e78 0%, #0c234a 60%, #071731 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      z-index: 1;
+    }
+
+    .viewfinder-grid {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: 
+        linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px);
+      background-size: 33.33% 33.33%;
+    }
+
+    .focus-reticle {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 84px;
+      height: 84px;
+      border: 1.5px solid rgba(255, 255, 255, 0.7);
+      border-radius: 8px;
+      pointer-events: none;
+    }
+    .focus-reticle::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 6px;
+      height: 6px;
+      background: #FFF;
+      border-radius: 50%;
+    }
+
+    /* Top Bar Utility */
+    .top-bar {
+      position: relative;
+      z-index: 10;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(180deg, rgba(15,44,89,0.92) 0%, rgba(15,44,89,0) 100%);
+      backdrop-filter: blur(8px);
+    }
+
+    .top-left-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Hamburger Menu Button */
+    .hamburger-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: #FFFFFF;
+      color: var(--bss-navy);
+      border: 1.5px solid #FFFFFF;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      transition: all 0.15s ease;
+    }
+    .hamburger-btn:active {
+      transform: scale(0.92);
+      background: #EFF6FF;
+    }
+    .hamburger-line {
+      width: 18px;
+      height: 2.2px;
+      background: var(--bss-navy);
+      border-radius: 2px;
+    }
+
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Floating Interactive Watermark Card - High Contrast Navy & White */
+    .watermark-container {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 142px;
+      z-index: 15;
+    }
+
+    .hud-card {
+      background: rgba(15, 44, 89, 0.94);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1.5px solid #FFFFFF;
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      box-shadow: 0 20px 45px rgba(7, 23, 49, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+
+    .hud-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
+
+    .hud-brand-tag {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .loc-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #F59E0B;
+      color: #111827;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      width: fit-content;
+    }
+
+    .hud-time-big {
+      font-family: var(--font-mono);
+      font-size: 28px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+    }
+    .hud-tz {
+      font-size: 11.5px;
+      color: #E2E8F0;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+
+
+    .hud-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .hud-line {
+      font-size: 11px;
+      color: #FFFFFF;
+      line-height: 1.35;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.85);
+    }
+    .hud-line.hud-date {
+      font-weight: 800;
+      font-size: 11.5px;
+    }
+    .hud-geo {
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    /* Template Selector Dock */
+
+    /* Bottom Shutter Dock */
+    .bottom-dock {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 96px;
+      z-index: 20;
+      background: linear-gradient(0deg, rgba(7,23,49,0.98) 40%, rgba(7,23,49,0) 100%);
+      padding: 10px 24px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+
+
+
+    /* ═══════════════════════════════════════════════════════════════════
+       HAMBURGER SIDEBAR DRAWER (PRD-COMPLIANT ARCHITECTURE)
+       ═══════════════════════════════════════════════════════════════════ */
+    .drawer-scrim {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 23, 49, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .drawer-scrim.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sidebar-drawer {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 310px;
+      background: #FFFFFF;
+      color: var(--bss-slate-text);
+      z-index: 101;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 10px 0 30px rgba(7, 23, 49, 0.4);
+      transform: translateX(-100%);
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .sidebar-drawer.open {
+      transform: translateX(0);
+    }
+
+    /* Drawer Header - BSS Signature Deep Navy */
+    .drawer-header {
+      background: var(--bss-navy);
+      color: #FFFFFF;
+      padding: 24px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .drawer-close-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+
+    /* Drawer Scrollable Menu Sections */
+    .drawer-menu-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .menu-group-label {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--bss-slate-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 10px 10px 4px;
+    }
+
+    .menu-nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: 10px;
+      color: #1E293B;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .menu-nav-item:hover, .menu-nav-item.active {
+      background: #EFF6FF;
+      color: var(--bss-navy);
+      font-weight: 700;
+    }
+    .nav-left-slot {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-icon {
+      width: 20px;
+      height: 20px;
+      color: var(--bss-navy);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Drawer Header asli: bg disamain persis sama background logo (#1E448D) biar nyatu */
+    .drawer-header { background: #1E448D; align-items: center; text-align: center; position: relative; padding: 24px 24px 36px; }
+    .drawer-logo { height: 80px; max-width: 92%; object-fit: contain; }
+    .drawer-logo-fallback { color: #FFF; font-weight: 900; font-size: 18px; height: 60px; display: flex; align-items: center; }
+    .drawer-close-btn { position: absolute; top: 12px; right: 12px; }
+    /* Lokasi radio list */
+    .lokasi-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 10px 4px; }
+    .kelola-btn { background: none; border: none; color: var(--bss-navy); font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+    .pos-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; cursor: pointer; color: #1E293B; text-decoration: none; }
+    .pos-item.active { background: #EFF6FF; }
+    .pos-tag { background: #F59E0B; color: #111827; font-size: 10px; font-weight: 900; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+    .pos-text { flex: 1; display: flex; flex-direction: column; }
+    .pos-text strong { font-size: 12.5px; }
+    .pos-item.active .pos-text strong { color: #0F2C59; }
+    .pos-text small { font-size: 10.5px; color: #64748B; }
+    .pos-check { display: none; color: #0F2C59; font-weight: 900; font-size: 18px; }
+    .pos-item.active .pos-check { display: block; }
+    .menu-nav-sub { display: block; font-size: 11px; color: #64748B; font-weight: 500; }
+    .drawer-footer { background: #FFFFFF; border-top: 1px solid #E2E8F0; padding: 14px 16px 20px; display: flex; align-items: center; font-size: 11px; color: #64748B; }
+    .drawer-footer-center { justify-content: center; text-align: center; }
+    .drawer-footer-center span { font-size: 11px; display: block; width: 100%; text-align: center; }
+    .app-ver {
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+    /* Dropdown + modal pilih lokasi */
+    .pos-dropdown { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid #E2E8F0; background: #FFF; cursor: pointer; text-align: left; }
+    .pos-dropdown:active { border-color: #0F2C59; }
+    .dd-chevron { color: #0F2C59; font-size: 16px; font-weight: 800; }
+    .pos-modal-scrim { position: absolute; inset: 0; background: rgba(7,23,49,.6); z-index: 200; opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+    .pos-modal-scrim.open { opacity: 1; pointer-events: auto; }
+    .pos-modal { position: absolute; left: 0; right: 0; bottom: 0; max-height: 72%; background: #FFF; border-top-left-radius: 22px; border-top-right-radius: 22px; z-index: 201; display: flex; flex-direction: column; padding: 8px 16px 20px; transform: translateY(100%); transition: transform .25s cubic-bezier(.16,1,.3,1); box-shadow: 0 -12px 40px rgba(7,23,49,.4); }
+    .pos-modal.open { transform: translateY(0); }
+    .pos-modal-handle { width: 44px; height: 4.5px; background: #CBD5E1; border-radius: 9999px; margin: 4px auto 10px; }
+    .pos-modal-head { display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 800; color: #0F2C59; margin-bottom: 8px; }
+    .pos-modal-close { width: 30px; height: 30px; border-radius: 50%; border: none; background: #F1F5F9; color: #0F2C59; font-weight: 800; cursor: pointer; }
+    .pos-modal-list { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+    /* Feature sheets (Watermark / Template Card / SOP) — reuse .pos-modal system */
+    .sheet-title-row { display: flex; align-items: center; gap: 10px; }
+    .sheet-icon { width: 34px; height: 34px; border-radius: 9px; background: rgba(15,44,89,.1); color: #0F2C59; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; flex-shrink: 0; }
+    .sheet-title { font-size: 16px; font-weight: 800; color: #0F172A; }
+    .sheet-reset { background: none; border: none; color: #0F2C59; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .wm-preview { background: #0F172A; border-radius: 14px; padding: 12px; margin: 12px 0 14px; border: 1.5px solid rgba(245,158,11,.6); }
+    .wm-preview-top { display: flex; align-items: center; justify-content: space-between; }
+    .wm-preview-left { display: flex; align-items: center; gap: 8px; }
+    .wm-logo-box { width: 50px; height: 28px; background: #FFF; border-radius: 5px; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 10px; font-weight: 900; color: #0F2C59; }
+    .wm-logo-box img { width: 100%; height: 100%; object-fit: contain; }
+    .wm-preview-clock { font-family: var(--font-mono); font-size: 18px; font-weight: 800; color: #FFF; }
+    .wm-preview-badge { font-size: 10px; font-weight: 800; color: #FFF; padding: 3px 8px; border-radius: 6px; background: #F59E0B; }
+    .wm-preview-loc { display: flex; align-items: center; gap: 4px; font-size: 10px; color: rgba(255,255,255,.7); margin-top: 6px; }
+    .wm-label { font-size: 12px; font-weight: 700; color: #475569; margin: 14px 0 6px; }
+    .wm-logo-row { display: flex; align-items: center; gap: 10px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 10px; }
+    .wm-logo-thumb { width: 58px; height: 36px; background: #FFF; border: 1px solid #CBD5E1; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 9px; font-weight: 800; color: #0F2C59; flex-shrink: 0; }
+    .wm-logo-thumb img { width: 100%; height: 100%; object-fit: contain; }
+    .wm-logo-meta { flex: 1; font-size: 12px; font-weight: 600; color: #0F172A; }
+    .wm-logo-meta small { display: block; font-size: 10.5px; color: #64748B; font-weight: 500; }
+    .wm-gal-btn { background: #0F2C59; color: #FFF; border: none; border-radius: 9px; padding: 9px 12px; font-size: 11px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
+    .wm-field { width: 100%; border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 10px 12px; font-size: 13px; font-family: var(--font-body); color: #0F172A; outline: none; }
+    .wm-field:focus { border-color: #0F2C59; }
+    .wm-palette { display: flex; gap: 10px; }
+    .wm-dot { width: 34px; height: 34px; border-radius: 50%; border: 2.5px solid transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #FFF; font-size: 18px; font-weight: 900; }
+    .wm-dot.sel { border-color: #0F172A; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+    .wm-switch-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; }
+    .wm-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; }
+    .wm-switch-row + .wm-switch-row { border-top: 1px solid #E2E8F0; }
+    .wm-switch-row strong { display: block; font-size: 12.5px; color: #0F172A; }
+    .wm-switch-row small { display: block; font-size: 10.5px; color: #64748B; }
+    .wm-toggle { width: 44px; height: 25px; border-radius: 9999px; border: none; background: #CBD5E1; cursor: pointer; position: relative; flex-shrink: 0; transition: background .15s; }
+    .wm-toggle.on { background: #0F2C59; }
+    .wm-toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 19px; height: 19px; border-radius: 50%; background: #FFF; transition: left .15s; }
+    .wm-toggle.on::after { left: 22px; }
+    .wm-save { width: 100%; background: #0F2C59; color: #FFF; border: none; border-radius: 9999px; padding: 13px; font-size: 14px; font-weight: 800; cursor: pointer; margin: 18px 0 6px; }
+    .chip-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .mini-chip { font-size: 9.5px; font-weight: 700; padding: 2.5px 7px; border-radius: 6px; background: rgba(15,44,89,.08); color: #0F2C59; }
+    .mini-chip.dim { background: #F1F5F9; color: #64748B; }
+    .sheet-info { background: rgba(15,44,89,.06); border: 1px solid rgba(15,44,89,.15); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; font-size: 11px; color: #475569; }
+    .sheet-info strong { display: block; font-size: 13px; color: #0F2C59; margin-bottom: 2px; }
+    .tpl-add-row { display: flex; gap: 8px; margin-top: 10px; }
+    .tpl-add-row input { flex: 1; border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 9px 10px; font-size: 12px; outline: none; min-width: 0; }
+    .tpl-add-btn { background: #0F2C59; color: #FFF; border: none; border-radius: 10px; padding: 0 14px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .sop-action-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    .sop-manage-btn { flex: 1; background: #F1F5F9; color: #0F2C59; border: 1px solid #E2E8F0; border-radius: 10px; padding: 9px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .sop-manage-btn.on { background: #0F2C59; color: #FFF; border-color: #0F2C59; }
+    .sop-new-btn { flex: 1; background: #0F2C59; color: #FFF; border: none; border-radius: 10px; padding: 9px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .sop-del { background: none; border: none; color: #EF4444; font-size: 16px; cursor: pointer; padding: 4px; }
+    #toast { position: absolute; left: 16px; right: 16px; bottom: 110px; z-index: 300; background: #0F2C59; color: #FFF; font-size: 12.5px; font-weight: 700; text-align: center; padding: 11px 14px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.35); opacity: 0; transform: translateY(8px); transition: all .25s ease; pointer-events: none; }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    /* ── Tata letak kamera asli (camera_capture_screen.dart) ── */
+    .aspect-pill { display: flex; align-items: center; gap: 5px; background: rgba(0,0,0,.45); border: .8px solid rgba(255,255,255,.24); padding: 12px 14px; border-radius: 22px; cursor: pointer; color: #FFF; }
+    .aspect-pill .asp-ico { color: #FFF; font-size: 14px; }
+    .aspect-pill .asp-label { font-size: 12px; font-weight: 800; }
+    .aspect-pill .asp-dd { color: rgba(255,255,255,.7); font-size: 14px; line-height: 1; }
+    .round-cam-btn { width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,.45); border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .round-cam-btn .rc-ico { font-size: 16px; line-height: 1.1; }
+    .round-cam-btn .rc-lbl { font-size: 7px; font-weight: 800; letter-spacing: .04em; }
+    .zoom-rail { position: absolute; right: 12px; top: 36%; z-index: 12; display: flex; flex-direction: column; gap: 8px; }
+    .zoom-btn { width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.25); color: #FFF; font-size: 11px; font-weight: 800; cursor: pointer; font-family: var(--font-mono); }
+    .zoom-btn.active { background: #FFF; border-color: #FFF; color: #0F2C59; }
+    .hud-card { background: rgba(11,15,23,.75); border: 1px solid rgba(255,255,255,.22); }
+    .hud-logo-card { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; background: #FFF; border-radius: 6px; padding: 4px 8px; margin-left: 12px; border-left: none; max-width: 90px; min-height: 32px; overflow: hidden; }
+    .hud-logo-card img { max-width: 90px; max-height: 32px; object-fit: contain; }
+    .hud-logo-bss { font-size: 16px; font-weight: 900; font-style: italic; color: #1E3A8A; letter-spacing: .6px; line-height: 1; }
+    .hud-logo-park { font-size: 9px; font-weight: 900; color: #0F172A; letter-spacing: 1.2px; line-height: 1; }
+    .dock-side { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; background: none; border: none; padding: 0; }
+    .dock-thumb { width: 48px; height: 48px; border-radius: 10px; background: rgba(241,245,249,.12); border: 1.5px solid rgba(255,255,255,.35); color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 22px; overflow: hidden; }
+    .dock-label { font-size: 11px; font-weight: 600; color: #CBD5E1; }
+    .shutter-real { width: 72px; height: 72px; border-radius: 50%; border: 4px solid #F59E0B; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+    .shutter-real:active { transform: scale(.94); }
+    .shutter-real-inner { width: 56px; height: 56px; border-radius: 50%; background: #F59E0B; display: flex; align-items: center; justify-content: center; color: #FFF; }
+    button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #F59E0B; outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+    /* Pressed states (150ms confirmation) + caps tracking */
+    .zoom-btn:active, .aspect-pill:active, .dock-side:active { transform: scale(.94); }
+    .loc-badge, .pos-tag { letter-spacing: .08em; }
+    .pos-modal-close, .drawer-close-btn { width: 36px; height: 36px; }
+    /* Overlay verifikasi 3 langkah (cermin VerificationStepCard asli) */
+    #captureOverlay { position: absolute; inset: 0; z-index: 250; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+    #captureOverlay.show { opacity: 1; pointer-events: auto; }
+    .cap-card { width: 250px; background: #FFF; border-radius: 16px; padding: 20px 18px; text-align: center; }
+    .cap-spin { width: 40px; height: 40px; border-radius: 50%; border: 3.2px solid #E2E8F0; border-top-color: #0F2C59; margin: 0 auto 12px; animation: capspin 0.9s linear infinite; }
+    @keyframes capspin { to { transform: rotate(360deg); } }
+    .cap-step { font-size: 13.5px; font-weight: 800; color: #0F172A; }
+    .cap-sub { font-size: 11px; color: #64748B; margin-top: 4px; }
+    .cap-dots { display: flex; gap: 6px; justify-content: center; margin-top: 12px; }
+    .cap-dots span { width: 8px; height: 8px; border-radius: 50%; background: #E2E8F0; }
+    .cap-dots span.on { background: #0F2C59; }
+  </style>
+</head>
+<body>
+
+<div class="app-screen" data-od-id="camera-screen-hud">
+  <!-- Viewfinder Simulation -->
+  <div class="viewfinder">
+    <div class="viewfinder-grid"></div>
+    <div class="focus-reticle"></div>
+
+    <!-- Top Utility Bar -->
+    <header class="top-bar">
+      <div class="top-left-group">
+        <!-- Hamburger Menu Button -->
+        <button class="hamburger-btn" aria-label="Buka menu samping" onclick="toggleDrawer(true)" title="Buka Menu Fitur BSS Timemark">
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+        </button>
+
+        <button class="aspect-pill" onclick="openSheet('aspectSheet')" title="Pilih Aspek Rasio Kamera">
+          <span class="asp-ico" id="aspIco">▦</span>
+          <span class="asp-label" id="aspLabel">3:4</span>
+          <span class="asp-dd">▾</span>
+        </button>
+      </div>
+
+      <div class="top-actions">
+        <button class="round-cam-btn" id="flashBtn" title="Flash: Off → Auto → On → Torch" onclick="cycleFlash()">
+          <span class="rc-ico" id="flashIco">⚡</span>
+          <span class="rc-lbl" id="flashLbl">OFF</span>
+        </button>
+        <button class="round-cam-btn" aria-label="Ganti kamera depan belakang" title="Flip Kamera Depan/Belakang" onclick="flipCamera(this)">
+          <span class="rc-ico">⇄</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Floating Interactive Watermark Card - Deep Navy & Crisp White -->
+    <div class="watermark-container" id="watermarkCard">
+      <div class="hud-card">
+        <div class="hud-header">
+          <div class="hud-brand-tag">
+            <span class="loc-badge" id="badgeTag">PBM/PKM</span>
+            <div class="hud-time-big" id="liveTime">
+              14:28:45<span class="hud-tz">WITA</span>
+            </div>
+          </div>
+          <div class="hud-logo-card" id="hudLogoCard"><span class="hud-logo-bss">BSS</span><span class="hud-logo-park">PARKING</span></div>
+        </div>
+
+        <div class="hud-meta">
+          <div class="hud-line hud-date" id="liveDate">Sabtu, 06 September 2026</div>
+          <div class="hud-line">Kawasan Megamall Manado, Jl. Pierre Tendean</div>
+          <div class="hud-line hud-geo"><span id="liveGps">GPS: 1.493055°N, 124.841972°E</span> | <span id="liveCode">BSS-A94F28C1</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kontrol Zoom sisi kanan (1x / 2x / 5x) -->
+    <div class="zoom-rail" id="zoomRail">
+      <button class="zoom-btn active" onclick="setZoom(1, this)">1x</button>
+      <button class="zoom-btn" onclick="setZoom(2, this)">2x</button>
+      <button class="zoom-btn" onclick="setZoom(5, this)">5x</button>
+    </div>
+
+    <!-- Bottom Camera Dock asli: Riwayat | Shutter | SOP -->
+    <footer class="bottom-dock">
+      <button class="dock-side" onclick="window.location.href='05-history-detail.html'" title="Riwayat Foto">
+        <span class="dock-thumb">▦</span>
+        <span class="dock-label">Riwayat</span>
+      </button>
+
+      <button class="shutter-real" aria-label="Jepret foto" onclick="triggerShutter()" title="Jepret Foto dengan Watermark">
+        <span class="shutter-real-inner">
+          <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="4"/></svg>
+        </span>
+      </button>
+
+      <button class="dock-side" onclick="openSheet('sopSheet')" title="Pilih Template SOP">
+        <span class="dock-thumb">▤</span>
+        <span class="dock-label">SOP</span>
+      </button>
+    </footer>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       HAMBURGER SIDEBAR DRAWER (PRD FEATURES)
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="drawer-scrim" id="drawerScrim" onclick="toggleDrawer(false)"></div>
+  <aside class="sidebar-drawer" id="sidebarDrawer">
+    <!-- Header: Petugas Info & Pos -->
+    <div class="drawer-header">
+      <button class="drawer-close-btn" aria-label="Tutup menu" onclick="toggleDrawer(false)">✕</button>
+      <img src="data:image/png;base64,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" alt="Logo BSS Parking" class="drawer-logo" onerror="this.outerHTML='<div class=&quot;drawer-logo-fallback&quot;>BSS PARKING</div>'" />
+    </div>
+
+    <!-- Lokasi & Menu Pengaturan (sesuai aplikasi asli) -->
+    <div class="drawer-menu-list">
+      <div class="lokasi-row">
+        <span class="menu-group-label" style="padding:0;">Lokasi:</span>
+        <button class="kelola-btn" onclick="alert('Kelola Semua Pos')">⚙ Kelola</button>
+      </div>
+      <button class="pos-dropdown" onclick="togglePosModal(true)">
+        <span class="pos-tag" id="ddTag">PBM/PKM</span>
+        <span class="pos-text"><strong id="ddName">Pos 01 Megamall</strong><small id="ddSub">KC BSG</small></span>
+        <span class="dd-chevron">▾</span>
+      </button>
+
+      <div class="menu-group-label">Menu Pengaturan</div>
+      <a class="menu-nav-item" onclick="openSheet('wmSheet')">
+        <div class="nav-left-slot">
+          <span class="nav-icon">🎨</span>
+          <span>Pengaturan Watermark Card<small class="menu-nav-sub">Logo galeri, warna badge &amp; tampilan lokasi</small></span>
+        </div>
+      </a>
+      <a class="menu-nav-item" onclick="openSheet('tplSheet')">
+        <div class="nav-left-slot">
+          <span class="nav-icon">🎴</span>
+          <span>Template Card Standar<small class="menu-nav-sub">Pilih desain card BSS Parking, Security, dll</small></span>
+        </div>
+      </a>
+      <a class="menu-nav-item" onclick="openSheet('sopSheet')">
+        <div class="nav-left-slot">
+          <span class="nav-icon">📋</span>
+          <span>Manajemen SOP &amp; Kriteria<small class="menu-nav-sub">Kriteria Briefing, Grooming, Patroli</small></span>
+        </div>
+      </a>
+      <a class="menu-nav-item" href="05-history-detail.html">
+        <div class="nav-left-slot">
+          <span class="nav-icon">🕒</span>
+          <span>Riwayat Foto Timemark<small class="menu-nav-sub">Daftar foto, status verifikasi &amp; share</small></span>
+        </div>
+      </a>
+    </div>
+
+    <!-- Drawer Footer -->
+    <div class="drawer-footer drawer-footer-center">
+      <span>BSS Parking TimeMark • v1.2.0 (Build 5)</span>
+    </div>
+  </aside>
+
+  <!-- Modal pilih lokasi (dropdown, scrollable utk banyak pos) -->
+  <div class="pos-modal-scrim" id="posModalScrim" onclick="togglePosModal(false)"></div>
+  <div class="pos-modal" id="posModal" role="dialog" aria-label="Pilih lokasi pos">
+    <div class="pos-modal-handle"></div>
+    <div class="pos-modal-head">
+      <span>Pilih Lokasi Pos</span>
+      <button class="pos-modal-close" aria-label="Tutup" onclick="togglePosModal(false)">✕</button>
+    </div>
+    <div class="pos-modal-list" id="posModalList"></div>
+  </div>
+
+  <!-- Sheet: Pilih Aspek Rasio Kamera (sesuai _showAspectRatioPicker asli) -->
+  <div class="pos-modal-scrim" id="aspectScrim" onclick="openSheet(null)"></div>
+  <div class="pos-modal" id="aspectSheet" role="dialog" aria-label="Pilih aspek rasio kamera" style="max-height:60%;">
+    <div class="pos-modal-handle"></div>
+    <div class="pos-modal-head">
+      <span>Pilih Aspek Rasio Kamera</span>
+      <button class="pos-modal-close" aria-label="Tutup" onclick="openSheet(null)">✕</button>
+    </div>
+    <div class="pos-modal-list" id="aspectList"></div>
+  </div>
+
+  <!-- Sheet: Kustomisasi Watermark (sesuai WatermarkCustomizerModal asli) -->
+  <div class="pos-modal-scrim" id="wmScrim" onclick="openSheet(null)"></div>
+  <div class="pos-modal" id="wmSheet" role="dialog" aria-label="Kustomisasi watermark" style="max-height:86%;">
+    <div class="pos-modal-handle"></div>
+    <div class="pos-modal-head">
+      <span class="sheet-title-row"><span class="sheet-icon">◈</span><span class="sheet-title">Kustomisasi Watermark</span></span>
+      <button class="sheet-reset" onclick="resetWatermark()">Reset BSS</button>
+    </div>
+    <div class="pos-modal-list">
+      <div class="wm-preview" id="wmPreview">
+        <div class="wm-preview-top">
+          <div class="wm-preview-left">
+            <div class="wm-logo-box" id="wmPrevLogo">BSS</div>
+            <span class="wm-preview-clock" id="wmPrevClock">14:20:08</span>
+          </div>
+          <span class="wm-preview-badge" id="wmPrevBadge">PBM/PKM</span>
+        </div>
+        <div class="wm-preview-loc" id="wmPrevLoc">◉ Mall BSS Megamas, Jl. Piere Tendean, Manado</div>
+      </div>
+      <div class="wm-label">Logo Perusahaan (Galeri):</div>
+      <div class="wm-logo-row">
+        <div class="wm-logo-thumb" id="wmLogoThumb">BSS LOGO</div>
+        <div class="wm-logo-meta"><span id="wmLogoName">Logo Standar (BSS PARKING)</span><small>Pilih file JPG/PNG untuk mengganti logo</small></div>
+        <button class="wm-gal-btn" onclick="document.getElementById('wmLogoFile').click()">◫ Galeri</button>
+        <input type="file" id="wmLogoFile" accept="image/*" style="display:none;" />
+      </div>
+      <div class="wm-label">Teks Tag / Badge Watermark</div>
+      <input class="wm-field" id="wmTagField" value="PBM/PKM" maxlength="12" oninput="wmTagInput(this.value)" />
+      <div class="wm-label">Warna Aksen Badge:</div>
+      <div class="wm-palette" id="wmPalette"></div>
+      <div class="wm-label">Pengaturan Lokasi:</div>
+      <div class="wm-switch-box">
+        <div class="wm-switch-row">
+          <div><strong>Tampilkan Lokasi di Kamera</strong><small>Alamat &amp; GPS pada watermark viewfinder</small></div>
+          <button class="wm-toggle on" id="wmTglCam" aria-label="Tampilkan lokasi di kamera" onclick="wmToggle('cam')"></button>
+        </div>
+        <div class="wm-switch-row">
+          <div><strong>Tampilkan Lokasi di Hasil Foto</strong><small>Alamat &amp; koordinat GPS pada foto tersimpan</small></div>
+          <button class="wm-toggle on" id="wmTglRes" aria-label="Tampilkan lokasi di hasil foto" onclick="wmToggle('res')"></button>
+        </div>
+      </div>
+      <button class="wm-save" onclick="saveWatermark()">Simpan &amp; Tutup</button>
+    </div>
+  </div>
+
+  <!-- Sheet: Kelola Template Card (sesuai CardTemplateManagementScreen asli) -->
+  <div class="pos-modal-scrim" id="tplScrim" onclick="openSheet(null)"></div>
+  <div class="pos-modal" id="tplSheet" role="dialog" aria-label="Kelola template card" style="max-height:80%;">
+    <div class="pos-modal-handle"></div>
+    <div class="pos-modal-head">
+      <span class="sheet-title-row"><span class="sheet-icon">▤</span><span class="sheet-title">Kelola Template Card</span></span>
+      <button class="pos-modal-close" aria-label="Tutup" onclick="openSheet(null)">✕</button>
+    </div>
+    <div class="pos-modal-list" id="tplList"></div>
+    <div class="tpl-add-row">
+      <input id="tplNewTitle" placeholder="Nama template baru" />
+      <input id="tplNewTag" placeholder="Tag" style="max-width:76px;" />
+      <button class="tpl-add-btn" onclick="tplAdd()">+ Tambah</button>
+    </div>
+  </div>
+
+  <!-- Sheet: Daftar Template SOP (sesuai TemplateListScreen asli) -->
+  <div class="pos-modal-scrim" id="sopScrim" onclick="openSheet(null)"></div>
+  <div class="pos-modal" id="sopSheet" role="dialog" aria-label="Daftar template SOP" style="max-height:80%;">
+    <div class="pos-modal-handle"></div>
+    <div class="pos-modal-head">
+      <span class="sheet-title-row"><span class="sheet-icon">☑</span><span class="sheet-title">Daftar Template SOP</span></span>
+      <button class="pos-modal-close" aria-label="Tutup" onclick="openSheet(null)">✕</button>
+    </div>
+    <div class="sop-action-row">
+      <button class="sop-manage-btn" id="sopManageBtn" onclick="sopToggleManage()">⚙ Kelola</button>
+      <button class="sop-new-btn" onclick="sopToggleForm()">+ Buat Baru</button>
+    </div>
+    <div class="tpl-add-row" id="sopForm" style="display:none;margin:0 0 10px;">
+      <input id="sopNewName" placeholder="Nama template" />
+      <select id="sopNewJenis" style="flex:1;border:1.5px solid #E2E8F0;border-radius:10px;padding:9px 10px;font-size:12px;outline:none;min-width:0;background:#FFF;">
+        <option>Absensi</option>
+        <option>Briefing Operasional Shift</option>
+        <option>Maintenance Pos Parkir</option>
+        <option>Maintenance Barrier Gate</option>
+        <option>Maintenance Manless &amp; Pulau</option>
+        <option>Maintenance PC Server &amp; Kasir</option>
+      </select>
+      <button class="tpl-add-btn" onclick="sopAdd()">+ Tambah</button>
+    </div>
+    <div class="pos-modal-list">
+      <div id="sopList"></div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- Overlay verifikasi AI (3 langkah, cermin VerificationStepCard asli) -->
+  <div id="captureOverlay" role="status" aria-live="polite">
+    <div class="cap-card">
+      <div class="cap-spin"></div>
+      <div class="cap-step" id="capStep">Memproses foto</div>
+      <div class="cap-sub" id="capSub">Absensi • Pos 01 Megamall</div>
+      <div class="cap-dots" id="capDots"><span class="on"></span><span></span><span></span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggleDrawer(open) {
+    const drawer = document.getElementById('sidebarDrawer');
+    const scrim = document.getElementById('drawerScrim');
+    if (open) {
+      drawer.classList.add('open');
+      scrim.classList.add('open');
+    } else {
+      drawer.classList.remove('open');
+      scrim.classList.remove('open');
+    }
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { toggleDrawer(false); togglePosModal(false); openSheet(null); } });
+
+  /* ── Sheet manager ── */
+  var SHEETS = ['wmSheet', 'tplSheet', 'sopSheet', 'aspectSheet'];
+  function openSheet(id) {
+    toggleDrawer(false);
+    SHEETS.forEach(function (s) {
+      var m = document.getElementById(s);
+      var sc = document.getElementById(s.replace('Sheet', 'Scrim'));
+      var on = (s === id);
+      if (m) m.classList.toggle('open', on);
+      if (sc) sc.classList.toggle('open', on);
+    });
+    if (id === 'wmSheet') renderWm();
+    if (id === 'tplSheet') renderTpl();
+    if (id === 'sopSheet') renderSop();
+    if (id === 'aspectSheet') renderAspect();
+  }
+
+  /* ── Aspek rasio (cermin CameraAspectRatio asli, default 3:4) ── */
+  var ASPECTS = [
+    { label: '1:1', desc: 'Persegi Kotak (1:1)', ico: '▦' },
+    { label: '3:4', desc: 'Standar Foto (3:4)', ico: '▤' },
+    { label: '9:16', desc: 'Widescreen Vertikal (9:16)', ico: '▥' },
+    { label: 'Full', desc: 'Penuh Layar Transparan', ico: '⛶' }
+  ];
+  var activeAspect = 1;
+
+  function renderAspect() {
+    var list = document.getElementById('aspectList');
+    if (!list) return;
+    list.innerHTML = ASPECTS.map(function (a, i) {
+      return '<a class="pos-item' + (i === activeAspect ? ' active' : '') + '" onclick="setAspect(' + i + ')">'
+        + '<span class="pos-text"><strong>' + a.label + '</strong><small>' + a.desc + '</small></span>'
+        + '<span class="pos-check">✓</span></a>';
+    }).join('');
+  }
+
+  function setAspect(i) {
+    activeAspect = i;
+    var l = document.getElementById('aspLabel');
+    var c = document.getElementById('aspIco');
+    if (l) l.innerText = ASPECTS[i].label;
+    if (c) c.innerText = ASPECTS[i].ico;
+    renderAspect();
+    openSheet(null);
+  }
+
+  /* ── Flash cycle Off → Auto → On → Torch (cermin _toggleFlash asli) ── */
+  var FLASHES = [
+    { mode: 'OFF', color: 'rgba(255,255,255,.7)', glow: 'none' },
+    { mode: 'AUTO', color: '#FFFFFF', glow: 'none' },
+    { mode: 'ON', color: '#FFFFFF', glow: '0 0 8px rgba(255,255,255,.8)' },
+    { mode: 'TORCH', color: '#FFFFFF', glow: '0 0 10px rgba(255,255,255,.9)' }
+  ];
+  var flashIdx = 0;
+
+  function cycleFlash() {
+    flashIdx = (flashIdx + 1) % FLASHES.length;
+    var f = FLASHES[flashIdx];
+    var ico = document.getElementById('flashIco');
+    var lbl = document.getElementById('flashLbl');
+    if (ico) { ico.innerText = '⚡'; ico.style.color = f.color; ico.style.textShadow = f.glow; }
+    if (lbl) { lbl.innerText = f.mode; lbl.style.color = f.color; }
+  }
+
+  var frontCam = false;
+  function flipCamera(btn) {
+    frontCam = !frontCam;
+    showToast(frontCam ? 'Kamera depan aktif' : 'Kamera belakang aktif');
+  }
+
+  /* ── Zoom 1x / 2x / 5x (cermin _setZoom asli) ── */
+  var curZoom = 1;
+  function setZoom(z, btn) {
+    curZoom = z;
+    document.querySelectorAll('#zoomRail .zoom-btn').forEach(function (b) { b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+  }
+
+  var toastTimer = null;
+  function showToast(msg) {
+    var t = document.getElementById('toast');
+    if (!t) return;
+    t.innerText = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+  }
+
+  /* ── Watermark config (cermin WatermarkConfig asli) ── */
+  var WM = { tag: 'PBM/PKM', color: '#F59E0B', showCam: true, showRes: true, logoData: null };
+  var WM_PALETTE = ['#1E489C', '#F59E0B', '#3B82F6', '#10B981', '#8B5CF6', '#EF4444', '#0F172A'];
+
+  function renderWm() {
+    var pal = document.getElementById('wmPalette');
+    if (pal) {
+      pal.innerHTML = WM_PALETTE.map(function (c) {
+        return '<span class="wm-dot' + (c === WM.color ? ' sel' : '') + '" style="background:' + c + '" onclick="wmPickColor(\'' + c + '\')">' + (c === WM.color ? '✓' : '') + '</span>';
+      }).join('');
+    }
+    var f = document.getElementById('wmTagField');
+    if (f && document.activeElement !== f) f.value = WM.tag;
+    var b = document.getElementById('wmPrevBadge');
+    if (b) { b.innerText = WM.tag || 'PBM/PKM'; b.style.background = WM.color; }
+    var pv = document.getElementById('wmPreview');
+    if (pv) pv.style.borderColor = WM.color;
+    var loc = document.getElementById('wmPrevLoc');
+    if (loc) loc.style.display = WM.showCam ? 'flex' : 'none';
+    var tc = document.getElementById('wmTglCam');
+    var tr = document.getElementById('wmTglRes');
+    if (tc) tc.classList.toggle('on', WM.showCam);
+    if (tr) tr.classList.toggle('on', WM.showRes);
+  }
+
+  function wmTagInput(v) {
+    WM.tag = v.trim() === '' ? 'PBM/PKM' : v.trim();
+    var b = document.getElementById('wmPrevBadge');
+    if (b) b.innerText = WM.tag;
+    var hud = document.getElementById('badgeTag');
+    if (hud) hud.innerText = WM.tag;
+  }
+
+  function wmPickColor(c) {
+    WM.color = c;
+    var hud = document.getElementById('badgeTag');
+    if (hud) hud.style.background = c;
+    renderWm();
+  }
+
+  function wmToggle(which) {
+    if (which === 'cam') WM.showCam = !WM.showCam;
+    else WM.showRes = !WM.showRes;
+    var addrEl = document.querySelector('.hud-meta .hud-line:nth-child(2)');
+    var gpsEl = document.getElementById('liveGps');
+    if (addrEl) addrEl.style.display = WM.showCam ? 'block' : 'none';
+    if (gpsEl) gpsEl.style.display = WM.showCam ? 'inline' : 'none';
+    renderWm();
+  }
+
+  function wmSyncHudLogo() {
+    var card = document.getElementById('hudLogoCard');
+    if (!card) return;
+    if (WM.logoData) card.innerHTML = '<img src="' + WM.logoData + '" alt="Logo" />';
+    else card.innerHTML = '<span class="hud-logo-bss">BSS</span><span class="hud-logo-park">PARKING</span>';
+  }
+
+  function resetWatermark() {
+    WM = { tag: 'PBM/PKM', color: '#F59E0B', showCam: true, showRes: true, logoData: null };
+    var hud = document.getElementById('badgeTag');
+    if (hud) { hud.innerText = WM.tag; hud.style.background = WM.color; }
+    var addrEl = document.querySelector('.hud-meta .hud-line:nth-child(2)');
+    var gpsEl = document.getElementById('liveGps');
+    if (addrEl) addrEl.style.display = 'block';
+    if (gpsEl) gpsEl.style.display = 'inline';
+    var th = document.getElementById('wmLogoThumb');
+    if (th) th.innerHTML = 'BSS LOGO';
+    var pl = document.getElementById('wmPrevLogo');
+    if (pl) pl.innerHTML = 'BSS';
+    var nm = document.getElementById('wmLogoName');
+    if (nm) nm.innerText = 'Logo Standar (BSS PARKING)';
+    wmSyncHudLogo();
+    renderWm();
+    showToast('Watermark di-reset ke standar BSS');
+  }
+
+  function saveWatermark() {
+    openSheet(null);
+    showToast('Watermark tersimpan & diterapkan ke kamera');
+  }
+
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.id === 'wmLogoFile' && e.target.files.length) {
+      var r = new FileReader();
+      r.onload = function () {
+        WM.logoData = r.result;
+        var th = document.getElementById('wmLogoThumb');
+        if (th) th.innerHTML = '<img src="' + r.result + '" alt="Logo" />';
+        var pl = document.getElementById('wmPrevLogo');
+        if (pl) pl.innerHTML = '<img src="' + r.result + '" alt="Logo" />';
+        var nm = document.getElementById('wmLogoName');
+        if (nm) nm.innerText = 'Logo Kustom Terpasang';
+        wmSyncHudLogo();
+      };
+      r.readAsDataURL(e.target.files[0]);
+    }
+  });
+
+  /* ── Template Card (cermin CardTemplateManagementScreen asli) ── */
+  var TPL_CARDS = [
+    { title: 'Template PBM / PKM Standar', tag: 'PBM/PKM', color: '#F59E0B', logo: 'BSS Bawaan' },
+    { title: 'Template Security Malam', tag: 'SCM', color: '#3B82F6', logo: 'BSS Bawaan' },
+    { title: 'Template Gate VIP', tag: 'VIP', color: '#10B981', logo: 'Kustom' }
+  ];
+
+  function renderTpl() {
+    var list = document.getElementById('tplList');
+    if (!list) return;
+    list.innerHTML = TPL_CARDS.map(function (t, i) {
+      return '<a class="pos-item" onclick="tplApply(' + i + ')">'
+        + '<span class="pos-tag" style="background:' + t.color + ';color:#fff;">' + t.tag + '</span>'
+        + '<span class="pos-text"><strong>' + t.title + '</strong><small>Tag: ' + t.tag + ' • Logo: ' + t.logo + '</small></span>'
+        + '</a>';
+    }).join('');
+  }
+
+  function tplApply(i) {
+    var t = TPL_CARDS[i];
+    WM.tag = t.tag; WM.color = t.color;
+    var hud = document.getElementById('badgeTag');
+    if (hud) { hud.innerText = t.tag; hud.style.background = t.color; }
+    openSheet(null);
+    showToast('Template Card "' + t.title + '" diterapkan!');
+  }
+
+  function tplAdd() {
+    var title = document.getElementById('tplNewTitle');
+    var tag = document.getElementById('tplNewTag');
+    if (!title || title.value.trim() === '') { showToast('Isi nama template dulu'); return; }
+    TPL_CARDS.push({ title: title.value.trim(), tag: (tag && tag.value.trim() !== '' ? tag.value.trim().toUpperCase() : 'PBM/PKM'), color: WM.color, logo: 'BSS Bawaan' });
+    title.value = ''; if (tag) tag.value = '';
+    renderTpl();
+    showToast('Template Card tersimpan!');
+  }
+
+  /* ── Daftar Template SOP (cermin TemplateListScreen + TemplateRepository asli) ── */
+  var SOP_TPL = [
+    { nama: 'Absensi', jenis: 'Absensi', n: '7 Kriteria SOP', maint: false, go: null },
+    { nama: 'Briefing Operasional Shift', jenis: 'Briefing Operasional Shift', n: '4 Kriteria SOP', maint: false, go: null },
+    { nama: 'Maintenance: Pos Parkir', jenis: 'Maintenance Pos Parkir', n: '9 Point • 1 foto/point', maint: true, go: '03-maintenance-checklist.html' },
+    { nama: 'Maintenance: Barrier Gate', jenis: 'Maintenance Barrier Gate', n: '9 Point • 1 foto/point', maint: true, go: '03-maintenance-checklist.html' },
+    { nama: 'Maintenance: Manless & Pulau Gate', jenis: 'Maintenance Manless & Pulau', n: '8 Point • 1 foto/point', maint: true, go: '03-maintenance-checklist.html' },
+    { nama: 'Maintenance: Server & Kasir', jenis: 'Maintenance PC Server & Kasir', n: '6 Point • 1 foto/point', maint: true, go: '03-maintenance-checklist.html' }
+  ];
+  var sopManage = false;
+
+  function renderSop() {
+    var list = document.getElementById('sopList');
+    if (!list) return;
+    list.innerHTML = SOP_TPL.map(function (t, i) {
+      var act = t.go ? 'window.location.href=\'' + t.go + '\'' : 'sopPick(' + i + ')';
+      var del = sopManage ? '<button class="sop-del" onclick="event.stopPropagation();sopDel(' + i + ')" title="Hapus">🗑</button>' : '';
+      return '<a class="pos-item" onclick="' + act + '">'
+        + '<span class="pos-text"><strong>' + t.nama + '</strong>'
+        + '<span class="chip-row"><span class="mini-chip">' + t.jenis + '</span><span class="mini-chip dim">' + t.n + '</span></span></span>'
+        + del + '</a>';
+    }).join('');
+    var mb = document.getElementById('sopManageBtn');
+    if (mb) { mb.classList.toggle('on', sopManage); mb.innerHTML = sopManage ? '✓ Selesai' : '⚙ Kelola'; }
+  }
+
+  function sopPick(i) {
+    openSheet(null);
+    showToast('Template "' + SOP_TPL[i].nama + '" aktif — buka kamera untuk foto');
+  }
+
+  function sopToggleManage() {
+    sopManage = !sopManage;
+    renderSop();
+  }
+
+  function sopDel(i) {
+    var nm = SOP_TPL[i].nama;
+    SOP_TPL.splice(i, 1);
+    renderSop();
+    showToast('Template "' + nm + '" dihapus');
+  }
+
+  function sopToggleForm() {
+    var f = document.getElementById('sopForm');
+    if (f) f.style.display = (f.style.display === 'none' ? 'flex' : 'none');
+  }
+
+  function sopAdd() {
+    var nm = document.getElementById('sopNewName');
+    var jn = document.getElementById('sopNewJenis');
+    if (!nm || nm.value.trim() === '') { showToast('Isi nama template dulu'); return; }
+    SOP_TPL.push({ nama: nm.value.trim(), jenis: jn ? jn.value : 'Absensi', n: '0 Kriteria SOP', maint: false, go: null });
+    nm.value = '';
+    document.getElementById('sopForm').style.display = 'none';
+    renderSop();
+    showToast('Template SOP tersimpan!');
+  }
+
+  var POS_LIST = [
+    { tag: 'PBM/PKM', name: 'Pos 01 Megamall', sub: 'KC BSG', addr: 'Kawasan Megamall Manado, Jl. Pierre Tendean', gps: 'GPS: 1.493055°N, 124.841972°E' },
+    { tag: 'PBM', name: 'Pasar Bersehati Manado', sub: 'KC BSG', addr: 'Pasar Bersehati, Kota Manado, Sulawesi Utara', gps: 'GPS: 1.493055°N, 124.841972°E' },
+    { tag: 'MTS', name: 'Pos 02 Mantos', sub: 'KC BSG', addr: 'Kawasan Mantos, Kota Manado, Sulawesi Utara', gps: 'GPS: 1.483200°N, 124.848800°E' },
+    { tag: 'ITC', name: 'Pos 03 IT Center', sub: 'KC BSG', addr: 'Kawasan IT Center Manado, Sulawesi Utara', gps: 'GPS: 1.490100°N, 124.844500°E' },
+    { tag: 'MTD', name: 'Pos 04 Mega Trade', sub: 'KC BSG', addr: 'Kawasan Mega Trade Center, Manado', gps: 'GPS: 1.486700°N, 124.839800°E' },
+    { tag: 'BND', name: 'Pos 05 Bandara Sam Ratulangi', sub: 'KC BSG', addr: 'Bandara Sam Ratulangi, Manado', gps: 'GPS: 1.549200°N, 124.925800°E' },
+    { tag: 'KND', name: 'Pos 06 RSUP Kandou', sub: 'KC BSG', addr: 'RSUP Prof. Kandou, Manado', gps: 'GPS: 1.463500°N, 124.834200°E' },
+    { tag: 'UNS', name: 'Pos 07 Unsrat', sub: 'KC BSG', addr: 'Kampus Unsrat Bahu, Manado', gps: 'GPS: 1.459800°N, 124.827500°E' },
+    { tag: 'PLB', name: 'Pos 08 Pelabuhan Manado', sub: 'KC BSG', addr: 'Pelabuhan Manado, Sulawesi Utara', gps: 'GPS: 1.496800°N, 124.841000°E' },
+    { tag: 'BHL', name: 'Pos 09 Bahu Mall', sub: 'KC BSG', addr: 'Kawasan Bahu Mall, Manado', gps: 'GPS: 1.458200°N, 124.822500°E' }
+  ];
+  var activePosIdx = 0;
+
+  function renderPosModal() {
+    var list = document.getElementById('posModalList');
+    if (!list) return;
+    list.innerHTML = POS_LIST.map(function (p, i) {
+      return '<a class="pos-item' + (i === activePosIdx ? ' active' : '') + '" onclick="selectPosByIndex(' + i + ')">'
+        + '<span class="pos-tag">' + p.tag + '</span>'
+        + '<span class="pos-text"><strong>' + p.name + '</strong><small>' + p.sub + '</small></span>'
+        + '<span class="pos-check">✓</span></a>';
+    }).join('');
+  }
+
+  function togglePosModal(open) {
+    var modal = document.getElementById('posModal');
+    var scrim = document.getElementById('posModalScrim');
+    if (open) { renderPosModal(); modal.classList.add('open'); scrim.classList.add('open'); }
+    else { modal.classList.remove('open'); scrim.classList.remove('open'); }
+  }
+
+  function selectPosByIndex(i) {
+    activePosIdx = i;
+    var p = POS_LIST[i];
+    WM.tag = p.tag;
+    var badge = document.getElementById('badgeTag');
+    var posName = document.getElementById('gpsPosName');
+    var ddTag = document.getElementById('ddTag');
+    var ddName = document.getElementById('ddName');
+    var ddSub = document.getElementById('ddSub');
+    if (badge) badge.innerText = p.tag;
+    if (posName) posName.innerText = p.name;
+    if (ddTag) ddTag.innerText = p.tag;
+    if (ddName) ddName.innerText = p.name;
+    if (ddSub) ddSub.innerText = p.sub;
+    var addrEl = document.querySelector('.hud-meta .hud-line:nth-child(2)');
+    if (addrEl) addrEl.innerText = p.addr;
+    var gpsEl = document.getElementById('liveGps');
+    if (gpsEl) gpsEl.innerText = p.gps;
+    renderPosModal();
+    togglePosModal(false);
+  }
+
+  function selectPos(el) {
+    var items = document.querySelectorAll('#posModalList .pos-item');
+    var idx = Array.prototype.indexOf.call(items, el);
+    if (idx >= 0) selectPosByIndex(idx);
+  }
+
+  function updateClock() {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const timeEl = document.getElementById('liveTime');
+    if (timeEl) {
+      timeEl.innerHTML = `${hours}:${minutes}:${seconds}<span class="hud-tz">WITA</span>`;
+    }
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+
+  function triggerShutter() {
+    var ov = document.getElementById('captureOverlay');
+    var step = document.getElementById('capStep');
+    var dots = document.getElementById('capDots').children;
+    var steps = ['Memproses foto', 'Mengirim ke AI', 'Sedang diverifikasi'];
+    var i = 0;
+    ov.classList.add('show');
+    step.innerText = steps[0];
+    var timer = setInterval(function () {
+      i++;
+      if (i >= steps.length) {
+        clearInterval(timer);
+        window.location.href = '02-sop-modal.html';
+        return;
+      }
+      step.innerText = steps[i];
+      for (var d = 0; d < dots.length; d++) dots[d].classList.toggle('on', d <= i);
+    }, 650);
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,806 @@
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+
+const OUT_DIR = '/home/annnpii/Product development annpii/BssparkingTimeMark';
+
+const htmlContent = `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PMA App - SOP Maintenance Modules Showcase (CP-05)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Plus Jakarta Sans", sans-serif; }
+  
+  body {
+    background: #06090F;
+    color: #F8FAFC;
+    padding: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+
+  .canvas {
+    width: 1440px;
+    background: #0B1120;
+    border-radius: 24px;
+    border: 1px solid #1E293B;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.85);
+    padding: 32px 36px;
+  }
+
+  /* Header Section */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #1E293B;
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+  }
+
+  .brand-badge-box {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .pma-logo-box {
+    width: 48px;
+    height: 48px;
+    background: #111827;
+    border: 2px solid #FF6500;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    color: #FF6500;
+    font-size: 18px;
+    letter-spacing: 1px;
+  }
+
+  .title-meta h1 {
+    font-size: 20px;
+    font-weight: 800;
+    color: #FFFFFF;
+    letter-spacing: 0.5px;
+  }
+
+  .title-meta p {
+    font-size: 13px;
+    color: #94A3B8;
+    margin-top: 3px;
+  }
+
+  .status-tag {
+    background: #064E3B;
+    border: 1px solid #10B981;
+    color: #A7F3D0;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  /* Screen Grid */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+  }
+
+  .screen-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .screen-label {
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .screen-label span.num {
+    background: #FF6500;
+    color: #FFF;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  .screen-label h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #E2E8F0;
+  }
+
+  .phone-frame {
+    width: 380px;
+    height: 720px;
+    background: #020617;
+    border-radius: 36px;
+    border: 8px solid #1E293B;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------------- PHONE 1: SETUP DIALOG ---------------- */
+  .setup-container {
+    background: #F8FAFC;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    color: #1E293B;
+    padding: 20px;
+    font-size: 13px;
+  }
+
+  .modal-dialog-card {
+    background: #FFFFFF;
+    border-radius: 18px;
+    padding: 18px;
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .dialog-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #F1F5F9;
+  }
+
+  .dialog-icon {
+    width: 40px;
+    height: 40px;
+    background: #EFF6FF;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: #1E448D;
+  }
+
+  .dialog-title-box h4 {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0F172A;
+  }
+
+  .dialog-title-box p {
+    font-size: 11px;
+    color: #64748B;
+  }
+
+  .input-group {
+    margin-top: 14px;
+  }
+
+  .input-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 5px;
+    display: block;
+  }
+
+  .input-box {
+    background: #F8FAFC;
+    border: 1px solid #CBD5E1;
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #0F172A;
+  }
+
+  .stepper-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 12px;
+    margin-top: 14px;
+  }
+
+  .stepper-btn-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .stepper-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #EFF6FF;
+    border: 1px solid #BFDBFE;
+    color: #1E448D;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .stepper-val {
+    width: 32px;
+    text-align: center;
+    font-weight: 800;
+    font-size: 15px;
+    color: #1E448D;
+  }
+
+  .calc-badge {
+    background: #ECFDF5;
+    border: 1px solid #A7F3D0;
+    border-radius: 10px;
+    padding: 12px;
+    margin-top: 14px;
+    display: flex;
+    gap: 10px;
+  }
+
+  .calc-badge .check-icon {
+    color: #059669;
+    font-size: 16px;
+  }
+
+  .calc-badge .calc-text h5 {
+    font-size: 12px;
+    font-weight: 800;
+    color: #065F46;
+  }
+
+  .calc-badge .calc-text p {
+    font-size: 11px;
+    font-weight: 600;
+    color: #047857;
+    margin-top: 2px;
+  }
+
+  .dialog-actions {
+    margin-top: auto;
+    display: flex;
+    gap: 10px;
+    padding-top: 14px;
+  }
+
+  .btn-secondary {
+    flex: 1;
+    padding: 12px;
+    background: #F1F5F9;
+    border: 1px solid #CBD5E1;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 12px;
+    color: #475569;
+    text-align: center;
+  }
+
+  .btn-primary {
+    flex: 2;
+    padding: 12px;
+    background: #1E448D;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 12px;
+    color: #FFFFFF;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(30, 68, 141, 0.3);
+  }
+
+  /* ---------------- PHONE 2: CHECKLIST SCREEN ---------------- */
+  .checklist-container {
+    background: #F8FAFC;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    color: #1E293B;
+  }
+
+  .app-bar-sop {
+    background: #1E448D;
+    color: #FFF;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .app-bar-sop h4 {
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .progress-card {
+    background: #FFF;
+    padding: 14px 16px;
+    border-bottom: 1px solid #E2E8F0;
+  }
+
+  .progress-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 6px;
+  }
+
+  .progress-track {
+    height: 6px;
+    background: #E2E8F0;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    width: 65%;
+    height: 100%;
+    background: #FF6500;
+    border-radius: 4px;
+  }
+
+  .unit-chips-bar {
+    padding: 10px 16px;
+    display: flex;
+    gap: 8px;
+    background: #FFF;
+    border-bottom: 1px solid #E2E8F0;
+    overflow-x: auto;
+  }
+
+  .chip-item {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .chip-item.active {
+    background: #1E448D;
+    color: #FFF;
+  }
+
+  .chip-item.inactive {
+    background: #F1F5F9;
+    color: #64748B;
+    border: 1px solid #E2E8F0;
+  }
+
+  .checklist-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sop-card {
+    background: #FFF;
+    border-radius: 12px;
+    border: 1px solid #E2E8F0;
+    padding: 12px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .sop-status-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .sop-card.done .sop-status-icon {
+    background: #ECFDF5;
+    color: #059669;
+    border: 1px solid #A7F3D0;
+  }
+
+  .sop-card.todo .sop-status-icon {
+    background: #EFF6FF;
+    color: #1E448D;
+    border: 1px solid #BFDBFE;
+  }
+
+  .sop-info {
+    flex: 1;
+  }
+
+  .sop-info h5 {
+    font-size: 12px;
+    font-weight: 800;
+    color: #0F172A;
+  }
+
+  .sop-info p {
+    font-size: 10px;
+    color: #64748B;
+    margin-top: 2px;
+  }
+
+  .sop-btn {
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 800;
+    border: none;
+    cursor: pointer;
+  }
+
+  .sop-btn.cam {
+    background: #FF6500;
+    color: #FFF;
+  }
+
+  .sop-btn.check {
+    background: #ECFDF5;
+    color: #059669;
+    border: 1px solid #A7F3D0;
+  }
+
+  /* ---------------- PHONE 3: POINT CAMERA VIEW ---------------- */
+  .camera-view-container {
+    background: #0F172A;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .top-guide-hud {
+    background: rgba(15, 23, 42, 0.85);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .guide-meta h4 {
+    font-size: 12px;
+    font-weight: 800;
+    color: #FFF;
+  }
+
+  .guide-meta p {
+    font-size: 10px;
+    color: #94A3B8;
+  }
+
+  .viewfinder-mock {
+    flex: 1;
+    position: relative;
+    background: radial-gradient(circle, #1E293B 20%, #0F172A 90%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .frame-reticle {
+    width: 220px;
+    height: 220px;
+    border: 2px dashed rgba(255, 101, 0, 0.7);
+    border-radius: 16px;
+    position: relative;
+  }
+
+  .frame-reticle::before {
+    content: "ARAHKAN KE KOMPONEN";
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #FF6500;
+    color: #FFF;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .bottom-hud-control {
+    background: rgba(15, 23, 42, 0.95);
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .shutter-ring-btn {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    border: 3.5px solid #FF6500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+  }
+
+  .shutter-core-btn {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #1E448D;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFF;
+    font-size: 22px;
+  }
+
+  .callout-box {
+    margin-top: 14px;
+    background: #111827;
+    border: 1px solid #1F2937;
+    border-radius: 12px;
+    padding: 12px 14px;
+    width: 380px;
+  }
+
+  .callout-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #F8FAFC;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .callout-desc {
+    font-size: 11.5px;
+    color: #94A3B8;
+    line-height: 1.45;
+  }
+</style>
+</head>
+<body>
+
+<div class="canvas">
+  <div class="header">
+    <div class="brand-badge-box">
+      <div class="pma-logo-box">PMA</div>
+      <div class="title-meta">
+        <h1>Checkpoint 5: SOP Maintenance Workflow Showcase</h1>
+        <p>Setup Wizard, Multi-Unit Stepper, Dynamic Checklist, &amp; Per-Point Camera AI</p>
+      </div>
+    </div>
+    <div class="status-tag">🟢 CHECKPOINT 5 VALIDATED</div>
+  </div>
+
+  <div class="grid">
+    <!-- Screen 1: Setup Wizard -->
+    <div class="screen-col">
+      <div class="screen-label">
+        <span class="num">1</span>
+        <h3>Setup Wizard &amp; Multi-Unit</h3>
+      </div>
+      <div class="phone-frame">
+        <div class="setup-container">
+          <div class="modal-dialog-card">
+            <div class="dialog-header">
+              <div class="dialog-icon">📋</div>
+              <div class="dialog-title-box">
+                <h4>Setup Checklist Unit</h4>
+                <p>Maintenance Pos &amp; Barrier Gate</p>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label">Nama Teknisi / IT Support</label>
+              <div class="input-box">
+                <span>👤</span>
+                <span>Junifer Manua (IT Support KC BSG)</span>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label">Lokasi Parkir Terverifikasi</label>
+              <div class="input-box">
+                <span>📍</span>
+                <span>TBM • Terminal Beriman Tomohon</span>
+              </div>
+            </div>
+
+            <div class="stepper-row">
+              <div>
+                <div style="font-weight:800; font-size:12px; color:#0F172A;">Rentang Pos Kasir</div>
+                <div style="font-size:10.5px; color:#64748B;">Mulai Pos 1 s/d Pos 3</div>
+              </div>
+              <div class="stepper-btn-group">
+                <div class="stepper-btn">-</div>
+                <div class="stepper-val">3</div>
+                <div class="stepper-btn">+</div>
+              </div>
+            </div>
+
+            <div class="calc-badge">
+              <span class="check-icon">✓</span>
+              <div class="calc-text">
+                <h5>Mengerjakan 3 Pos (Pos 1 s/d Pos 3)</h5>
+                <p>Wajib diambil: 21 Foto (3 Pos × 7 foto poin SOP)</p>
+              </div>
+            </div>
+
+            <div class="dialog-actions">
+              <div class="btn-secondary">Batal</div>
+              <div class="btn-primary">Mulai Checklist Pos →</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callout-box">
+        <div class="callout-title">⚙️ Kalkulasi Otomatis Dinamis</div>
+        <div class="callout-desc">Hitungan total foto poin dihitung real-time berdasarkan unit terpilih (Pos, Gate, Manless, atau Server/Kasir).</div>
+      </div>
+    </div>
+
+    <!-- Screen 2: Dynamic Checklist Screen -->
+    <div class="screen-col">
+      <div class="screen-label">
+        <span class="num">2</span>
+        <h3>Dynamic Checklist Screen</h3>
+      </div>
+      <div class="phone-frame">
+        <div class="checklist-container">
+          <div class="app-bar-sop">
+            <h4>Maintenance: Pos Kasir</h4>
+            <span style="font-size:16px;">🕒</span>
+          </div>
+
+          <div class="progress-card">
+            <div class="progress-meta">
+              <span>Progress Poin Selesai</span>
+              <span>14 / 21 Foto (67%)</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill"></div>
+            </div>
+          </div>
+
+          <div class="unit-chips-bar">
+            <div class="chip-item inactive">SEMUA (21)</div>
+            <div class="chip-item active">POS 1 (7/7) ✓</div>
+            <div class="chip-item inactive">POS 2 (7/7) ✓</div>
+            <div class="chip-item inactive">POS 3 (0/7)</div>
+          </div>
+
+          <div class="checklist-scroll">
+            <div class="sop-card done">
+              <div class="sop-status-icon">✓</div>
+              <div class="sop-info">
+                <h5>Kebersihan Fisik Pos &amp; Meja</h5>
+                <p>Pos 1 • Foto telah diverifikasi AI</p>
+              </div>
+              <div class="sop-btn check">Lolos AI</div>
+            </div>
+
+            <div class="sop-card done">
+              <div class="sop-status-icon">✓</div>
+              <div class="sop-info">
+                <h5>Fungsi Printer Thermal Kasir</h5>
+                <p>Pos 1 • Kertas test cetak terbaca</p>
+              </div>
+              <div class="sop-btn check">Lolos AI</div>
+            </div>
+
+            <div class="sop-card todo">
+              <div class="sop-status-icon">📷</div>
+              <div class="sop-info">
+                <h5>Kerapian Kabel Belakang PC</h5>
+                <p>Pos 3 • Belum diambil fotonya</p>
+              </div>
+              <div class="sop-btn cam">Ambil Foto</div>
+            </div>
+
+            <div class="sop-card todo">
+              <div class="sop-status-icon">📷</div>
+              <div class="sop-info">
+                <h5>Koneksi Jaringan LAN Kasir</h5>
+                <p>Pos 3 • Belum diambil fotonya</p>
+              </div>
+              <div class="sop-btn cam">Ambil Foto</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callout-box">
+        <div class="callout-title">📑 Filter Unit &amp; Status Cepat</div>
+        <div class="callout-desc">Filter multi-unit pos/gate horizontal membuat teknisi fokus menyelesaikan pos per pos tanpa tertukar.</div>
+      </div>
+    </div>
+
+    <!-- Screen 3: Point Camera View -->
+    <div class="screen-col">
+      <div class="screen-label">
+        <span class="num">3</span>
+        <h3>Point Camera View &amp; AI HUD</h3>
+      </div>
+      <div class="phone-frame">
+        <div class="camera-view-container">
+          <div class="top-guide-hud">
+            <div class="guide-meta">
+              <h4>Pos 3 : Kerapian Kabel Belakang PC</h4>
+              <p>Pastikan kabel power &amp; LAN terikat rapi</p>
+            </div>
+            <div style="color:#FF6500; font-weight:800; font-size:12px;">3:4</div>
+          </div>
+
+          <div class="viewfinder-mock">
+            <div class="frame-reticle"></div>
+          </div>
+
+          <div class="bottom-hud-control">
+            <div style="color:#FFF; font-size:18px;">🔄</div>
+            <div class="shutter-ring-btn">
+              <div class="shutter-core-btn">📷</div>
+            </div>
+            <div style="color:#FFF; font-size:18px;">⚡</div>
+          </div>
+        </div>
+      </div>
+      <div class="callout-box">
+        <div class="callout-title">🎯 Panduan &amp; Verifikasi Cepat</div>
+        <div class="callout-desc">Kamera dilengkapi reticle framing panduan poin spesifik dan AI verifikasi otomatis dengan offline mode fallback.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
+`;
+
+const htmlPath = path.join(OUT_DIR, 'PMA-App-SOP-Maintenance-Showcase.html');
+fs.writeFileSync(htmlPath, htmlContent);
+
+const outPngPath = path.join(OUT_DIR, 'PMA-App-SOP-Maintenance-Showcase.png');
+try {
+  execSync(`google-chrome-stable --headless --disable-gpu --screenshot="${outPngPath}" --window-size=1540,920 "${htmlPath}"`, { stdio: 'inherit' });
+  console.log('SUCCESS: Rendered to ' + outPngPath);
+} catch (e) {
+  try {
+    execSync(`chromium --headless --disable-gpu --screenshot="${outPngPath}" --window-size=1540,920 "${htmlPath}"`, { stdio: 'inherit' });
+    console.log('SUCCESS: Rendered to ' + outPngPath);
+  } catch (err) {
+    console.error('Failed to render screenshot', err);
+  }
+}

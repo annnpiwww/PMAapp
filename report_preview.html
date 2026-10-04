@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BSS TimeMark - Maintenance & System Update Preview</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 2rem 1rem; display: flex; justify-content: center; }
+        .container { max-width: 800px; width: 100%; background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); padding: 2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .header { border-bottom: 1px solid var(--border); padding-bottom: 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+        .badge { background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; border: 1px solid rgba(96, 165, 250, 0.3); }
+        h1 { font-size: 1.4rem; font-weight: 800; color: #fff; margin-bottom: 4px; }
+        p.subtitle { color: var(--text-muted); font-size: 0.85rem; }
+        
+        .section-title { font-size: 0.95rem; font-weight: 700; margin: 1.5rem 0 0.75rem 0; color: #93c5fd; display: flex; align-items: center; gap: 8px; }
+        
+        .report-box { background: #0b1120; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.82rem; line-height: 1.6; white-space: pre-wrap; color: #e2e8f0; margin-bottom: 1rem; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 1rem; }
+        .item-card { background: #0f172a; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+        .item-card h4 { font-size: 0.8rem; color: #38bdf8; margin-bottom: 4px; }
+        .item-card p { font-size: 0.75rem; color: var(--text-muted); }
+        
+        .footer { border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 1.5rem; text-align: center; font-size: 0.75rem; color: var(--text-muted); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>BSS PARKING TIMEMARK</h1>
+                <p class="subtitle">Sistem Pelaporan Maintenance & Presensi Teknisi Lapangan</p>
+            </div>
+            <span class="badge">PROD READY</span>
+        </div>
+
+        <div class="section-title">📌 1. Format Laporan Maintenance (1 Unit / Single Pos)</div>
+        <div class="report-box">Selamat Siang
+
+Izin melaporkan hasil maintenance POS
+
+Lokasi : Pasar Bersehati Manado (PBM)
+Gate Out : 1
+Tanggal : 11 September 2026
+IT Support : Farhan Lakoro
+
+Note :
+1. *Pembersihan total printer pos* :
+   ✅ head printer bersih bebas robekan kertas
+2. *Kerapian jalur kabel & stopkontak* :
+   ✅ sesuai
+3. *Standarisasi item dalam pos* :
+   ✅ sesuai
+4. *Fungsi sistem aplikasi kasir* :
+   ✅ aplikasi kasir standby online
+5. *Kunci pintu pos (grendel pintu)* :
+   ✅ sesuai
+6. *Stiker BSS Parking & Parkways* :
+   ✅ sesuai
+7. *Kondisi pulau parkir* :
+   ✅ sesuai
+
+Terima kasih 🙏</div>
+
+        <div class="section-title">⏱️ 2. Format Laporan Absensi Pulang Teknisi (Shift 2.2 - Auto Numbering)</div>
+        <div class="report-box">Selamat Siang
+
+Izin Update Laporan Jadwal Pulang Technical Support Staff
+
+IT Support : Farhan Lakoro
+Lokasi Standby : PBM
+Jam Pulang : 14:00
+IT Support Shift Selanjutnya : Junifer Manua
+
+List Pekerjaan yang Selesai :
+1. Pembersihan total printer pos kasir 1 & 2
+2. Pengecekan sensor loop barrier gate in
+3. Perapian jalur kabel switch hub server
+
+List Pekerjaan yang Belum Selesai :
+-
+
+Terima Kasih</div>
+
+        <div class="section-title">🚀 3. Rangkuman Peningkatan 12 Poin</div>
+        <div class="grid">
+            <div class="item-card">
+                <h4>AI Vision Validasi</h4>
+                <p>Status hijau menampilkan deskripsi alasan nyata dari AI, bukan sekadar kata "sesuai".</p>
+            </div>
+            <div class="item-card">
+                <h4>Single Pos Format</h4>
+                <p>Jika hanya 1 pos/unit, prefix "Pos 1:" otomatis dihilangkan agar ringkas.</p>
+            </div>
+            <div class="item-card">
+                <h4>Shift 2.2 (10:00 - 14:00)</h4>
+                <p>Sinkron ucapan Selamat Pagi saat masuk & Selamat Siang saat kepulangan pukul 14:00.</p>
+            </div>
+            <div class="item-card">
+                <h4>Auto Numbering</h4>
+                <p>Pekerjaan selesai otomatis diberi penomoran urut 1, 2, 3 tanpa pengetikan manual.</p>
+            </div>
+            <div class="item-card">
+                <h4>Rekan IT Support</h4>
+                <p>Pilihan nama Junifer, Ryan, Alessandro, Raldy langsung tersedia dalam dropdown.</p>
+            </div>
+            <div class="item-card">
+                <h4>Nama Lokasi & UI Safety</h4>
+                <p>Nama Pos diganti Nama Lokasi, GPS realtime otomatis, dan SOP kelola terkunci PIN.</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            BSS Parking &copy; 2026 • Timemark Engineering Division
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,784 @@
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+
+const OUT_DIR = '/home/annnpii/Product development annpii/BssparkingTimeMark';
+
+const htmlContent = `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PMA App - UI Camera HUD Redesign Showcase (CP-04)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Plus Jakarta Sans", sans-serif; }
+  
+  body {
+    background: #06090F;
+    color: #F8FAFC;
+    padding: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+
+  .canvas {
+    width: 1440px;
+    background: #0B1120;
+    border-radius: 24px;
+    border: 1px solid #1E293B;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.85);
+    padding: 32px 36px;
+  }
+
+  /* Header Section */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #1E293B;
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+  }
+
+  .brand-badge-box {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .pma-logo-box {
+    width: 48px;
+    height: 48px;
+    background: #111827;
+    border: 2px solid #FF6500;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    color: #FF6500;
+    font-size: 18px;
+    letter-spacing: 1px;
+  }
+
+  .title-meta h1 {
+    font-size: 20px;
+    font-weight: 800;
+    color: #FFFFFF;
+    letter-spacing: 0.5px;
+  }
+
+  .title-meta p {
+    font-size: 13px;
+    color: #94A3B8;
+    margin-top: 3px;
+  }
+
+  .status-tag {
+    background: #1E448D;
+    border: 1px solid #3B82F6;
+    color: #DBEAFE;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  /* Screen Grid */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+  }
+
+  .screen-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .screen-label {
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .screen-label span.num {
+    background: #FF6500;
+    color: #FFF;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  .screen-label h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #E2E8F0;
+  }
+
+  /* Phone Mockup Frame */
+  .phone-frame {
+    width: 360px;
+    height: 720px;
+    background: #000000;
+    border-radius: 40px;
+    border: 4px solid #334155;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Camera Container */
+  .camera-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: #050811;
+  }
+
+  /* Top Overlay HUD Bar */
+  .hud-top-bar {
+    height: 60px;
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%);
+    z-index: 20;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+
+  .hud-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hud-icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    font-size: 17px;
+    cursor: pointer;
+  }
+
+  .hud-ratio-pill {
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 18px;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .hud-ratio-pill span.icon {
+    color: #FF6500;
+    font-size: 14px;
+  }
+
+  .hud-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Location Badge in Viewfinder Top */
+  .loc-status-pill {
+    position: absolute;
+    top: 70px;
+    left: 16px;
+    right: 16px;
+    display: flex;
+    justify-content: center;
+    z-index: 15;
+  }
+
+  .loc-badge-body {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 101, 0, 0.4);
+    border-radius: 20px;
+    padding: 5px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+  }
+
+  .loc-badge-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10B981;
+    box-shadow: 0 0 8px #10B981;
+  }
+
+  .loc-badge-text {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: 0.3px;
+  }
+
+  .loc-badge-tag {
+    background: #FF6500;
+    color: #FFFFFF;
+    font-size: 9.5px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+
+  /* Viewfinder Area */
+  .viewfinder-box {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0F172A;
+    overflow: hidden;
+  }
+
+  .optical-lens-layer {
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 50% 50%, #1E293B 0%, #0B1120 100%);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Optical Frame Corner Brackets */
+  .corner-tl { position: absolute; top: 20px; left: 20px; width: 18px; height: 18px; border-top: 2px solid #FF6500; border-left: 2px solid #FF6500; }
+  .corner-tr { position: absolute; top: 20px; right: 20px; width: 18px; height: 18px; border-top: 2px solid #FF6500; border-right: 2px solid #FF6500; }
+  .corner-bl { position: absolute; bottom: 85px; left: 20px; width: 18px; height: 18px; border-bottom: 2px solid #FF6500; border-left: 2px solid #FF6500; }
+  .corner-br { position: absolute; bottom: 85px; right: 20px; width: 18px; height: 18px; border-bottom: 2px solid #FF6500; border-right: 2px solid #FF6500; }
+
+  .center-target {
+    width: 64px;
+    height: 64px;
+    border: 1px dashed rgba(255, 101, 0, 0.6);
+    border-radius: 8px;
+    position: relative;
+  }
+
+  .center-target::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px; height: 6px;
+    background: #FF6500;
+    border-radius: 50%;
+  }
+
+  /* WATERMARK 100% ORIGINAL PRESERVED */
+  .original-watermark-card {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    right: 14px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    border-radius: 12px;
+    padding: 10px 14px;
+    border-left: 4px solid #FF6500;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+  }
+
+  .wm-meta-title {
+    font-size: 12px;
+    font-weight: 800;
+    color: #1E448D;
+  }
+
+  .wm-meta-sub {
+    font-size: 10px;
+    color: #334155;
+    margin-top: 2px;
+    font-weight: 600;
+  }
+
+  .wm-meta-right {
+    text-align: right;
+  }
+
+  .wm-time-str {
+    font-size: 12.5px;
+    font-weight: 800;
+    color: #FF6500;
+  }
+
+  .wm-date-str {
+    font-size: 9.5px;
+    color: #64748B;
+    font-weight: 600;
+    margin-top: 1px;
+  }
+
+  /* Bottom Controls Deck */
+  .hud-bottom-deck {
+    height: 120px;
+    background: rgba(11, 17, 32, 0.96);
+    border-top: 1px solid #1E293B;
+    padding: 12px 24px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 20;
+  }
+
+  .side-deck-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  .action-circle-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: #1E293B;
+    border: 1px solid #334155;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    font-size: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  }
+
+  .action-label-text {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94A3B8;
+  }
+
+  /* Shutter Ring (Industrial Power Ring) */
+  .industrial-shutter-wrap {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    border: 3.5px solid #FFFFFF;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px rgba(255, 101, 0, 0.35);
+    cursor: pointer;
+  }
+
+  .industrial-shutter-core {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: #FF6500;
+    box-shadow: 0 0 14px rgba(255, 101, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    font-size: 22px;
+  }
+
+  /* SOP Quick Modal (Screen 3) */
+  .sop-modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .sop-sheet-card {
+    background: #FFFFFF;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    padding: 22px 18px 24px;
+    color: #0F172A;
+  }
+
+  .sheet-handle {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: #CBD5E1;
+    margin: 0 auto 16px;
+  }
+
+  .sheet-title {
+    font-size: 15.5px;
+    font-weight: 800;
+    color: #1E448D;
+    margin-bottom: 4px;
+  }
+
+  .sheet-sub {
+    font-size: 11.5px;
+    color: #64748B;
+    margin-bottom: 16px;
+  }
+
+  .sop-options-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sop-opt-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid #E2E8F0;
+    background: #F8FAFC;
+  }
+
+  .sop-opt-item.active {
+    background: #FFF7ED;
+    border-color: #FF6500;
+  }
+
+  .sop-opt-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #E0E7FF;
+    color: #1E448D;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .sop-opt-info h4 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0F172A;
+  }
+
+  .sop-opt-info p {
+    font-size: 10.5px;
+    color: #64748B;
+  }
+
+  /* Annotation Callout Card */
+  .callout-box {
+    margin-top: 14px;
+    background: #111827;
+    border: 1px solid #1E293B;
+    border-radius: 12px;
+    padding: 12px 14px;
+    width: 360px;
+  }
+
+  .callout-title {
+    font-size: 12px;
+    font-weight: 800;
+    color: #FF6500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+
+  .callout-desc {
+    font-size: 11px;
+    color: #94A3B8;
+    line-height: 1.4;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="canvas">
+  <!-- Top Bar -->
+  <div class="header">
+    <div class="brand-badge-box">
+      <div class="pma-logo-box">PMA</div>
+      <div class="title-meta">
+        <h1>PMA App — UI Camera HUD Redesign (CP-04)</h1>
+        <p>Industrial Shutter Ring • Optical Crosshair Frame • Watermark Original Locked • Quick SOP Unit</p>
+      </div>
+    </div>
+    <div class="status-tag">CHECKPOINT 04: UI CAMERA AUDIT</div>
+  </div>
+
+  <!-- 3 Phones Display -->
+  <div class="grid">
+    
+    <!-- Phone 1: Camera HUD Standar Viewfinder -->
+    <div class="screen-col">
+      <div class="screen-label">
+        <span class="num">1</span>
+        <h3>HUD Viewfinder Bersih & Fokus</h3>
+      </div>
+      <div class="phone-frame">
+        <div class="camera-container">
+          <!-- Top Overlay HUD -->
+          <div class="hud-top-bar">
+            <div class="hud-left">
+              <div class="hud-icon-btn">☰</div>
+              <div class="hud-ratio-pill">
+                <span class="icon">⊞</span>
+                <span>3:4</span>
+                <span style="font-size:10px; color:#94A3B8;">▼</span>
+              </div>
+            </div>
+            <div class="hud-right">
+              <div class="hud-icon-btn">⚡</div>
+              <div class="hud-icon-btn">🔄</div>
+            </div>
+          </div>
+
+          <!-- Location Badge Floating -->
+          <div class="loc-status-pill">
+            <div class="loc-badge-body">
+              <div class="loc-badge-dot"></div>
+              <span class="loc-badge-text">Pos 1 Gate Keluar (TBM)</span>
+              <span class="loc-badge-tag">MTC</span>
+            </div>
+          </div>
+
+          <!-- Optical Viewfinder with Brackets & Crosshair -->
+          <div class="viewfinder-box">
+            <div class="optical-lens-layer">
+              <div class="corner-tl"></div>
+              <div class="corner-tr"></div>
+              <div class="corner-bl"></div>
+              <div class="corner-br"></div>
+              <div class="center-target"></div>
+            </div>
+
+            <!-- WATERMARK ORIGINAL 100% LOCKED -->
+            <div class="original-watermark-card">
+              <div class="wm-meta-left">
+                <div class="wm-meta-title">BSS PARKING TIMEMARK</div>
+                <div class="wm-meta-sub">Pos 1 Gate Keluar (TBM) • Manado</div>
+              </div>
+              <div class="wm-meta-right">
+                <div class="wm-time-str">12:35:12 WITA</div>
+                <div class="wm-date-str">04/10/2026 • GPS Verified</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Control Deck -->
+          <div class="hud-bottom-deck">
+            <div class="side-deck-action">
+              <div class="action-circle-icon">🖼️</div>
+              <span class="action-label-text">Galeri</span>
+            </div>
+
+            <!-- Shutter Industrial Ring -->
+            <div class="industrial-shutter-wrap">
+              <div class="industrial-shutter-core">📷</div>
+            </div>
+
+            <div class="side-deck-action">
+              <div class="action-circle-icon" style="border-color:#1E448D; background:rgba(30,68,141,0.25); color:#60A5FA;">📋</div>
+              <span class="action-label-text" style="color:#60A5FA;">SOP Unit</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout-box">
+        <div class="callout-title">🔍 Zero Viewfinder Distraction</div>
+        <div class="callout-desc">Bebas dari floating modal tugas harian. Shutter button mudah ditekan dengan respons sentuh tactile tinggi.</div>
+      </div>
+    </div>
+
+    <!-- Phone 2: Quick Aspect Ratio Modal -->
+    <div class="screen-col">
+      <div class="screen-label">
+        <span class="num">2</span>
+        <h3>Quick Ratio Switcher (1:1, 3:4, Full)</h3>
+      </div>
+      <div class="phone-frame">
+        <div class="camera-container">
+          <div class="hud-top-bar">
+            <div class="hud-left">
+              <div class="hud-icon-btn">☰</div>
+              <div class="hud-ratio-pill" style="border-color:#FF6500;">
+                <span class="icon">⊞</span>
+                <span style="color:#FF6500;">3:4</span>
+                <span style="font-size:10px; color:#FF6500;">▲</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="viewfinder-box" style="filter:blur(3px);">
+            <div class="optical-lens-layer">
+              <div class="center-target"></div>
+            </div>
+          </div>
+
+          <!-- Quick Ratio Bottom Sheet -->
+          <div class="sop-modal-overlay">
+            <div class="sop-sheet-card">
+              <div class="sheet-handle"></div>
+              <div class="sheet-title">Pilih Rasio Viewfinder</div>
+              <div class="sheet-sub">Sesuaikan ukuran bingkai dengan jenis dokumentasi</div>
+
+              <div class="sop-options-list">
+                <div class="sop-opt-item">
+                  <div class="sop-opt-icon">⬛</div>
+                  <div class="sop-opt-info">
+                    <h4>1:1 (Square)</h4>
+                    <p>Ideal untuk foto close-up komponen mesin/stiker</p>
+                  </div>
+                </div>
+                <div class="sop-opt-item active">
+                  <div class="sop-opt-icon" style="background:#FFEDD5; color:#FF6500;">📱</div>
+                  <div class="sop-opt-info">
+                    <h4 style="color:#C2410C;">3:4 (Standar Foto) — Default</h4>
+                    <p>Rekomendasi resmi BSS untuk laporan teknisi</p>
+                  </div>
+                </div>
+                <div class="sop-opt-item">
+                  <div class="sop-opt-icon">📐</div>
+                  <div class="sop-opt-info">
+                    <h4>Full Screen</h4>
+                    <p>Sudut pandang penuh seluruh lajur gate</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout-box">
+        <div class="callout-title">📐 Fleksibilitas Framing</div>
+        <div class="callout-desc">Teknisi dapat ganti rasio 1 tap tanpa perlu masuk ke menu pengaturan yang dalam.</div>
+      </div>
+    </div>
+
+    <!-- Phone 3: Quick SOP Unit Selector Modal -->
+    <div class="screen-col">
+      <div class="screen-label">
+        <span class="num">3</span>
+        <h3>SOP Unit Quick Selector (1 Tap)</h3>
+      </div>
+      <div class="phone-frame">
+        <div class="camera-container">
+          <div class="hud-top-bar">
+            <div class="hud-left"><div class="hud-icon-btn">☰</div></div>
+          </div>
+
+          <div class="viewfinder-box" style="filter:blur(3px);">
+            <div class="optical-lens-layer"></div>
+          </div>
+
+          <!-- SOP Selector Sheet -->
+          <div class="sop-modal-overlay">
+            <div class="sop-sheet-card">
+              <div class="sheet-handle"></div>
+              <div class="sheet-title">Pilih Alur SOP Maintenance</div>
+              <div class="sheet-sub">Pilih jenis pemeriksaan unit yang akan dikerjakan</div>
+
+              <div class="sop-options-list">
+                <div class="sop-opt-item active">
+                  <div class="sop-opt-icon" style="background:#FFEDD5; color:#FF6500;">🏪</div>
+                  <div class="sop-opt-info">
+                    <h4 style="color:#C2410C;">Maintenance: Pos Kasir</h4>
+                    <p>7 Poin SOP (Printer, Kabel, Standarisasi Pos, dll)</p>
+                  </div>
+                </div>
+                <div class="sop-opt-item">
+                  <div class="sop-opt-icon">🚧</div>
+                  <div class="sop-opt-info">
+                    <h4>Maintenance: Barrier Gate</h4>
+                    <p>9 Poin SOP (Palang 0°/90°, Loop, Spring, dll)</p>
+                  </div>
+                </div>
+                <div class="sop-opt-item">
+                  <div class="sop-opt-icon">🖲️</div>
+                  <div class="sop-opt-info">
+                    <h4>Maintenance: Manless Gate</h4>
+                    <p>8 Poin SOP (Printer Tiket, Sensor Loop, Kunci)</p>
+                  </div>
+                </div>
+                <div class="sop-opt-item">
+                  <div class="sop-opt-icon">💻</div>
+                  <div class="sop-opt-info">
+                    <h4>Maintenance: PC Server & Kasir</h4>
+                    <p>6 Poin SOP (Storage C:, Antivirus OFF, Ping RTO)</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout-box">
+        <div class="callout-title">⚡ Akses Cepat 4 Template SOP</div>
+        <div class="callout-desc">Termasuk template PC Server & Kasir yang baru kita tambahkan, bisa langsung dimulai dari tombol SOP Unit.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
+`;
+
+const htmlPath = path.join(OUT_DIR, 'PMA-App-Camera-HUD-Showcase.html');
+fs.writeFileSync(htmlPath, htmlContent);
+
+const outPngPath = path.join(OUT_DIR, 'PMA-App-Camera-HUD-Showcase.png');
+try {
+  execSync(`google-chrome-stable --headless --disable-gpu --screenshot="${outPngPath}" --window-size=1540,920 "${htmlPath}"`, { stdio: 'inherit' });
+  console.log('SUCCESS: Rendered to ' + outPngPath);
+} catch (e) {
+  try {
+    execSync(`chromium --headless --disable-gpu --screenshot="${outPngPath}" --window-size=1540,920 "${htmlPath}"`, { stdio: 'inherit' });
+    console.log('SUCCESS: Rendered to ' + outPngPath);
+  } catch (err) {
+    console.error('Failed to render screenshot', err);
+  }
+}
