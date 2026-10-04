@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
@@ -79,10 +80,30 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
     final jamSelesai = _currentFormattedTime();
     final catatan = _catatanCtrl.text.trim();
 
+    // Validasi Hard-Gate 1: Wajib foto dokumentasi
+    if (_localPhotoPaths.isEmpty) {
+      HapticFeedback.heavyImpact();
+      setState(() {
+        _isSaving = false;
+        _errorMessage = 'Wajib mengambil minimal 1 foto dokumentasi pekerjaan!';
+      });
+      return;
+    }
+
+    // Validasi Hard-Gate 2: Wajib catatan laporan teknisi
+    if (catatan.isEmpty) {
+      HapticFeedback.heavyImpact();
+      setState(() {
+        _isSaving = false;
+        _errorMessage = 'Wajib mengisi catatan laporan pengerjaan!';
+      });
+      return;
+    }
+
     final success = await DailyTaskService.completeTask(
       taskId: widget.task.id,
       jamSelesai: jamSelesai,
-      catatan: catatan.isNotEmpty ? catatan : null,
+      catatan: catatan,
       localPhotoPaths: _localPhotoPaths,
     );
 
@@ -100,14 +121,9 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
   }
 
   void _showPostSaveDialog(String jamSelesai, String catatan) {
-    final reportText = DailyTaskService.formatShortReport(
-      teknisiNama: widget.task.teknisiNama,
-      tanggal: widget.task.tanggal,
-      lokasi: widget.task.posName,
-      posTag: widget.task.posTag,
-      pekerjaan: widget.task.judul,
-      jamSelesai: jamSelesai,
-      catatan: catatan,
+    final reportText = DailyTaskService.formatPerTaskReport(
+      judul: widget.task.judul,
+      notes: catatan,
     );
 
     final isDark = ThemeService.isDarkMode(context);
@@ -127,7 +143,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
               const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 22),
               const SizedBox(width: 8),
               Text(
-                'Laporan Tersimpan',
+                'Tugas Selesai',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -141,7 +157,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Tugas telah ditandai selesai dan tersimpan di database.',
+                'Tugas telah ditandai selesai dan dokumentasi tersimpan di database.',
                 style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
               ),
               const SizedBox(height: 12),
@@ -156,7 +172,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                   reportText,
                   style: TextStyle(
                     fontFamily: 'monospace',
-                    fontSize: 11,
+                    fontSize: 11.5,
                     color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
                     height: 1.4,
                   ),
@@ -170,19 +186,27 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                 Navigator.of(ctx).pop(); // Tutup dialog
                 Navigator.of(context).pop(true); // Kembali ke list tugas & trigger reload
               },
-              child: Text('Tutup', style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
+              child: Text(
+                'Selesai (Nanti Saja)',
+                style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+              ),
             ),
             ElevatedButton.icon(
               onPressed: () async {
+                HapticFeedback.lightImpact();
+                final rootNav = Navigator.of(context);
+                final dlgNav = Navigator.of(ctx);
                 await ShareHelper.shareToWhatsApp(
                   text: reportText,
                   imagePaths: _localPhotoPaths.isNotEmpty ? _localPhotoPaths : null,
                 );
+                dlgNav.pop();
+                rootNav.pop(true);
               },
-              icon: const Icon(Icons.share_rounded, size: 16),
-              label: const Text('Kirim ke WA / TG'),
+              icon: const Icon(Icons.send_rounded, size: 16),
+              label: const Text('Kirim Laporan'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.success,
+                backgroundColor: const Color(0xFF25D366), // WhatsApp Green
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
@@ -413,17 +437,18 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
             const SizedBox(height: 10),
 
             // Tombol Utama Selesaikan Tugas (min height 48px)
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: _isSaving ? null : _submitTask,
+              icon: _isSaving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.check_circle_outline_rounded, size: 20),
+              label: const Text('Selesaikan Tugas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accent,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 48),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: _isSaving
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Selesaikan Tugas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             ),
           ],
         ),
