@@ -2,6 +2,27 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.63+71] — 2026-10-05
+
+### 🎯 Highlight Utama
+Perbaikan kontras status manless pada Dark Mode agar terbaca jelas (high-contrast amber badge & white text) serta pemulihan Google AI Studio API Key (`gemini-3.1-flash-lite`) untuk verifikasi checklist SOP visual otomatis di lapangan.
+
+---
+
+### 🚀 Fitur & Perbaikan Detail
+1. **Dark Mode Status & Checklist Point Contrast (`MaintenanceChecklistScreen` & `TemplateListScreen`)**:
+   - Status badge kuning (amber) menggunakan kontras tinggi `#FDE68A` dengan container transparan gelap `#78350F` (alpha 0.35) dan border `#D97706`.
+   - Catatan temuan teknisi (`alasan`) kini berwarna putih terang `#F1F5F9` di dark mode (tidak lagi hitam pekat).
+   - Seluruh background modal sheet, checklist checkpoint panduan, filter chip unit/status, dan kartu template SOP tersinkronisasi penuh dengan dark surface.
+2. **Restorasi Google AI Studio Key (`AiVisionConfig`)**:
+   - Menghubungkan kembali token resmi Google AI Studio Free Tier yang teruji aktif dengan model `gemini-3.1-flash-lite` via endpoint Google Cloud AI.
+   - Mengatasi kendala gagal koneksi server AI pada perangkat Android di lapangan.
+3. **Kualitas & Verifikasi**:
+   - 189/189 unit & widget tests lulus (100% green).
+   - `flutter analyze`: 0 issues (clean).
+
+---
+
 ## [2.0.62+70] — 2026-10-05
 
 ### 🎯 Highlight Utama
