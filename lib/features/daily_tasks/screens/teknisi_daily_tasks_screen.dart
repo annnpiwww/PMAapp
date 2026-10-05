@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../data/models/daily_task_model.dart';
+import '../../../data/models/maintenance_submission.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/repositories/template_repository.dart';
 import '../../../data/services/daily_task_service.dart';
+import '../../../data/services/storage_service.dart';
+import '../../../data/services/location_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../../maintenance/widgets/maintenance_setup_dialog.dart';
+import '../../maintenance/screens/maintenance_checklist_screen.dart';
 import 'custom_task_execution_screen.dart';
 
 class TeknisiDailyTasksScreen extends StatefulWidget {
@@ -57,18 +61,101 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
   }
 
   void _startTask(DailyTaskModel task) async {
-    if (task.templateId != null && task.templateId!.isNotEmpty) {
+    final isKhusus = task.kategori == 'khusus' ||
+        (task.templateId == null || task.templateId!.isEmpty);
+
+    if (!isKhusus) {
       // Tugas Maintenance SOP (Checklist Point Pos)
       final templates = TemplateRepository.instance.templates;
       final foundTpl = templates.firstWhere(
         (t) => t.id == task.templateId,
-        orElse: () => templates.first,
+        orElse: () => TemplateRepository.defaultTemplates.firstWhere(
+          (t) => t.id == task.templateId,
+          orElse: () => templates.first,
+        ),
       );
 
+      // 1. CARI APAKAH ADA PROGRESS DRAFT BERJALAN UNTUK TUGAS INI
+      final MaintenanceSubmission? ongoing = DailyTaskService.getOngoingMaintenance(task);
+
+      if (ongoing != null) {
+        // Hubungkan taskId jika belum tercatat di submission
+        if (ongoing.taskId != task.id) {
+          final updated = ongoing.copyWith(taskId: task.id);
+          final list = StorageService.getMaintenanceSubmissions() ?? [];
+          final idx = list.indexWhere((e) => e.id == ongoing.id);
+          if (idx >= 0) {
+            list[idx] = updated;
+            await StorageService.saveMaintenanceSubmissions(list);
+          }
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Melanjutkan progress: ${ongoing.doneCount}/${ongoing.totalPoints} foto selesai',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: AppColors.accent,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+
+        if (!mounted) return;
+
+        // Langsung lanjutkan pengerjaan tanpa reset progress!
+        final refreshed = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => MaintenanceChecklistScreen(
+              template: foundTpl,
+              existingSubmission: ongoing,
+              dailyTaskId: task.id,
+            ),
+          ),
+        );
+
+        if (refreshed == true || mounted) {
+          _loadTasks();
+        }
+        return;
+      }
+
+      // 2. JIKA BELUM ADA PROGRESS: BUKA SETUP DIALOG
       if (foundTpl.isPerPoint) {
+        // Cari rekomendasi lokasi dari posTag / posName jika ada
+        PosLocation? matchedLoc;
+        final allLocs = LocationService.availablePosList;
+        for (final loc in allLocs) {
+          final tPos = task.posTag.trim().toLowerCase();
+          final tName = task.posName.trim().toLowerCase();
+          if (tPos.isNotEmpty && (loc.posId.toLowerCase() == tPos || loc.posName.toLowerCase().contains(tPos))) {
+            matchedLoc = loc;
+            break;
+          }
+          if (tName.isNotEmpty && (loc.posName.toLowerCase().contains(tName) || loc.cabangName.toLowerCase().contains(tName))) {
+            matchedLoc = loc;
+            break;
+          }
+        }
+
         await showDialog(
           context: context,
-          builder: (_) => MaintenanceSetupDialog(initialTemplate: foundTpl),
+          builder: (_) => MaintenanceSetupDialog(
+            initialTemplate: foundTpl,
+            dailyTaskId: task.id,
+            initialLocation: matchedLoc,
+          ),
         );
         _loadTasks();
       } else {
@@ -272,6 +359,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                         ..._tasks.map((task) {
                           final isDone = task.isCompleted;
                           final isKhusus = task.kategori == 'khusus' || task.templateId == null || task.templateId!.isEmpty;
+                          final ongoingMaint = !isDone ? DailyTaskService.getOngoingMaintenance(task) : null;
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -317,18 +405,30 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                       decoration: BoxDecoration(
                                         color: isDone
                                             ? AppColors.success.withValues(alpha: 0.15)
-                                            : const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                                            : (ongoingMaint != null
+                                                ? AppColors.accent.withValues(alpha: 0.15)
+                                                : const Color(0xFFF59E0B).withValues(alpha: 0.15)),
                                         borderRadius: BorderRadius.circular(4),
                                         border: Border.all(
-                                          color: isDone ? AppColors.success : const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                                          color: isDone
+                                              ? AppColors.success
+                                              : (ongoingMaint != null
+                                                  ? AppColors.accent
+                                                  : const Color(0xFFF59E0B).withValues(alpha: 0.35)),
                                         ),
                                       ),
                                       child: Text(
-                                        isDone ? 'Selesai' : 'Baru',
+                                        isDone
+                                            ? 'Selesai'
+                                            : (ongoingMaint != null
+                                                ? 'Proses (${ongoingMaint.doneCount}/${ongoingMaint.totalPoints})'
+                                                : 'Baru'),
                                         style: TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.w700,
-                                          color: isDone ? AppColors.success : const Color(0xFFFBBF24),
+                                          color: isDone
+                                              ? AppColors.success
+                                              : (ongoingMaint != null ? AppColors.accent : const Color(0xFFFBBF24)),
                                         ),
                                       ),
                                     ),
@@ -363,6 +463,42 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                   ),
                                 ],
 
+                                if (ongoingMaint != null) ...[
+                                  const SizedBox(height: 10),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Progress Maintenance',
+                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textSub),
+                                          ),
+                                          Text(
+                                            '${ongoingMaint.doneCount}/${ongoingMaint.totalPoints} Foto (${(ongoingMaint.progress * 100).toInt()}%)',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.accent,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 5),
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: LinearProgressIndicator(
+                                          value: ongoingMaint.progress,
+                                          backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
+                                          minHeight: 6,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+
                                 const SizedBox(height: 12),
 
                                 // Action Row: Tombol Kerjakan di Kanan Bawah
@@ -370,19 +506,23 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
                                     if (!isDone)
-                                      ElevatedButton(
+                                      ElevatedButton.icon(
                                         onPressed: () => _startTask(task),
+                                        icon: Icon(
+                                          ongoingMaint != null ? Icons.play_arrow_rounded : Icons.camera_alt_outlined,
+                                          size: 16,
+                                        ),
+                                        label: Text(
+                                          ongoingMaint != null ? 'Lanjutkan' : 'Kerjakan',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                        ),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppColors.accent,
+                                          backgroundColor: ongoingMaint != null ? AppColors.primary : AppColors.accent,
                                           foregroundColor: Colors.white,
-                                          minimumSize: const Size(100, 44),
-                                          padding: const EdgeInsets.symmetric(horizontal: 18),
+                                          minimumSize: const Size(110, 44),
+                                          padding: const EdgeInsets.symmetric(horizontal: 16),
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                           elevation: 0,
-                                        ),
-                                        child: const Text(
-                                          'Kerjakan',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                                         ),
                                       )
                                     else

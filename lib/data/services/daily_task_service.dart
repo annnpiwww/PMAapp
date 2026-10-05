@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/daily_task_model.dart';
+import '../models/maintenance_submission.dart';
 import '../services/storage_service.dart';
 import '../services/location_service.dart';
 
@@ -120,6 +121,92 @@ class DailyTaskService {
       debugPrint('[DailyTaskService] getAllTasksToday error: $e');
     }
     return [];
+  }
+
+  /// Cari submission maintenance yang sedang berjalan (draft / in-progress) untuk sebuah DailyTask
+  static MaintenanceSubmission? getOngoingMaintenance(
+    DailyTaskModel task, {
+    List<MaintenanceSubmission>? submissions,
+    String? currentUserId,
+    String? currentUserName,
+  }) {
+    if (task.isCompleted) return null;
+
+    final all = submissions ?? StorageService.getMaintenanceSubmissions() ?? [];
+    final drafts = all.where((s) => !s.isComplete).toList();
+    if (drafts.isEmpty) return null;
+
+    // Kriteria 1: Direct match taskId
+    for (final s in drafts) {
+      if (s.taskId != null && s.taskId == task.id) {
+        return s;
+      }
+    }
+
+    // Hanya cari match jika task memiliki templateId atau merupakan kategori maintenance
+    final effectiveTplId = task.templateId;
+    if (effectiveTplId == null || effectiveTplId.isEmpty) {
+      if (task.kategori.toLowerCase() != 'maintenance') {
+        return null;
+      }
+    }
+
+    // Filter draft berdasarkan templateId jika task memilikinya
+    final matchingTplDrafts = effectiveTplId != null && effectiveTplId.isNotEmpty
+        ? drafts.where((s) => s.templateId == effectiveTplId).toList()
+        : drafts;
+
+    if (matchingTplDrafts.isEmpty) return null;
+
+    // Kriteria 2: Cocok berdasarkan Lokasi (posId, posName, cabangName, atau posTag)
+    final taskPos = task.posTag.trim().toLowerCase();
+    final taskName = task.posName.trim().toLowerCase();
+    final taskJudul = task.judul.trim().toLowerCase();
+
+    for (final s in matchingTplDrafts) {
+      final sPos = s.posName.trim().toLowerCase();
+      final sId = s.posId.trim().toLowerCase();
+      final sCabang = s.cabangName.trim().toLowerCase();
+
+      bool match = false;
+      if (taskPos.isNotEmpty && (sId == taskPos || sPos.contains(taskPos) || taskPos.contains(sPos))) {
+        match = true;
+      }
+      if (taskName.isNotEmpty && (sPos.contains(taskName) || taskName.contains(sPos) || sCabang.contains(taskName))) {
+        match = true;
+      }
+      if (taskJudul.isNotEmpty && (taskJudul.contains(sPos) || (sId.isNotEmpty && taskJudul.contains(sId)))) {
+        match = true;
+      }
+
+      if (match) {
+        return s;
+      }
+    }
+
+    // Kriteria 3: Jika teknisi yang sama memiliki draft untuk template ini
+    final uId = currentUserId ?? StorageService.getString('user_id');
+    final uName = (currentUserName ?? StorageService.getLastTechnicianName()).trim().toLowerCase();
+
+    final userDrafts = matchingTplDrafts.where((s) {
+      if (uId != null && uId.isNotEmpty && s.userId == uId) return true;
+      if (uName.isNotEmpty && s.userName.trim().toLowerCase() == uName) return true;
+      return false;
+    }).toList();
+
+    if (userDrafts.length == 1) {
+      return userDrafts.first;
+    } else if (userDrafts.length > 1) {
+      userDrafts.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      return userDrafts.first;
+    }
+
+    // Kriteria 4: Jika hanya ada 1 draft aktif untuk template tersebut
+    if (matchingTplDrafts.length == 1) {
+      return matchingTplDrafts.first;
+    }
+
+    return null;
   }
 
   /// SPV: Buat tugas baru untuk teknisi

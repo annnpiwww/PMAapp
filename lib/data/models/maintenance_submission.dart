@@ -150,6 +150,7 @@ class MaintenanceSubmission {
   final List<MaintenancePointResult> points;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? taskId;
 
   MaintenanceSubmission({
     required this.id,
@@ -164,6 +165,7 @@ class MaintenanceSubmission {
     required this.points,
     required this.createdAt,
     required this.updatedAt,
+    this.taskId,
   });
   DateTime get timestamp => createdAt;
 
@@ -180,6 +182,38 @@ class MaintenanceSubmission {
     return VerificationStatus.perluCekManual;
   }
 
+  MaintenanceSubmission copyWith({
+    String? id,
+    String? templateId,
+    String? templateName,
+    String? userId,
+    String? userName,
+    String? userNpp,
+    String? posId,
+    String? posName,
+    String? cabangName,
+    List<MaintenancePointResult>? points,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? taskId,
+  }) {
+    return MaintenanceSubmission(
+      id: id ?? this.id,
+      templateId: templateId ?? this.templateId,
+      templateName: templateName ?? this.templateName,
+      userId: userId ?? this.userId,
+      userName: userName ?? this.userName,
+      userNpp: userNpp ?? this.userNpp,
+      posId: posId ?? this.posId,
+      posName: posName ?? this.posName,
+      cabangName: cabangName ?? this.cabangName,
+      points: points ?? this.points,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      taskId: taskId ?? this.taskId,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'templateId': templateId,
@@ -193,6 +227,7 @@ class MaintenanceSubmission {
         'points': points.map((e) => e.toJson()).toList(),
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
+        if (taskId != null) 'taskId': taskId,
       };
 
   factory MaintenanceSubmission.fromJson(Map<String, dynamic> j) => MaintenanceSubmission(
@@ -208,5 +243,6 @@ class MaintenanceSubmission {
         points: (j['points'] as List<dynamic>?)?.map((e) => MaintenancePointResult.fromJson(e as Map<String, dynamic>)).toList() ?? [],
         createdAt: DateTime.parse(j['createdAt'] as String),
         updatedAt: DateTime.parse(j['updatedAt'] as String),
+        taskId: j['taskId'] as String?,
       );
 }

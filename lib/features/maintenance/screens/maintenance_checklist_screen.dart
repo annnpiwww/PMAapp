@@ -11,6 +11,7 @@ import '../../../data/services/location_service.dart';
 import '../../../data/services/google_sheets_service.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/services/whatsapp_report_service.dart';
+import '../../../data/services/daily_task_service.dart';
 import '../widgets/photo_preview_dialog.dart';
 import 'point_camera_view.dart';
 import 'maintenance_history_screen.dart';
@@ -26,6 +27,7 @@ class MaintenanceChecklistScreen extends StatefulWidget {
   final bool isOnlyKasir;
   final int? kasirCount;
   final String? serverOs;
+  final String? dailyTaskId;
 
   const MaintenanceChecklistScreen({
     super.key,
@@ -39,6 +41,7 @@ class MaintenanceChecklistScreen extends StatefulWidget {
     this.isOnlyKasir = false,
     this.kasirCount,
     this.serverOs,
+    this.dailyTaskId,
   });
 
   @override
@@ -53,6 +56,29 @@ class _MaintenanceChecklistScreenState
   late final List<int> _effectiveUnits;
   String _selectedUnitFilter = 'ALL'; // 'ALL', 'UNIT_1', 'UNIT_2', dst.
   String _selectedStatusFilter = 'ALL'; // 'ALL', 'BELUM', 'SESUAI', 'CEK'
+
+  PosLocation get _effectiveLocation {
+    if (widget.location != null) return widget.location!;
+    if (widget.existingSubmission != null) {
+      for (final p in LocationService.availablePosList) {
+        if (p.posId == widget.existingSubmission!.posId ||
+            p.posName == widget.existingSubmission!.posName) {
+          return p;
+        }
+      }
+      return PosLocation(
+        posId: widget.existingSubmission!.posId,
+        posName: widget.existingSubmission!.posName,
+        cabangName: widget.existingSubmission!.cabangName,
+        fullAddress: widget.existingSubmission!.cabangName,
+        locationTag: widget.existingSubmission!.posName,
+        tagColor: const Color(0xFF0284C7),
+        lat: LocationService.currentPos.lat,
+        lng: LocationService.currentPos.lng,
+      );
+    }
+    return LocationService.currentPos;
+  }
 
   bool get _isEffectiveOnlyKasir {
     if (widget.isOnlyKasir) return true;
@@ -96,23 +122,35 @@ class _MaintenanceChecklistScreenState
   }
 
   void _initSubmission() {
-    // Jika dibuka dari riwayat dengan submission spesifik, langsung pakai itu (tanpa cari ulang)
+    // Jika dibuka langsung dengan submission spesifik (dari Riwayat atau Daily Task), langsung pakai itu!
     if (widget.existingSubmission != null) {
-      _submission = widget.existingSubmission!;
+      if (widget.dailyTaskId != null && widget.existingSubmission!.taskId == null) {
+        _submission = widget.existingSubmission!.copyWith(taskId: widget.dailyTaskId);
+      } else {
+        _submission = widget.existingSubmission!;
+      }
       return;
     }
 
     final user = AuthRepository.instance.currentUser;
-    final pos = widget.location ?? LocationService.currentPos;
+    final pos = _effectiveLocation;
     final repoList = StorageService.getMaintenanceSubmissions() ?? [];
 
-    final existing = repoList.where((s) =>
-        s.templateId == widget.template.id &&
-        s.userId == (user?.id ?? 'anon') &&
-        !s.isComplete).toList();
+    // Cari draft berjalan yang belum selesai
+    final existing = repoList.where((s) {
+      if (s.isComplete) return false;
+      if (widget.dailyTaskId != null && s.taskId == widget.dailyTaskId) return true;
+      if (s.templateId != widget.template.id) return false;
+      final sameUser = s.userId == (user?.id ?? 'anon') || s.userName == (user?.nama ?? '');
+      final samePos = s.posId == pos.posId || s.posName == LocationService.displayName(pos);
+      return sameUser && samePos;
+    }).toList();
 
     if (existing.isNotEmpty && widget.unitCount == null) {
       _submission = existing.first;
+      if (widget.dailyTaskId != null && _submission.taskId == null) {
+        _submission = _submission.copyWith(taskId: widget.dailyTaskId);
+      }
     } else {
       final points = _cachedSopPoints;
       final effectiveName = widget.supportName ??
@@ -136,6 +174,7 @@ class _MaintenanceChecklistScreenState
             .toList(),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
+        taskId: widget.dailyTaskId,
       );
     }
   }
@@ -476,7 +515,7 @@ class _MaintenanceChecklistScreenState
             PointCameraView(
               point: point,
               template: widget.template,
-              location: widget.location,
+              location: _effectiveLocation,
             ),
       ),
     );
@@ -1609,12 +1648,32 @@ class _MaintenanceChecklistScreenState
                               category: widget.template.jenis,
                               unitCount: _effectiveUnits.length,
                             ));
+
+                            // Selesaikan Daily Task jika dihubungkan dengan Daily Task
+                            final effectiveTaskId = widget.dailyTaskId ?? _submission.taskId;
+                            if (effectiveTaskId != null && effectiveTaskId.isNotEmpty) {
+                              final photoUrls = _submission.points
+                                  .where((p) => p.imagePath != null && p.imagePath!.isNotEmpty)
+                                  .map((p) => p.imagePath!)
+                                  .toList();
+                              final now = DateTime.now();
+                              final timeStr =
+                                  '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+                              unawaited(DailyTaskService.completeTask(
+                                taskId: effectiveTaskId,
+                                jamSelesai: timeStr,
+                                catatan:
+                                    'SOP Maintenance ${_submission.templateName} selesai (${_submission.sesuaiCount}/${_submission.totalPoints} poin sesuai)',
+                                localPhotoPaths: photoUrls,
+                              ));
+                            }
+
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                                   content: Text(
                                       '✓ Laporan ${_submission.templateName} tersimpan & disinkronkan ke Google Sheet SPV!'),
                                   backgroundColor: AppColors.success));
-                              Navigator.pop(context);
+                              Navigator.pop(context, true);
                             }
                           }
                         : null,

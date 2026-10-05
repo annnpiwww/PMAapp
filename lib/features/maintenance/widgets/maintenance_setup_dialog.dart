@@ -9,8 +9,15 @@ import '../screens/maintenance_checklist_screen.dart';
 
 class MaintenanceSetupDialog extends StatefulWidget {
   final TemplateModel initialTemplate;
+  final String? dailyTaskId;
+  final PosLocation? initialLocation;
 
-  const MaintenanceSetupDialog({super.key, required this.initialTemplate});
+  const MaintenanceSetupDialog({
+    super.key,
+    required this.initialTemplate,
+    this.dailyTaskId,
+    this.initialLocation,
+  });
 
   @override
   State<MaintenanceSetupDialog> createState() => _MaintenanceSetupDialogState();
@@ -30,7 +37,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedLocation = LocationService.currentPos;
+    _selectedLocation = widget.initialLocation ?? LocationService.currentPos;
 
     // Pre-fill nama teknisi dari histori terakhir atau akun yang sedang aktif
     final lastTech = StorageService.getLastTechnicianName().trim();
@@ -202,6 +209,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
           kasirCount: _kasirCount,
           serverOs: _isOnlyKasir ? 'windows' : _serverOs,
           supportName: supportName.isNotEmpty ? supportName : 'Teknisi BSS',
+          dailyTaskId: widget.dailyTaskId,
         ),
       ),
     );

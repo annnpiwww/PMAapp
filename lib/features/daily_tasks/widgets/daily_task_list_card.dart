@@ -219,22 +219,34 @@ class _DailyTaskListCardState extends State<DailyTaskListCard> {
                       const SizedBox(width: 8),
                       // Button Kerjakan
                       if (!isDone)
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            if (widget.onStartTask != null) {
-                              widget.onStartTask!(task);
-                            }
-                          },
-                          icon: const Icon(Icons.camera_alt_outlined, size: 12),
-                          label: const Text('Kerjakan', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.accent,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            minimumSize: Size.zero,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        )
+                        Builder(builder: (_) {
+                          final ongoing = DailyTaskService.getOngoingMaintenance(task);
+                          final hasOngoing = ongoing != null;
+                          return ElevatedButton.icon(
+                            onPressed: () {
+                              if (widget.onStartTask != null) {
+                                widget.onStartTask!(task);
+                              }
+                            },
+                            icon: Icon(
+                              hasOngoing ? Icons.play_arrow_rounded : Icons.camera_alt_outlined,
+                              size: 13,
+                            ),
+                            label: Text(
+                              hasOngoing
+                                  ? 'Lanjutkan (${ongoing.doneCount}/${ongoing.totalPoints})'
+                                  : 'Kerjakan',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: hasOngoing ? AppColors.primary : AppColors.accent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              minimumSize: Size.zero,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          );
+                        })
                       else
                         const Text(
                           'Selesai ✅',

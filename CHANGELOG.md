@@ -2,6 +2,27 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.64+72] — 2026-10-05
+
+### 🎯 Highlight Utama
+Perbaikan bug hilangnya/resetnya progress pengerjaan maintenance saat teknisi keluar dan kembali melanjutkan pengerjaan via tombol **"Kerjakan"** di Daily Tasks. Kini aplikasi otomatis mendeteksi progress berjalan dan langsung melanjutkan (*seamless auto-resume*) ke checklist tanpa mereset foto yang sudah terverifikasi sebelumnya.
+
+---
+
+### 🚀 Fitur & Perbaikan Detail
+1. **Intelligent Auto-Resume Pengerjaan Maintenance (`DailyTaskService` & `TeknisiDailyTasksScreen`)**:
+   - Menambahkan deteksi cerdas `DailyTaskService.getOngoingMaintenance(task)` yang memetakan tugas aktif teknisi ke draft pengerjaan yang belum selesai.
+   - Tombol **"Kerjakan"** di kartu tugas otomatis beralih menjadi **"Lanjutkan"** jika ada foto yang sudah diverifikasi, lengkap dengan indikator progress bar dan badge *"Proses (X/Y)"*.
+   - Saat ditekan, sistem langsung mengarahkan teknisi ke `MaintenanceChecklistScreen` dengan seluruh foto terverifikasi tetap utuh tanpa membuka setup dialog ulang.
+2. **Keterhubungan Data Task & Submission (`MaintenanceSubmission`)**:
+   - Penambahan field `taskId` dan metode `copyWith` pada `MaintenanceSubmission` untuk menyimpan asosiasi ID tugas PocketBase.
+   - Saat checklist selesai 100%, sistem otomatis memanggil `DailyTaskService.completeTask(...)` di background untuk menandai status tugas selesai lengkap dengan foto bukti dan jam selesai.
+3. **Kualitas & Verifikasi**:
+   - 194/194 unit & widget tests lulus (100% green).
+   - `flutter analyze`: 0 issues (clean).
+
+---
+
 ## [2.0.63+71] — 2026-10-05
 
 ### 🎯 Highlight Utama
