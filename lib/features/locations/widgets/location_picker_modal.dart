@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/theme_service.dart';
 import '../../../data/services/location_service.dart';
 import '../screens/location_management_screen.dart';
 
@@ -195,11 +196,21 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
           pos.fullAddress.toLowerCase().contains(q);
     }).toList();
 
+    final isDark = ThemeService.isDarkMode(context);
+    final sheetBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final textPrimary = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final textMuted = isDark ? const Color(0xFF64748B) : AppColors.textMuted;
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+    final searchFill = isDark ? const Color(0xFF1E293B) : Colors.grey.shade100;
+    final searchBorder = isDark ? const Color(0xFF334155) : Colors.grey.shade300;
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: SafeArea(
@@ -211,7 +222,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -222,22 +233,22 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.near_me_rounded, color: AppColors.primary, size: 22),
-                    SizedBox(width: 8),
+                    const Icon(Icons.near_me_rounded, color: AppColors.primary, size: 22),
+                    const SizedBox(width: 8),
                     Text(
                       'Pilih Lokasi & Deteksi GPS Terdekat',
                       style: TextStyle(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
+                        color: textPrimary,
                       ),
                     ),
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.refresh_rounded, size: 20),
+                  icon: Icon(Icons.refresh_rounded, size: 20, color: textPrimary),
                   onPressed: _fetchGpsAndRank,
                   tooltip: 'Refresh GPS',
                 ),
@@ -249,9 +260,9 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.primaryLight.withValues(alpha: 0.08),
+                color: isDark ? const Color(0xFF1E293B) : AppColors.primaryLight.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.primary.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
@@ -265,11 +276,11 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                           _isLoadingGps
                               ? 'Mencari sinyal GPS perangkat...'
                               : 'GPS: ${_currentGps!.lat.toStringAsFixed(6)}°N, ${_currentGps!.lng.toStringAsFixed(6)}°E',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.bold,
                             fontFamily: 'monospace',
-                            color: AppColors.primary,
+                            color: isDark ? const Color(0xFF38BDF8) : AppColors.primary,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -277,9 +288,9 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                           _isLoadingGps
                               ? 'Mengukur jarak ke lokasi terdekat...'
                               : _currentGps!.fullAddress,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: AppColors.textSecondary,
+                            color: textSecondary,
                           ),
                           maxLines: 2,
                           softWrap: true,
@@ -304,26 +315,28 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
 
             // Search Bar for 100+ locations
             TextField(
+              style: TextStyle(color: textPrimary, fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Cari nama lokasi, tag, cabang...',
-                prefixIcon: const Icon(Icons.search, size: 18),
+                hintStyle: TextStyle(color: textMuted, fontSize: 12.5),
+                prefixIcon: Icon(Icons.search, size: 18, color: textMuted),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 16),
+                        icon: Icon(Icons.clear, size: 16, color: textMuted),
                         onPressed: () => setState(() => _searchQuery = ''),
                       )
                     : null,
                 isDense: true,
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor: searchFill,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+                  borderSide: BorderSide(color: searchBorder),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+                  borderSide: BorderSide(color: searchBorder),
                 ),
               ),
               onChanged: (val) => setState(() => _searchQuery = val),
@@ -334,12 +347,12 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Daftar Lokasi (Urut Jarak Terdekat):',
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textMuted,
+                    color: textMuted,
                   ),
                 ),
                 TextButton(
@@ -374,9 +387,9 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                             _searchQuery.isNotEmpty
                                 ? 'Tidak ada lokasi cocok dengan "$_searchQuery"'
                                 : 'Belum ada daftar lokasi',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
-                              color: AppColors.textSecondary,
+                              color: textSecondary,
                             ),
                           ),
                         )
@@ -389,11 +402,12 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                             final isCurrent = pos.posId == activePos.posId;
 
                             return Card(
+                              color: cardBg,
                               margin: const EdgeInsets.only(bottom: 8),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 side: BorderSide(
-                                  color: isCurrent ? AppColors.primary : AppColors.cardBorder,
+                                  color: isCurrent ? AppColors.primary : cardBorder,
                                   width: isCurrent ? 2 : 1,
                                 ),
                               ),
@@ -420,14 +434,14 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600,
-                                    color: isCurrent ? AppColors.primary : AppColors.textPrimary,
+                                    color: isCurrent ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary) : textPrimary,
                                   ),
                                   softWrap: true,
                                   maxLines: 2,
                                 ),
                                 subtitle: Text(
                                   pos.fullAddress,
-                                  style: const TextStyle(fontSize: 10.5),
+                                  style: TextStyle(fontSize: 10.5, color: textSecondary),
                                   softWrap: true,
                                   maxLines: 2,
                                 ),
@@ -437,15 +451,15 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.shade100,
+                                        color: isDark ? const Color(0xFF334155) : Colors.grey.shade100,
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         distText,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 10.5,
                                           fontWeight: FontWeight.bold,
-                                          color: AppColors.primary,
+                                          color: isDark ? const Color(0xFF38BDF8) : AppColors.primary,
                                         ),
                                       ),
                                     ),

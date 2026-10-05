@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/theme_service.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/utils/timemark_formatter.dart';
 import '../../../data/repositories/submission_repository.dart';
@@ -151,14 +152,18 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
 
   Widget _buildBottomActionBar() {
+    final isDark = ThemeService.isDarkMode(context);
+    final barBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final barBorder = isDark ? const Color(0xFF334155) : Colors.grey.shade200;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        color: barBg,
+        border: Border(top: BorderSide(color: barBorder)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
             blurRadius: 10,
             offset: const Offset(0, -3),
           ),
@@ -192,8 +197,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   shadowColor: AppColors.accent.withValues(alpha: 0.35),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  disabledBackgroundColor: Colors.grey.shade300,
-                  disabledForegroundColor: Colors.grey.shade600,
+                  disabledBackgroundColor: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                  disabledForegroundColor: isDark ? const Color(0xFF64748B) : Colors.grey.shade600,
                 ),
               ),
             ),
@@ -205,17 +210,26 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final albums = _buildAlbums();
-    final allPhotos = albums.expand((a) => a.photos).toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeService.themeModeNotifier,
+      builder: (context, currentMode, _) {
+        final isDark = ThemeService.isDarkMode(context);
+        final scaffoldBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFFAF8F5);
 
-    // Jika sedang di dalam folder tertentu
-    if (_selectedAlbum != null) {
-      return _buildAlbumDetailView(_selectedAlbum!);
-    }
+        final albums = _buildAlbums();
+        final allPhotos = albums.expand((a) => a.photos).toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    return Scaffold(
-      appBar: AppBar(
+        // Jika sedang di dalam folder tertentu
+        if (_selectedAlbum != null) {
+          return _buildAlbumDetailView(_selectedAlbum!);
+        }
+
+        return Scaffold(
+          backgroundColor: scaffoldBg,
+          appBar: AppBar(
+            backgroundColor: isDark ? const Color(0xFF1E293B) : AppColors.primary,
+            foregroundColor: Colors.white,
         title: _isMultiSelect
             ? Text(
                 '${_selectedImagePaths.length} Terpilih',
@@ -315,27 +329,27 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(18),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF1F5F9),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.photo_library_outlined, size: 42, color: AppColors.textMuted),
+                    child: Icon(Icons.photo_library_outlined, size: 42, color: isDark ? const Color(0xFF64748B) : AppColors.textMuted),
                   ),
                   const SizedBox(height: 14),
-                  const Text(
+                  Text(
                     'Belum Ada Foto Tersimpan',
                     style: TextStyle(
                       fontFamily: 'PlusJakartaSans',
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      color: isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Foto absensi dan maintenance ber-watermark akan muncul di sini.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
                   ),
                 ],
               ),
@@ -343,11 +357,19 @@ class _GalleryScreenState extends State<GalleryScreen> {
           : (_showAllFlat
               ? _buildPhotoGrid(allPhotos)
               : _buildAlbumFolderGrid(albums)),
+        );
+      },
     );
   }
 
   /// Tampilan Daftar Folder / Album Sesi
   Widget _buildAlbumFolderGrid(List<_GalleryAlbum> albums) {
+    final isDark = ThemeService.isDarkMode(context);
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+    final textPrimary = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       itemCount: albums.length,
@@ -358,12 +380,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardBg,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.cardBorder),
+            border: Border.all(color: cardBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -389,7 +411,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           height: 68,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
-                            color: Colors.grey.shade200,
+                            color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
@@ -436,7 +458,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                               Container(
                                 padding: const EdgeInsets.all(3.5),
                                 decoration: BoxDecoration(
-                                  color: album.badgeColor.withValues(alpha: 0.12),
+                                  color: album.badgeColor.withValues(alpha: isDark ? 0.25 : 0.12),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(album.icon, size: 13, color: album.badgeColor),
@@ -445,11 +467,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
                               Expanded(
                                 child: Text(
                                   album.title,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'PlusJakartaSans',
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary,
+                                    color: textPrimary,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -460,9 +482,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           const SizedBox(height: 4),
                           Text(
                             album.subtitle,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11.5,
-                              color: AppColors.textSecondary,
+                              color: textSecondary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -470,7 +492,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              const Icon(Icons.calendar_today_rounded, size: 11, color: AppColors.textMuted),
+                              Icon(Icons.calendar_today_rounded, size: 11, color: textSecondary),
                               const SizedBox(width: 4),
                               Text(
                                 TimemarkFormatter.formatIndonesianFullDate(album.date),
@@ -483,10 +505,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
                               const Spacer(),
                               Text(
                                 '${album.photos.length} Foto ❯',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.textSecondary,
+                                  color: textSecondary,
                                 ),
                               ),
                             ],
@@ -506,8 +528,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   /// Layar Drill-Down Masuk ke Dalam Folder Tertentu
   Widget _buildAlbumDetailView(_GalleryAlbum album) {
+    final isDark = ThemeService.isDarkMode(context);
+    final scaffoldBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFFAF8F5);
+
     return Scaffold(
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
+        backgroundColor: isDark ? const Color(0xFF1E293B) : AppColors.primary,
+        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Kembali',
@@ -535,7 +563,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   ),
                   Text(
                     '${album.photos.length} Foto • ${album.subtitle}',
-                    style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+                    style: TextStyle(fontSize: 10.5, color: isDark ? const Color(0xFF94A3B8) : Colors.white70),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -597,6 +625,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   /// Reusable Grid Foto
   Widget _buildPhotoGrid(List<_GalleryPhotoItem> photos) {
+    final isDark = ThemeService.isDarkMode(context);
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+    final textPrimary = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+
     return GridView.builder(
       padding: EdgeInsets.fromLTRB(12, 12, 12, _isMultiSelect ? 90 : 12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -639,17 +673,17 @@ class _GalleryScreenState extends State<GalleryScreen> {
           },
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: isSelected ? AppColors.primary : AppColors.cardBorder,
+                color: isSelected ? AppColors.primary : cardBorder,
                 width: isSelected ? 2.5 : 1,
               ),
               boxShadow: [
                 BoxShadow(
                   color: isSelected
                       ? AppColors.primary.withValues(alpha: 0.15)
-                      : Colors.black.withValues(alpha: 0.04),
+                      : Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                   blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),
@@ -669,7 +703,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           fit: BoxFit.cover,
                           cacheWidth: 600,
                           errorBuilder: (context, error, stackTrace) => Container(
-                            color: Colors.grey.shade200,
+                            color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
                             child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
                           ),
                         ),
@@ -717,11 +751,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           item.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'PlusJakartaSans',
                             fontSize: 11.5,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
+                            color: textPrimary,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -729,9 +763,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           item.subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 9.5,
-                            color: AppColors.textSecondary,
+                            color: textSecondary,
                           ),
                         ),
                         const SizedBox(height: 2),

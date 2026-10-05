@@ -284,27 +284,30 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = ThemeService.isDarkMode(context);
-    final scaffoldBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFF8FAFC);
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final textPrimary = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-    final primaryAccent = isDark ? const Color(0xFF38BDF8) : AppColors.primary;
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeService.themeModeNotifier,
+      builder: (context, currentThemeMode, _) {
+        final isDark = ThemeService.isDarkMode(context);
+        final scaffoldBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFF8FAFC);
+        final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+        final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+        final textPrimary = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
+        final textSecondary = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+        final primaryAccent = isDark ? const Color(0xFF38BDF8) : AppColors.primary;
 
-    final lastTech = StorageService.getLastTechnicianName().trim();
-    final authUser = AuthRepository.instance.currentUser;
-    final activeTechName = lastTech.isNotEmpty
-        ? lastTech
-        : (authUser != null && authUser.nama.isNotEmpty ? authUser.nama : 'Teknisi BSS');
-    final activePos = LocationService.currentPos;
+        final lastTech = StorageService.getLastTechnicianName().trim();
+        final authUser = AuthRepository.instance.currentUser;
+        final activeTechName = lastTech.isNotEmpty
+            ? lastTech
+            : (authUser != null && authUser.nama.isNotEmpty ? authUser.nama : 'Teknisi BSS');
+        final activePos = LocationService.currentPos;
 
-    final hadirCount = _records.where((r) => r.type == AttendanceType.masuk).length;
-    final pulangCount = _records.where((r) => r.type == AttendanceType.pulang).length;
-    final terlambatCount = _records.where((r) => r.type == AttendanceType.masuk && _isRecordLate(r)).length;
+        final hadirCount = _records.where((r) => r.type == AttendanceType.masuk).length;
+        final pulangCount = _records.where((r) => r.type == AttendanceType.pulang).length;
+        final terlambatCount = _records.where((r) => r.type == AttendanceType.masuk && _isRecordLate(r)).length;
 
-    return Scaffold(
-      backgroundColor: scaffoldBg,
+        return Scaffold(
+          backgroundColor: scaffoldBg,
       appBar: AppBar(
         title: Text(
           'Riwayat Kerja',
@@ -612,6 +615,8 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
               ),
             )
           : null,
+        );
+      },
     );
   }
 

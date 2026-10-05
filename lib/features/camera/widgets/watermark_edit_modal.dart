@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/theme_service.dart';
 import '../../../data/models/watermark_config.dart';
 
 /// Bottom sheet modal mirroring the reference design:
@@ -192,11 +193,17 @@ class _WatermarkEditModalState extends State<WatermarkEditModal> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = ThemeService.isDarkMode(context);
+    final sheetBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final textPrimary = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+    final textMuted = isDark ? const Color(0xFF94A3B8) : AppColors.textMuted;
+    final dividerColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.88,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         children: [
@@ -206,22 +213,22 @@ class _WatermarkEditModalState extends State<WatermarkEditModal> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Edit Templat',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
+                    color: textPrimary,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 22),
+                  icon: Icon(Icons.close_rounded, size: 22, color: textPrimary),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, thickness: 0.8),
+          Divider(height: 1, thickness: 0.8, color: dividerColor),
 
           // Scrollable content
           Expanded(
@@ -247,14 +254,14 @@ class _WatermarkEditModalState extends State<WatermarkEditModal> {
                   ),
                 ),
 
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
                   child: Text(
                     'ELEMEN WATERMARK',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textMuted,
+                      color: textMuted,
                       letterSpacing: 0.8,
                     ),
                   ),
@@ -462,10 +469,10 @@ class _WatermarkEditModalState extends State<WatermarkEditModal> {
           Container(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: sheetBg,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, -4),
                 ),
@@ -502,6 +509,9 @@ class _WatermarkEditModalState extends State<WatermarkEditModal> {
     required ValueChanged<bool> onChanged,
     Widget? trailingWidget,
   }) {
+    final isDark = ThemeService.isDarkMode(context);
+    final textPrimary = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(
@@ -515,10 +525,10 @@ class _WatermarkEditModalState extends State<WatermarkEditModal> {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: textPrimary,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -531,12 +541,13 @@ class _WatermarkEditModalState extends State<WatermarkEditModal> {
   }
 
   Widget _buildDivider() {
-    return const Divider(
+    final isDark = ThemeService.isDarkMode(context);
+    return Divider(
       height: 1,
       thickness: 0.6,
       indent: 20,
       endIndent: 20,
-      color: Color(0xFFE2E8F0),
+      color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
     );
   }
 }

@@ -210,12 +210,23 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
   Widget _buildStepperButton({
     required IconData icon,
     required VoidCallback? onPressed,
+    required bool isDark,
     double size = 44,
     double iconSize = 22,
   }) {
     final isEnabled = onPressed != null;
+    final btnBg = isEnabled
+        ? (isDark ? const Color(0xFF334155) : const Color(0xFFEFF6FF))
+        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9));
+    final btnBorder = isEnabled
+        ? (isDark ? const Color(0xFF475569) : AppColors.primary.withValues(alpha: 0.3))
+        : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0));
+    final iconColor = isEnabled
+        ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+        : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8));
+
     return Material(
-      color: isEnabled ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
+      color: btnBg,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onPressed,
@@ -227,13 +238,13 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isEnabled ? AppColors.primary.withValues(alpha: 0.3) : const Color(0xFFE2E8F0),
+              color: btnBorder,
               width: 1.2,
             ),
           ),
           child: Icon(
             icon,
-            color: isEnabled ? AppColors.primary : const Color(0xFF94A3B8),
+            color: iconColor,
             size: iconSize,
           ),
         ),
@@ -246,6 +257,17 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
     final locations = LocationService.availablePosList;
     final isDark = ThemeService.isDarkMode(context);
     final dialogBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final cardBg = isDark ? const Color(0xFF1E293B) : AppColors.surfaceContainerLow;
+    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+    final inputFill = isDark ? const Color(0xFF1E293B) : Colors.grey.shade50;
+    final inputBorderColor = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+    final innerCardBg = isDark ? const Color(0xFF0B1120) : Colors.white;
+    final innerCardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+    final stepperBoxBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+    final stepperBoxBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+    final stepperNumberColor = isDark ? const Color(0xFF38BDF8) : AppColors.primary;
 
     return Dialog(
       backgroundColor: dialogBg,
@@ -280,11 +302,11 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                           widget.initialTemplate.jenis == TemplateCategory.maintServer
                               ? _unitTitle
                               : widget.initialTemplate.nama,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'PlusJakartaSans', 
                             fontWeight: FontWeight.w800,
                             fontSize: 15,
-                            color: AppColors.textPrimary,
+                            color: textTitle,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -294,8 +316,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                           widget.initialTemplate.jenis == TemplateCategory.maintServer
                               ? _unitSubtitle
                               : 'Atur Pengecekan Pos',
-                          style: const TextStyle(
-                              fontSize: 11, color: AppColors.textSecondary),
+                          style: TextStyle(
+                              fontSize: 11, color: textSub),
                         ),
                       ],
                     ),
@@ -309,14 +331,19 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                 controller: _supportNameController,
                 decoration: InputDecoration(
                   labelText: 'Nama Teknisi / Support',
+                  labelStyle: TextStyle(color: textSub, fontWeight: FontWeight.w600),
                   hintText: 'Contoh: Farhan Lakoro',
                   prefixIcon: const Icon(Icons.person_rounded, size: 20, color: AppColors.primary),
                   isDense: true,
                   filled: true,
-                  fillColor: Colors.grey.shade50,
+                  fillColor: inputFill,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.cardBorder),
+                    borderSide: BorderSide(color: inputBorderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: inputBorderColor),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -332,7 +359,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                     );
                   }
                 },
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white : const Color(0xFF0F172A)),
               ),
               const SizedBox(height: 12),
 
@@ -340,6 +367,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
               DropdownButtonFormField<PosLocation>(
                 initialValue: _selectedLocation,
                 isExpanded: true,
+                dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                 icon: const Icon(
                   Icons.arrow_drop_down_circle_outlined,
                   size: 20,
@@ -347,14 +375,18 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                 ),
                 decoration: InputDecoration(
                   labelText: 'Lokasi Parkir',
-                  labelStyle: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                  labelStyle: TextStyle(color: textSub, fontWeight: FontWeight.w600),
                   prefixIcon: const Icon(Icons.location_on_rounded, size: 20, color: AppColors.primary),
                   isDense: true,
                   filled: true,
-                  fillColor: Colors.grey.shade50,
+                  fillColor: inputFill,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.cardBorder),
+                    borderSide: BorderSide(color: inputBorderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: inputBorderColor),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -367,7 +399,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                     value: loc,
                     child: Text(
                       '${loc.locationTag} • ${loc.posName}',
-                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: textTitle),
                       overflow: TextOverflow.ellipsis,
                     ),
                   );
@@ -388,43 +420,43 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
               if (widget.initialTemplate.jenis == TemplateCategory.maintServer) ...[
                 Text(
                   _unitTitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'PlusJakartaSans',
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
-                    color: AppColors.textPrimary,
+                    color: textTitle,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   _unitSubtitle,
-                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 11, color: textSub),
                 ),
                 const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerLow,
+                    color: cardBg,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.cardBorder),
+                    border: Border.all(color: cardBorder),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Pilihan Ruang Lingkup Maintenance: Server & Kasir vs Hanya Kasir
-                      const Text(
+                      Text(
                         'Cakupan Pemeriksaan',
                         style: TextStyle(
                           fontFamily: 'PlusJakartaSans',
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                          color: textTitle,
                         ),
                       ),
                       const SizedBox(height: 3),
-                      const Text(
+                      Text(
                         'Pilih apakah maintenance mencakup Server atau khusus unit Kasir',
-                        style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 10.5, color: textSub),
                       ),
                       const SizedBox(height: 10),
                       Row(
@@ -437,13 +469,13 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                 padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
                                 decoration: BoxDecoration(
                                   color: !_isOnlyKasir
-                                      ? AppColors.primary.withValues(alpha: 0.1)
-                                      : Colors.white,
+                                      ? AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1)
+                                      : innerCardBg,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: !_isOnlyKasir
-                                        ? AppColors.primary
-                                        : AppColors.cardBorder,
+                                        ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                        : innerCardBorder,
                                     width: !_isOnlyKasir ? 1.6 : 1.0,
                                   ),
                                 ),
@@ -454,8 +486,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                       Icons.dns_rounded,
                                       size: 16,
                                       color: !_isOnlyKasir
-                                          ? AppColors.primary
-                                          : AppColors.textSecondary,
+                                          ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                          : textSub,
                                     ),
                                     const SizedBox(width: 6),
                                     Flexible(
@@ -470,8 +502,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                               ? FontWeight.w700
                                               : FontWeight.w500,
                                           color: !_isOnlyKasir
-                                              ? AppColors.primary
-                                              : AppColors.textPrimary,
+                                              ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                              : textTitle,
                                         ),
                                       ),
                                     ),
@@ -489,13 +521,13 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                 padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
                                 decoration: BoxDecoration(
                                   color: _isOnlyKasir
-                                      ? AppColors.primary.withValues(alpha: 0.1)
-                                      : Colors.white,
+                                      ? AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1)
+                                      : innerCardBg,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: _isOnlyKasir
-                                        ? AppColors.primary
-                                        : AppColors.cardBorder,
+                                        ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                        : innerCardBorder,
                                     width: _isOnlyKasir ? 1.6 : 1.0,
                                   ),
                                 ),
@@ -506,8 +538,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                       Icons.point_of_sale_rounded,
                                       size: 16,
                                       color: _isOnlyKasir
-                                          ? AppColors.primary
-                                          : AppColors.textSecondary,
+                                          ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                          : textSub,
                                     ),
                                     const SizedBox(width: 6),
                                     Flexible(
@@ -522,8 +554,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                               ? FontWeight.w700
                                               : FontWeight.w500,
                                           color: _isOnlyKasir
-                                              ? AppColors.primary
-                                              : AppColors.textPrimary,
+                                              ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                              : textTitle,
                                         ),
                                       ),
                                     ),
@@ -535,7 +567,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                         ],
                       ),
                       const SizedBox(height: 14),
-                      const Divider(height: 1),
+                      Divider(height: 1, color: innerCardBorder),
                       const SizedBox(height: 14),
 
                       if (!_isOnlyKasir) ...[
@@ -548,14 +580,14 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'PC Server & PC Kasir Terpisah',
                                     maxLines: 2,
                                     style: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13,
-                                      color: AppColors.textPrimary,
+                                      color: textTitle,
                                     ),
                                   ),
                                   const SizedBox(height: 3),
@@ -563,13 +595,13 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                                     decoration: BoxDecoration(
                                       color: _isServerKasirTerpisah
-                                          ? AppColors.primary.withValues(alpha: 0.12)
-                                          : const Color(0xFFF1F5F9),
+                                          ? AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.12)
+                                          : (isDark ? const Color(0xFF0B1120) : const Color(0xFFF1F5F9)),
                                       borderRadius: BorderRadius.circular(6),
                                       border: Border.all(
                                         color: _isServerKasirTerpisah
-                                            ? AppColors.primary.withValues(alpha: 0.3)
-                                            : const Color(0xFFCBD5E1),
+                                            ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary.withValues(alpha: 0.3))
+                                            : innerCardBorder,
                                       ),
                                     ),
                                     child: Text(
@@ -581,8 +613,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                         fontSize: 10,
                                         fontWeight: FontWeight.w700,
                                         color: _isServerKasirTerpisah
-                                            ? AppColors.primary
-                                            : const Color(0xFF64748B),
+                                            ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                            : textSub,
                                       ),
                                     ),
                                   ),
@@ -591,7 +623,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                     _isServerKasirTerpisah
                                         ? 'Komputer berbeda (PC Server & PC Kasir terpisah)'
                                         : '1 Komputer merangkap PC Server sekaligus PC Kasir',
-                                    style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+                                    style: TextStyle(fontSize: 10.5, color: textSub),
                                   ),
                                 ],
                               ),
@@ -600,14 +632,14 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                             Switch(
                               value: _isServerKasirTerpisah,
                               activeThumbColor: Colors.white,
-                              activeTrackColor: AppColors.primary,
+                              activeTrackColor: isDark ? const Color(0xFF0284C7) : AppColors.primary,
                               inactiveThumbColor: Colors.white,
-                              inactiveTrackColor: const Color(0xFFCBD5E1),
+                              inactiveTrackColor: innerCardBorder,
                               trackOutlineColor: WidgetStateProperty.resolveWith((states) {
                                 if (states.contains(WidgetState.selected)) {
-                                  return AppColors.primary;
+                                  return isDark ? const Color(0xFF38BDF8) : AppColors.primary;
                                 }
-                                return const Color(0xFF94A3B8);
+                                return innerCardBorder;
                               }),
                               onChanged: (val) {
                                 setState(() {
@@ -620,32 +652,36 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
 
                         // Jika Terpisah: Tampilkan 1 PC Server + Stepper Jumlah PC Kasir
                         if (!_isServerKasirGabung) ...[
-                          const Divider(height: 20),
+                          Divider(height: 20, color: innerCardBorder),
                           // Penjelasan PC Server Mandiri
                           Row(
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: const Icon(Icons.dns_rounded, size: 16, color: AppColors.primary),
+                                child: Icon(Icons.dns_rounded, size: 16, color: isDark ? const Color(0xFF38BDF8) : AppColors.primary),
                               ),
                               const SizedBox(width: 8),
-                              const Expanded(
+                              Expanded(
                                 child: Text(
                                   '1 PC Server (Wajib 6 foto)',
-                                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: textTitle),
                                 ),
                               ),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFE2E8F0),
+                                  color: isDark ? const Color(0xFF0B1120) : const Color(0xFFE2E8F0),
                                   borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: innerCardBorder),
                                 ),
-                                child: const Text('1 Unit', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+                                child: Text(
+                                  '1 Unit',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: textTitle),
+                                ),
                               ),
                             ],
                           ),
@@ -653,17 +689,17 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Expanded(
+                              Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       'Jumlah PC Kasir',
-                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: textTitle),
                                     ),
                                     Text(
                                       'PC Kasir 1, PC Kasir 2, dst (6 foto / unit)',
-                                      style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+                                      style: TextStyle(fontSize: 10.5, color: textSub),
                                     ),
                                   ],
                                 ),
@@ -672,6 +708,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                 children: [
                                   _buildStepperButton(
                                     icon: Icons.remove_rounded,
+                                    isDark: isDark,
                                     onPressed: _kasirCount > 1
                                         ? () => setState(() => _kasirCount--)
                                         : null,
@@ -683,22 +720,24 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                       alignment: Alignment.center,
                                       decoration: BoxDecoration(
-                                        color: Colors.white,
+                                        color: stepperBoxBg,
                                         borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: AppColors.cardBorder),
+                                        border: Border.all(color: stepperBoxBorder),
                                       ),
                                       child: Text(
                                         '$_kasirCount',
-                                        style: TextStyle(fontFamily: 'PlusJakartaSans', 
+                                        style: TextStyle(
+                                          fontFamily: 'PlusJakartaSans', 
                                           fontSize: 15,
                                           fontWeight: FontWeight.w800,
-                                          color: AppColors.primary,
+                                          color: stepperNumberColor,
                                         ),
                                       ),
                                     ),
                                   ),
                                   _buildStepperButton(
                                     icon: Icons.add_rounded,
+                                    isDark: isDark,
                                     onPressed: _kasirCount < 10
                                         ? () => setState(() => _kasirCount++)
                                         : null,
@@ -709,15 +748,15 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                           ),
                         ],
 
-                        const Divider(height: 18),
+                        Divider(height: 18, color: innerCardBorder),
                         // Selector OS PC Server
-                        const Text(
+                        Text(
                           'Sistem Operasi PC Server',
                           style: TextStyle(
                             fontFamily: 'PlusJakartaSans',
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
+                            color: textTitle,
                           ),
                         ),
                         const SizedBox(height: 3),
@@ -725,7 +764,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                           _isServerKasirGabung
                               ? 'Pilih OS untuk PC Server & PC Kasir All-in-One'
                               : 'Pilih OS untuk PC Server (PC Kasir otomatis Windows)',
-                          style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+                          style: TextStyle(fontSize: 10.5, color: textSub),
                         ),
                         const SizedBox(height: 8),
                         Row(
@@ -738,13 +777,13 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                                   decoration: BoxDecoration(
                                     color: _serverOs == 'linux'
-                                        ? AppColors.primary.withValues(alpha: 0.1)
-                                        : Colors.white,
+                                        ? AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1)
+                                        : innerCardBg,
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
                                       color: _serverOs == 'linux'
-                                          ? AppColors.primary
-                                          : AppColors.cardBorder,
+                                          ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                          : innerCardBorder,
                                       width: _serverOs == 'linux' ? 1.6 : 1.0,
                                     ),
                                   ),
@@ -755,8 +794,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                         Icons.terminal_rounded,
                                         size: 16,
                                         color: _serverOs == 'linux'
-                                            ? AppColors.primary
-                                            : AppColors.textSecondary,
+                                            ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                            : textSub,
                                       ),
                                       const SizedBox(width: 6),
                                       Flexible(
@@ -771,8 +810,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                                 ? FontWeight.w700
                                                 : FontWeight.w500,
                                             color: _serverOs == 'linux'
-                                                ? AppColors.primary
-                                                : AppColors.textPrimary,
+                                                ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                                : textTitle,
                                           ),
                                         ),
                                       ),
@@ -790,13 +829,13 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                                   decoration: BoxDecoration(
                                     color: _serverOs == 'windows'
-                                        ? AppColors.primary.withValues(alpha: 0.1)
-                                        : Colors.white,
+                                        ? AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1)
+                                        : innerCardBg,
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
                                       color: _serverOs == 'windows'
-                                          ? AppColors.primary
-                                          : AppColors.cardBorder,
+                                          ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                          : innerCardBorder,
                                       width: _serverOs == 'windows' ? 1.6 : 1.0,
                                     ),
                                   ),
@@ -807,8 +846,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                         Icons.desktop_windows_rounded,
                                         size: 16,
                                         color: _serverOs == 'windows'
-                                            ? AppColors.primary
-                                            : AppColors.textSecondary,
+                                            ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                            : textSub,
                                       ),
                                       const SizedBox(width: 6),
                                       Flexible(
@@ -823,8 +862,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                                 ? FontWeight.w700
                                                 : FontWeight.w500,
                                             color: _serverOs == 'windows'
-                                                ? AppColors.primary
-                                                : AppColors.textPrimary,
+                                                ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                                : textTitle,
                                           ),
                                         ),
                                       ),
@@ -840,17 +879,17 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Expanded(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     'Jumlah PC Kasir',
-                                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: textTitle),
                                   ),
                                   Text(
                                     'PC Kasir 1, PC Kasir 2, dst (6 foto / unit)',
-                                    style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+                                    style: TextStyle(fontSize: 10.5, color: textSub),
                                   ),
                                 ],
                               ),
@@ -859,6 +898,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                               children: [
                                 _buildStepperButton(
                                   icon: Icons.remove_rounded,
+                                  isDark: isDark,
                                   onPressed: _kasirCount > 1
                                       ? () => setState(() => _kasirCount--)
                                       : null,
@@ -870,9 +910,9 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: stepperBoxBg,
                                       borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: AppColors.cardBorder),
+                                      border: Border.all(color: stepperBoxBorder),
                                     ),
                                     child: Text(
                                       '$_kasirCount',
@@ -880,13 +920,14 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                         fontFamily: 'PlusJakartaSans',
                                         fontSize: 15,
                                         fontWeight: FontWeight.w800,
-                                        color: AppColors.primary,
+                                        color: stepperNumberColor,
                                       ),
                                     ),
                                   ),
                                 ),
                                 _buildStepperButton(
                                   icon: Icons.add_rounded,
+                                  isDark: isDark,
                                   onPressed: _kasirCount < 10
                                       ? () => setState(() => _kasirCount++)
                                       : null,
@@ -899,17 +940,18 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
+                            color: innerCardBg,
                             borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: innerCardBorder),
                           ),
-                          child: const Row(
+                          child: Row(
                             children: [
-                              Icon(Icons.info_outline_rounded, size: 14, color: AppColors.textSecondary),
-                              SizedBox(width: 6),
+                              Icon(Icons.info_outline_rounded, size: 14, color: textSub),
+                              const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   'PC Kasir otomatis menggunakan checklist OS Windows',
-                                  style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+                                  style: TextStyle(fontSize: 10.5, color: textSub),
                                 ),
                               ),
                             ],
@@ -922,14 +964,14 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF5),
+                          color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.35) : const Color(0xFFECFDF5),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFA7F3D0)),
+                          border: Border.all(color: isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0)),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF059669)),
+                            Icon(Icons.check_circle_rounded, size: 15, color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF059669)),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Column(
@@ -941,11 +983,11 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                         : (_isServerKasirGabung
                                             ? 'Total Wajib: 6 Foto (1 Unit PC Server & Kasir Gabung)'
                                             : 'Total Wajib: $_totalPoints Foto (1 PC Server + $_kasirCount PC Kasir)'),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFF065F46),
+                                      color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF065F46),
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -955,11 +997,11 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                         : (_isServerKasirGabung
                                             ? '6 foto SOP PC Server & PC Kasir gabung (1 komputer)'
                                             : '6 foto PC Server + ${_kasirCount * 6} foto PC Kasir ($_kasirCount unit × 6 foto)'),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF047857),
+                                      color: isDark ? const Color(0xFFA7F3D0) : const Color(0xFF047857),
                                     ),
                                   ),
                                 ],
@@ -976,9 +1018,9 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerLow,
+                    color: cardBg,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.cardBorder),
+                    border: Border.all(color: cardBorder),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -988,11 +1030,11 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
+                              color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(_unitIcon,
-                                color: AppColors.primary, size: 20),
+                                color: isDark ? const Color(0xFF38BDF8) : AppColors.primary, size: 20),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -1001,18 +1043,19 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                               children: [
                                 Text(
                                   _unitTitle,
-                                  style: TextStyle(fontFamily: 'PlusJakartaSans', 
+                                  style: TextStyle(
+                                    fontFamily: 'PlusJakartaSans', 
                                     fontWeight: FontWeight.w800,
                                     fontSize: 13.5,
-                                    color: AppColors.textPrimary,
+                                    color: textTitle,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   _unitSubtitle,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
-                                    color: AppColors.textSecondary,
+                                    color: textSub,
                                   ),
                                 ),
                               ],
@@ -1026,9 +1069,9 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: innerCardBg,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.8)),
+                          border: Border.all(color: innerCardBorder),
                         ),
                         child: Row(
                           children: [
@@ -1039,11 +1082,11 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                 children: [
                                   Text(
                                     'Dari $_unitNoun:',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w700,
-                                      color: AppColors.textSecondary,
+                                      color: textSub,
                                     ),
                                   ),
                                   const SizedBox(height: 6),
@@ -1051,6 +1094,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                     children: [
                                       _buildStepperButton(
                                         icon: Icons.remove_rounded,
+                                        isDark: isDark,
                                         size: 36,
                                         iconSize: 18,
                                         onPressed: _startUnit > 1
@@ -1067,9 +1111,9 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                           padding: const EdgeInsets.symmetric(vertical: 8),
                                           alignment: Alignment.center,
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFF8FAFC),
+                                            color: stepperBoxBg,
                                             borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: AppColors.cardBorder),
+                                            border: Border.all(color: stepperBoxBorder),
                                           ),
                                           child: Text(
                                             '$_startUnit',
@@ -1077,13 +1121,14 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                               fontFamily: 'PlusJakartaSans',
                                               fontSize: 14,
                                               fontWeight: FontWeight.w800,
-                                              color: AppColors.primary,
+                                              color: stepperNumberColor,
                                             ),
                                           ),
                                         ),
                                       ),
                                       _buildStepperButton(
                                         icon: Icons.add_rounded,
+                                        isDark: isDark,
                                         size: 36,
                                         iconSize: 18,
                                         onPressed: _startUnit < 20
@@ -1109,7 +1154,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                               child: Icon(
                                 Icons.arrow_forward_rounded,
                                 size: 16,
-                                color: AppColors.textSecondary.withValues(alpha: 0.6),
+                                color: textSub.withValues(alpha: 0.6),
                               ),
                             ),
 
@@ -1120,11 +1165,11 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                 children: [
                                   Text(
                                     'Sampai $_unitNoun:',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w700,
-                                      color: AppColors.textSecondary,
+                                      color: textSub,
                                     ),
                                   ),
                                   const SizedBox(height: 6),
@@ -1132,6 +1177,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                     children: [
                                       _buildStepperButton(
                                         icon: Icons.remove_rounded,
+                                        isDark: isDark,
                                         size: 36,
                                         iconSize: 18,
                                         onPressed: _endUnit > 1
@@ -1151,9 +1197,9 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                           padding: const EdgeInsets.symmetric(vertical: 8),
                                           alignment: Alignment.center,
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFF8FAFC),
+                                            color: stepperBoxBg,
                                             borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: AppColors.cardBorder),
+                                            border: Border.all(color: stepperBoxBorder),
                                           ),
                                           child: Text(
                                             '$_endUnit',
@@ -1161,13 +1207,14 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                               fontFamily: 'PlusJakartaSans',
                                               fontSize: 14,
                                               fontWeight: FontWeight.w800,
-                                              color: AppColors.primary,
+                                              color: stepperNumberColor,
                                             ),
                                           ),
                                         ),
                                       ),
                                       _buildStepperButton(
                                         icon: Icons.add_rounded,
+                                        isDark: isDark,
                                         size: 36,
                                         iconSize: 18,
                                         onPressed: _endUnit < 20
@@ -1192,14 +1239,14 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF5),
+                          color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.35) : const Color(0xFFECFDF5),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFA7F3D0)),
+                          border: Border.all(color: isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0)),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF059669)),
+                            Icon(Icons.check_circle_rounded, size: 15, color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF059669)),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Column(
@@ -1213,7 +1260,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                       fontFamily: 'PlusJakartaSans',
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF065F46),
+                                      color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF065F46),
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -1223,7 +1270,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                       fontFamily: 'PlusJakartaSans',
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF047857),
+                                      color: isDark ? const Color(0xFFA7F3D0) : const Color(0xFF047857),
                                     ),
                                   ),
                                 ],
@@ -1246,17 +1293,17 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                       onPressed: () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 13),
-                        side: const BorderSide(color: AppColors.cardBorder, width: 1.2),
+                        side: BorderSide(color: cardBorder, width: 1.2),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Batal',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.textSecondary,
+                          color: textSub,
                         ),
                       ),
                     ),
@@ -1267,7 +1314,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                     child: ElevatedButton(
                       onPressed: _generateAndOpenChecklist,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: isDark ? const Color(0xFF0284C7) : AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 13),
                         elevation: 0,

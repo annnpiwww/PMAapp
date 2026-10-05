@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/theme_service.dart';
 import '../../../data/models/submission_model.dart';
 import '../../../data/services/absensi_setup_service.dart';
 import '../../../data/services/storage_service.dart';
@@ -324,10 +325,19 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final maxDialogHeight = mediaQuery.size.height * 0.88;
+    final isDark = ThemeService.isDarkMode(context);
+
+    final dialogBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final headerBorder = isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9);
+    final inputBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFFFFBEB);
+    final inputBorderColor = isDark ? const Color(0xFF475569) : const Color(0xFFFDE68A);
+    final inputTextColor = isDark ? Colors.white : const Color(0xFF0F172A);
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: Colors.white,
+      backgroundColor: dialogBg,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -343,8 +353,8 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
             // -----------------------------------------------------------------
             Container(
               padding: const EdgeInsets.fromLTRB(20, 16, 16, 14),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1.5)),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: headerBorder, width: 1.5)),
               ),
               child: Row(
                 children: [
@@ -359,7 +369,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                     child: const Icon(Icons.schedule_rounded, color: AppColors.primary, size: 22),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -369,15 +379,15 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                             fontFamily: 'PlusJakartaSans',
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
+                            color: textTitle,
                           ),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
                           'Jadwal kerja & status dinas teknisi',
                           style: TextStyle(
                             fontSize: 11.5,
-                            color: AppColors.textSecondary,
+                            color: textSub,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -387,7 +397,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                   IconButton(
                     tooltip: 'Tutup dialog',
                     constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                    icon: const Icon(Icons.close_rounded, color: AppColors.textMuted, size: 22),
+                    icon: Icon(Icons.close_rounded, color: textSub, size: 22),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -417,10 +427,10 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                           setState(() => _teknisiError = null);
                         }
                       },
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A),
+                        color: inputTextColor,
                       ),
                       decoration: InputDecoration(
                         isDense: true,
@@ -428,10 +438,10 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                         errorText: _teknisiError,
                         prefixIcon: const Icon(Icons.badge_outlined, size: 20, color: AppColors.accent),
                         filled: true,
-                        fillColor: const Color(0xFFFFFBEB),
+                        fillColor: inputBg,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFFFDE68A)),
+                          borderSide: BorderSide(color: inputBorderColor),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -535,9 +545,9 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
             // -----------------------------------------------------------------
             Container(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: Color(0xFFF1F5F9), width: 1.5)),
-                color: Colors.white,
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: headerBorder, width: 1.5)),
+                color: dialogBg,
               ),
               child: Row(
                 children: [
@@ -627,21 +637,22 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     required String title,
     required String subtitle,
   }) {
+    final isDark = ThemeService.isDarkMode(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(icon, size: 16, color: AppColors.primary),
+            Icon(icon, size: 16, color: isDark ? const Color(0xFF38BDF8) : AppColors.primary),
             const SizedBox(width: 6),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'PlusJakartaSans',
                 fontSize: 11.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.5,
-                color: AppColors.textPrimary,
+                color: isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary,
               ),
             ),
           ],
@@ -649,9 +660,9 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
         const SizedBox(height: 1),
         Text(
           subtitle,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10.5,
-            color: AppColors.textMuted,
+            color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -661,26 +672,27 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
 
   /// Compact, non-interactive fixed location card: LOKASI STANDBY -- PBM
   Widget _buildFixedLocationCard() {
+    final isDark = ThemeService.isDarkMode(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.08),
+              color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.08),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.storefront_outlined, size: 18, color: AppColors.primary),
+            child: Icon(Icons.storefront_outlined, size: 18, color: isDark ? const Color(0xFF38BDF8) : AppColors.primary),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -691,16 +703,16 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.5,
-                    color: AppColors.textMuted,
+                    color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
                   'Pasar Bersehati Manado',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
+                    color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
                   ),
                 ),
               ],
@@ -709,17 +721,17 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
+              color: isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.5) : const Color(0xFFEFF6FF),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: const Color(0xFFBFDBFE)),
+              border: Border.all(color: isDark ? const Color(0xFF38BDF8) : const Color(0xFFBFDBFE)),
             ),
-            child: const Text(
+            child: Text(
               'PBM',
               style: TextStyle(
                 fontFamily: 'PlusJakartaSans',
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF1D4ED8),
+                color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF1D4ED8),
                 letterSpacing: 0.4,
               ),
             ),
@@ -730,8 +742,24 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
   }
 
   Widget _buildShiftBentoCard(Map<String, String> shift) {
+    final isDark = ThemeService.isDarkMode(context);
     final fullValue = shift['full']!;
     final isSelected = !_isCustomShift && _selectedShift.trim() == fullValue.trim();
+
+    final unselectedBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+    final selectedBg = isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.4) : const Color(0xFFEFF6FF);
+    final borderColor = isSelected
+        ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+        : (isDark ? const Color(0xFF334155) : AppColors.cardBorder);
+    final titleColor = isSelected
+        ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+        : (isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary);
+    final hoursColor = isSelected
+        ? (isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E3A8A))
+        : (isDark ? const Color(0xFFCBD5E1) : AppColors.textSecondary);
+    final periodColor = isSelected
+        ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+        : (isDark ? const Color(0xFF94A3B8) : AppColors.textMuted);
 
     return InkWell(
       onTap: () {
@@ -744,10 +772,10 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
         constraints: const BoxConstraints(minHeight: 68),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+          color: isSelected ? selectedBg : unselectedBg,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.cardBorder,
+            color: borderColor,
             width: isSelected ? 2.0 : 1.0,
           ),
         ),
@@ -764,7 +792,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                       fontFamily: 'PlusJakartaSans',
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                      color: titleColor,
                     ),
                   ),
                 ),
@@ -772,7 +800,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                 Icon(
                   isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
                   size: 15,
-                  color: isSelected ? AppColors.primary : AppColors.textMuted,
+                  color: isSelected ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary) : (isDark ? const Color(0xFF64748B) : AppColors.textMuted),
                 ),
               ],
             ),
@@ -786,7 +814,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                   fontFamily: 'monospace',
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  color: isSelected ? const Color(0xFF1E3A8A) : AppColors.textSecondary,
+                  color: hoursColor,
                 ),
               ),
             ),
@@ -796,7 +824,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
               style: TextStyle(
                 fontSize: 9.5,
                 fontWeight: FontWeight.w500,
-                color: isSelected ? AppColors.primary : AppColors.textMuted,
+                color: periodColor,
               ),
             ),
           ],
@@ -806,6 +834,19 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
   }
 
   Widget _buildCustomShiftControl() {
+    final isDark = ThemeService.isDarkMode(context);
+    final cardBg = _isCustomShift
+        ? (isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFFFBEB))
+        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC));
+    final cardBorder = _isCustomShift
+        ? const Color(0xFFF59E0B)
+        : (isDark ? const Color(0xFF334155) : AppColors.cardBorder);
+    final titleColor = _isCustomShift
+        ? const Color(0xFFF59E0B)
+        : (isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary);
+    final inputBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFFFFBEB);
+    final inputBorder = isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -818,10 +859,10 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: _isCustomShift ? const Color(0xFFFFFBEB) : const Color(0xFFF8FAFC),
+              color: cardBg,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: _isCustomShift ? const Color(0xFFF59E0B) : AppColors.cardBorder,
+                color: cardBorder,
                 width: _isCustomShift ? 1.5 : 1.0,
               ),
             ),
@@ -830,13 +871,13 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                 Container(
                   padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
-                    color: _isCustomShift ? const Color(0xFFF59E0B) : const Color(0xFFE2E8F0),
+                    color: _isCustomShift ? const Color(0xFFF59E0B) : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.tune_rounded,
                     size: 13,
-                    color: _isCustomShift ? Colors.white : AppColors.textSecondary,
+                    color: _isCustomShift ? Colors.white : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -850,7 +891,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                           fontFamily: 'PlusJakartaSans',
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
-                          color: _isCustomShift ? const Color(0xFF92400E) : AppColors.textPrimary,
+                          color: titleColor,
                         ),
                       ),
                       const SizedBox(height: 1),
@@ -858,7 +899,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                         'Atur Shift sendiri',
                         style: TextStyle(
                           fontSize: 10,
-                          color: _isCustomShift ? const Color(0xFFB45309) : AppColors.textSecondary,
+                          color: _isCustomShift ? const Color(0xFFF59E0B) : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
                         ),
                       ),
                     ],
@@ -883,28 +924,28 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
           TextField(
             controller: _customShiftCtrl,
             onChanged: _onCustomShiftChanged,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
-              color: AppColors.primary,
+              color: isDark ? Colors.white : AppColors.primary,
             ),
             decoration: InputDecoration(
               isDense: true,
               hintText: 'Tulis nama shift & jam (contoh: Shift Khusus 08:00 - 17:00)',
               prefixIcon: const Icon(Icons.edit_calendar_rounded, size: 18, color: Color(0xFFF59E0B)),
               filled: true,
-              fillColor: const Color(0xFFFFFBEB),
+              fillColor: inputBg,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFFDE68A)),
+                borderSide: BorderSide(color: inputBorder),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFFDE68A)),
+                borderSide: BorderSide(color: inputBorder),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFF59E0B), width: 1.5),
+              focusedBorder: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(10)),
+                borderSide: BorderSide(color: Color(0xFFF59E0B), width: 1.5),
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
@@ -922,6 +963,23 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     required Color activeColor,
     required VoidCallback onTap,
   }) {
+    final isDark = ThemeService.isDarkMode(context);
+    final cardBg = isSelected
+        ? activeColor.withValues(alpha: isDark ? 0.2 : 0.08)
+        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC));
+    final cardBorder = isSelected
+        ? activeColor
+        : (isDark ? const Color(0xFF334155) : AppColors.cardBorder);
+    final textColor = isSelected
+        ? activeColor
+        : (isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary);
+    final iconBg = isSelected
+        ? activeColor
+        : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0));
+    final iconColor = isSelected
+        ? Colors.white
+        : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary);
+
     return InkWell(
       onTap: () {
         HapticFeedback.selectionClick();
@@ -933,10 +991,10 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
         constraints: const BoxConstraints(minHeight: 64),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor.withValues(alpha: 0.08) : const Color(0xFFF8FAFC),
+          color: cardBg,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? activeColor : AppColors.cardBorder,
+            color: cardBorder,
             width: isSelected ? 2.0 : 1.0,
           ),
         ),
@@ -945,13 +1003,13 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: isSelected ? activeColor : const Color(0xFFE2E8F0),
+                color: iconBg,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
                 size: 16,
-                color: isSelected ? Colors.white : AppColors.textSecondary,
+                color: iconColor,
               ),
             ),
             const SizedBox(width: 10),
@@ -971,7 +1029,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                             fontFamily: 'PlusJakartaSans',
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
-                            color: isSelected ? activeColor : AppColors.textPrimary,
+                            color: textColor,
                           ),
                         ),
                       ),
@@ -987,7 +1045,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                     style: TextStyle(
                       fontSize: 9.5,
                       fontWeight: FontWeight.w500,
-                      color: isSelected ? activeColor.withValues(alpha: 0.9) : AppColors.textMuted,
+                      color: isSelected ? activeColor.withValues(alpha: 0.9) : (isDark ? const Color(0xFF94A3B8) : AppColors.textMuted),
                     ),
                   ),
                 ],
@@ -1000,36 +1058,46 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
   }
 
   Widget _buildPulangHandoverSection() {
+    final isDark = ThemeService.isDarkMode(context);
+    final sectionBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFFFFBEB);
+    final sectionBorder = isDark ? const Color(0xFF334155) : const Color(0xFFFDE68A);
+    final innerCardBg = isDark ? const Color(0xFF0B1120) : Colors.white;
+    final innerCardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFFDE68A);
+    final inputBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+    final inputBorder = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final textHeader = isDark ? const Color(0xFFF59E0B) : const Color(0xFF92400E);
+    final textTitle = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF1E293B);
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
+        color: sectionBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFDE68A)),
+        border: Border.all(color: sectionBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.handshake_outlined, size: 16, color: Color(0xFFB45309)),
+              Icon(Icons.handshake_outlined, size: 16, color: isDark ? const Color(0xFFF59E0B) : const Color(0xFFB45309)),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'Laporan Kepulangan & Handover Pos',
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF92400E),
+                  color: textHeader,
                 ),
               ),
               const Spacer(),
               Text(
                 'Jam Pulang: $_jamPulang WITA',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFFB45309),
+                  color: isDark ? const Color(0xFFF59E0B) : const Color(0xFFB45309),
                 ),
               ),
             ],
@@ -1040,9 +1108,9 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: innerCardBg,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFFDE68A)),
+              border: Border.all(color: innerCardBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1050,9 +1118,9 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Ada IT Support Shift Selanjutnya?',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textTitle),
                     ),
                     Switch(
                       value: _adaShiftSelanjutnya,
@@ -1070,23 +1138,27 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                 if (_adaShiftSelanjutnya) ...[
                   const Divider(height: 8),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Pilih atau Ketik Nama Petugas Pengganti:',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
                   ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: _petugasNextShiftCtrl,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: 'Nama rekan kerja pengganti shift',
                       prefixIcon: const Icon(Icons.person_outline, size: 16, color: Color(0xFFD97706)),
                       filled: true,
-                      fillColor: const Color(0xFFFFFBEB),
+                      fillColor: inputBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFFDE68A)),
+                        borderSide: BorderSide(color: inputBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: inputBorder),
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     ),
@@ -1107,10 +1179,14 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFFD97706) : Colors.white,
+                            color: isSelected
+                                ? const Color(0xFFD97706)
+                                : (isDark ? const Color(0xFF1E293B) : Colors.white),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: isSelected ? const Color(0xFFD97706) : const Color(0xFFCBD5E1),
+                              color: isSelected
+                                  ? const Color(0xFFD97706)
+                                  : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
                             ),
                           ),
                           child: Text(
@@ -1118,7 +1194,9 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                              color: isSelected ? Colors.white : const Color(0xFF334155),
+                              color: isSelected
+                                  ? Colors.white
+                                  : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155)),
                             ),
                           ),
                         ),
@@ -1136,20 +1214,20 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: innerCardBg,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFFDE68A)),
+              border: Border.all(color: innerCardBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.check_circle_outline, size: 14, color: AppColors.success),
-                    SizedBox(width: 4),
+                    const Icon(Icons.check_circle_outline, size: 14, color: AppColors.success),
+                    const SizedBox(width: 4),
                     Text(
                       'Pekerjaan Selesai Hari Ini:',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textTitle),
                     ),
                   ],
                 ),
@@ -1157,16 +1235,20 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                 TextField(
                   controller: _pekerjaanSelesaiCtrl,
                   maxLines: 3,
-                  style: const TextStyle(fontSize: 11.5, height: 1.3),
+                  style: TextStyle(fontSize: 11.5, height: 1.3, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                   decoration: InputDecoration(
                     isDense: true,
                     hintText: 'Tulis ringkasan tugas selesai...\nTekan enter untuk nomor baru otomatis (1. 2. 3.)',
-                    hintStyle: const TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+                    hintStyle: TextStyle(fontSize: 10.5, color: isDark ? const Color(0xFF64748B) : AppColors.textMuted),
                     filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
+                    fillColor: inputBg,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      borderSide: BorderSide(color: inputBorder),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: inputBorder),
                     ),
                     contentPadding: const EdgeInsets.all(8),
                   ),
@@ -1180,9 +1262,9 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: innerCardBg,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFFDE68A)),
+              border: Border.all(color: innerCardBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1190,9 +1272,9 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Semua Pekerjaan Tuntas?',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textTitle),
                     ),
                     Switch(
                       value: _semuaPekerjaanSelesai,
@@ -1227,16 +1309,20 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                   TextField(
                     controller: _pekerjaanBelumCtrl,
                     maxLines: 2,
-                    style: const TextStyle(fontSize: 11.5, height: 1.3),
+                    style: TextStyle(fontSize: 11.5, height: 1.3, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: 'Tulis tugas tertunda untuk diserahterimakan...',
-                      hintStyle: const TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+                      hintStyle: TextStyle(fontSize: 10.5, color: isDark ? const Color(0xFF64748B) : AppColors.textMuted),
                       filled: true,
-                      fillColor: const Color(0xFFFFF1F2),
+                      fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFFFF1F2),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFFECDD3)),
+                        borderSide: BorderSide(color: isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFECDD3)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFECDD3)),
                       ),
                       contentPadding: const EdgeInsets.all(8),
                     ),

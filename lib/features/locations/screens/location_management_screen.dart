@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/theme_service.dart';
 import '../../../data/services/location_service.dart';
 
 class LocationManagementScreen extends StatefulWidget {
@@ -289,6 +290,15 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
   Widget build(BuildContext context) {
     final allLocations = LocationService.availablePosList;
     final currentPos = LocationService.currentPos;
+    final isDark = ThemeService.isDarkMode(context);
+    final scaffoldBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFFAF8F5);
+    final searchFill = isDark ? const Color(0xFF1E293B) : Colors.grey.shade100;
+    final searchBorder = isDark ? const Color(0xFF334155) : Colors.grey.shade300;
+    final textPrimary = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final textMuted = isDark ? const Color(0xFF64748B) : AppColors.textMuted;
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
 
     final filteredLocations = allLocations.where((loc) {
       if (_searchQuery.trim().isEmpty) return true;
@@ -300,7 +310,10 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
     }).toList();
 
     return Scaffold(
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
+        backgroundColor: isDark ? const Color(0xFF1E293B) : AppColors.primary,
+        foregroundColor: Colors.white,
         title: const Text('Kelola Lokasi'),
         actions: [
           IconButton(
@@ -316,27 +329,29 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: TextField(
+                style: TextStyle(color: textPrimary, fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'Cari nama lokasi, tag, cabang...',
-                  prefixIcon: const Icon(Icons.search, size: 20),
+                  hintStyle: TextStyle(color: textMuted, fontSize: 12.5),
+                  prefixIcon: Icon(Icons.search, size: 20, color: textMuted),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
+                          icon: Icon(Icons.clear, size: 18, color: textMuted),
                           onPressed: () => setState(() => _searchQuery = ''),
                         )
                       : null,
                   isDense: true,
                   filled: true,
-                  fillColor: Colors.grey.shade100,
+                  fillColor: searchFill,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
+                    borderSide: BorderSide(color: searchBorder),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
+                    borderSide: BorderSide(color: searchBorder),
                   ),
                 ),
                 onChanged: (val) => setState(() => _searchQuery = val),
@@ -349,9 +364,9 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                         _searchQuery.isNotEmpty
                             ? 'Tidak ada lokasi cocok dengan "$_searchQuery"'
                             : 'Belum ada daftar lokasi',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: AppColors.textSecondary,
+                          color: textSecondary,
                         ),
                       ),
                     )
@@ -364,10 +379,11 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                         final isCurrent = pos.posId == currentPos.posId;
 
             return Card(
+              color: cardBg,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: isCurrent ? AppColors.primary : AppColors.cardBorder,
+                  color: isCurrent ? AppColors.primary : cardBorder,
                   width: isCurrent ? 2 : 1,
                 ),
               ),
@@ -402,8 +418,8 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                           fontWeight:
                               isCurrent ? FontWeight.bold : FontWeight.w600,
                           color: isCurrent
-                              ? AppColors.primary
-                              : AppColors.textPrimary,
+                              ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                              : textPrimary,
                         ),
                       ),
                     ),
@@ -434,18 +450,18 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                       pos.fullAddress,
                       softWrap: true,
                       maxLines: 3,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
-                        color: AppColors.textSecondary,
+                        color: textSecondary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'GPS: ${pos.lat.toStringAsFixed(6)}°N, ${pos.lng.toStringAsFixed(6)}°E',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10.5,
                         fontFamily: 'monospace',
-                        color: AppColors.textMuted,
+                        color: textMuted,
                       ),
                     ),
                   ],
