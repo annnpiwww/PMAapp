@@ -293,10 +293,18 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     }
   }
 
+  DateTime? _lastDailyTasksBadgeRefreshTime;
+
   void _refreshDailyTasksBadge() {
+    final now = DateTime.now();
+    if (_lastDailyTasksBadgeRefreshTime != null &&
+        now.difference(_lastDailyTasksBadgeRefreshTime!) < const Duration(seconds: 4)) {
+      return;
+    }
+    _lastDailyTasksBadgeRefreshTime = now;
+
     final user = AuthRepository.instance.currentUser;
     if (user?.role != UserRole.petugas) return;
-    final now = DateTime.now();
     final todayStr =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     DailyTaskService.getTasksForTeknisi(

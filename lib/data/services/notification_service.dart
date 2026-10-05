@@ -21,6 +21,23 @@ class NotificationService {
   static const String _channelDesc =
       'Pengingat jam kerja shift dan konfirmasi absensi teknisi';
 
+  static const String _dailyChannelId = 'bss_daily_tasks_channel';
+  static const String _dailyChannelName = 'Daily Tasks BSS';
+  static const String _dailyChannelDesc =
+      'Pengingat dan status tugas harian teknisi BSS';
+
+  String? _lastDailyTasksSignature;
+  DateTime? _lastDailyTasksNotifyTime;
+
+  @visibleForTesting
+  String? get lastDailyTasksSignature => _lastDailyTasksSignature;
+
+  @visibleForTesting
+  void resetDailyTasksSignatureForTesting() {
+    _lastDailyTasksSignature = null;
+    _lastDailyTasksNotifyTime = null;
+  }
+
   static const int notificationIdMasuk = 1001;
   static const int notificationIdPulang = 1002;
   static const int notificationIdReminderPulang = 2001;
@@ -71,6 +88,17 @@ class NotificationService {
             importance: Importance.max,
             playSound: true,
             enableVibration: true,
+          ),
+        );
+
+        await androidPlatform.createNotificationChannel(
+          const AndroidNotificationChannel(
+            _dailyChannelId,
+            _dailyChannelName,
+            description: _dailyChannelDesc,
+            importance: Importance.defaultImportance,
+            playSound: true,
+            enableVibration: false,
           ),
         );
         // Permission notifikasi sudah diminta di _requestInitialPermissionsAndInit() secara sequential
@@ -217,6 +245,7 @@ class NotificationService {
   /// Notifikasi status Daily Task hari ini jika masih ada tugas yang pending
   Future<void> showDailyTasksNotification({
     required List<DailyTaskModel> tasks,
+    bool force = false,
   }) async {
     await init();
     try {
@@ -226,16 +255,38 @@ class NotificationService {
         return;
       }
 
+      // Hitung signature unik berbasis jumlah dan ID tugas yang pending
+      final signature = '${pending.length}_${pending.map((t) => t.id).join(',')}';
+
+      // Cegah spam: jika isi tugas belum berubah dan tidak dipaksa (force), abaikan pemanggilan ulang
+      if (!force && signature == _lastDailyTasksSignature) {
+        debugPrint('[NotificationService] Signature daily tasks identik ($signature), skip notifikasi redundan');
+        return;
+      }
+
+      // Throttle: cegah pemanggilan bertubi-tubi dalam jeda singkat (< 5 detik)
+      final now = DateTime.now();
+      if (!force &&
+          _lastDailyTasksNotifyTime != null &&
+          now.difference(_lastDailyTasksNotifyTime!) < const Duration(seconds: 5)) {
+        debugPrint('[NotificationService] Notifikasi daily tasks di-throttle (< 5s)');
+        return;
+      }
+
+      _lastDailyTasksSignature = signature;
+      _lastDailyTasksNotifyTime = now;
+
       final title = '📋 Daily Task Hari Ini (${pending.length} Tugas)';
       final lines = pending.take(4).map((t) => '• ${t.judul}').join('\n');
       final body = pending.length > 4 ? '$lines\n• ...dan ${pending.length - 4} tugas lainnya' : lines;
 
       const androidDetails = AndroidNotificationDetails(
-        _channelId,
-        _channelName,
-        channelDescription: _channelDesc,
-        importance: Importance.high,
-        priority: Priority.high,
+        _dailyChannelId,
+        _dailyChannelName,
+        channelDescription: _dailyChannelDesc,
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+        onlyAlertOnce: true,
         ticker: 'Daily Task Pending',
         icon: '@mipmap/ic_launcher',
         color: Color(0xFFF59E0B),
@@ -260,6 +311,7 @@ class NotificationService {
   /// Membatalkan notifikasi daily tasks (misal saat semua tugas selesai)
   Future<void> cancelDailyTasksNotification() async {
     try {
+      _lastDailyTasksSignature = null;
       await _notificationsPlugin.cancel(id: notificationIdDailyTasks);
       debugPrint('[NotificationService] Notifikasi daily tasks dibatalkan.');
     } catch (_) {}

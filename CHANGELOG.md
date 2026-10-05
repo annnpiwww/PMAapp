@@ -2,6 +2,68 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.62+70] — 2026-10-05
+
+### 🎯 Highlight Utama
+Perbaikan kritis bug spam notifikasi pada modul Daily Task saat keluar-masuk aplikasi atau men-skrol status bar Android. Mengimplementasikan deduplikasi signature tugas pending, flag `onlyAlertOnce: true`, channel notifikasi Android mandiri (`bss_daily_tasks_channel`), serta throttling lifecycle kamera.
+
+---
+
+### 🚀 Fitur & Perbaikan Detail
+1. **Deduplikasi Signature Pending Task (`NotificationService`)**:
+   - Menghitung hash signature dari jumlah dan ID tugas pending. Jika daftar tugas tidak berubah, notifikasi diabaikan secara otomatis.
+2. **Flag `onlyAlertOnce: true`**:
+   - Mencegah Android memutar suara/getar ulang saat notifikasi di-refresh di background.
+3. **Channel Notifikasi Android Terpisah (`bss_daily_tasks_channel`)**:
+   - Memisahkan notifikasi tugas harian dari alarm shift (`Importance.max`), menggunakan prioritas standar tanpa getaran yang mengganggu.
+4. **Lifecycle Resumed Throttle (`CameraCaptureScreen`)**:
+   - Cooldown 4 detik pada pembaruan badge daily task untuk mencegah spam saat gestur buka-tutup notification shade.
+5. **Kualitas & Verifikasi**:
+   - 189/189 unit & widget test lulus (100% green).
+   - `flutter analyze` 0 issues.
+
+---
+
+## [2.0.61+69] — 2026-10-04
+
+### 🎯 Highlight Utama
+Integrasi otomatis seluruh daftar pekerjaan Daily Task yang telah selesai maupun pending langsung ke dalam Laporan Pulang (`DailyPulangBottomSheet`). Mengeliminasi tombol sticky bar makro terpisah untuk mencegah pengiriman pesan ganda (spam) ke grup WhatsApp operasional. Teknisi cukup mengirim 1 kali Laporan Pulang lengkap beserta foto kepulangan.
+
+---
+
+### 🚀 Fitur & Perbaikan Detail
+1. **Integrasi Daily Task ke Laporan Pulang (`DailyPulangBottomSheet`)**:
+   - Menghapus sticky bar terpisah di layar daily task dan mengalirkan tugas selesai/pending langsung ke Laporan Pulang saat absen kepulangan teknisi.
+   - Tombol interaktif "⚡ Sinkron Daily Task" di form Laporan Pulang untuk auto-fill 1-tap.
+   - Format bernomor rapi dengan catatan teknisi di bawah setiap tugas tanpa kata "Catatan:".
+2. **Pembaruan WhatsApp Formatter**:
+   - `formatAutoNumberedList` di `WhatsAppReportService` menjaga baris catatan penjelasan di bawah setiap tugas bernomor tanpa penomoran ekstra.
+3. **Kualitas & Verifikasi**:
+   - 188/188 unit & widget test lulus (100% PASS).
+   - `flutter analyze` 0 issues (100% Clean).
+
+---
+
+## [2.0.60+68] — 2026-10-04
+
+### 🎯 Highlight Utama
+Implementasi arsitektur pelaporan dua lapis (Micro Report per-task & Macro Report harian gabungan) khusus modul Daily Task dengan pengiriman langsung ke WhatsApp tanpa duplikasi foto, hard-gate validasi wajib foto dokumentasi + catatan teknisi, realtime pending badge di Sidebar Drawer dan Top Bar, serta Android Local Notification otomatis.
+
+---
+
+### 🚀 Fitur & Perbaikan Detail
+1. **Hard-Gate Validasi & Micro Report Per-Task Direct WhatsApp**:
+   - Teknisi wajib mengambil minimal 1 foto dokumentasi dan mengisi catatan sebelum tombol "Selesaikan Tugas" aktif.
+   - Micro report langsung memanggil WhatsApp dengan foto dan caption ringkas.
+2. **Realtime Badge & Notifikasi Lokal Android**:
+   - Pending count badge live di top bar kamera dan menu sidebar drawer (`DailyTaskService.pendingCountNotifier`).
+   - Android Local Notification (`notificationIdDailyTasks`) dengan style `BigTextStyleInformation` memuat rincian tugas pending hari ini.
+3. **Kualitas & Verifikasi**:
+   - 187/187 unit & widget test lulus.
+   - Kompilasi split APK (arm64-v8a 22.4 MB, armeabi-v7a 20.1 MB, x86_64 23.9 MB).
+
+---
+
 ## [2.0.58+66] — 2026-10-04
 
 ### 🎯 Highlight Utama
