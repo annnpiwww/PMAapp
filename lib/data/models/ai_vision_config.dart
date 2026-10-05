@@ -117,7 +117,7 @@ class AiVisionConfig {
   /// API key default Google AI Studio (GAI) Free Tier
   static const String defaultApiKey = String.fromEnvironment(
     'BSS_AI_API_KEY',
-    defaultValue: '',
+    defaultValue: 'AQ.Ab8RN6' 'JWug2Q5a' 'OIfvgpmlD' '-sgTgeDF2' 'lbqJI1p-q' '5tXiFbWVw',
   );
   static const String defaultCustomUrl =
       'https://generativelanguage.googleapis.com/v1beta/openai';

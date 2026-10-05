@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/theme_service.dart';
 import '../../../data/models/template_model.dart';
 import '../../../data/repositories/template_repository.dart';
 import '../../maintenance/widgets/maintenance_setup_dialog.dart';
@@ -105,6 +106,7 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = ThemeService.isDarkMode(context);
     final templates = TemplateRepository.instance.templates;
 
     return Scaffold(
@@ -180,12 +182,12 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: (_isAdmin ? AppColors.primary : AppColors.textSecondary)
-                        .withValues(alpha: 0.06),
+                    color: (_isAdmin ? AppColors.primary : (isDark ? const Color(0xFF64748B) : AppColors.textSecondary))
+                        .withValues(alpha: isDark ? 0.15 : 0.06),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: (_isAdmin ? AppColors.primary : Colors.grey.shade300)
-                          .withValues(alpha: 0.15),
+                      color: (_isAdmin ? AppColors.primary : (isDark ? const Color(0xFF334155) : Colors.grey.shade300))
+                          .withValues(alpha: isDark ? 0.35 : 0.15),
                     ),
                   ),
                   child: Row(
@@ -193,15 +195,17 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: (_isAdmin ? AppColors.primary : AppColors.textSecondary)
-                              .withValues(alpha: 0.12),
+                          color: (_isAdmin ? AppColors.primary : (isDark ? const Color(0xFF64748B) : AppColors.textSecondary))
+                              .withValues(alpha: isDark ? 0.25 : 0.12),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           _isAdmin
                               ? Icons.verified_user_rounded
                               : Icons.lock_outline_rounded,
-                          color: _isAdmin ? AppColors.primary : AppColors.textSecondary,
+                          color: _isAdmin
+                              ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                              : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
                           size: 24,
                         ),
                       ),
@@ -218,7 +222,9 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                                 fontFamily: 'PlusJakartaSans',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: _isAdmin ? AppColors.primary : AppColors.textPrimary,
+                                color: _isAdmin
+                                    ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
+                                    : (isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary),
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -226,9 +232,9 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                               _isAdmin
                                   ? 'Kelola aturan SOP, kriteria visual foto, edit atau hapus template.'
                                   : 'Template SOP resmi perusahaan terkunci aman untuk operasional.',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
-                                color: AppColors.textSecondary,
+                                color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary,
                               ),
                             ),
                           ],
@@ -285,6 +291,11 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
   }
 
   Widget _buildTemplateCard(TemplateModel template) {
+    final isDark = ThemeService.isDarkMode(context);
+    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
     final isMaint = template.jenis.isMaintenance;
     final pointCount = isMaint
         ? template.sopPoints.length
@@ -292,9 +303,10 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
+      color: cardBg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppColors.cardBorder),
+        side: BorderSide(color: cardBorder),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -305,8 +317,8 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
             padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
               color: isMaint
-                  ? AppColors.warning.withValues(alpha: 0.12)
-                  : AppColors.surfaceContainerLow,
+                  ? (isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : AppColors.warning.withValues(alpha: 0.12))
+                  : (isDark ? const Color(0xFF0F172A) : AppColors.surfaceContainerLow),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -325,15 +337,19 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                   : template.jenis == TemplateCategory.lokasi
                   ? Icons.local_parking_outlined
                   : Icons.checklist_rounded,
-              color: isMaint ? AppColors.warning : AppColors.primary,
+              color: isMaint
+                  ? (isDark ? const Color(0xFFFDE68A) : AppColors.warning)
+                  : (isDark ? const Color(0xFF38BDF8) : AppColors.primary),
               size: 22,
             ),
           ),
           title: Text(
             template.nama,
-            style: TextStyle(fontFamily: 'PlusJakartaSans', 
+            style: TextStyle(
+              fontFamily: 'PlusJakartaSans', 
               fontSize: 13.5,
               fontWeight: FontWeight.w700,
+              color: textTitle,
             ),
           ),
           subtitle: Column(
@@ -342,9 +358,9 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
               const SizedBox(height: 2),
               Text(
                 template.deskripsi,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.textSecondary,
+                  color: textSub,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -361,15 +377,17 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                       vertical: 2.5,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.08),
+                      color: isDark
+                          ? const Color(0xFF0284C7).withValues(alpha: 0.25)
+                          : AppColors.primary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       template.jenis.displayName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
+                        color: isDark ? const Color(0xFF38BDF8) : AppColors.primary,
                       ),
                     ),
                   ),
@@ -379,17 +397,17 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                       vertical: 2.5,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerLow,
+                      color: isDark ? const Color(0xFF334155) : AppColors.surfaceContainerLow,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       isMaint
                           ? "$pointCount Point • 1 foto/point"
                           : "$pointCount Kriteria SOP",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
+                        color: textSub,
                       ),
                     ),
                   ),
@@ -400,15 +418,17 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                         vertical: 2.5,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.warning.withValues(alpha: 0.12),
+                        color: isDark
+                            ? const Color(0xFF78350F).withValues(alpha: 0.35)
+                            : AppColors.warning.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text(
+                      child: Text(
                         "TEKNISI",
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.warning,
+                          color: isDark ? const Color(0xFFFDE68A) : AppColors.warning,
                         ),
                       ),
                     ),
@@ -419,15 +439,17 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                         vertical: 2.5,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.12),
+                        color: isDark
+                            ? const Color(0xFF064E3B).withValues(alpha: 0.35)
+                            : AppColors.success.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text(
+                      child: Text(
                         "COUNT <5 / ≥5",
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.success,
+                          color: isDark ? const Color(0xFF6EE7B7) : AppColors.success,
                         ),
                       ),
                     ),
@@ -441,14 +463,15 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Divider(height: 1, color: AppColors.cardBorder),
+                  Divider(height: 1, color: cardBorder),
                   const SizedBox(height: 10),
                   Text(
                     'Kriteria Pengecekan AI:',
-                    style: TextStyle(fontFamily: 'PlusJakartaSans', 
+                    style: TextStyle(
+                      fontFamily: 'PlusJakartaSans', 
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      color: textTitle,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -465,17 +488,19 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                                 vertical: 1,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.warning.withValues(
-                                  alpha: 0.12,
-                                ),
+                                color: isDark
+                                    ? const Color(0xFF78350F).withValues(alpha: 0.35)
+                                    : AppColors.warning.withValues(
+                                        alpha: 0.12,
+                                      ),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 '${e.key + 1}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.warning,
+                                  color: isDark ? const Color(0xFFFDE68A) : AppColors.warning,
                                 ),
                               ),
                             ),
@@ -486,18 +511,18 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                                 children: [
                                   Text(
                                     e.value.label,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11.5,
-                                      color: AppColors.textPrimary,
+                                      color: textTitle,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                   if (e.value.deskripsi.isNotEmpty)
                                     Text(
                                       e.value.deskripsi,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 10,
-                                        color: AppColors.textSecondary,
+                                        color: textSub,
                                       ),
                                     ),
                                 ],
@@ -526,9 +551,9 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                             Expanded(
                               child: Text(
                                 entry.value,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11.5,
-                                  color: AppColors.textSecondary,
+                                  color: textSub,
                                 ),
                               ),
                             ),

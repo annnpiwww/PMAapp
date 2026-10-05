@@ -527,315 +527,356 @@ class _MaintenanceChecklistScreenState
   }
 
   void _showPointAction(SopPoint point, MaintenancePointResult result) {
+    final isDark = ThemeService.isDarkMode(context);
+    final sheetBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: sheetBg,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header Modal
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.checklist_rtl_rounded,
-                        color: AppColors.primary, size: 22),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          point.label,
-                          style: TextStyle(fontFamily: 'PlusJakartaSans', 
-                              fontWeight: FontWeight.w700, fontSize: 14),
-                        ),
-                        if (point.deskripsi.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            point.deskripsi,
-                            style: const TextStyle(
-                                fontSize: 11, color: AppColors.textSecondary),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+      builder: (ctx) {
+        Color statusBg;
+        Color statusBorder;
+        Color statusColor;
+        IconData statusIcon;
+        if (result.status == PointStatus.sesuai) {
+          statusBg = isDark ? const Color(0xFF064E3B).withValues(alpha: 0.35) : AppColors.success.withValues(alpha: 0.08);
+          statusBorder = isDark ? const Color(0xFF059669) : AppColors.success.withValues(alpha: 0.3);
+          statusColor = isDark ? const Color(0xFF6EE7B7) : AppColors.success;
+          statusIcon = Icons.check_circle_rounded;
+        } else if (result.status == PointStatus.tidakSesuai) {
+          statusBg = isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.35) : AppColors.danger.withValues(alpha: 0.08);
+          statusBorder = isDark ? const Color(0xFFDC2626) : AppColors.danger.withValues(alpha: 0.3);
+          statusColor = isDark ? const Color(0xFFFCA5A5) : AppColors.danger;
+          statusIcon = Icons.cancel_rounded;
+        } else {
+          // Perlu Cek Manual / Belum Foto (Amber / Kuning)
+          statusBg = isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : Colors.amber.withValues(alpha: 0.12);
+          statusBorder = isDark ? const Color(0xFFD97706) : Colors.amber.withValues(alpha: 0.4);
+          statusColor = isDark ? const Color(0xFFFDE68A) : Colors.amber.shade900;
+          statusIcon = Icons.info_rounded;
+        }
 
-              // Status Poin Saat Ini (Ditampilkan Langsung di Atas Header Modal)
-              Container(
-                padding: const EdgeInsets.all(11),
-                decoration: BoxDecoration(
-                  color: result.status == PointStatus.sesuai
-                      ? AppColors.success.withValues(alpha: 0.08)
-                      : (result.status == PointStatus.tidakSesuai
-                          ? AppColors.danger.withValues(alpha: 0.08)
-                          : Colors.amber.withValues(alpha: 0.08)),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: result.status == PointStatus.sesuai
-                        ? AppColors.success.withValues(alpha: 0.3)
-                        : (result.status == PointStatus.tidakSesuai
-                            ? AppColors.danger.withValues(alpha: 0.3)
-                            : Colors.amber.withValues(alpha: 0.3)),
-                  ),
-                ),
-                child: Column(
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Modal
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Icon(
-                          result.status == PointStatus.sesuai
-                              ? Icons.check_circle_rounded
-                              : (result.status == PointStatus.tidakSesuai
-                                  ? Icons.cancel_rounded
-                                  : Icons.info_rounded),
-                          size: 18,
-                          color: result.status == PointStatus.sesuai
-                              ? AppColors.success
-                              : (result.status == PointStatus.tidakSesuai
-                                  ? AppColors.danger
-                                  : Colors.amber.shade800),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Status: ${result.status.label}',
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.checklist_rtl_rounded,
+                          color: isDark ? const Color(0xFF38BDF8) : AppColors.primary, size: 22),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            point.label,
                             style: TextStyle(
                               fontFamily: 'PlusJakartaSans',
-                              fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: result.status == PointStatus.sesuai
-                                  ? AppColors.success
-                                  : (result.status == PointStatus.tidakSesuai
-                                      ? AppColors.danger
-                                      : Colors.amber.shade900),
+                              fontSize: 14,
+                              color: textTitle,
                             ),
                           ),
-                        ),
-                        if (result.isDone && result.confidence > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppColors.cardBorder),
+                          if (point.deskripsi.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              point.deskripsi,
+                              style: TextStyle(
+                                  fontSize: 11, color: textSub),
                             ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Status Poin Saat Ini (Ditampilkan Langsung di Atas Header Modal)
+                Container(
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    color: statusBg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: statusBorder),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            statusIcon,
+                            size: 18,
+                            color: statusColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
                             child: Text(
-                              'Akurasi ${(result.confidence * 100).toInt()}%',
-                              style: const TextStyle(
-                                fontSize: 9.5,
+                              'Status: ${result.status.label}',
+                              style: TextStyle(
+                                fontFamily: 'PlusJakartaSans',
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.textSecondary,
+                                color: statusColor,
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                    if (result.alasan.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        result.alasan,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // Checklist Item Panduan
-              if (point.checkpoints.isNotEmpty) ...[
-                Text(
-                  'CHECKPOINT WAJIB DIPERIKSA:',
-                  style: TextStyle(fontFamily: 'PlusJakartaSans', 
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.cardBorder),
-                  ),
-                  child: Column(
-                    children: point.checkpoints
-                        .map(
-                          (cp) => Padding(
-                            padding: const EdgeInsets.only(bottom: 5),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.check_circle_outline,
-                                    size: 14, color: AppColors.success),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    cp,
-                                    style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.textPrimary),
-                                  ),
+                          if (result.isDone && result.confidence > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: cardBorder),
+                              ),
+                              child: Text(
+                                'Akurasi ${(result.confidence * 100).toInt()}%',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: textSub,
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-
-              // Panduan Sudut Foto
-              if (point.panduanFoto.isNotEmpty) ...[
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.shade100),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.camera_alt_outlined,
-                          size: 16, color: Colors.blue),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Panduan Foto: ${point.panduanFoto}',
-                          style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black87),
-                        ),
+                        ],
                       ),
+                      if (result.alasan.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          result.alasan,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? const Color(0xFFF1F5F9) : AppColors.textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
                 const SizedBox(height: 14),
-              ],
 
-              const SizedBox(height: 12),
+                // Checklist Item Panduan
+                if (point.checkpoints.isNotEmpty) ...[
+                  Text(
+                    'CHECKPOINT WAJIB DIPERIKSA:',
+                    style: TextStyle(
+                      fontFamily: 'PlusJakartaSans',
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? const Color(0xFF38BDF8) : AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: cardBorder),
+                    ),
+                    child: Column(
+                      children: point.checkpoints
+                          .map(
+                            (cp) => Padding(
+                              padding: const EdgeInsets.only(bottom: 5),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.check_circle_outline,
+                                      size: 14, color: isDark ? const Color(0xFF6EE7B7) : AppColors.success),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      cp,
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: isDark ? const Color(0xFFE2E8F0) : AppColors.textPrimary),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
-              // Tombol Tambah / Edit Catatan Temuan Lapangan
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    final noteController = TextEditingController(text: result.alasan);
-                    showDialog(
-                      context: context,
-                      builder: (dlgCtx) => AlertDialog(
-                        title: Text('Catatan Poin: ${point.label}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                        content: TextField(
-                          controller: noteController,
-                          maxLines: 3,
-                          decoration: const InputDecoration(
-                            hintText: 'Misal: Palang bengkok tersenggol truk, stiker diganti baru, dll.',
-                            border: OutlineInputBorder(),
+                // Panduan Sudut Foto
+                if (point.panduanFoto.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.3) : Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: isDark ? const Color(0xFF2563EB).withValues(alpha: 0.5) : Colors.blue.shade100),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.camera_alt_outlined,
+                            size: 16, color: isDark ? const Color(0xFF60A5FA) : Colors.blue),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Panduan Foto: ${point.panduanFoto}',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: isDark ? const Color(0xFFDBEAFE) : Colors.black87),
                           ),
                         ),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(dlgCtx), child: const Text('Batal')),
-                          ElevatedButton(
-                            onPressed: () {
-                              final updated = result.copyWith(alasan: noteController.text.trim());
-                              final idx = _submission.points.indexWhere((p) => p.pointId == point.id);
-                              if (idx >= 0) {
-                                setState(() {
-                                  _submission.points[idx] = updated;
-                                });
-                                _save();
-                              }
-                              Navigator.pop(dlgCtx);
-                              Navigator.pop(ctx);
-                            },
-                            child: const Text('Simpan Catatan'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+
+                const SizedBox(height: 12),
+
+                // Tombol Tambah / Edit Catatan Temuan Lapangan
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      final noteController = TextEditingController(text: result.alasan);
+                      showDialog(
+                        context: context,
+                        builder: (dlgCtx) => AlertDialog(
+                          backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: cardBorder)),
+                          title: Text(
+                            'Catatan Poin: ${point.label}',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textTitle),
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.edit_note_rounded, size: 18),
-                  label: Text(result.alasan.isEmpty ? 'Tambah Catatan Temuan' : 'Edit Catatan Temuan'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primaryLight),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          content: TextField(
+                            controller: noteController,
+                            maxLines: 3,
+                            style: TextStyle(fontSize: 12.5, color: isDark ? Colors.white : AppColors.textPrimary),
+                            decoration: InputDecoration(
+                              hintText: 'Misal: Palang bengkok tersenggol truk, stiker diganti baru, dll.',
+                              hintStyle: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF64748B) : Colors.grey),
+                              filled: true,
+                              fillColor: isDark ? const Color(0xFF1E293B) : Colors.grey.shade50,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: cardBorder)),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: cardBorder)),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary)),
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(dlgCtx),
+                              child: Text('Batal', style: TextStyle(color: textSub)),
+                            ),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: () {
+                                final updated = result.copyWith(alasan: noteController.text.trim());
+                                final idx = _submission.points.indexWhere((p) => p.pointId == point.id);
+                                if (idx >= 0) {
+                                  setState(() {
+                                    _submission.points[idx] = updated;
+                                  });
+                                  _save();
+                                }
+                                Navigator.pop(dlgCtx);
+                                Navigator.pop(ctx);
+                              },
+                              child: const Text('Simpan Catatan'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.edit_note_rounded, size: 18),
+                    label: Text(result.alasan.isEmpty ? 'Tambah Catatan Temuan' : 'Edit Catatan Temuan'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? const Color(0xFF38BDF8) : AppColors.primary,
+                      side: BorderSide(color: isDark ? const Color(0xFF0284C7) : AppColors.primaryLight),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 10),
+                const SizedBox(height: 10),
 
-              // Tombol Buka Kamera
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _openCameraForPoint(point);
-                  },
-                  icon: const Icon(Icons.camera_alt_rounded, size: 18),
-                  label: Text(result.status == PointStatus.belumFoto
-                      ? 'Buka Kamera & Verifikasi AI'
-                      : 'Foto Ulang & Verifikasi AI'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                // Tombol Buka Kamera
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _openCameraForPoint(point);
+                    },
+                    icon: const Icon(Icons.camera_alt_rounded, size: 18),
+                    label: Text(result.status == PointStatus.belumFoto
+                        ? 'Buka Kamera & Verifikasi AI'
+                        : 'Foto Ulang & Verifikasi AI'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Tutup'),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: textSub,
+                      side: BorderSide(color: cardBorder),
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Tutup'),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
   Widget _buildFilterUnitChip(String unitKey, String label, int count) {
+    final isDark = ThemeService.isDarkMode(context);
     final isSelected = _selectedUnitFilter == unitKey;
     return Padding(
       padding: const EdgeInsets.only(right: 6),
@@ -845,12 +886,15 @@ class _MaintenanceChecklistScreenState
           fontSize: 11,
           fontFamily: 'PlusJakartaSans',
           fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-          color: isSelected ? Colors.white : AppColors.textSecondary,
+          color: isSelected ? Colors.white : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
         ),
         selected: isSelected,
         selectedColor: AppColors.primary,
-        backgroundColor: Colors.white,
-        side: BorderSide(color: isSelected ? Colors.transparent : AppColors.cardBorder, width: 1.1),
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        side: BorderSide(
+          color: isSelected ? Colors.transparent : (isDark ? const Color(0xFF334155) : AppColors.cardBorder),
+          width: 1.1,
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         showCheckmark: true,
         checkmarkColor: Colors.white,
@@ -868,6 +912,7 @@ class _MaintenanceChecklistScreenState
   }
 
   Widget _buildFilterStatusChip(String statusKey, String label, int count, Color activeColor) {
+    final isDark = ThemeService.isDarkMode(context);
     final isSelected = _selectedStatusFilter == statusKey;
     return Padding(
       padding: const EdgeInsets.only(right: 6),
@@ -877,12 +922,15 @@ class _MaintenanceChecklistScreenState
           fontSize: 10.5,
           fontFamily: 'PlusJakartaSans',
           fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-          color: isSelected ? Colors.white : AppColors.textSecondary,
+          color: isSelected ? Colors.white : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
         ),
         selected: isSelected,
         selectedColor: activeColor,
-        backgroundColor: Colors.white,
-        side: BorderSide(color: isSelected ? Colors.transparent : AppColors.cardBorder, width: 1.1),
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        side: BorderSide(
+          color: isSelected ? Colors.transparent : (isDark ? const Color(0xFF334155) : AppColors.cardBorder),
+          width: 1.1,
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         showCheckmark: true,
         checkmarkColor: Colors.white,

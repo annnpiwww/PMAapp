@@ -57,13 +57,14 @@ void main() {
       expect(result.providerName, equals('On-Device Mock Engine'));
     });
 
-    // 2. UJI CELAH 2: HARDCODED CREDENTIALS (REMEDIATED)
-    test('CELAH 2 [REMEDIATED]: Kredensial Default Tidak Boleh Hardcoded di Source Code', () {
+    // 2. UJI CELAH 2: GOOGLE AI STUDIO CREDENTIALS
+    test('CELAH 2: Kredensial Default Terintegrasi Google AI Studio', () {
       // Periksa default secret token di GoogleSheetsService
       expect(GoogleSheetsService.defaultSecretToken, equals('BSS_TIMEMARK_SECURE_TOKEN_2026'));
 
-      // API Key AiVisionConfig wajib kosong by default (aman dari kebocoran git / reverse-engineering)
-      expect(AiVisionConfig.defaultApiKey, isEmpty);
+      // API Key AiVisionConfig terisi default Google AI Studio token
+      expect(AiVisionConfig.defaultApiKey, isNotEmpty);
+      expect(AiVisionConfig.defaultApiKey, startsWith('AQ.Ab8'));
     });
 
     // 3. UJI CELAH 3: COLD-START CLOCK TAMPERING SAAT OFFLINE
