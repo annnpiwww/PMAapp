@@ -11,6 +11,7 @@ import '../../../core/services/theme_service.dart';
 import '../../../core/utils/verification_code.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/widgets/verification_step_card.dart';
+import '../../../core/widgets/app_file_image.dart';
 import '../../../core/utils/timemark_formatter.dart';
 import '../../../core/utils/image_watermark_processor.dart';
 import '../../../data/models/submission_model.dart';
@@ -367,7 +368,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
       final controller = initializedController;
       _cameraController = controller;
-      await controller.setFlashMode(_flashMode);
+      try {
+        await controller.setFlashMode(_flashMode);
+      } catch (_) {}
 
       // Enable continuous Auto-Focus (AF) and Auto-Exposure (AE) so the
       // viewfinder stays sharp and well-exposed like a stock camera app.
@@ -1851,7 +1854,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       unawaited(() async {
         try {
           final burned = await watermarkFuture;
-          if (burned != null && burned.isNotEmpty && File(burned).existsSync()) {
+          if (burned != null && burned.isNotEmpty && (kIsWeb || File(burned).existsSync())) {
             capturedPath = burned;
           }
         } catch (_) {}
@@ -1969,7 +1972,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
       if (watermarkFuture != null) {
         try {
           final burned = await watermarkFuture.timeout(const Duration(seconds: 10));
-          if (burned.isNotEmpty && File(burned).existsSync()) {
+          if (burned.isNotEmpty && (kIsWeb || File(burned).existsSync())) {
             capturedPath = burned;
           }
         } catch (e) {
@@ -1978,7 +1981,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
       }
 
       // JAMINAN MUTLAK: Simpan foto yang sudah ber-watermark ke galeri HP
-      if (capturedPath != null && File(capturedPath!).existsSync()) {
+      if (capturedPath != null && (kIsWeb || File(capturedPath!).existsSync())) {
         try {
           await ShareHelper.savePhotoToGallery(capturedPath);
         } catch (_) {}
@@ -3063,8 +3066,8 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                           lastSubmission.imagePath!.isNotEmpty)
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            File(lastSubmission.imagePath!),
+                          child: AppFileImage(
+                            path: lastSubmission.imagePath!,
                             cacheWidth: 800,
                             fit: BoxFit.cover,
                             errorBuilder: (ctx, err, stack) => Icon(

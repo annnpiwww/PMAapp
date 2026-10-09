@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_file_image.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/utils/timemark_formatter.dart';
@@ -219,8 +221,8 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: InteractiveViewer(
-                child: Image.file(
-                  File(photoPath),
+                child: AppFileImage(
+                  path: photoPath,
                   fit: BoxFit.contain,
                   errorBuilder: (c, err, st) => Container(
                     height: 250,
@@ -723,14 +725,14 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
                     color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
                   ),
                 ),
-                child: (record.photoPath != null && File(record.photoPath!).existsSync())
+                child: (record.photoPath != null && (kIsWeb || File(record.photoPath!).existsSync()))
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(9),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            Image.file(
-                              File(record.photoPath!),
+                            AppFileImage(
+                              path: record.photoPath!,
                               fit: BoxFit.cover,
                             ),
                             Positioned(

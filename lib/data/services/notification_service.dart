@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -52,6 +53,10 @@ class NotificationService {
   /// Inisialisasi konfigurasi notifikasi lokal dan timezone
   Future<void> init() async {
     if (_isInitialized) return;
+    if (kIsWeb) {
+      _isInitialized = true;
+      return;
+    }
 
     try {
       // 1. Inisialisasi database timezone untuk penjadwalan tepat waktu
@@ -133,6 +138,7 @@ class NotificationService {
   Future<void> showInstantAbsenMasukNotification({
     required String shift,
   }) async {
+    if (kIsWeb) return;
     await init();
     try {
       const androidDetails = AndroidNotificationDetails(
@@ -167,6 +173,7 @@ class NotificationService {
     required String shift,
     required DateTime checkInTime,
   }) async {
+    if (kIsWeb) return;
     await init();
     try {
       final scheduledPulang = AbsensiSetupService.getScheduledPulangTime(
@@ -219,6 +226,7 @@ class NotificationService {
     required String shift,
     String? durationText,
   }) async {
+    if (kIsWeb) return;
     await init();
     try {
       await cancelAbsenPulangNotification();
@@ -253,6 +261,7 @@ class NotificationService {
 
   /// Membatalkan pengingat jadwal pulang (dipanggil saat teknisi sudah sukses absen pulang)
   Future<void> cancelAbsenPulangNotification() async {
+    if (kIsWeb) return;
     try {
       await _notificationsPlugin.cancel(id: notificationIdReminderPulang);
       debugPrint('[NotificationService] Pengingat jadwal pulang dibatalkan.');
@@ -264,6 +273,7 @@ class NotificationService {
     required List<DailyTaskModel> tasks,
     bool force = false,
   }) async {
+    if (kIsWeb) return;
     await init();
     try {
       final pending = tasks.where((t) => !t.isCompleted).toList();
@@ -327,6 +337,7 @@ class NotificationService {
 
   /// Membatalkan notifikasi daily tasks (misal saat semua tugas selesai)
   Future<void> cancelDailyTasksNotification() async {
+    if (kIsWeb) return;
     try {
       _lastDailyTasksSignature = null;
       await _notificationsPlugin.cancel(id: notificationIdDailyTasks);
@@ -342,6 +353,7 @@ class NotificationService {
     required String posName,
     String? deskripsi,
   }) async {
+    if (kIsWeb) return;
     await init();
     try {
       const androidDetails = AndroidNotificationDetails(

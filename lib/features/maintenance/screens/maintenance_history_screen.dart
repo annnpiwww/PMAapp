@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_file_image.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../core/utils/timemark_formatter.dart';
 import '../../../data/models/maintenance_submission.dart';
@@ -627,7 +629,7 @@ class _MaintenanceDetailModal extends StatelessWidget {
               separatorBuilder: (context, index) => const SizedBox(height: 10),
               itemBuilder: (ctx, i) {
                 final p = submission.points[i];
-                final hasImage = p.imagePath != null && File(p.imagePath!).existsSync();
+                final hasImage = p.imagePath != null && (kIsWeb || File(p.imagePath!).existsSync());
                 final isSesuai = p.status == PointStatus.sesuai;
 
                 return Container(
@@ -659,8 +661,8 @@ class _MaintenanceDetailModal extends StatelessWidget {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: hasImage
-                                ? Image.file(
-                                    File(p.imagePath!),
+                                ? AppFileImage(
+                                    path: p.imagePath!,
                                     fit: BoxFit.cover,
                                     errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 24),
                                   )

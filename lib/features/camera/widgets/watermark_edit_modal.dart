@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_file_image.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../data/models/watermark_config.dart';
 
@@ -288,11 +290,11 @@ class _WatermarkEditModalState extends State<WatermarkEditModal> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (_config.logoImagePath != null &&
-                              File(_config.logoImagePath!).existsSync())
+                              (kIsWeb || File(_config.logoImagePath!).existsSync()))
                             ClipRRect(
                               borderRadius: BorderRadius.circular(3),
-                              child: Image.file(
-                                File(_config.logoImagePath!),
+                              child: AppFileImage(
+                                path: _config.logoImagePath!,
                                 width: 20,
                                 height: 20,
                                 fit: BoxFit.cover,

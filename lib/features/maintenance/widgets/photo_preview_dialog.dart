@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/utils/share_helper.dart';
+import '../../../core/widgets/app_file_image.dart';
 import '../../../data/models/maintenance_submission.dart';
 
 class PhotoPreviewDialog extends StatelessWidget {
@@ -38,8 +40,7 @@ class PhotoPreviewDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final file = File(imagePath);
-    final exists = file.existsSync();
+    final exists = kIsWeb || (imagePath.isNotEmpty && File(imagePath).existsSync());
 
     final isSesuai = pointResult?.status == PointStatus.sesuai;
     final isTidakSesuai = pointResult?.status == PointStatus.tidakSesuai;
@@ -148,8 +149,8 @@ class PhotoPreviewDialog extends StatelessWidget {
                       minScale: 1.0,
                       maxScale: 4.5,
                       child: Center(
-                        child: Image.file(
-                          file,
+                        child: AppFileImage(
+                          path: imagePath,
                           cacheWidth: 1280,
                           fit: BoxFit.contain,
                         ),

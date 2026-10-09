@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/utils/timemark_formatter.dart';
 import '../../../data/models/template_model.dart';
@@ -698,7 +699,8 @@ class _InteractiveWatermarkState extends State<InteractiveWatermark> {
   }
 
   Widget _buildLogoWidget(Color badgeColor) {
-    if (widget.config.logoImagePath != null &&
+    if (!kIsWeb &&
+        widget.config.logoImagePath != null &&
         widget.config.logoImagePath!.isNotEmpty) {
       final file = File(widget.config.logoImagePath!);
       if (file.existsSync()) {

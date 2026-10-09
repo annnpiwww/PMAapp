@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_file_image.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/utils/timemark_formatter.dart';
@@ -47,7 +49,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
     for (final ms in maintList) {
       final validPhotos = <_GalleryPhotoItem>[];
       for (final p in ms.points) {
-        if (p.imagePath != null && File(p.imagePath!).existsSync()) {
+        if (p.imagePath != null && (kIsWeb || File(p.imagePath!).existsSync())) {
           validPhotos.add(
             _GalleryPhotoItem(
               imagePath: p.imagePath!,
@@ -77,7 +79,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
     // 2. Kelompokkan foto dari Absensi Submissions (per hari & kategori)
     final submissions = SubmissionRepository.instance.submissions
-        .where((s) => s.imagePath != null && File(s.imagePath!).existsSync())
+        .where((s) => s.imagePath != null && (kIsWeb || File(s.imagePath!).existsSync()))
         .toList();
 
     final absensiGroupMap = <String, List<_GalleryPhotoItem>>{};
@@ -415,9 +417,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: coverFile.existsSync()
-                                ? Image.file(
-                                    coverFile,
+                            child: (kIsWeb || coverFile.existsSync())
+                                ? AppFileImage(
+                                    path: coverFile.path,
                                     fit: BoxFit.cover,
                                     cacheWidth: 300,
                                     errorBuilder: (_, _, _) => const Icon(Icons.broken_image, color: Colors.grey),
@@ -698,8 +700,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image.file(
-                          file,
+                        AppFileImage(
+                          path: file.path,
                           fit: BoxFit.cover,
                           cacheWidth: 600,
                           errorBuilder: (context, error, stackTrace) => Container(

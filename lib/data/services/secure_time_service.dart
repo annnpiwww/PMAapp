@@ -55,23 +55,32 @@ class SecureTimeService {
 
       final dateHeader = response.headers['date'];
       if (dateHeader != null) {
-        final serverTime = HttpDate.parse(dateHeader).toLocal();
-        final deviceTime = DateTime.now();
-        _cachedOffsetSeconds = serverTime.difference(deviceTime).inSeconds;
-        // Toleransi perbedaan jam HP vs Server: 300 detik (5 menit)
-        _isManipulated = _cachedOffsetSeconds.abs() > 300;
-        _lastSyncedNetworkTime = serverTime;
-        _lastSyncedStopwatchElapsed = _monotonicStopwatch.elapsed;
-        _anchorWallTime = deviceTime;
-        _anchorStopwatchElapsed = _monotonicStopwatch.elapsed;
-        _lastCheckedWallTime = deviceTime;
-
-        if (_isManipulated) {
-          _isTampered = true;
-          _tamperedReason = 'Offset server berbeda ${_cachedOffsetSeconds}s (> 300s)';
+        DateTime? serverTime;
+        if (!kIsWeb) {
+          try {
+            serverTime = HttpDate.parse(dateHeader).toLocal();
+          } catch (_) {}
         }
+        serverTime ??= _tryParseHttpDate(dateHeader)?.toLocal();
 
-        debugPrint('[BSS-Security] Time Synced. Offset: ${_cachedOffsetSeconds}s, Manipulated: $_isManipulated');
+        if (serverTime != null) {
+          final deviceTime = DateTime.now();
+          _cachedOffsetSeconds = serverTime.difference(deviceTime).inSeconds;
+          // Toleransi perbedaan jam HP vs Server: 300 detik (5 menit)
+          _isManipulated = _cachedOffsetSeconds.abs() > 300;
+          _lastSyncedNetworkTime = serverTime;
+          _lastSyncedStopwatchElapsed = _monotonicStopwatch.elapsed;
+          _anchorWallTime = deviceTime;
+          _anchorStopwatchElapsed = _monotonicStopwatch.elapsed;
+          _lastCheckedWallTime = deviceTime;
+
+          if (_isManipulated) {
+            _isTampered = true;
+            _tamperedReason = 'Offset server berbeda ${_cachedOffsetSeconds}s (> 300s)';
+          }
+
+          debugPrint('[BSS-Security] Time Synced. Offset: ${_cachedOffsetSeconds}s, Manipulated: $_isManipulated');
+        }
       }
     } catch (e) {
       debugPrint('[BSS-Security] Sync network time failed: $e');
@@ -190,5 +199,32 @@ class SecureTimeService {
     _anchorWallTime = DateTime.now();
     _anchorStopwatchElapsed = _monotonicStopwatch.elapsed;
     _lastCheckedWallTime = _anchorWallTime;
+  }
+
+  static DateTime? _tryParseHttpDate(String dateStr) {
+    try {
+      final parts = dateStr.trim().split(' ');
+      if (parts.length >= 5) {
+        final day = int.tryParse(parts[1]);
+        const months = {
+          'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+          'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+        };
+        final month = months[parts[2]];
+        final year = int.tryParse(parts[3]);
+        final timeParts = parts[4].split(':');
+        if (day != null && month != null && year != null && timeParts.length >= 3) {
+          final hour = int.tryParse(timeParts[0]);
+          final minute = int.tryParse(timeParts[1]);
+          final second = int.tryParse(timeParts[2]);
+          if (hour != null && minute != null && second != null) {
+            return DateTime.utc(year, month, day, hour, minute, second);
+          }
+        }
+      }
+      return DateTime.tryParse(dateStr);
+    } catch (_) {
+      return null;
+    }
   }
 }

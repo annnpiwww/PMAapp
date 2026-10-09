@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_file_image.dart';
 import '../../../data/models/submission_model.dart';
 import '../../../data/models/template_model.dart';
 import '../../../data/services/ai_vision_service.dart';
@@ -355,8 +356,8 @@ class SopVerificationModal extends StatelessWidget {
                           child: SizedBox(
                             height: 190,
                             width: double.infinity,
-                            child: Image.file(
-                              File(imagePath!),
+                            child: AppFileImage(
+                              path: imagePath!,
                               fit: BoxFit.cover,
                             ),
                           ),
@@ -828,8 +829,8 @@ class SopVerificationModal extends StatelessWidget {
               maxScale: 4.0,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: Image.file(
-                  File(path),
+                child: AppFileImage(
+                  path: path,
                   fit: BoxFit.contain,
                 ),
               ),

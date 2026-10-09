@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/utils/share_helper.dart';
 import '../models/maintenance_submission.dart';
@@ -1252,9 +1253,13 @@ class WhatsAppReportService {
     final xfiles = <XFile>[];
     for (final pt in submission.points) {
       if (pt.imagePath != null && pt.imagePath!.isNotEmpty) {
-        final f = File(pt.imagePath!);
-        if (f.existsSync()) {
+        if (kIsWeb) {
           xfiles.add(XFile(pt.imagePath!, name: '${pt.pointId}.jpg'));
+        } else {
+          final f = File(pt.imagePath!);
+          if (f.existsSync()) {
+            xfiles.add(XFile(pt.imagePath!, name: '${pt.pointId}.jpg'));
+          }
         }
       }
     }
@@ -1285,9 +1290,13 @@ class WhatsAppReportService {
     final xfiles = <XFile>[];
     for (final pt in submission.points) {
       if (pt.imagePath != null && pt.imagePath!.isNotEmpty) {
-        final f = File(pt.imagePath!);
-        if (f.existsSync()) {
+        if (kIsWeb) {
           xfiles.add(XFile(pt.imagePath!, name: '${pt.pointId}.jpg'));
+        } else {
+          final f = File(pt.imagePath!);
+          if (f.existsSync()) {
+            xfiles.add(XFile(pt.imagePath!, name: '${pt.pointId}.jpg'));
+          }
         }
       }
     }

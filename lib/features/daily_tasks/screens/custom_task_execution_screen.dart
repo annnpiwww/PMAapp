@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../core/utils/share_helper.dart';
+import '../../../core/widgets/app_file_image.dart';
 import '../../../data/models/daily_task_model.dart';
 import '../../../data/services/daily_task_service.dart';
 import '../../../data/services/storage_service.dart';
@@ -662,8 +663,8 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            File(path),
+                          child: AppFileImage(
+                            path: path,
                             fit: BoxFit.cover,
                           ),
                         ),

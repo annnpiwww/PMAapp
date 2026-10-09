@@ -108,6 +108,7 @@ class ImageWatermarkProcessor {
     double? targetAspectRatio,
     int jpegQuality = 93,
   }) async {
+    if (kIsWeb) return imagePath;
     final file = File(imagePath);
     if (!file.existsSync()) return imagePath;
 

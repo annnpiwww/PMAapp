@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_file_image.dart';
 import '../../../data/models/watermark_config.dart';
 
 class WatermarkCustomizerModal extends StatefulWidget {
@@ -178,11 +180,11 @@ class _WatermarkCustomizerModalState extends State<WatermarkCustomizerModal> {
                               borderRadius: BorderRadius.circular(5),
                             ),
                             child: _logoImagePath != null &&
-                                    File(_logoImagePath!).existsSync()
+                                    (kIsWeb || File(_logoImagePath!).existsSync())
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(4),
-                                    child: Image.file(
-                                      File(_logoImagePath!),
+                                    child: AppFileImage(
+                                      path: _logoImagePath!,
                                       fit: BoxFit.contain,
                                     ),
                                   )
@@ -274,11 +276,11 @@ class _WatermarkCustomizerModalState extends State<WatermarkCustomizerModal> {
                       border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: _logoImagePath != null &&
-                            File(_logoImagePath!).existsSync()
+                            (kIsWeb || File(_logoImagePath!).existsSync())
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(7),
-                            child: Image.file(
-                              File(_logoImagePath!),
+                            child: AppFileImage(
+                              path: _logoImagePath!,
                               fit: BoxFit.contain,
                             ),
                           )

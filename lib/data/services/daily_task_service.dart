@@ -548,23 +548,25 @@ class DailyTaskService {
         timeStr: timeStr,
       );
 
-      // 1. Coba eksekusi lewat tools/telegram_notify.sh jika script tersedia
-      try {
-        final script = File('tools/telegram_notify.sh');
-        if (await script.exists()) {
-          final res = await Process.run('bash', ['tools/telegram_notify.sh', '-m', message]);
-          if (res.exitCode == 0) {
-            debugPrint('[DailyTaskService] Notifikasi tugas baru terkirim via telegram_notify.sh');
-            return true;
+      // 1. Coba eksekusi lewat tools/telegram_notify.sh jika script tersedia (Native only)
+      if (!kIsWeb) {
+        try {
+          final script = File('tools/telegram_notify.sh');
+          if (await script.exists()) {
+            final res = await Process.run('bash', ['tools/telegram_notify.sh', '-m', message]);
+            if (res.exitCode == 0) {
+              debugPrint('[DailyTaskService] Notifikasi tugas baru terkirim via telegram_notify.sh');
+              return true;
+            }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }
 
       // 2. Fallback direct Telegram Bot API
       String token = const String.fromEnvironment('BSS_TG_BOT_TOKEN', defaultValue: '');
       String chatId = const String.fromEnvironment('BSS_TG_CHAT_ID', defaultValue: '');
 
-      if (token.isEmpty || chatId.isEmpty) {
+      if (!kIsWeb && (token.isEmpty || chatId.isEmpty)) {
         try {
           final home = Platform.environment['HOME'] ?? '';
           final envPath = Platform.environment['BSS_TG_ENV'] ??

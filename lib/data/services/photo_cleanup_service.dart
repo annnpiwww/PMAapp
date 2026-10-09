@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 class PhotoCleanupService {
   /// Bersihkan file temporary foto di cache / app doc yang usianya > [maxDays] hari
   static Future<int> cleanOldPhotos({int maxDays = 7}) async {
+    if (kIsWeb) return 0;
     int deletedCount = 0;
     try {
       final now = DateTime.now();

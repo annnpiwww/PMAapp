@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
+import '../../../core/widgets/app_file_image.dart';
 import '../../../data/models/template_model.dart';
 import '../../../data/models/maintenance_submission.dart';
 import '../../../data/services/storage_service.dart';
@@ -1614,8 +1615,8 @@ class _MaintenanceChecklistScreenState
                                 children: [
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(12),
-                                    child: Image.file(
-                                      File(result.imagePath!),
+                                    child: AppFileImage(
+                                      path: result.imagePath!,
                                       width: 44,
                                       height: 44,
                                       fit: BoxFit.cover,

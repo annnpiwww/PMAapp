@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_file_image.dart';
 import '../../../data/models/watermark_config.dart';
 import '../../../data/services/storage_service.dart';
 
@@ -242,8 +244,8 @@ class _CardTemplateManagementScreenState
                             border: Border.all(color: Colors.grey.shade300),
                           ),
                           child: logoPath != null &&
-                                  File(logoPath!).existsSync()
-                              ? Image.file(File(logoPath!), fit: BoxFit.contain)
+                                  (kIsWeb || File(logoPath!).existsSync())
+                              ? AppFileImage(path: logoPath!, fit: BoxFit.contain)
                               : const Icon(Icons.image, size: 18, color: Colors.grey),
                         ),
                         const SizedBox(width: 8),

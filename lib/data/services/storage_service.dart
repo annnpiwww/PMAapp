@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/template_model.dart';
 import '../models/submission_model.dart';
@@ -686,7 +687,7 @@ class StorageService {
     final existing = getAttendanceRecords();
     final target = existing.where((r) => r.id == id).toList();
     for (final r in target) {
-      if (r.photoPath != null && r.photoPath!.isNotEmpty) {
+      if (!kIsWeb && r.photoPath != null && r.photoPath!.isNotEmpty) {
         try {
           final file = File(r.photoPath!);
           if (await file.exists()) {
@@ -704,7 +705,7 @@ class StorageService {
     await init();
     final existing = getAttendanceRecords();
     for (final r in existing) {
-      if (r.photoPath != null && r.photoPath!.isNotEmpty) {
+      if (!kIsWeb && r.photoPath != null && r.photoPath!.isNotEmpty) {
         try {
           final file = File(r.photoPath!);
           if (await file.exists()) {
@@ -737,7 +738,7 @@ class StorageService {
 
     // Hapus file foto dari record yang dipangkas
     for (final record in prunedRecords) {
-      if (record.photoPath != null && record.photoPath!.isNotEmpty) {
+      if (!kIsWeb && record.photoPath != null && record.photoPath!.isNotEmpty) {
         try {
           final file = File(record.photoPath!);
           if (await file.exists()) {
@@ -749,7 +750,7 @@ class StorageService {
 
     // Untuk record yang masih tersimpan, periksa file foto jika modified > retentionDays
     for (final record in keptRecords) {
-      if (record.photoPath != null && record.photoPath!.isNotEmpty) {
+      if (!kIsWeb && record.photoPath != null && record.photoPath!.isNotEmpty) {
         try {
           final file = File(record.photoPath!);
           if (await file.exists()) {

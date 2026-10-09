@@ -2,6 +2,22 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.76+84] — 2026-10-09
+
+### 🎯 Highlight Utama
+1. **Universal Web & PWA Cross-Platform Engine (iOS Safari & Android)**:
+   - **Cross-Platform Visual Rendering (`AppFileImage`)**: Menghilangkan dependensi hardcoded `Image.file(File(...))` di seluruh layar (kamera HUD, modal verifikasi SOP, galeri, arsip absensi, checklist pemeliharaan, template). Web browser otomatis merender via memory/blob/network image, sementara Android tetap native `Image.file`.
+   - **Pencegahan Crash Runtime Browser (`kIsWeb` Guards)**: Memagari seluruh modul native (`NotificationService`, `PhotoCleanupService`, `SecureTimeService`, `StorageService`, `WhatsAppReportService`, `ImageWatermarkProcessor`, `DailyTaskService`) dari pemanggilan `dart:io` dan plugin non-web.
+   - **RFC-1123 HTTP Date Parser**: Menyediakan parser tanggal fallback untuk sinkronisasi waktu anti-manipulasi di web tanpa dependensi `dart:io` `HttpDate`.
+   - **Kamera Web Fallback**: Penanganan toleran hardware flash browser agar inisialisasi viewfinder kamera di Safari/Chrome Web tidak crash.
+2. **Kualitas & Distribusi**:
+   - `flutter analyze`: 0 issues found (bersih total).
+   - `flutter test`: 232 dari 232 test LULUS (100% green).
+   - `flutter build web --release`: Sukses terkompilasi ke `build/web/`.
+   - Split APK v2.0.76+84 (32-bit & 64-bit) terkirim ke Telegram bot.
+
+---
+
 ## [2.0.75+83] — 2026-10-09
 
 ### 🎯 Highlight Utama

@@ -11,6 +11,7 @@ class ShareHelper {
 
   /// Saves photo to device gallery
   static Future<bool> savePhotoToGallery(String? imagePath) async {
+    if (kIsWeb) return true; // Web browser doesn't have native Gallery access
     if (imagePath == null || imagePath.isEmpty) return false;
     final file = File(imagePath);
     if (!file.existsSync()) return false;
@@ -41,7 +42,7 @@ class ShareHelper {
     }
 
     // 1. Coba Direct Intent Android (Langsung Buka Telegram tanpa dialog picker)
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       try {
         final success = await _directChannel.invokeMethod<bool>('shareDirect', {
           'target': 'telegram',
@@ -112,7 +113,7 @@ class ShareHelper {
     }
 
     // 1. Coba Direct Intent Android (Langsung Buka WhatsApp / WA Business tanpa dialog picker)
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       try {
         final success = await _directChannel.invokeMethod<bool>('shareDirect', {
           'target': 'whatsapp',
@@ -128,12 +129,22 @@ class ShareHelper {
 
     // 2. Fallback: SharePlus atau URI scheme
     final validFiles = <XFile>[];
-    if (imagePaths != null && imagePaths.isNotEmpty) {
-      for (final p in imagePaths) {
-        if (File(p).existsSync()) validFiles.add(XFile(p));
+    if (!kIsWeb) {
+      if (imagePaths != null && imagePaths.isNotEmpty) {
+        for (final p in imagePaths) {
+          if (File(p).existsSync()) validFiles.add(XFile(p));
+        }
+      } else if (imagePath != null && File(imagePath).existsSync()) {
+        validFiles.add(XFile(imagePath));
       }
-    } else if (imagePath != null && File(imagePath).existsSync()) {
-      validFiles.add(XFile(imagePath));
+    } else {
+      if (imagePaths != null && imagePaths.isNotEmpty) {
+        for (final p in imagePaths) {
+          validFiles.add(XFile(p));
+        }
+      } else if (imagePath != null) {
+        validFiles.add(XFile(imagePath));
+      }
     }
 
     // PENTING: Jika ada file media (foto/video), kirim melalui SharePlus dengan lampiran file.
