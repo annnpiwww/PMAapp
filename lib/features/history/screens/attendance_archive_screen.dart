@@ -10,6 +10,7 @@ import '../../../core/utils/timemark_formatter.dart';
 import '../../../data/models/attendance_record.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/location_service.dart';
+import '../../../data/services/branch_service.dart';
 import '../../../data/repositories/auth_repository.dart';
 
 class AttendanceArchiveScreen extends StatefulWidget {
@@ -32,8 +33,39 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
   Future<void> _loadRecords() async {
     setState(() => _isLoading = true);
     final list = StorageService.getAttendanceRecords();
+    final currentBranch = BranchService.instance.currentBranch;
+    final filtered = list.where((r) {
+      // 1. Cek nama teknisi jika ada
+      final manadoTechs = BranchService.instance.getTechnicians(branch: AppBranch.manado);
+      final baliTechs = BranchService.instance.getTechnicians(branch: AppBranch.bali);
+      final nameClean = r.technicianName.toLowerCase().trim();
+      if (nameClean.isNotEmpty) {
+        final isManadoTech = manadoTechs.any((t) => t.toLowerCase().contains(nameClean) || nameClean.contains(t.toLowerCase()));
+        final isBaliTech = baliTechs.any((t) => t.toLowerCase().contains(nameClean) || nameClean.contains(t.toLowerCase()));
+        if (isManadoTech && currentBranch == AppBranch.bali) return false;
+        if (isBaliTech && currentBranch == AppBranch.manado) return false;
+      }
+      // 2. Cek lokasi pos
+      final pos = LocationService.findPosByTagOrName(r.posName);
+      if (pos != null) {
+        return pos.matchesBranch(currentBranch);
+      }
+      // 3. Cek format shift
+      final isBaliShift = r.shiftName.contains('06.00') ||
+          r.shiftName.contains('14.00') ||
+          r.shiftName.contains('22.00') ||
+          r.shiftName.contains('08.00') ||
+          r.shiftName.contains('18.00');
+      final isManadoShift = r.shiftName.contains('03:00') ||
+          r.shiftName.contains('10:00') ||
+          r.shiftName.contains('14:00');
+      if (isBaliShift && currentBranch == AppBranch.manado) return false;
+      if (isManadoShift && currentBranch == AppBranch.bali) return false;
+      return true;
+    }).toList();
+
     setState(() {
-      _records = list;
+      _records = filtered;
       _isLoading = false;
     });
   }
@@ -712,7 +744,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
           children: [
             // Photo Thumbnail
             GestureDetector(
-              onTap: (record.photoPath != null && File(record.photoPath!).existsSync())
+              onTap: (record.photoPath != null && (kIsWeb || File(record.photoPath!).existsSync()))
                   ? () => _showPhotoDialog(record.photoPath!, record)
                   : null,
               child: Container(

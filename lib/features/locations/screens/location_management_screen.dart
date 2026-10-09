@@ -122,9 +122,10 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                         Expanded(
                           child: TextField(
                             controller: cabangController,
+                            readOnly: true,
                             decoration: const InputDecoration(
                               labelText: 'Cabang / Area',
-                              hintText: 'KC BSG',
+                              helperText: 'Sesuai akun aktif',
                               isDense: true,
                             ),
                           ),
@@ -298,40 +299,6 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
     );
   }
 
-  Widget _buildBranchTab({
-    required AppBranch branch,
-    required String label,
-    required int count,
-    required bool isDark,
-  }) {
-    final isSelected = _selectedBranch == branch;
-    return InkWell(
-      onTap: () => setState(() => _selectedBranch = branch),
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? AppColors.accent : AppColors.primary)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          '$label ($count)',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-            color: isSelected
-                ? Colors.white
-                : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final allLocations = LocationService.getLocationsByBranch(_selectedBranch);
@@ -372,31 +339,33 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Switcher Tab KC Manado vs KC Bali
+            // Locked Branch Banner (Strict Isolation: Manado Manado, Bali Bali)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Container(
-                padding: const EdgeInsets.all(3),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200,
+                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF334155) : AppColors.cardBorder,
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: _buildBranchTab(
-                        branch: AppBranch.manado,
-                        label: 'KC Manado',
-                        count: LocationService.getLocationsByBranch(AppBranch.manado).length,
-                        isDark: isDark,
-                      ),
+                    Icon(
+                      Icons.storefront_rounded,
+                      size: 18,
+                      color: isDark ? AppColors.accent : AppColors.primary,
                     ),
-                    Expanded(
-                      child: _buildBranchTab(
-                        branch: AppBranch.bali,
-                        label: 'KC Bali',
-                        count: LocationService.getLocationsByBranch(AppBranch.bali).length,
-                        isDark: isDark,
+                    const SizedBox(width: 8),
+                    Text(
+                      'Cabang: ${_selectedBranch.name} (${allLocations.length} Pos Terdaftar)',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
                       ),
                     ),
                   ],

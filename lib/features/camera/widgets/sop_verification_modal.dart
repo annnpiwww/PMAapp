@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_file_image.dart';
@@ -17,6 +18,16 @@ class SopVerificationModal extends StatelessWidget {
   final VoidCallback? onShareTelegram;
   final VoidCallback? onShareWhatsApp;
   final bool isLoading;
+
+  static bool _doesFileExist(String? path) {
+    if (path == null || path.trim().isEmpty) return false;
+    if (kIsWeb) return true;
+    try {
+      return File(path).existsSync();
+    } catch (_) {
+      return false;
+    }
+  }
 
   const SopVerificationModal({
     super.key,
@@ -327,7 +338,7 @@ class SopVerificationModal extends StatelessWidget {
             const SizedBox(height: 14),
 
             // Preview Foto Hasil Capture (Anti-Blur Check with Tactical Frame)
-            if (imagePath != null && imagePath!.isNotEmpty && File(imagePath!).existsSync()) ...[
+            if (_doesFileExist(imagePath)) ...[
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(

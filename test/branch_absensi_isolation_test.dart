@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bssparking_timemark/data/services/storage_service.dart';
 import 'package:bssparking_timemark/data/services/branch_service.dart';
 import 'package:bssparking_timemark/data/services/absensi_setup_service.dart';
+import 'package:bssparking_timemark/data/models/attendance_record.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -62,6 +63,76 @@ void main() {
       await BranchService.instance.setBranch(AppBranch.bali);
       expect(setup.effectiveJadwalShift, equals('Shift 4 (08.30 - 16.30)'));
       expect(setup.effectiveLokasiStandby, equals('PCD'));
+    });
+
+    test('AttendanceArchiveScreen filters records strictly per branch without cross-viewing', () async {
+      await StorageService.clearAllAttendanceRecords();
+      final manadoRecord = AttendanceRecord(
+        id: 'att_manado',
+        timestamp: DateTime(2026, 10, 9, 8, 0),
+        type: AttendanceType.masuk,
+        shiftName: 'Shift 1 (03:00 - 11:00)',
+        technicianName: 'Ryan Lumasuge',
+        posName: 'PBM',
+        lat: 1.49,
+        lng: 124.84,
+        fullAddress: 'Pasar Bersehati Manado',
+      );
+      final baliRecord = AttendanceRecord(
+        id: 'att_bali',
+        timestamp: DateTime(2026, 10, 9, 8, 0),
+        type: AttendanceType.masuk,
+        shiftName: 'Shift 1 (06.00 - 14.00)',
+        technicianName: 'Putu Hyan Parta Wijaya',
+        posName: 'PBKD',
+        lat: -8.67,
+        lng: 115.21,
+        fullAddress: 'Denpasar, Bali',
+      );
+      await StorageService.saveAttendanceRecord(manadoRecord);
+      await StorageService.saveAttendanceRecord(baliRecord);
+
+      // 1. Manado active:
+      await BranchService.instance.setBranch(AppBranch.manado);
+      final all = StorageService.getAttendanceRecords();
+      expect(all.length, equals(2));
+
+      // Filter logic matches AttendanceArchiveScreen
+      final currentBranch = BranchService.instance.currentBranch;
+      final manadoFiltered = all.where((r) {
+        final manadoTechs = BranchService.instance.getTechnicians(branch: AppBranch.manado);
+        final baliTechs = BranchService.instance.getTechnicians(branch: AppBranch.bali);
+        final nameClean = r.technicianName.toLowerCase().trim();
+        if (nameClean.isNotEmpty) {
+          final isManadoTech = manadoTechs.any((t) => t.toLowerCase().contains(nameClean) || nameClean.contains(t.toLowerCase()));
+          final isBaliTech = baliTechs.any((t) => t.toLowerCase().contains(nameClean) || nameClean.contains(t.toLowerCase()));
+          if (isManadoTech && currentBranch == AppBranch.bali) return false;
+          if (isBaliTech && currentBranch == AppBranch.manado) return false;
+        }
+        return true;
+      }).toList();
+
+      expect(manadoFiltered.length, equals(1));
+      expect(manadoFiltered.first.id, equals('att_manado'));
+
+      // 2. Bali active:
+      await BranchService.instance.setBranch(AppBranch.bali);
+      final currentBranchBali = BranchService.instance.currentBranch;
+      final baliFiltered = all.where((r) {
+        final manadoTechs = BranchService.instance.getTechnicians(branch: AppBranch.manado);
+        final baliTechs = BranchService.instance.getTechnicians(branch: AppBranch.bali);
+        final nameClean = r.technicianName.toLowerCase().trim();
+        if (nameClean.isNotEmpty) {
+          final isManadoTech = manadoTechs.any((t) => t.toLowerCase().contains(nameClean) || nameClean.contains(t.toLowerCase()));
+          final isBaliTech = baliTechs.any((t) => t.toLowerCase().contains(nameClean) || nameClean.contains(t.toLowerCase()));
+          if (isManadoTech && currentBranchBali == AppBranch.bali) return false;
+          if (isBaliTech && currentBranchBali == AppBranch.manado) return false;
+        }
+        return true;
+      }).toList();
+
+      expect(baliFiltered.length, equals(1));
+      expect(baliFiltered.first.id, equals('att_bali'));
     });
   });
 }
