@@ -89,6 +89,28 @@ void main() {
       expect(BranchService.instance.currentBranch, equals(AppBranch.manado));
     });
 
+    test('Manado technicians with @pma.com emails login offline and auto-lock branch to KC Manado', () async {
+      final success = await AuthRepository.instance.loginWithPassword(
+        identity: 'ryan@pma.com',
+        password: 'teknisi123',
+      );
+
+      expect(success, isTrue);
+      final user = AuthRepository.instance.currentUser;
+      expect(user, isNotNull);
+      expect(user!.role, equals(UserRole.petugas));
+      expect(user.nama, equals('Ryan Lumasuge'));
+      expect(user.cabangName, equals('KC Manado'));
+      expect(BranchService.instance.currentBranch, equals(AppBranch.manado));
+
+      final farhanOk = await AuthRepository.instance.loginWithPassword(
+        identity: 'farhan@pma.com',
+        password: 'flakoro05',
+      );
+      expect(farhanOk, isTrue);
+      expect(BranchService.instance.currentBranch, equals(AppBranch.manado));
+    });
+
     test('Wrong password fails offline authentication', () async {
       final fail = await AuthRepository.instance.loginWithPassword(
         identity: 'indra@pma.com',

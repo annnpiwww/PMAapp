@@ -92,17 +92,13 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     for (final tech in _technicians) {
       if (!list.contains(tech)) list.add(tech);
     }
-    for (final t in _tasksToday) {
-      final name = t.teknisiNama.trim();
-      if (name.isNotEmpty && !list.contains(name)) {
-        list.add(name);
-      }
-    }
     return list;
   }
 
   List<DailyTaskModel> get _filteredTasks {
+    final branchTechs = BranchService.instance.getTechnicians();
     return _tasksToday.where((t) {
+      if (!branchTechs.contains(t.teknisiNama.trim())) return false;
       if (_selectedStatusFilter == 'PENDING' && t.isCompleted) return false;
       if (_selectedStatusFilter == 'COMPLETED' && !t.isCompleted) return false;
       if (_selectedTechFilter != 'SEMUA' && t.teknisiNama != _selectedTechFilter) return false;

@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as imglib;
 import 'package:bssparking_timemark/core/utils/image_watermark_processor.dart';
 import 'package:bssparking_timemark/features/camera/screens/camera_capture_screen.dart';
-import 'package:bssparking_timemark/data/models/template_model.dart';
 import 'package:bssparking_timemark/data/models/submission_model.dart';
 import 'package:bssparking_timemark/data/models/ai_vision_config.dart';
 import 'package:bssparking_timemark/data/repositories/template_repository.dart';

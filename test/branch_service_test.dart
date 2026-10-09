@@ -80,5 +80,28 @@ void main() {
       expect(BranchService.parseBranchFromName('KC BSG'), equals(AppBranch.manado));
       expect(BranchService.parseBranchFromName('unknown'), equals(AppBranch.manado));
     });
+
+    test('determineBranch correctly classifies all Manado and Bali team members even with @pma.com emails', () {
+      // Manado members with @pma.com emails
+      expect(BranchService.determineBranch(email: 'ryan@pma.com', name: 'Ryan Lumasuge'), equals(AppBranch.manado));
+      expect(BranchService.determineBranch(email: 'farhan@pma.com', name: 'Farhan Lakoro'), equals(AppBranch.manado));
+      expect(BranchService.determineBranch(email: 'raldy@pma.com', name: 'Raldy Sangkop'), equals(AppBranch.manado));
+      expect(BranchService.determineBranch(email: 'junifer@pma.com', name: 'Junifer Manua'), equals(AppBranch.manado));
+      expect(BranchService.determineBranch(email: 'ale@pma.com', name: 'Alessandro Sulistyo'), equals(AppBranch.manado));
+
+      // Bali members with @pma.com emails
+      expect(BranchService.determineBranch(email: 'indra@pma.com', name: 'Indra Yohana'), equals(AppBranch.bali));
+      expect(BranchService.determineBranch(email: 'parta@pma.com', name: 'Putu Hyan Parta Wijaya'), equals(AppBranch.bali));
+      expect(BranchService.determineBranch(email: 'toro@pma.com', name: 'Alif Candra Triantoro'), equals(AppBranch.bali));
+      expect(BranchService.determineBranch(email: 'suardana@pma.com', name: 'I PUTU GEDE SUARDANA PUTRA'), equals(AppBranch.bali));
+      expect(BranchService.determineBranch(email: 'dika@pma.com', name: 'ADITYA CAESAR BAGASKARA'), equals(AppBranch.bali));
+      expect(BranchService.determineBranch(email: 'cokagung@pma.com', name: 'ANAK AGUNG GEDE AGUNG YUSTIKAWANGSA'), equals(AppBranch.bali));
+
+      // Fallback respects current branch if user is generic/unknown
+      BranchService.instance.setBranch(AppBranch.bali);
+      expect(BranchService.determineBranch(email: 'unknown@user.com'), equals(AppBranch.bali));
+      BranchService.instance.setBranch(AppBranch.manado);
+      expect(BranchService.determineBranch(email: 'unknown@user.com'), equals(AppBranch.manado));
+    });
   });
 }

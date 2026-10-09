@@ -257,7 +257,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
   bool _isRecordLate(AttendanceRecord record) {
     if (record.type != AttendanceType.masuk) return false;
     final shift = record.shiftName;
-    final match = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(shift);
+    final match = RegExp(r'(\d{1,2})[:.](\d{2})').firstMatch(shift);
     if (match == null) return false;
 
     final startH = int.tryParse(match.group(1) ?? '') ?? 0;

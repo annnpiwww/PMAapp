@@ -6,13 +6,35 @@ import 'branch_service.dart';
 
 class AbsensiSetupService extends ChangeNotifier {
   static final AbsensiSetupService instance = AbsensiSetupService._internal();
+  final Map<AppBranch, String> _branchShifts = {};
+  final Map<AppBranch, String> _branchLocations = {};
+
   AbsensiSetupService._internal() {
     _load();
+    BranchService.instance.addListener(_onBranchChanged);
+  }
+
+  void _onBranchChanged() {
+    final branch = BranchService.instance.currentBranch;
+    if (_branchShifts.containsKey(branch)) {
+      jadwalShift = _branchShifts[branch]!;
+    } else {
+      jadwalShift = autoDetectShift();
+    }
+    if (_branchLocations.containsKey(branch)) {
+      lokasiStandby = _branchLocations[branch]!;
+    } else {
+      lokasiStandby = branch.defaultLocationTag;
+    }
+    _load();
+    notifyListeners();
   }
 
   static const _kKategori = 'absensi_kategori_v1';
   static const _kLokasi = 'absensi_lokasi_standby_v1';
   static const _kShift = 'absensi_jadwal_shift_v1';
+  static String _kShiftKey(AppBranch b) => 'absensi_jadwal_shift_${b.code}';
+  static String _kLokasiKey(AppBranch b) => 'absensi_lokasi_standby_${b.code}';
   static const _kTipe = 'absensi_tipe_laporan_v1';
   static const _kJamPulang = 'absensi_jam_pulang_v1';
   static const _kNextShift = 'absensi_next_shift_v1';
@@ -193,12 +215,27 @@ class AbsensiSetupService extends ChangeNotifier {
     return '18:00';
   }
 
-  /// Jadwal shift efektif: jika kosong, gunakan auto-detect
+  /// Jadwal shift efektif: jika kosong atau merupakan shift milik cabang lain, gunakan auto-detect cabang
   String get effectiveJadwalShift {
-    if (jadwalShift.trim().isEmpty) {
+    final clean = jadwalShift.trim();
+    if (clean.isEmpty) return autoDetectShift();
+    final branch = BranchService.instance.currentBranch;
+    final otherBranch = branch == AppBranch.manado ? AppBranch.bali : AppBranch.manado;
+    final otherBranchShifts = BranchService.instance.getShifts(branch: otherBranch);
+    if (otherBranchShifts.contains(clean)) {
       return autoDetectShift();
     }
-    return jadwalShift;
+    return clean;
+  }
+
+  /// Lokasi standby efektif: pastikan selalu valid untuk cabang aktif
+  String get effectiveLokasiStandby {
+    final branch = BranchService.instance.currentBranch;
+    final validTags = BranchService.instance.getLocationTags(branch: branch);
+    if (lokasiStandby.trim().isNotEmpty && validTags.contains(lokasiStandby.trim().toUpperCase())) {
+      return lokasiStandby.trim().toUpperCase();
+    }
+    return branch.defaultLocationTag;
   }
 
   /// Jam pulang efektif: jika kosong, ambil jam akhir shift
@@ -234,21 +271,27 @@ class AbsensiSetupService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final cat = prefs.getString(_kKategori);
       if (cat != null) selectedKategori = AbsensiKategori.fromString(cat);
-      final rawLokasi = prefs.getString(_kLokasi);
-      lokasiStandby = (rawLokasi != null && rawLokasi.trim().isNotEmpty)
-          ? rawLokasi.trim().toUpperCase()
-          : 'PBM';
-      final rawShift = prefs.getString(_kShift);
-      if (rawShift != null && rawShift.trim().isNotEmpty) {
-        if (rawShift.contains('11:00 - 18:00')) {
-          jadwalShift = 'Shift 2 (10:00 - 18:00)';
-          _save();
-        } else {
-          jadwalShift = rawShift.trim();
-        }
+
+      final branch = BranchService.instance.currentBranch;
+      final rawLokasi = prefs.getString(_kLokasiKey(branch)) ?? prefs.getString(_kLokasi);
+      final validTags = BranchService.instance.getLocationTags(branch: branch);
+      if (rawLokasi != null && rawLokasi.trim().isNotEmpty && validTags.contains(rawLokasi.trim().toUpperCase())) {
+        lokasiStandby = rawLokasi.trim().toUpperCase();
+        _branchLocations[branch] = lokasiStandby;
+      } else {
+        lokasiStandby = branch.defaultLocationTag;
+      }
+
+      final rawShift = prefs.getString(_kShiftKey(branch)) ?? prefs.getString(_kShift);
+      final otherBranch = branch == AppBranch.manado ? AppBranch.bali : AppBranch.manado;
+      final otherBranchShifts = BranchService.instance.getShifts(branch: otherBranch);
+      if (rawShift != null && rawShift.trim().isNotEmpty && !otherBranchShifts.contains(rawShift.trim())) {
+        jadwalShift = rawShift.trim();
+        _branchShifts[branch] = jadwalShift;
       } else {
         jadwalShift = autoDetectShift();
       }
+
       tipeLaporan = prefs.getString(_kTipe) ?? 'Masuk';
       final lastCheck = StorageService.getLastCheckInTime();
       if (lastCheck != null &&
@@ -262,7 +305,7 @@ class AbsensiSetupService extends ChangeNotifier {
       if (rawJamPulang != null && rawJamPulang.trim().isNotEmpty) {
         jamPulang = rawJamPulang.trim();
       } else {
-        jamPulang = autoDetectJamPulang(shift: jadwalShift);
+        jamPulang = autoDetectJamPulang(shift: effectiveJadwalShift);
       }
       shiftSelanjutnya = prefs.getString(_kNextShift) ?? '';
       handoverDate = prefs.getString(_kHandoverDate) ?? '';
@@ -284,9 +327,14 @@ class AbsensiSetupService extends ChangeNotifier {
   Future<void> _save() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final branch = BranchService.instance.currentBranch;
       await prefs.setString(_kKategori, selectedKategori.name);
-      await prefs.setString(_kLokasi, lokasiStandby.trim().isNotEmpty ? lokasiStandby.trim().toUpperCase() : 'PBM');
-      await prefs.setString(_kShift, effectiveJadwalShift);
+      final cleanLokasi = effectiveLokasiStandby;
+      await prefs.setString(_kLokasiKey(branch), cleanLokasi);
+      await prefs.setString(_kLokasi, cleanLokasi);
+      final cleanShift = effectiveJadwalShift;
+      await prefs.setString(_kShiftKey(branch), cleanShift);
+      await prefs.setString(_kShift, cleanShift);
       await prefs.setString(_kTipe, tipeLaporan);
       await prefs.setString(_kJamPulang, effectiveJamPulang);
       await prefs.setString(_kNextShift, shiftSelanjutnya);
@@ -298,22 +346,36 @@ class AbsensiSetupService extends ChangeNotifier {
 
   void updateKategori(AbsensiKategori k) {
     selectedKategori = k;
-    if (lokasiStandby.trim().isEmpty) lokasiStandby = 'PBM';
-    if (jadwalShift.trim().isEmpty) jadwalShift = autoDetectShift();
+    final branch = BranchService.instance.currentBranch;
+    if (lokasiStandby.trim().isEmpty || !BranchService.instance.getLocationTags().contains(lokasiStandby)) {
+      lokasiStandby = branch.defaultLocationTag;
+    }
+    final otherBranch = branch == AppBranch.manado ? AppBranch.bali : AppBranch.manado;
+    final otherBranchShifts = BranchService.instance.getShifts(branch: otherBranch);
+    if (jadwalShift.trim().isEmpty || otherBranchShifts.contains(jadwalShift.trim())) {
+      jadwalShift = autoDetectShift();
+    }
     _save();
     notifyListeners();
   }
 
   void updateLokasi(String v) {
     final clean = v.trim().toUpperCase();
-    lokasiStandby = clean.isNotEmpty ? clean : 'PBM';
+    final branch = BranchService.instance.currentBranch;
+    final validTags = BranchService.instance.getLocationTags(branch: branch);
+    lokasiStandby = (clean.isNotEmpty && validTags.contains(clean)) ? clean : branch.defaultLocationTag;
+    _branchLocations[branch] = lokasiStandby;
     _save();
     notifyListeners();
   }
 
   void updateShift(String v) {
     final clean = v.trim();
-    jadwalShift = clean.isNotEmpty ? clean : autoDetectShift();
+    final branch = BranchService.instance.currentBranch;
+    final otherBranch = branch == AppBranch.manado ? AppBranch.bali : AppBranch.manado;
+    final otherBranchShifts = BranchService.instance.getShifts(branch: otherBranch);
+    jadwalShift = (clean.isNotEmpty && !otherBranchShifts.contains(clean)) ? clean : autoDetectShift();
+    _branchShifts[branch] = jadwalShift;
     _save();
     notifyListeners();
   }

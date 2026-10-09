@@ -78,6 +78,62 @@ class BranchService extends ChangeNotifier {
     return AppBranch.manado;
   }
 
+  /// Menentukan cabang operasional secara akurat berdasarkan atribut user
+  static AppBranch determineBranch({
+    String? cabang,
+    String? email,
+    String? username,
+    String? name,
+    AppBranch? fallback,
+  }) {
+    if (cabang != null && cabang.trim().isNotEmpty) {
+      return parseBranchFromName(cabang);
+    }
+
+    final hay = '${email ?? ''} ${username ?? ''} ${name ?? ''}'.toLowerCase();
+
+    // 1. Cek personil cabang Bali
+    const baliKeywords = [
+      'indra',
+      'parta',
+      'toro',
+      'suardana',
+      'dika',
+      'cokagung',
+      'yustikawangsa',
+      'bagaskara',
+      'triantoro',
+      'bali',
+      'dps',
+    ];
+    for (final kw in baliKeywords) {
+      if (hay.contains(kw)) return AppBranch.bali;
+    }
+
+    // 2. Cek personil cabang Manado / BSG
+    const manadoKeywords = [
+      'farhan',
+      'ryan',
+      'raldy',
+      'junifer',
+      'ale',
+      'alessandro',
+      'lakoro',
+      'lumasuge',
+      'sangkop',
+      'manua',
+      'sulistyo',
+      'manado',
+      'bsg',
+      'mdo',
+    ];
+    for (final kw in manadoKeywords) {
+      if (hay.contains(kw)) return AppBranch.manado;
+    }
+
+    return fallback ?? BranchService.instance.currentBranch;
+  }
+
   List<String> getTechnicians({AppBranch? branch}) {
     final b = branch ?? _currentBranch;
     switch (b) {

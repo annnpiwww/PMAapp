@@ -31,6 +31,31 @@
 
   <title>PMA App</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* Styling video kamera agar pas dengan rasio container tanpa zoom terpotong */
+    video {
+      object-fit: cover !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+  </style>
+
+  <script>
+    // Interceptor getUserMedia pada PWA / Mobile Web untuk meminta rasio 3:4 (0.75)
+    // Mencegah browser memaksa format widescreen 16:9 yang ter-crop dan zoom di viewfinder 3:4
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      const _origGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getUserMedia = function(constraints) {
+        if (constraints && constraints.video && typeof constraints.video === 'object') {
+          delete constraints.video.width;
+          delete constraints.video.height;
+          constraints.video.aspectRatio = { ideal: 0.75 };
+        }
+        return _origGetUserMedia(constraints);
+      };
+    }
+  </script>
 </head>
 <body>
   <!--

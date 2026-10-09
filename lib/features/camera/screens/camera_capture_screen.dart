@@ -192,6 +192,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     TemplateRepository.instance.addListener(_onTemplateRepoChange);
     SubmissionRepository.instance.addListener(_onSubmissionRepoChange);
     AbsensiSetupService.instance.addListener(_onAbsensiSetupChange);
+    BranchService.instance.addListener(_onBranchChange);
 
     _liveAttendanceTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
@@ -204,6 +205,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     TemplateRepository.instance.removeListener(_onTemplateRepoChange);
     SubmissionRepository.instance.removeListener(_onSubmissionRepoChange);
     AbsensiSetupService.instance.removeListener(_onAbsensiSetupChange);
+    BranchService.instance.removeListener(_onBranchChange);
     _countdownTimer?.cancel();
     _liveAttendanceTimer?.cancel();
     _focusRingTimer?.cancel();
@@ -481,6 +483,17 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   void _onAbsensiSetupChange() {
     if (mounted) setState(() {});
+  }
+
+  void _onBranchChange() {
+    if (!mounted) return;
+    setState(() {
+      _activePos = LocationService.currentPos;
+      _watermarkConfig = _watermarkConfig.copyWith(
+        badgeTag: _activePos.locationTag,
+        badgeColor: _activePos.tagColor,
+      );
+    });
   }
 
   Future<void> _fetchLocation() async {
@@ -1505,11 +1518,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     // Absensi: pastikan data standby & shift teknisi memiliki default jika belum terisi
     if (_selectedTemplate.jenis == TemplateCategory.absensi) {
       final setup = AbsensiSetupService.instance;
-      if (setup.lokasiStandby.trim().isEmpty) {
-        setup.updateLokasi('PBM');
+      final activeBranch = BranchService.instance.currentBranch;
+      if (setup.lokasiStandby.trim().isEmpty || !BranchService.instance.getLocationTags().contains(setup.lokasiStandby)) {
+        setup.updateLokasi(activeBranch.defaultLocationTag);
       }
-      if (setup.jadwalShift.trim().isEmpty) {
-        setup.updateShift('S2 (10:00 - 14:00)');
+      if (setup.jadwalShift.trim().isEmpty || !BranchService.instance.getShifts().contains(setup.jadwalShift)) {
+        setup.updateShift(AbsensiSetupService.autoDetectShift());
       }
 
       // SHUTTER INTERCEPT GUARD (DURASI KERJA MINIMAL & ISI DAILY DULU YA)

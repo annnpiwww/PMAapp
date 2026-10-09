@@ -45,11 +45,13 @@ class AuthRepository extends ChangeNotifier {
         final name = record['name'] as String? ?? record['nama_lengkap'] as String? ?? cleanIdentity;
         final email = record['email'] as String? ?? cleanIdentity;
         final cabangStr = record['cabang'] as String? ?? record['cabang_name'] as String?;
-        final branch = (cabangStr != null && cabangStr.isNotEmpty)
-            ? BranchService.parseBranchFromName(cabangStr)
-            : (cleanIdentity.contains('@pma.com') || cleanIdentity.contains('bali')
-                ? AppBranch.bali
-                : BranchService.instance.currentBranch);
+        final branch = BranchService.determineBranch(
+          cabang: cabangStr,
+          email: email,
+          username: cleanIdentity,
+          name: name,
+          fallback: BranchService.instance.currentBranch,
+        );
 
         await BranchService.instance.setBranch(branch);
 
@@ -80,15 +82,29 @@ class AuthRepository extends ChangeNotifier {
     final hardcodedAccounts = [
       // --- KC Manado Accounts ---
       {'user': 'farhan lakoro', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
+      {'user': 'farhan@pma.com', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
       {'user': 'farhan@bssparking.id', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
+      {'user': 'farhan', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
+
       {'user': 'ryan lumasuge', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
+      {'user': 'ryan@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
       {'user': 'ryan@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
+      {'user': 'ryan', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
+
       {'user': 'raldy sangkop', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
+      {'user': 'raldy@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
       {'user': 'raldy@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
+      {'user': 'raldy', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
+
       {'user': 'junifer manua', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
+      {'user': 'junifer@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
       {'user': 'junifer@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
+      {'user': 'junifer', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
+
       {'user': 'alessandro sulistyo', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
+      {'user': 'ale@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
       {'user': 'alessandro@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
+      {'user': 'ale', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
 
       // --- KC Bali Accounts ---
       // SPV: Indra Yohana
