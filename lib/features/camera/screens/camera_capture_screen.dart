@@ -640,6 +640,16 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   Future<void> _requestInitialPermissionsAndInit() async {
+    // Pada platform Web (Safari iOS PWA / Chrome), permission dikelola langsung oleh
+    // browser API (navigator.mediaDevices & navigator.geolocation).
+    // permission_handler tidak mendukung state browser dan selalu mengembalikan false,
+    // sehingga memunculkan dialog 'Izin Diperlukan' palsu.
+    if (kIsWeb) {
+      _loadLocationInBackground();
+      await _initCamera();
+      return;
+    }
+
     // Minta izin secara batch agar Android OS menampilkan dialog izin berurutan (carousel)
     // tanpa race condition atau memaksa user force-close antar dialog permission.
     try {
