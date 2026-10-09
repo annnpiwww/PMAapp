@@ -2,6 +2,33 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.75+83] — 2026-10-09
+
+### 🎯 Highlight Utama
+1. **Multi-Branch Universal Architecture (Single APK KC Manado & KC Bali)**:
+   - **Centralized `BranchService`**: Mengatur cabang aktif (`AppBranch.manado`, `AppBranch.bali`), sinkronisasi lokal via `StorageService`, serta data isolasi per cabang untuk teknisi, jadwal shift, dan pos lokasi.
+   - **Pill Selector Cabang di `LoginScreen`**: Tambahan pill interaktif `[ 📍 KC Manado ]` dan `[ 📍 KC Bali ]` yang langsung merespons dan mengganti konfigurasi cabang saat dipilih.
+   - **Auto-Lock Branch on Login**: Kredensial akun Bali maupun Manado (online via PocketBase atau offline fallback) secara otomatis mendeteksi dan mengunci cabang aktif ke profil pengguna yang login.
+2. **Data Operasional KC Bali**:
+   - **Akun SPV**: I Putu Indra Yohana (`indra@pma.com` / `spvbali`).
+   - **5 Akun Teknisi Bali** (default pass: `teknisi123`):
+     - Putu Hyan Parta Wijaya (`parta@pma.com`)
+     - Alif Candra Triantoro (`toro@pma.com`)
+     - I Putu Gede Suardana Putra (`suardana@pma.com`)
+     - Aditya Caesar Bagaskara (`dika@pma.com`)
+     - Anak Agung Gede Agung Yustikawangsa (`cokagung@pma.com`)
+   - **15 Pos Pengelolaan Bali**: `PBKD, PCD, PKRD, PAS, PSD, PGA, TBB, TBG, KIH, BMS, BMK, SPD, GYS, PBB, RSPM` di-seed otomatis ke `LocationService`.
+   - **6 Jadwal Shift Bali**: `Shift 1 (06.00-14.00)`, `Shift 2 (14.00-22.00)`, `Shift 3 (22.00-06.00)`, `Shift 4 (08.30-16.30)`, `Shift 2.2 (18.00-22.00)`, `Shift 4.1 (08.00-12.00)`.
+   - **Header Rekap Tim SPV Dinamis**:
+     - KC Bali: `REKAP DAILY TEAM PMA KC BALI\nSPV : Indra Yohana`.
+     - KC Manado: `REKAP DAILY TEAM PMA KC BSG\nSPV : FARHAN LAKORO`.
+   - **Watermark Kamera**: Tetap konsisten berlabel **"Absensi"** sesuai standar operasional.
+3. **Kualitas & Verifikasi**:
+   - `flutter analyze`: 0 issues found (clean).
+   - `flutter test`: Seluruh test suite (228+ unit & widget tests) passed (100% green).
+
+---
+
 ## [2.0.74+82] — 2026-10-09
 
 ### 🎯 Highlight Utama

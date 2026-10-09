@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart' as geo;
 import 'storage_service.dart';
+import 'branch_service.dart';
 
 class PosLocation {
   final String posId;
@@ -262,6 +263,157 @@ class LocationService {
       lat: 0.625000,
       lng: 122.980000,
     ),
+    // --- 15 Pos Pengelolaan KC Bali ---
+    const PosLocation(
+      posId: 'POS-DPS-PBKD',
+      posName: 'PBKD',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan PBKD, KC Bali',
+      locationTag: 'PBKD',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-PCD',
+      posName: 'PCD',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan PCD, KC Bali',
+      locationTag: 'PCD',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-PKRD',
+      posName: 'PKRD',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan PKRD, KC Bali',
+      locationTag: 'PKRD',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-PAS',
+      posName: 'PAS',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan PAS, KC Bali',
+      locationTag: 'PAS',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-PSD',
+      posName: 'PSD',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan PSD, KC Bali',
+      locationTag: 'PSD',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-PGA',
+      posName: 'PGA',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan PGA, KC Bali',
+      locationTag: 'PGA',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-TBB',
+      posName: 'TBB',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan TBB, KC Bali',
+      locationTag: 'TBB',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-TBG',
+      posName: 'TBG',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan TBG, KC Bali',
+      locationTag: 'TBG',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-KIH',
+      posName: 'KIH',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan KIH, KC Bali',
+      locationTag: 'KIH',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-BMS',
+      posName: 'BMS',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan BMS, KC Bali',
+      locationTag: 'BMS',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-BMK',
+      posName: 'BMK',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan BMK, KC Bali',
+      locationTag: 'BMK',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-SPD',
+      posName: 'SPD',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan SPD, KC Bali',
+      locationTag: 'SPD',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-GYS',
+      posName: 'GYS',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan GYS, KC Bali',
+      locationTag: 'GYS',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-PBB',
+      posName: 'PBB',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan PBB, KC Bali',
+      locationTag: 'PBB',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
+    const PosLocation(
+      posId: 'POS-DPS-RSPM',
+      posName: 'RSPM',
+      cabangName: 'KC Bali',
+      fullAddress: 'Pos Pengelolaan RSPM, KC Bali',
+      locationTag: 'RSPM',
+      tagColor: Color(0xFFF59E0B),
+      lat: -8.670458,
+      lng: 115.212629,
+    ),
   ];
 
   static List<PosLocation> _locations = [];
@@ -306,6 +458,16 @@ class LocationService {
 
   static PosLocation get currentPos {
     final list = availablePosList;
+    if (BranchService.instance.currentBranch == AppBranch.bali) {
+      final baliPos = list.firstWhere(
+        (p) => p.cabangName == 'KC Bali' || p.locationTag == 'PBKD',
+        orElse: () => list.isNotEmpty ? list.first : _defaultSeed.first,
+      );
+      if (list.isNotEmpty && (list.first.cabangName == 'KC Bali' || list.first.locationTag == 'PBKD')) {
+        return list.first;
+      }
+      return baliPos;
+    }
     return list.isNotEmpty ? list.first : _defaultSeed.first;
   }
 

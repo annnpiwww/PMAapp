@@ -7,6 +7,7 @@ import '../models/daily_task_model.dart';
 import '../models/maintenance_submission.dart';
 import '../services/storage_service.dart';
 import '../services/location_service.dart';
+import 'branch_service.dart';
 import 'notification_service.dart';
 
 class DailyTaskService {
@@ -828,10 +829,13 @@ class DailyTaskService {
   }
 
   /// Format rekapitulasi tim untuk SPV membagikan laporan harian seluruh teknisi
+  /// Format rekapitulasi tim untuk SPV membagikan laporan harian seluruh teknisi
   static String formatSpvTeamRecap({
     required String tanggal,
     required List<DailyTaskModel> tasks,
     String? spvName,
+    String? cabangName,
+    AppBranch? branch,
   }) {
     final tglIndo = _formatTanggalIndo(tanggal);
     final completed = tasks.where((t) => t.isCompleted).toList();
@@ -839,12 +843,18 @@ class DailyTaskService {
     final total = tasks.length;
     final percent = total > 0 ? ((completed.length / total) * 100).toInt() : 0;
 
+    final activeBranch = branch ??
+        (cabangName != null && cabangName.isNotEmpty
+            ? BranchService.parseBranchFromName(cabangName)
+            : BranchService.instance.currentBranch);
+
     final sb = StringBuffer();
-    sb.writeln('REKAP DAILY TEAM PMA KC BSG');
-    final spvUpper = (spvName != null && spvName.trim().isNotEmpty)
-        ? spvName.trim().toUpperCase()
-        : 'FARHAN LAKORO';
-    sb.writeln('SPV : $spvUpper');
+    sb.writeln(activeBranch.recapHeader);
+    final spvStr = (spvName != null && spvName.trim().isNotEmpty)
+        ? spvName.trim()
+        : activeBranch.defaultSpv;
+    final spvFormatted = activeBranch == AppBranch.bali ? spvStr : spvStr.toUpperCase();
+    sb.writeln('SPV : $spvFormatted');
     sb.writeln('Tanggal : $tglIndo');
     sb.writeln('Proggress : ${completed.length}/$total ($percent%)');
 

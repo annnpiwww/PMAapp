@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/submission_model.dart';
 import 'storage_service.dart';
+import 'branch_service.dart';
 
 class AbsensiSetupService extends ChangeNotifier {
   static final AbsensiSetupService instance = AbsensiSetupService._internal();
@@ -28,6 +29,7 @@ class AbsensiSetupService extends ChangeNotifier {
   String pekerjaanSelesai = '';
   String pekerjaanBelum = '';
   String handoverDate = '';
+  static List<String> get currentShiftOptions => BranchService.instance.getShifts();
   static const List<String> shiftOptions = [
     'Shift 1 (03:00 - 11:00)',
     'Shift 2.2 (10:00 - 14:00)',
@@ -36,12 +38,27 @@ class AbsensiSetupService extends ChangeNotifier {
   ];
 
   /// Mendeteksi nama shift otomatis sesuai jam saat ini (atau waktu foto):
-  /// - 09:50 - 13:49 ➔ Shift 2 (10:00 - 18:00) (otomatis Shift 2 mulai 09:50)
-  /// - 13:50 - 21:49 ➔ Shift 3 (14:00 - 22:00) (otomatis Shift 3 mulai 13:50)
-  /// - 21:50 - 09:49 ➔ Shift 1 (03:00 - 11:00)
+  /// - KC Bali:
+  ///   * 05:30 - 13:49 ➔ Shift 1 (06.00 - 14.00)
+  ///   * 13:50 - 21:49 ➔ Shift 2 (14.00 - 22.00)
+  ///   * 21:50 - 05:29 ➔ Shift 3 (22.00 - 06.00)
+  /// - KC Manado:
+  ///   * 09:50 - 13:49 ➔ Shift 2 (10:00 - 18:00)
+  ///   * 13:50 - 21:49 ➔ Shift 3 (14:00 - 22:00)
+  ///   * 21:50 - 09:49 ➔ Shift 1 (03:00 - 11:00)
   static String autoDetectShift([DateTime? time]) {
     final local = (time ?? DateTime.now()).toLocal();
     final minutes = local.hour * 60 + local.minute;
+
+    if (BranchService.instance.currentBranch == AppBranch.bali) {
+      if (minutes >= 330 && minutes < 830) {
+        return 'Shift 1 (06.00 - 14.00)';
+      } else if (minutes >= 830 && minutes < 1310) {
+        return 'Shift 2 (14.00 - 22.00)';
+      } else {
+        return 'Shift 3 (22.00 - 06.00)';
+      }
+    }
 
     if (minutes >= 590 && minutes < 830) {
       // 09:50 - 13:49: Shift 2 (10:00 - 18:00)
@@ -55,15 +72,18 @@ class AbsensiSetupService extends ChangeNotifier {
     }
   }
 
-  /// Durasi kerja minimal: 4 jam untuk Shift 2.2, 8 jam untuk Shift 1, 2, 3.
+  /// Durasi kerja minimal: 4 jam untuk Shift paruh waktu (Shift 2.2 / Shift 4.1), 8 jam untuk shift penuh.
   /// Jika Mode Demo / SPV Bypass aktif: Durasi minimal 0 detik (bisa langsung pulang untuk demo).
   static Duration getMinimumWorkDuration(String shift) {
     if (StorageService.isDemoBypassActive()) {
       return Duration.zero;
     }
-    final isShift2_2 = shift.contains('Shift 2.2') ||
-        (shift.contains('10:00') && shift.contains('14:00'));
-    return isShift2_2 ? const Duration(hours: 4) : const Duration(hours: 8);
+    final isShiftPartTime = shift.contains('Shift 2.2') ||
+        shift.contains('Shift 4.1') ||
+        (shift.contains('10:00') && shift.contains('14:00')) ||
+        (shift.contains('18.00') && shift.contains('22.00')) ||
+        (shift.contains('08.00') && shift.contains('12.00'));
+    return isShiftPartTime ? const Duration(hours: 4) : const Duration(hours: 8);
   }
 
   /// Menghitung sisa waktu kerja sebelum boleh absensi pulang.
@@ -153,8 +173,8 @@ class AbsensiSetupService extends ChangeNotifier {
         ? shift
         : autoDetectShift(time);
     
-    // Cek pattern jam rentang khusus (misal "08:00 - 16:00" atau "Shift Khusus (08:00 - 17:00)")
-    final rangeMatch = RegExp(r'(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})').firstMatch(s);
+    // Cek pattern jam rentang khusus (misal "08:00 - 16:00" atau "06.00 - 14.00")
+    final rangeMatch = RegExp(r'(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})').firstMatch(s);
     if (rangeMatch != null) {
       final endH = rangeMatch.group(3)!.padLeft(2, '0');
       final endM = rangeMatch.group(4)!.padLeft(2, '0');

@@ -8,6 +8,7 @@ import '../../../data/services/storage_service.dart';
 import '../../../data/services/whatsapp_report_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/repositories/auth_repository.dart';
+import '../../../data/services/branch_service.dart';
 
 class AbsensiKategoriDialog extends StatefulWidget {
   final VoidCallback? onSaved;
@@ -46,7 +47,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
   String? _teknisiError;
   bool _isSaving = false;
 
-  static const List<Map<String, String>> _shiftCards = [
+  static const List<Map<String, String>> _manadoShiftCards = [
     {
       'title': 'Shift 1',
       'full': 'Shift 1 (03:00 - 11:00)',
@@ -73,12 +74,51 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     },
   ];
 
-  static const List<String> _rekanItOptions = [
-    'Junifer Manua',
-    'Ryan Lumasuge',
-    'Alessandro Sulistyo',
-    'Raldy Sangkop',
+  static const List<Map<String, String>> _baliShiftCards = [
+    {
+      'title': 'Shift 1',
+      'full': 'Shift 1 (06.00 - 14.00)',
+      'hours': '06:00 – 14:00 WITA',
+      'period': 'Pagi • 8 Jam',
+    },
+    {
+      'title': 'Shift 2',
+      'full': 'Shift 2 (14.00 - 22.00)',
+      'hours': '14:00 – 22:00 WITA',
+      'period': 'Siang • 8 Jam',
+    },
+    {
+      'title': 'Shift 3',
+      'full': 'Shift 3 (22.00 - 06.00)',
+      'hours': '22:00 – 06:00 WITA',
+      'period': 'Malam • 8 Jam',
+    },
+    {
+      'title': 'Shift 4',
+      'full': 'Shift 4 (08.30 - 16.30)',
+      'hours': '08:30 – 16:30 WITA',
+      'period': 'Normal • 8 Jam',
+    },
+    {
+      'title': 'Shift 2.2',
+      'full': 'Shift 2.2 (18.00 - 22.00)',
+      'hours': '18:00 – 22:00 WITA',
+      'period': 'Malam • 4 Jam',
+    },
+    {
+      'title': 'Shift 4.1',
+      'full': 'Shift 4.1 (08.00 - 12.00)',
+      'hours': '08:00 – 12:00 WITA',
+      'period': 'Pagi • 4 Jam',
+    },
   ];
+
+  List<Map<String, String>> get _shiftCards =>
+      BranchService.instance.currentBranch == AppBranch.bali
+          ? _baliShiftCards
+          : _manadoShiftCards;
+
+  List<String> get _rekanItOptions => BranchService.instance.getTechnicians();
 
   @override
   void initState() {
@@ -262,14 +302,15 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     StorageService.saveLastTechnicianName(tech);
     AuthRepository.instance.syncTechnicianName(tech);
 
-    // KUNCI LOKASI STANDBY PERMANEN KE PBM (POS-PBM-01)
-    const fixedPosTag = 'PBM';
+    // KUNCI LOKASI STANDBY PERMANEN KE POS DEFAULT BRANCH (PBM untuk Manado, PBKD untuk Bali)
+    final branch = BranchService.instance.currentBranch;
+    final fixedPosTag = branch.defaultLocationTag;
     setup.updateLokasi(fixedPosTag);
 
-    // Sinkronkan ke LocationService menggunakan data resmi PBM
+    // Sinkronkan ke LocationService menggunakan data resmi branch
     final matchedPos = LocationService.findPosByTagOrName(fixedPosTag) ??
         LocationService.availablePosList.firstWhere(
-          (p) => p.locationTag.toUpperCase() == fixedPosTag || p.posId == 'POS-PBM-01',
+          (p) => p.locationTag.toUpperCase() == fixedPosTag,
           orElse: () => LocationService.availablePosList.first,
         );
     LocationService.setCurrentPos(matchedPos);
@@ -476,22 +517,32 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                     ),
                     const SizedBox(height: 8),
 
-                    // GRID 2x2 SHIFT OPERASIONAL BSS (Responsive, scannable, dual-coding)
-                    Row(
-                      children: [
-                        Expanded(child: _buildShiftBentoCard(_shiftCards[0])),
-                        const SizedBox(width: 8),
-                        Expanded(child: _buildShiftBentoCard(_shiftCards[1])),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(child: _buildShiftBentoCard(_shiftCards[2])),
-                        const SizedBox(width: 8),
-                        Expanded(child: _buildShiftBentoCard(_shiftCards[3])),
-                      ],
-                    ),
+                    // GRID SHIFT OPERASIONAL BSS (Responsive, scannable, dual-coding)
+                    ...() {
+                      final cards = _shiftCards;
+                      final widgets = <Widget>[];
+                      for (int i = 0; i < cards.length; i += 2) {
+                        final c1 = cards[i];
+                        final c2 = (i + 1 < cards.length) ? cards[i + 1] : null;
+                        widgets.add(
+                          Row(
+                            children: [
+                              Expanded(child: _buildShiftBentoCard(c1)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: c2 != null
+                                    ? _buildShiftBentoCard(c2)
+                                    : const SizedBox.shrink(),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (i + 2 < cards.length) {
+                          widgets.add(const SizedBox(height: 8));
+                        }
+                      }
+                      return widgets;
+                    }(),
 
                     const SizedBox(height: 10),
 
@@ -711,7 +762,9 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Pasar Bersehati Manado',
+                  BranchService.instance.currentBranch == AppBranch.bali
+                      ? 'PBKD'
+                      : 'Pasar Bersehati Manado',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
@@ -729,7 +782,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
               border: Border.all(color: isDark ? const Color(0xFF38BDF8) : const Color(0xFFBFDBFE)),
             ),
             child: Text(
-              'PBM',
+              BranchService.instance.currentBranch.defaultLocationTag,
               style: TextStyle(
                 fontFamily: 'PlusJakartaSans',
                 fontSize: 11,

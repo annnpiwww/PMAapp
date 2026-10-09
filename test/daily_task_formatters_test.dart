@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bssparking_timemark/data/models/daily_task_model.dart';
+import 'package:bssparking_timemark/data/services/branch_service.dart';
 import 'package:bssparking_timemark/data/services/daily_task_service.dart';
 import 'package:bssparking_timemark/data/services/whatsapp_report_service.dart';
 
@@ -189,6 +190,49 @@ Printer bersih dan hasil cetak tiket jelas''';
       expect(recap, contains('1. Ryan Lumasuge - Perbaikan sensor loop (TBM)'));
       expect(recap, contains('Terimakasih'));
       expect(recap.contains('PMA app made by'), isFalse);
+    });
+
+    test('formatSpvTeamRecap outputs Bali PMA format when branch is Bali', () {
+      final task1 = DailyTaskModel(
+        id: '1',
+        tanggal: '2026-10-09',
+        teknisiId: 'tek_bali_01',
+        teknisiNama: 'Putu Hyan Parta Wijaya',
+        posName: 'PBKD',
+        posTag: 'PBKD',
+        judul: 'Pemeriksaan gate in & out',
+        catatanTeknisi: 'Semua loop normal',
+        jamSelesai: '08:30 WITA',
+        status: TaskStatus.completed,
+      );
+      final task2 = DailyTaskModel(
+        id: '2',
+        tanggal: '2026-10-09',
+        teknisiId: 'tek_bali_02',
+        teknisiNama: 'Alif Candra Triantoro',
+        posName: 'PCD',
+        posTag: 'PCD',
+        judul: 'Ganti ribbon printer',
+        status: TaskStatus.pending,
+      );
+
+      final recap = DailyTaskService.formatSpvTeamRecap(
+        tanggal: '2026-10-09',
+        tasks: [task1, task2],
+        branch: AppBranch.bali,
+      );
+
+      expect(recap, contains('REKAP DAILY TEAM PMA KC BALI'));
+      expect(recap, contains('SPV : Indra Yohana'));
+      expect(recap, contains('Proggress : 1/2 (50%)'));
+      expect(recap, contains('Status Daily Teknisi :'));
+      expect(recap, contains('Putu Hyan Parta Wijaya : 1/1 selesai'));
+      expect(recap, contains('Alif Candra Triantoro : 0/1 selesai'));
+      expect(recap, contains('Selesai (1):'));
+      expect(recap, contains('1. Putu Hyan Parta Wijaya - Pemeriksaan gate in & out (PBKD) [08:30 WITA]'));
+      expect(recap, contains('Belum Selesai (1):'));
+      expect(recap, contains('1. Alif Candra Triantoro - Ganti ribbon printer (PCD)'));
+      expect(recap, contains('Terimakasih'));
     });
   });
 }

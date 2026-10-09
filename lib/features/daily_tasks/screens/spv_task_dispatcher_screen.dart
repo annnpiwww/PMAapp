@@ -6,6 +6,7 @@ import '../../../data/models/daily_task_model.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/services/daily_task_service.dart';
+import '../../../data/services/branch_service.dart';
 
 class SpvTaskDispatcherScreen extends StatefulWidget {
   const SpvTaskDispatcherScreen({super.key});
@@ -25,15 +26,9 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   String _selectedTechFilter = 'SEMUA';
   final Set<String> _expandedTaskIds = <String>{};
 
-  final List<String> _technicians = [
-    'Ryan Lumasuge',
-    'Raldy Sangkop',
-    'Junifer Manua',
-    'Alessandro Sulistyo',
-  ];
-
-  String _selectedTech = 'Ryan Lumasuge';
-  final _lokasiCtrl = TextEditingController(text: 'TBM');
+  late List<String> _technicians;
+  late String _selectedTech;
+  late final TextEditingController _lokasiCtrl;
   final _pekerjaanCtrl = TextEditingController();
   final _catatanCtrl = TextEditingController();
   String _taskCategory = 'khusus'; // 'khusus' atau 'maintenance'
@@ -49,6 +44,9 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   @override
   void initState() {
     super.initState();
+    _technicians = List.from(BranchService.instance.getTechnicians());
+    _selectedTech = _technicians.isNotEmpty ? _technicians.first : 'Teknisi';
+    _lokasiCtrl = TextEditingController(text: BranchService.instance.currentBranch.defaultLocationTag);
     _tabController = TabController(length: 2, vsync: this);
     _loadTasks();
   }
@@ -179,6 +177,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
       tanggal: _formatDateToKey(_selectedDate),
       tasks: _tasksToday,
       spvName: currentUser?.nama ?? 'Supervisor',
+      cabangName: currentUser?.cabangName,
     );
     SharePlus.instance.share(
       ShareParams(
