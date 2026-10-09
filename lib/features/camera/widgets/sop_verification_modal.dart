@@ -12,6 +12,7 @@ class SopVerificationModal extends StatelessWidget {
   final AiVerificationResult result;
   final String kodeVerifikasi;
   final String? imagePath;
+  final Uint8List? imageBytes;
   final VoidCallback onRetake;
   final VoidCallback onSave;
   final VoidCallback? onCancel;
@@ -29,12 +30,18 @@ class SopVerificationModal extends StatelessWidget {
     }
   }
 
+  bool get _hasValidImage {
+    if (imageBytes != null && imageBytes!.isNotEmpty) return true;
+    return _doesFileExist(imagePath);
+  }
+
   const SopVerificationModal({
     super.key,
     required this.template,
     required this.result,
     required this.kodeVerifikasi,
     this.imagePath,
+    this.imageBytes,
     required this.onRetake,
     required this.onSave,
     this.onCancel,
@@ -68,29 +75,36 @@ class SopVerificationModal extends StatelessWidget {
             : (isAIError ? const Color(0xFFFDE68A) : AppColors.warningBorder);
 
     final confidencePercent = (result.confidenceScore * 100).toInt();
+    final screenH = MediaQuery.of(context).size.height;
+    final maxHeight = screenH > 0 ? screenH * 0.90 : 650.0;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(
-          top: BorderSide(color: AppColors.accent, width: 2.5),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x1F000000),
-            blurRadius: 24,
-            spreadRadius: 2,
-            offset: Offset(0, -4),
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border(
+              top: BorderSide(color: AppColors.accent, width: 2.5),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x1F000000),
+                blurRadius: 24,
+                spreadRadius: 2,
+                offset: Offset(0, -4),
+              ),
+            ],
           ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             // Drag indicator handle
             Center(
               child: Container(
@@ -301,34 +315,46 @@ class SopVerificationModal extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.qr_code_2_rounded, size: 18, color: AppColors.textSecondary),
-                      const SizedBox(width: 6),
-                      Text(
-                        kodeVerifikasi,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                          color: AppColors.textPrimary,
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.qr_code_2_rounded, size: 18, color: AppColors.textSecondary),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            kodeVerifikasi,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      ],
                     ),
-                    child: Text(
-                      template.nama,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        template.nama,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                   ),
@@ -338,7 +364,7 @@ class SopVerificationModal extends StatelessWidget {
             const SizedBox(height: 14),
 
             // Preview Foto Hasil Capture (Anti-Blur Check with Tactical Frame)
-            if (_doesFileExist(imagePath)) ...[
+            if (_hasValidImage) ...[
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -363,12 +389,13 @@ class SopVerificationModal extends StatelessWidget {
                     Stack(
                       children: [
                         GestureDetector(
-                          onTap: () => _showFullImagePreview(context, imagePath!),
+                          onTap: () => _showFullImagePreview(context, path: imagePath, bytes: imageBytes),
                           child: SizedBox(
                             height: 190,
                             width: double.infinity,
                             child: AppFileImage(
-                              path: imagePath!,
+                              path: imagePath,
+                              bytes: imageBytes,
                               fit: BoxFit.cover,
                             ),
                           ),
@@ -407,7 +434,7 @@ class SopVerificationModal extends StatelessWidget {
                           top: 8,
                           right: 8,
                           child: GestureDetector(
-                            onTap: () => _showFullImagePreview(context, imagePath!),
+                            onTap: () => _showFullImagePreview(context, path: imagePath, bytes: imageBytes),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
@@ -821,11 +848,13 @@ class SopVerificationModal extends StatelessWidget {
             ],
           ],
         ),
+          ),
+        ),
       ),
     );
   }
 
-  void _showFullImagePreview(BuildContext context, String path) {
+  void _showFullImagePreview(BuildContext context, {String? path, Uint8List? bytes}) {
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.9),
@@ -842,6 +871,7 @@ class SopVerificationModal extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 child: AppFileImage(
                   path: path,
+                  bytes: bytes,
                   fit: BoxFit.contain,
                 ),
               ),

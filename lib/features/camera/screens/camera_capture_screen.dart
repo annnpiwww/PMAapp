@@ -1776,6 +1776,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     );
 
     String? capturedPath;
+    Uint8List? capturedBytes;
     String? imageBase64;
     Future<String>? watermarkFuture;
     if (_cameraController != null && _cameraController!.value.isInitialized) {
@@ -1797,6 +1798,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
         // Generate thumbnail cepat di background isolate dengan crop yang konsisten
         final rawBytes = await xfile.readAsBytes();
+        capturedBytes = rawBytes;
         imageBase64 = await ImageWatermarkProcessor.generateAiVisionBase64(
           capturedPath,
           rawBytes,
@@ -2144,6 +2146,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       isDismissible: false,
       enableDrag: false,
       backgroundColor: Colors.transparent,
@@ -2155,6 +2158,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
           result: aiResult,
           kodeVerifikasi: kodeVerifikasi,
           imagePath: capturedPath,
+          imageBytes: capturedBytes,
           onRetake: () {
             Navigator.of(modalCtx).pop();
             if (mounted) {
