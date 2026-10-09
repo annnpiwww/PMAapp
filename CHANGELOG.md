@@ -2,6 +2,28 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.77+85] — 2026-10-09
+
+### 🎯 Highlight Utama
+1. **Pemisahan Total Lokasi Multi-Cabang (KC Manado vs KC Bali - Zero Leaks)**:
+   - `LocationService`: `availablePosList` kini menyaring lokasi secara ketat berdasarkan `BranchService.currentBranch`. Lokasi KC Manado (PBM, PKM, dll.) tidak lagi bercampur atau bertumpuk dengan lokasi KC Bali (PBKD, PCD, PKRD, dll.).
+   - Persistensi POS aktif terisolasi per cabang (`active_pos_id_bali` vs `active_pos_id_manado`).
+   - Modal pemilih lokasi (`LocationPickerModal`), manajemen lokasi (`LocationManagementScreen`), SPV Task Dispatcher, dan pencarian otomatis berbasis GPS/nama kini 100% memprioritaskan cabang aktif.
+2. **Perbaikan Validasi AI Vision di PWA / Web Browser / iPhone**:
+   - `ImageWatermarkProcessor.generateAiVisionBase64`: Menggunakan pure-Dart decoding & resizing via `package:image` di Web/PWA untuk menghindari keterbatasan `dart:ui` `Image.toByteData` dan web worker `compute()`.
+   - Menghasilkan payload JPEG Base64 ultra-ringan (~25KB) dengan pemotongan aspek rasio 3:4 yang presisi dan cepat.
+   - Menyediakan fallback aman ke raw image bytes jika ada format tidak standar sehingga `imageBase64` tidak pernah bernilai null.
+3. **Perbaikan Viewfinder Kamera di PWA / Web (Anti-Zoom & Rasio 3:4 Standar)**:
+   - Menghilangkan nesting ganda `FittedBox.cover` dan kalkulasi terbalik aspect ratio pada `CameraPreview` di Web.
+   - Di Web, viewfinder kamera kini menggunakan `_cameraController!.buildPreview()` langsung yang mengisi container 3:4 dengan CSS `object-fit: cover` terpusat tanpa distorsi atau efek zoom berlebihan.
+4. **Verifikasi & Deployment**:
+   - `flutter analyze`: 0 issues found.
+   - `flutter test`: 242 dari 242 test LULUS (100% green).
+   - Flutter Web Release dideploy ke server PocketBase Proxmox (`pb_public`) di `https://bssparking.trakingduit.my.id`.
+   - APK v2.0.77+85 (ARM64 & ARM32) telah dikirimkan ke Telegram bot.
+
+---
+
 ## [2.0.76+84] — 2026-10-09
 
 ### 🎯 Highlight Utama

@@ -60,12 +60,22 @@ class ShareHelper {
     final tgWebUri = Uri.parse('https://t.me/share/url?text=$encodedText');
 
     final validFiles = <XFile>[];
-    if (imagePaths != null && imagePaths.isNotEmpty) {
-      for (final p in imagePaths) {
-        if (File(p).existsSync()) validFiles.add(XFile(p));
+    if (!kIsWeb) {
+      if (imagePaths != null && imagePaths.isNotEmpty) {
+        for (final p in imagePaths) {
+          if (File(p).existsSync()) validFiles.add(XFile(p));
+        }
+      } else if (imagePath != null && File(imagePath).existsSync()) {
+        validFiles.add(XFile(imagePath));
       }
-    } else if (imagePath != null && File(imagePath).existsSync()) {
-      validFiles.add(XFile(imagePath));
+    } else {
+      if (imagePaths != null && imagePaths.isNotEmpty) {
+        for (final p in imagePaths) {
+          validFiles.add(XFile(p));
+        }
+      } else if (imagePath != null) {
+        validFiles.add(XFile(imagePath));
+      }
     }
 
     if (validFiles.isNotEmpty) {

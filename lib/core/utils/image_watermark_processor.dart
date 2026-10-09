@@ -33,8 +33,56 @@ class ImageWatermarkProcessor {
         }
       }
       if (bytes == null || bytes.isEmpty) return null;
+      final validBytes = bytes;
+
+      // Khusus Platform WEB: Gunakan pure-Dart decoding & resizing via `package:image`
+      // agar 100% kompatibel di browser/PWA tanpa ketergantungan dart:ui Image.toByteData / isolate.
+      if (kIsWeb) {
+        try {
+          final decoded = imglib.decodeImage(validBytes);
+          if (decoded != null) {
+            imglib.Image processed = decoded;
+            if (targetAspectRatio != null) {
+              final srcAspect = decoded.width / decoded.height;
+              if ((srcAspect - targetAspectRatio).abs() > 0.02) {
+                int cropW = decoded.width;
+                int cropH = decoded.height;
+                int cropX = 0;
+                int cropY = 0;
+                if (srcAspect > targetAspectRatio) {
+                  cropW = (decoded.height * targetAspectRatio).round();
+                  cropX = (decoded.width - cropW) ~/ 2;
+                } else {
+                  cropH = (decoded.width / targetAspectRatio).round();
+                  cropY = (decoded.height - cropH) ~/ 2;
+                }
+                processed = imglib.copyCrop(
+                  decoded,
+                  x: cropX,
+                  y: cropY,
+                  width: cropW,
+                  height: cropH,
+                );
+              }
+            }
+            if (isFrontCamera) {
+              processed = imglib.flipHorizontal(processed);
+            }
+            // Resize ke lebar 480px untuk payload AI ultra-ringan (~25KB)
+            final resized = imglib.copyResize(processed, width: 480);
+            final jpegBytes = imglib.encodeJpg(resized, quality: 60);
+            return base64Encode(jpegBytes);
+          }
+        } catch (e) {
+          debugPrint('[ImageWatermarkProcessor] Web pure-Dart resize error: $e');
+        }
+        // Fallback jika decode gagal: encode directBytes langsung
+        return base64Encode(validBytes);
+      }
+
+      // Platform NATIVE (Android / iOS):
       // 420px width @ Q50 drops payload to ~25-35KB for lightning-fast network transmission on mobile 4G/3G
-      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 420);
+      final codec = await ui.instantiateImageCodec(validBytes, targetWidth: 420);
       final frame = await codec.getNextFrame();
       final img = frame.image;
 
@@ -86,7 +134,12 @@ class ImageWatermarkProcessor {
           return base64Encode(jpegBytes);
         }
       }
-    } catch (_) {}
+      return base64Encode(validBytes);
+    } catch (_) {
+      if (directBytes != null && directBytes.isNotEmpty) {
+        return base64Encode(directBytes);
+      }
+    }
     return null;
   }
 

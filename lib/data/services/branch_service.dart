@@ -147,8 +147,19 @@ class BranchService extends ChangeNotifier {
         return const [
           'PBM',
           'PKM',
-          'MEGAMAS',
+          'MPP',
+          'NBM',
+          'PPM',
           'TBM',
+          'MGAM',
+          'MGMM',
+          'MGBP',
+          'MGTO',
+          'MGKB',
+          'MGNW',
+          'MGGJ',
+          'MGLG',
+          'MEGAMAS',
           'MTC',
         ];
     }

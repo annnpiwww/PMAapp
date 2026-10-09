@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +23,7 @@ import '../../../data/repositories/template_repository.dart';
 import '../../../data/repositories/submission_repository.dart';
 import '../../../data/services/ai_vision_service.dart';
 import '../../../data/services/location_service.dart';
+import '../../../data/services/branch_service.dart';
 import '../../../data/services/whatsapp_report_service.dart';
 import '../../../data/services/absensi_setup_service.dart';
 import '../../../data/services/storage_service.dart';
@@ -1777,6 +1779,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           isFrontCamera,
           targetAspect,
         );
+        imageBase64 ??= (rawBytes.isNotEmpty ? base64Encode(rawBytes) : null);
 
         // Apply permanent watermark to saved file in background with precise aspect ratio & HD quality
         if (mounted) setState(() => _captureStep = 2);
@@ -2268,27 +2271,31 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        // Camera Preview
+                        // Camera Preview (Web menggunakan buildPreview langsung agar sesuai rasio 3:4 tanpa terzoom)
                         if (_isCameraInitialized && _cameraController != null)
                           ClipRect(
-                            child: FittedBox(
-                              fit: BoxFit.cover,
-                              child: SizedBox(
-                                width:
-                                    _cameraController!
-                                        .value
-                                        .previewSize
-                                        ?.height ??
-                                    frameW,
-                                height:
-                                    _cameraController!
-                                        .value
-                                        .previewSize
-                                        ?.width ??
-                                    frameH,
-                                child: CameraPreview(_cameraController!),
-                              ),
-                            ),
+                            child: kIsWeb
+                                ? SizedBox.expand(
+                                    child: _cameraController!.buildPreview(),
+                                  )
+                                : FittedBox(
+                                    fit: BoxFit.cover,
+                                    child: SizedBox(
+                                      width:
+                                          _cameraController!
+                                              .value
+                                              .previewSize
+                                              ?.height ??
+                                          frameW,
+                                      height:
+                                          _cameraController!
+                                              .value
+                                              .previewSize
+                                              ?.width ??
+                                          frameH,
+                                      child: CameraPreview(_cameraController!),
+                                    ),
+                                  ),
                           )
                         else
                           Container(
@@ -3547,7 +3554,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                         style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
                       ),
                       subtitle: Text(
-                        'IT Support KC BSG',
+                        'IT Support ${BranchService.instance.currentBranch.name}',
                         style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B), fontWeight: FontWeight.w600),
                       ),
                       trailing: IconButton(

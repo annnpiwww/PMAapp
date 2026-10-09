@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../data/services/location_service.dart';
+import '../../../data/services/branch_service.dart';
 import '../screens/location_management_screen.dart';
 
 class LocationPickerModal extends StatefulWidget {
@@ -57,9 +58,14 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
   Future<void> _saveCurrentGpsAsNewPos() async {
     if (_currentGps == null) return;
 
+    final currentBranch = BranchService.instance.currentBranch;
     final nameController = TextEditingController(text: 'Lokasi Baru (GPS Live)');
-    final tagController = TextEditingController(text: 'POS-${Random().nextInt(90) + 10}');
-    final cabangController = TextEditingController(text: 'BSS Parking');
+    final tagController = TextEditingController(
+      text: currentBranch == AppBranch.bali
+          ? 'DPS-${Random().nextInt(90) + 10}'
+          : 'POS-${Random().nextInt(90) + 10}',
+    );
+    final cabangController = TextEditingController(text: currentBranch.name);
     Color selectedColor = const Color(0xFFF59E0B);
 
     showDialog(
@@ -145,11 +151,13 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                     if (nameController.text.trim().isEmpty || tagController.text.trim().isEmpty) return;
 
                     final newPos = PosLocation(
-                      posId: 'POS-${const Uuid().v4().substring(0, 6)}',
+                      posId: currentBranch == AppBranch.bali
+                          ? 'POS-DPS-${const Uuid().v4().substring(0, 6)}'
+                          : 'POS-${const Uuid().v4().substring(0, 6)}',
                       posName: nameController.text.trim(),
                       cabangName: cabangController.text.trim().isNotEmpty
                           ? cabangController.text.trim()
-                          : 'BSS Parking',
+                          : currentBranch.name,
                       locationTag: tagController.text.trim().toUpperCase(),
                       fullAddress: _currentGps!.fullAddress.isNotEmpty
                           ? _currentGps!.fullAddress
@@ -238,7 +246,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                     const Icon(Icons.near_me_rounded, color: AppColors.primary, size: 22),
                     const SizedBox(width: 8),
                     Text(
-                      'Pilih Lokasi & Deteksi GPS Terdekat',
+                      'Pilih Lokasi (${BranchService.instance.currentBranch.name})',
                       style: TextStyle(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w800,

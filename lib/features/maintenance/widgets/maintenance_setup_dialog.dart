@@ -42,7 +42,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
     final available = LocationService.availablePosList;
     if (widget.initialLocation != null) {
       final found = available.where((p) => p.posId == widget.initialLocation!.posId).firstOrNull;
-      _selectedLocation = found ?? widget.initialLocation!;
+      _selectedLocation = found ?? LocationService.currentPos;
     } else {
       _selectedLocation = LocationService.currentPos;
     }

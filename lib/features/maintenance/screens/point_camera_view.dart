@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import '../../../core/constants/app_colors.dart';
@@ -533,12 +535,13 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
       }
 
       // Generate compressed base64 untuk AI (ringan, 864px q72) — jalan paralel dengan watermark
-      final base64Ai = await ImageWatermarkProcessor.generateAiVisionBase64(
+      var base64Ai = await ImageWatermarkProcessor.generateAiVisionBase64(
         file.path,
         bytes,
         _isFrontCamera,
         targetAspect,
       );
+      base64Ai ??= (bytes.isNotEmpty ? base64Encode(bytes) : null);
       setState(() {
         _statusText = 'Sedang diverifikasi';
         _currentStep = 3;
@@ -908,14 +911,18 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                     _handleTapToFocus(details.localPosition, previewW, previewH);
                   },
                   child: ClipRect(
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      child: SizedBox(
-                        width: _controller!.value.previewSize?.height ?? previewW,
-                        height: _controller!.value.previewSize?.width ?? previewH,
-                        child: CameraPreview(_controller!),
-                      ),
-                    ),
+                    child: kIsWeb
+                        ? SizedBox.expand(
+                            child: _controller!.buildPreview(),
+                          )
+                        : FittedBox(
+                            fit: BoxFit.cover,
+                            child: SizedBox(
+                              width: _controller!.value.previewSize?.height ?? previewW,
+                              height: _controller!.value.previewSize?.width ?? previewH,
+                              child: CameraPreview(_controller!),
+                            ),
+                          ),
                   ),
                 ),
 

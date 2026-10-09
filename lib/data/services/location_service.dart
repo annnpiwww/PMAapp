@@ -80,6 +80,29 @@ class PosLocation {
 
   @override
   int get hashCode => posId.hashCode;
+
+  /// Cek apakah lokasi ini termasuk ke dalam cabang target
+  bool matchesBranch(AppBranch branch) {
+    if (branch == AppBranch.bali) {
+      if (cabangName.toLowerCase().contains('bali') ||
+          posId.toUpperCase().contains('DPS') ||
+          BranchService.instance.getLocationTags(branch: AppBranch.bali).contains(locationTag.trim().toUpperCase())) {
+        return true;
+      }
+      return false;
+    } else {
+      // Manado / BSG branch
+      if (cabangName.toLowerCase().contains('bali') ||
+          posId.toUpperCase().contains('DPS') ||
+          BranchService.instance.getLocationTags(branch: AppBranch.bali).contains(locationTag.trim().toUpperCase())) {
+        return false;
+      }
+      return true;
+    }
+  }
+
+  /// Branch kepemilikan lokasi ini
+  AppBranch get branch => matchesBranch(AppBranch.bali) ? AppBranch.bali : AppBranch.manado;
 }
 
 class LocationResult {
@@ -428,7 +451,15 @@ class LocationService {
   static void setCachedLocationForTesting(LocationResult? result) {
     _cachedLocationResult = result;
   }
-  static List<PosLocation> get availablePosList {
+
+  @visibleForTesting
+  static void resetForTesting() {
+    _locations = [];
+    _cachedLocationResult = null;
+    _lastLocationFetchTime = null;
+  }
+
+  static void _ensureInitialized() {
     if (_locations.isEmpty) {
       final saved = StorageService.getLocations();
       if (saved != null && saved.isNotEmpty) {
@@ -453,28 +484,58 @@ class LocationService {
         StorageService.saveLocations(_locations);
       }
     }
+  }
+
+  /// Seluruh lokasi tersimpan di sistem (lintas cabang)
+  static List<PosLocation> get allLocations {
+    _ensureInitialized();
     return List.unmodifiable(_locations);
   }
 
+  /// Lokasi yang aktif dan relevan untuk cabang saat ini (KC BSG/Manado atau KC Bali)
+  static List<PosLocation> get availablePosList {
+    return getLocationsByBranch(BranchService.instance.currentBranch);
+  }
+
+  /// Mengambil daftar lokasi yang secara ketat terisolasi untuk cabang tertentu
+  static List<PosLocation> getLocationsByBranch(AppBranch branch) {
+    _ensureInitialized();
+    return List.unmodifiable(_locations.where((p) => p.matchesBranch(branch)).toList());
+  }
+
+  /// Lokasi aktif saat ini untuk cabang yang sedang dipilih
   static PosLocation get currentPos {
-    final list = availablePosList;
-    if (BranchService.instance.currentBranch == AppBranch.bali) {
-      final baliPos = list.firstWhere(
-        (p) => p.cabangName == 'KC Bali' || p.locationTag == 'PBKD',
-        orElse: () => list.isNotEmpty ? list.first : _defaultSeed.first,
+    _ensureInitialized();
+    final branch = BranchService.instance.currentBranch;
+    final branchList = availablePosList;
+    if (branchList.isEmpty) {
+      return _defaultSeed.firstWhere(
+        (p) => p.matchesBranch(branch),
+        orElse: () => _defaultSeed.first,
       );
-      if (list.isNotEmpty && (list.first.cabangName == 'KC Bali' || list.first.locationTag == 'PBKD')) {
-        return list.first;
-      }
-      return baliPos;
     }
-    return list.isNotEmpty ? list.first : _defaultSeed.first;
+
+    // 1. Cek apakah ada saved active posId spesifik untuk cabang ini
+    final savedPosId = StorageService.getString('active_pos_id_${branch.code}');
+    if (savedPosId != null && savedPosId.isNotEmpty) {
+      final found = branchList.where((p) => p.posId == savedPosId).firstOrNull;
+      if (found != null) return found;
+    }
+
+    // 2. Fallback ke default location tag cabang (PBM untuk Manado, PBKD untuk Bali)
+    final defaultTag = branch.defaultLocationTag;
+    final defaultPos = branchList.where((p) => p.locationTag.toUpperCase() == defaultTag).firstOrNull;
+    if (defaultPos != null) return defaultPos;
+
+    // 3. Fallback: lokasi pertama di cabang ini
+    return branchList.first;
   }
 
   static void setCurrentPos(PosLocation pos) => currentPos = pos;
 
   static set currentPos(PosLocation pos) {
-    final list = List<PosLocation>.from(availablePosList);
+    _ensureInitialized();
+    final list = List<PosLocation>.from(_locations);
     final idx = list.indexWhere((p) => p.posId == pos.posId);
     if (idx != -1) {
       list.removeAt(idx);
@@ -484,6 +545,9 @@ class LocationService {
     }
     _locations = list;
     StorageService.saveLocations(_locations);
+
+    final targetBranch = pos.branch;
+    StorageService.setString('active_pos_id_${targetBranch.code}', pos.posId);
     clearLocationCache();
   }
 
@@ -492,15 +556,20 @@ class LocationService {
     _lastLocationFetchTime = null;
   }
 
-  /// Cari PosLocation berdasarkan tag (misal 'PBM', 'TBM'), nama pos, atau kata kunci teks tugas
-  static PosLocation? findPosByTagOrName(String query) {
+  /// Cari PosLocation berdasarkan tag (misal 'PBM', 'TBM', 'PBKD'), nama pos, atau kata kunci teks tugas
+  static PosLocation? findPosByTagOrName(String query, {AppBranch? branch}) {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return null;
 
-    final list = availablePosList;
-    const stopWords = {'pos', 'gate', 'maintenance', 'sop', 'tugas', 'cek', 'titik', 'unit', 'keluar', 'masuk'};
+    final targetBranch = branch ?? BranchService.instance.currentBranch;
+    final list = getLocationsByBranch(targetBranch);
+    const stopWords = {
+      'pos', 'gate', 'maintenance', 'sop', 'tugas', 'cek',
+      'titik', 'unit', 'keluar', 'masuk', 'manado', 'bali',
+      'kc', 'bss', 'lokasi',
+    };
 
-    // 1. Exact match pada locationTag, posName, atau posId
+    // 1. Exact match pada locationTag, posName, atau posId di cabang target
     for (final pos in list) {
       final tag = pos.locationTag.toLowerCase();
       final name = pos.posName.toLowerCase();
@@ -568,6 +637,15 @@ class LocationService {
       }
     }
 
+    // Fallback: jika branch tidak dispesifikasi secara eksplisit, coba cari di allLocations
+    if (branch == null) {
+      for (final pos in allLocations) {
+        if (pos.locationTag.toLowerCase() == q || pos.posName.toLowerCase() == q) {
+          return pos;
+        }
+      }
+    }
+
     return null;
   }
 
@@ -597,7 +675,7 @@ class LocationService {
     }
 
     // 4. Jika posTag atau posName diisi tetapi belum ada di daftar pos (lokasi baru dari SPV, misal 'MTC'),
-    // daftarkan secara dinamis ke availablePosList agar langsung terpilih di dropdown dan bisa dikerjakan
+    // daftarkan secara dinamis ke cabang yang sesuai agar langsung terpilih di dropdown dan bisa dikerjakan
     final targetRaw = (posTag != null && posTag.trim().isNotEmpty && posTag.trim() != '-')
         ? posTag.trim()
         : (posName != null && posName.trim().isNotEmpty && posName.trim() != '-' ? posName.trim() : null);
@@ -608,10 +686,16 @@ class LocationService {
           ? posName.trim()
           : targetRaw;
 
+      final isBali = BranchService.instance.currentBranch == AppBranch.bali ||
+          BranchService.instance.getLocationTags(branch: AppBranch.bali).contains(cleanTag);
+      final targetBranch = isBali ? AppBranch.bali : AppBranch.manado;
+
       final newLoc = PosLocation(
-        posId: 'POS-${cleanTag.replaceAll(RegExp(r'[^A-Z0-9]'), '')}-01',
+        posId: isBali
+            ? 'POS-DPS-${cleanTag.replaceAll(RegExp(r'[^A-Z0-9]'), '')}-01'
+            : 'POS-${cleanTag.replaceAll(RegExp(r'[^A-Z0-9]'), '')}-01',
         posName: cleanName,
-        cabangName: 'KC BSG',
+        cabangName: targetBranch.name,
         fullAddress: cleanName,
         locationTag: cleanTag,
         tagColor: const Color(0xFFF59E0B),
@@ -626,30 +710,39 @@ class LocationService {
   }
 
   static Future<void> addLocation(PosLocation pos) async {
-    final list = List<PosLocation>.from(availablePosList);
+    _ensureInitialized();
+    final list = List<PosLocation>.from(_locations);
     list.insert(0, pos);
     _locations = list;
     await StorageService.saveLocations(_locations);
+    final targetBranch = pos.branch;
+    await StorageService.setString('active_pos_id_${targetBranch.code}', pos.posId);
+    clearLocationCache();
   }
 
   static Future<void> updateLocation(PosLocation pos) async {
-    final list = List<PosLocation>.from(availablePosList);
+    _ensureInitialized();
+    final list = List<PosLocation>.from(_locations);
     final idx = list.indexWhere((p) => p.posId == pos.posId);
     if (idx != -1) {
       list[idx] = pos;
-      // Auto-aktif: pindahkan yang di-edit ke posisi 0 agar langsung jadi currentPos
       final updated = list.removeAt(idx);
       list.insert(0, updated);
       _locations = list;
       await StorageService.saveLocations(_locations);
+      final targetBranch = pos.branch;
+      await StorageService.setString('active_pos_id_${targetBranch.code}', pos.posId);
+      clearLocationCache();
     }
   }
 
   static Future<void> deleteLocation(String posId) async {
-    final list = List<PosLocation>.from(availablePosList);
+    _ensureInitialized();
+    final list = List<PosLocation>.from(_locations);
     list.removeWhere((p) => p.posId == posId);
     _locations = list.isNotEmpty ? list : List.from(_defaultSeed);
     await StorageService.saveLocations(_locations);
+    clearLocationCache();
   }
 
   static Future<bool> isGpsServiceEnabled() async {
@@ -848,9 +941,11 @@ class LocationService {
   /// Sorts and returns list of locations by proximity to given coordinate
   static List<Map<String, dynamic>> getLocationsRankedByDistance(
     double userLat,
-    double userLng,
-  ) {
-    final list = availablePosList;
+    double userLng, {
+    AppBranch? branch,
+  }) {
+    final targetBranch = branch ?? BranchService.instance.currentBranch;
+    final list = getLocationsByBranch(targetBranch);
     final ranked = list.map((loc) {
       final dist =
           calculateDistanceInMeters(userLat, userLng, loc.lat, loc.lng);

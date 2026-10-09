@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../data/services/location_service.dart';
+import '../../../data/services/branch_service.dart';
 
 class LocationManagementScreen extends StatefulWidget {
   final ValueChanged<PosLocation>? onLocationSelected;
@@ -16,6 +17,13 @@ class LocationManagementScreen extends StatefulWidget {
 
 class _LocationManagementScreenState extends State<LocationManagementScreen> {
   String _searchQuery = '';
+  late AppBranch _selectedBranch;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedBranch = BranchService.instance.currentBranch;
+  }
 
   static const List<Color> _palette = [
     Color(0xFFF59E0B), // Amber / Gold
@@ -31,9 +39,9 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
     final nameController =
         TextEditingController(text: existingLocation?.posName ?? '');
     final cabangController =
-        TextEditingController(text: existingLocation?.cabangName ?? 'KC BSG');
+        TextEditingController(text: existingLocation?.cabangName ?? _selectedBranch.name);
     final tagController =
-        TextEditingController(text: existingLocation?.locationTag ?? 'PBM');
+        TextEditingController(text: existingLocation?.locationTag ?? _selectedBranch.defaultLocationTag);
 
     Color selectedColor =
         existingLocation?.tagColor ?? const Color(0xFFF59E0B);
@@ -215,15 +223,19 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                     if (address.isEmpty) {
                       address = cabangController.text.trim().isNotEmpty
                           ? cabangController.text.trim()
-                          : 'Manado, Sulawesi Utara';
+                          : (_selectedBranch == AppBranch.bali ? 'Denpasar, Bali' : 'Manado, Sulawesi Utara');
                     }
 
                     final pos = PosLocation(
                       posId: isEditing
                           ? existingLocation.posId
-                          : 'POS-${const Uuid().v4().substring(0, 6)}',
+                          : (_selectedBranch == AppBranch.bali
+                              ? 'POS-DPS-${const Uuid().v4().substring(0, 6)}'
+                              : 'POS-${const Uuid().v4().substring(0, 6)}'),
                       posName: nameController.text.trim(),
-                      cabangName: cabangController.text.trim(),
+                      cabangName: cabangController.text.trim().isNotEmpty
+                          ? cabangController.text.trim()
+                          : _selectedBranch.name,
                       locationTag: tagController.text.trim().toUpperCase(),
                       fullAddress: address,
                       tagColor: selectedColor,
@@ -286,9 +298,43 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
     );
   }
 
+  Widget _buildBranchTab({
+    required AppBranch branch,
+    required String label,
+    required int count,
+    required bool isDark,
+  }) {
+    final isSelected = _selectedBranch == branch;
+    return InkWell(
+      onTap: () => setState(() => _selectedBranch = branch),
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? AppColors.accent : AppColors.primary)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          '$label ($count)',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+            color: isSelected
+                ? Colors.white
+                : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final allLocations = LocationService.availablePosList;
+    final allLocations = LocationService.getLocationsByBranch(_selectedBranch);
     final currentPos = LocationService.currentPos;
     final isDark = ThemeService.isDarkMode(context);
     final scaffoldBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFFAF8F5);
@@ -314,7 +360,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF1E293B) : AppColors.primary,
         foregroundColor: Colors.white,
-        title: const Text('Kelola Lokasi'),
+        title: Text('Kelola Lokasi (${_selectedBranch.name})'),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_location_alt_rounded),
@@ -326,6 +372,37 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // Switcher Tab KC Manado vs KC Bali
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildBranchTab(
+                        branch: AppBranch.manado,
+                        label: 'KC Manado',
+                        count: LocationService.getLocationsByBranch(AppBranch.manado).length,
+                        isDark: isDark,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildBranchTab(
+                        branch: AppBranch.bali,
+                        label: 'KC Bali',
+                        count: LocationService.getLocationsByBranch(AppBranch.bali).length,
+                        isDark: isDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: TextField(
