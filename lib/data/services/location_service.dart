@@ -69,6 +69,16 @@ class PosLocation {
       lng: lng ?? this.lng,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PosLocation &&
+          runtimeType == other.runtimeType &&
+          posId == other.posId;
+
+  @override
+  int get hashCode => posId.hashCode;
 }
 
 class LocationResult {
@@ -320,23 +330,136 @@ class LocationService {
     _lastLocationFetchTime = null;
   }
 
-  /// Cari PosLocation berdasarkan tag (misal 'PBM', 'TBM') atau nama pos
+  /// Cari PosLocation berdasarkan tag (misal 'PBM', 'TBM'), nama pos, atau kata kunci teks tugas
   static PosLocation? findPosByTagOrName(String query) {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return null;
-    for (final pos in availablePosList) {
-      if (pos.locationTag.toLowerCase() == q ||
-          pos.posName.toLowerCase() == q ||
-          pos.posId.toLowerCase() == q) {
+
+    final list = availablePosList;
+    const stopWords = {'pos', 'gate', 'maintenance', 'sop', 'tugas', 'cek', 'titik', 'unit', 'keluar', 'masuk'};
+
+    // 1. Exact match pada locationTag, posName, atau posId
+    for (final pos in list) {
+      final tag = pos.locationTag.toLowerCase();
+      final name = pos.posName.toLowerCase();
+      final id = pos.posId.toLowerCase();
+      if (tag == q || name == q || id == q) {
         return pos;
       }
     }
-    for (final pos in availablePosList) {
-      if (pos.locationTag.toLowerCase().contains(q) ||
-          pos.posName.toLowerCase().contains(q)) {
-        return pos;
+
+    // 2. Exact match tag di dalam string sebagai kata utuh (contoh query: "Pos TBM", "TBM Masuk", "Area TBM")
+    for (final pos in list) {
+      final tag = pos.locationTag.toLowerCase();
+      if (tag.isNotEmpty && !stopWords.contains(tag)) {
+        final reg = RegExp('\\b${RegExp.escape(tag)}\\b', caseSensitive: false);
+        if (reg.hasMatch(q) || tag == q) {
+          return pos;
+        }
       }
     }
+
+    // 3. Substring match pada posId (hanya jika query spesifik bukan stop word)
+    if (!stopWords.contains(q) && q.length >= 3) {
+      for (final pos in list) {
+        final id = pos.posId.toLowerCase();
+        if (id.contains(q)) {
+          return pos;
+        }
+      }
+    }
+
+    // 4. Substring match pada posName (misal 'Toko Bintang' in 'Toko Bintang Manado')
+    if (!stopWords.contains(q) && q.length >= 3) {
+      for (final pos in list) {
+        final name = pos.posName.toLowerCase();
+        if (name.contains(q) || q.contains(name)) {
+          return pos;
+        }
+      }
+    }
+
+    // 5. Token-based search jika query berupa kalimat panjang (misal 'Maintenance Manless Gate - TBM')
+    final tokens = q
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]'), ' ')
+        .split(' ')
+        .where((t) => t.length >= 2 && !stopWords.contains(t))
+        .toList();
+
+    for (final token in tokens) {
+      for (final pos in list) {
+        final tag = pos.locationTag.toLowerCase();
+        if (tag == token) {
+          return pos;
+        }
+      }
+    }
+
+    for (final token in tokens) {
+      if (token.length >= 3) {
+        for (final pos in list) {
+          final name = pos.posName.toLowerCase();
+          if (name.contains(token)) {
+            return pos;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /// Resolve PosLocation dari task daily (posTag, posName, judul)
+  /// Mengikuti kata kunci lokasi yang diinputkan SPV secara cerdas
+  static PosLocation? resolveLocationFromTask({
+    String? posTag,
+    String? posName,
+    String? judul,
+  }) {
+    // 1. Cek posTag terlebih dahulu (biasanya paling spesifik, misal 'TBM')
+    if (posTag != null && posTag.trim().isNotEmpty && posTag.trim() != '-') {
+      final loc = findPosByTagOrName(posTag);
+      if (loc != null) return loc;
+    }
+
+    // 2. Cek posName (misal 'Toko Bintang Manado' atau 'TBM')
+    if (posName != null && posName.trim().isNotEmpty && posName.trim() != '-') {
+      final loc = findPosByTagOrName(posName);
+      if (loc != null) return loc;
+    }
+
+    // 3. Cek judul tugas jika mengandung kata kunci lokasi (misal 'Maintenance Manless Gate - TBM')
+    if (judul != null && judul.trim().isNotEmpty) {
+      final loc = findPosByTagOrName(judul);
+      if (loc != null) return loc;
+    }
+
+    // 4. Jika posTag atau posName diisi tetapi belum ada di daftar pos (lokasi baru dari SPV, misal 'MTC'),
+    // daftarkan secara dinamis ke availablePosList agar langsung terpilih di dropdown dan bisa dikerjakan
+    final targetRaw = (posTag != null && posTag.trim().isNotEmpty && posTag.trim() != '-')
+        ? posTag.trim()
+        : (posName != null && posName.trim().isNotEmpty && posName.trim() != '-' ? posName.trim() : null);
+
+    if (targetRaw != null && targetRaw.isNotEmpty && targetRaw.toLowerCase() != 'umum') {
+      final cleanTag = targetRaw.toUpperCase();
+      final cleanName = (posName != null && posName.trim().isNotEmpty && posName.trim() != '-')
+          ? posName.trim()
+          : targetRaw;
+
+      final newLoc = PosLocation(
+        posId: 'POS-${cleanTag.replaceAll(RegExp(r'[^A-Z0-9]'), '')}-01',
+        posName: cleanName,
+        cabangName: 'KC BSG',
+        fullAddress: cleanName,
+        locationTag: cleanTag,
+        tagColor: const Color(0xFFF59E0B),
+        lat: currentPos.lat,
+        lng: currentPos.lng,
+      );
+      addLocation(newLoc);
+      return newLoc;
+    }
+
     return null;
   }
 

@@ -722,99 +722,126 @@ class _MaintenanceDetailModal extends StatelessWidget {
             ),
           ),
 
-          // Bottom Action: Re-share to WA & Telegram
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: sheetBg,
-              border: Border(top: BorderSide(color: dividerClr, width: 0.8)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
-                  blurRadius: 10,
-                  offset: const Offset(0, -3),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: const Color(0xFFDCFCE7),
-                        side: const BorderSide(color: Color(0xFF86EFAC), width: 1.2),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      icon: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 16),
-                      label: const Text(
-                        'Share WhatsApp',
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11.5,
-                          color: Color(0xFF15803D),
-                        ),
-                      ),
-                      onPressed: () async {
-                        await WhatsAppReportService.shareToWhatsApp(
-                          submission: submission,
-                          category: category,
-                        );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('✓ $pointsWithImages foto dibuka di WhatsApp. Teks telah disalin ke clipboard!'),
-                              backgroundColor: AppColors.success,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE0F2FE),
-                        side: const BorderSide(color: Color(0xFF7DD3FC), width: 1.2),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      icon: const Icon(Icons.send_rounded, color: Color(0xFF0088CC), size: 16),
-                      label: const Text(
-                        'Share Telegram',
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11.5,
-                          color: Color(0xFF0E6BA8),
-                        ),
-                      ),
-                      onPressed: () async {
-                        await WhatsAppReportService.shareToTelegram(
-                          submission: submission,
-                          category: category,
-                        );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('✓ $pointsWithImages foto dibuka di Telegram. Teks telah disalin ke clipboard!'),
-                              backgroundColor: AppColors.success,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
-                      },
-                    ),
+          // Bottom Action: Re-share to WA & Telegram (Hanya jika laporan telah lengkap)
+          if (submission.isComplete)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: sheetBg,
+                border: Border(top: BorderSide(color: dividerClr, width: 0.8)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, -3),
                   ),
                 ],
               ),
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: const Color(0xFFDCFCE7),
+                          side: const BorderSide(color: Color(0xFF86EFAC), width: 1.2),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 16),
+                        label: const Text(
+                          'Share WhatsApp',
+                          style: TextStyle(
+                            fontFamily: 'PlusJakartaSans',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11.5,
+                            color: Color(0xFF15803D),
+                          ),
+                        ),
+                        onPressed: () async {
+                          await WhatsAppReportService.shareToWhatsApp(
+                            submission: submission,
+                            category: category,
+                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('✓ $pointsWithImages foto dibuka di WhatsApp. Teks telah disalin ke clipboard!'),
+                                backgroundColor: AppColors.success,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE0F2FE),
+                          side: const BorderSide(color: Color(0xFF7DD3FC), width: 1.2),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.send_rounded, color: Color(0xFF0088CC), size: 16),
+                        label: const Text(
+                          'Share Telegram',
+                          style: TextStyle(
+                            fontFamily: 'PlusJakartaSans',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11.5,
+                            color: Color(0xFF0E6BA8),
+                          ),
+                        ),
+                        onPressed: () async {
+                          await WhatsAppReportService.shareToTelegram(
+                            submission: submission,
+                            category: category,
+                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('✓ $pointsWithImages foto dibuka di Telegram. Teks telah disalin ke clipboard!'),
+                                backgroundColor: AppColors.success,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: sheetBg,
+                border: Border(top: BorderSide(color: dividerClr, width: 0.8)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.warning),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Laporan belum lengkap (${submission.doneCount}/${submission.totalPoints} foto). Lengkapi seluruh checkpoint untuk membagikan laporan.',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );

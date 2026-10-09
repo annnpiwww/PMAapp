@@ -206,6 +206,8 @@ class _DailyTaskListCardState extends State<DailyTaskListCard> {
                                 fontWeight: FontWeight.w600,
                                 color: isDone ? const Color(0xFF94A3B8) : Colors.white,
                                 decoration: isDone ? TextDecoration.lineThrough : null,
+                                decorationColor: isDone ? const Color(0xFF94A3B8) : null,
+                                decorationThickness: isDone ? 2.0 : null,
                               ),
                             ),
                             if (task.posTag.isNotEmpty)

@@ -17,6 +17,7 @@ class AbsensiSetupService extends ChangeNotifier {
   static const _kNextShift = 'absensi_next_shift_v1';
   static const _kSelesai = 'absensi_pekerjaan_selesai_v1';
   static const _kBelum = 'absensi_pekerjaan_belum_v1';
+  static const _kHandoverDate = 'absensi_handover_date_v1';
 
   AbsensiKategori selectedKategori = AbsensiKategori.teknisi;
   String lokasiStandby = 'PBM';
@@ -26,6 +27,7 @@ class AbsensiSetupService extends ChangeNotifier {
   String shiftSelanjutnya = '';
   String pekerjaanSelesai = '';
   String pekerjaanBelum = '';
+  String handoverDate = '';
   static const List<String> shiftOptions = [
     'Shift 1 (03:00 - 11:00)',
     'Shift 2.2 (10:00 - 14:00)',
@@ -243,8 +245,18 @@ class AbsensiSetupService extends ChangeNotifier {
         jamPulang = autoDetectJamPulang(shift: jadwalShift);
       }
       shiftSelanjutnya = prefs.getString(_kNextShift) ?? '';
-      pekerjaanSelesai = prefs.getString(_kSelesai) ?? '';
-      pekerjaanBelum = prefs.getString(_kBelum) ?? '';
+      handoverDate = prefs.getString(_kHandoverDate) ?? '';
+      final now = DateTime.now();
+      final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      if (handoverDate != todayStr) {
+        // Jika handover bukan dari hari ini, reset agar wajib sinkron/isi tugas hari ini
+        pekerjaanSelesai = '';
+        pekerjaanBelum = '';
+        handoverDate = '';
+      } else {
+        pekerjaanSelesai = prefs.getString(_kSelesai) ?? '';
+        pekerjaanBelum = prefs.getString(_kBelum) ?? '';
+      }
       notifyListeners();
     } catch (_) {}
   }
@@ -260,6 +272,7 @@ class AbsensiSetupService extends ChangeNotifier {
       await prefs.setString(_kNextShift, shiftSelanjutnya);
       await prefs.setString(_kSelesai, pekerjaanSelesai);
       await prefs.setString(_kBelum, pekerjaanBelum);
+      await prefs.setString(_kHandoverDate, handoverDate);
     } catch (_) {}
   }
 
@@ -297,27 +310,60 @@ class AbsensiSetupService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _syncTodayDate() {
+    final now = DateTime.now();
+    handoverDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
   void updateNextShift(String v) {
     shiftSelanjutnya = v;
+    _syncTodayDate();
     _save();
     notifyListeners();
   }
 
   void updatePekerjaanSelesai(String v) {
     pekerjaanSelesai = v;
+    _syncTodayDate();
     _save();
     notifyListeners();
   }
 
   void updatePekerjaanBelum(String v) {
     pekerjaanBelum = v;
+    _syncTodayDate();
+    _save();
+    notifyListeners();
+  }
+
+  void updateDailyHandover({
+    required String nextShift,
+    required String selesai,
+    required String belum,
+    String? date,
+  }) {
+    final now = DateTime.now();
+    final todayStr = date ?? '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    shiftSelanjutnya = nextShift;
+    pekerjaanSelesai = selesai;
+    pekerjaanBelum = belum;
+    handoverDate = todayStr;
     _save();
     notifyListeners();
   }
 
   /// Memeriksa apakah teknisi sudah mengisi laporan daily & IT Support pengganti
-  /// Kebijakan: 'Isi daily dulu ya!' sebelum absensi pulang
-  bool isDailyHandoverComplete() {
+  /// Kebijakan: 'Isi daily dulu ya!' sebelum absensi pulang (harus bertanggal hari ini)
+  bool isDailyHandoverComplete({String? targetDate}) {
+    final now = DateTime.now();
+    final todayStr = targetDate ??
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    // Tolak jika data berasal dari tanggal kemarin (data basi)
+    if (handoverDate.isNotEmpty && handoverDate != todayStr) {
+      return false;
+    }
+
     final next = shiftSelanjutnya.trim();
     final selesai = pekerjaanSelesai.trim();
 

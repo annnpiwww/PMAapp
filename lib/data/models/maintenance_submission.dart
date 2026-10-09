@@ -63,6 +63,7 @@ class MaintenancePointResult {
   final String alasan;
   final double confidence;
   final String providerName;
+  final String? kendalaFisik;
 
   const MaintenancePointResult({
     required this.pointId,
@@ -76,6 +77,7 @@ class MaintenancePointResult {
     this.alasan = '',
     this.confidence = 0,
     this.providerName = '',
+    this.kendalaFisik,
   });
 
   bool get isDone => status != PointStatus.belumFoto;
@@ -93,6 +95,8 @@ class MaintenancePointResult {
         'alasan': alasan,
         'confidence': confidence,
         'providerName': providerName,
+        'kendalaFisik': kendalaFisik,
+        'kendala_fisik': kendalaFisik,
       };
 
   factory MaintenancePointResult.fromJson(Map<String, dynamic> j) =>
@@ -108,6 +112,7 @@ class MaintenancePointResult {
         alasan: j['alasan'] as String? ?? '',
         confidence: (j['confidence'] as num?)?.toDouble() ?? 0,
         providerName: j['providerName'] as String? ?? '',
+        kendalaFisik: (j['kendalaFisik'] ?? j['kendala_fisik']) as String?,
       );
 
   MaintenancePointResult copyWith({
@@ -120,6 +125,7 @@ class MaintenancePointResult {
     String? alasan,
     double? confidence,
     String? providerName,
+    String? kendalaFisik,
   }) {
     return MaintenancePointResult(
       pointId: pointId,
@@ -133,6 +139,7 @@ class MaintenancePointResult {
       alasan: alasan ?? this.alasan,
       confidence: confidence ?? this.confidence,
       providerName: providerName ?? this.providerName,
+      kendalaFisik: kendalaFisik ?? this.kendalaFisik,
     );
   }
 }

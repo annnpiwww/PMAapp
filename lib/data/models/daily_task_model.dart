@@ -15,12 +15,18 @@ enum TaskStatus {
   }
 
   static TaskStatus fromString(String val) {
-    switch (val.toLowerCase()) {
+    switch (val.toLowerCase().trim()) {
       case 'completed':
       case 'selesai':
+      case 'done':
+      case 'finish':
+      case 'finished':
+      case 'sukses':
+      case 'closed':
         return TaskStatus.completed;
       case 'in_progress':
       case 'proses':
+      case 'ongoing':
         return TaskStatus.inProgress;
       case 'pending':
       default:
@@ -63,6 +69,7 @@ class DailyTaskModel {
   });
 
   bool get isCompleted => status == TaskStatus.completed;
+  bool get isMaintenance => kategori == 'maintenance';
 
   DailyTaskModel copyWith({
     String? id,

@@ -36,34 +36,39 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
 
   // Daftar nama rekan IT Support
   static const List<String> _rekanItOptions = [
-    'Farhan Lakoro',
-    'Fidel Gimon',
-    'Wahyu Pratama',
-    'Rifky Mokodompit',
-    'Rian Hidayat',
-    'Tidak Ada (Shift Terakhir / Off)',
+    'Ryan Lumasuge',
+    'Raldy Sangkop',
+    'Junifer Manua',
+    'Alessandro Sulistyo',
+    'Shift Terakhir / Tidak Ada Pengganti',
   ];
 
   @override
   void initState() {
     super.initState();
     final setup = AbsensiSetupService.instance;
+    final now = DateTime.now();
+    final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
-    // Prefill data yang sudah tersimpan sebelumnya
+    final isHandoverToday = setup.handoverDate == todayStr;
+
+    // Prefill data yang sudah tersimpan jika hari ini
     if (setup.shiftSelanjutnya.isNotEmpty && setup.shiftSelanjutnya != '-') {
       _selectedNextShift = setup.shiftSelanjutnya;
     }
-    if (setup.pekerjaanSelesai.isNotEmpty && setup.pekerjaanSelesai != '-') {
-      _selesaiCtrl.text = setup.pekerjaanSelesai;
-    }
-    if (setup.pekerjaanBelum.isNotEmpty && setup.pekerjaanBelum != '-') {
-      _adaPekerjaanBelum = true;
-      _belumCtrl.text = setup.pekerjaanBelum;
+    if (isHandoverToday) {
+      if (setup.pekerjaanSelesai.isNotEmpty && setup.pekerjaanSelesai != '-') {
+        _selesaiCtrl.text = setup.pekerjaanSelesai;
+      }
+      if (setup.pekerjaanBelum.isNotEmpty && setup.pekerjaanBelum != '-') {
+        _adaPekerjaanBelum = true;
+        _belumCtrl.text = setup.pekerjaanBelum;
+      }
     }
 
-    // Auto-fill dari Daily Task jika tersedia
+    // Auto-fill dari Daily Task hari ini
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _autoFillFromDailyTasks();
+      _autoFillFromDailyTasks(force: !isHandoverToday);
     });
   }
 
@@ -94,11 +99,8 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
         final buffer = StringBuffer();
         for (int i = 0; i < completed.length; i++) {
           final t = completed[i];
-          buffer.writeln('${i + 1}. ${t.judul}');
-          final note = (t.catatanTeknisi ?? '').trim();
-          if (note.isNotEmpty && note != '-') {
-            buffer.writeln(note);
-          }
+          final timeStr = (t.jamSelesai != null && t.jamSelesai!.isNotEmpty) ? ' (Selesai ${t.jamSelesai})' : '';
+          buffer.writeln('${i + 1}. ${t.judul}$timeStr');
         }
         _selesaiCtrl.text = buffer.toString().trim();
       }
@@ -108,18 +110,36 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
         final bufferBelum = StringBuffer();
         for (int i = 0; i < pending.length; i++) {
           final t = pending[i];
-          bufferBelum.writeln('${i + 1}. ${t.judul}');
-          final note = (t.catatanTeknisi ?? '').trim();
-          if (note.isNotEmpty && note != '-') {
-            bufferBelum.writeln(note);
-          }
+          bufferBelum.writeln('${i + 1}. ${t.judul} (${t.posName})');
         }
         _belumCtrl.text = bufferBelum.toString().trim();
       }
 
       _syncedCompletedCount = completed.length;
     } catch (_) {
-      // Abaikan jika offline / gagal fetch
+      // Fallback local cache jika offline di basement
+      final cached = DailyTaskService.getCachedTasksLocally();
+      final completed = cached.where((t) => t.isCompleted).toList();
+      final pending = cached.where((t) => !t.isCompleted).toList();
+      if (completed.isNotEmpty) {
+        final buffer = StringBuffer();
+        for (int i = 0; i < completed.length; i++) {
+          final t = completed[i];
+          final timeStr = (t.jamSelesai != null && t.jamSelesai!.isNotEmpty) ? ' (Selesai ${t.jamSelesai})' : '';
+          buffer.writeln('${i + 1}. ${t.judul}$timeStr');
+        }
+        _selesaiCtrl.text = buffer.toString().trim();
+      }
+      if (pending.isNotEmpty) {
+        _adaPekerjaanBelum = true;
+        final bufferBelum = StringBuffer();
+        for (int i = 0; i < pending.length; i++) {
+          final t = pending[i];
+          bufferBelum.writeln('${i + 1}. ${t.judul} (${t.posName})');
+        }
+        _belumCtrl.text = bufferBelum.toString().trim();
+      }
+      _syncedCompletedCount = completed.length;
     } finally {
       if (mounted) {
         setState(() => _isLoadingDailyTasks = false);
@@ -170,10 +190,16 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
       savedBelum = belumText;
     }
 
-    // Simpan ke service & storage
-    setup.updateNextShift(_selectedNextShift!);
-    setup.updatePekerjaanSelesai(selesaiText);
-    setup.updatePekerjaanBelum(savedBelum);
+    final now = DateTime.now();
+    final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    // Simpan ke service & storage dengan tanggal hari ini
+    setup.updateDailyHandover(
+      nextShift: _selectedNextShift!,
+      selesai: selesaiText,
+      belum: savedBelum,
+      date: todayStr,
+    );
     StorageService.markDailyReportCompletedToday();
 
     HapticFeedback.mediumImpact();

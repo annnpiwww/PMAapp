@@ -305,11 +305,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
     final user = AuthRepository.instance.currentUser;
     if (user?.role != UserRole.petugas) return;
+    
+    // Aktifkan realtime listener SSE dan polling background otomatis
+    DailyTaskService.startRealtimeListener(teknisiNama: user!.nama);
+
     final todayStr =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     DailyTaskService.getTasksForTeknisi(
       tanggal: todayStr,
-      teknisiNama: user!.nama,
+      teknisiNama: user.nama,
     ).then((tasks) {
       if (mounted) {
         final pending = tasks.where((t) => !t.isCompleted).length;
@@ -1379,6 +1383,80 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     }
   }
 
+  int _secretQaTapCount = 0;
+  DateTime? _lastSecretQaTapTime;
+
+  bool _isSpvFarhan() {
+    final user = AuthRepository.instance.currentUser;
+    if (user == null) {
+      final lastName = StorageService.getLastTechnicianName();
+      return lastName.toLowerCase().contains('farhan');
+    }
+    final isSpv = user.role == UserRole.supervisor;
+    final isFarhan = user.nama.toLowerCase().contains('farhan');
+    return isSpv || isFarhan;
+  }
+
+  void _handleSecretQaTap() {
+    if (!_isSpvFarhan()) return;
+    final now = DateTime.now();
+    if (_lastSecretQaTapTime == null ||
+        now.difference(_lastSecretQaTapTime!) > const Duration(seconds: 2)) {
+      _secretQaTapCount = 1;
+    } else {
+      _secretQaTapCount++;
+    }
+    _lastSecretQaTapTime = now;
+
+    if (_secretQaTapCount >= 5) {
+      _secretQaTapCount = 0;
+      _toggleSpvQaBypass();
+    }
+  }
+
+  void _toggleSpvQaBypass() async {
+    if (!_isSpvFarhan()) return;
+    HapticFeedback.heavyImpact();
+    final current = StorageService.isSpvQaBypassActive();
+    final next = !current;
+    await StorageService.setSpvQaBypassMode(next);
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                next ? Icons.bolt_rounded : Icons.lock_outline_rounded,
+                color: next ? Colors.amberAccent : Colors.white70,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  next
+                      ? '⚡ ROOT QA BYPASS: AKTIF\n• AI Absensi: Auto-Ijo (Lolos SOP)\n• Durasi Shift: Bebas Pulang (Tanpa 8 Jam)'
+                      : '🔒 ROOT QA BYPASS: NONAKTIF\nMode normal berjalan (AI SOP & Shift 8 Jam aktif).',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, height: 1.3),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: next ? const Color(0xFF0F172A) : const Color(0xFF1E293B),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: next ? Colors.amberAccent : const Color(0xFF334155),
+              width: 1.2,
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
   /// Dialog blokir Fake GPS. Return true = lanjut darurat (hasil ditandai).
   Future<bool?> _confirmMockLocationProceed() {
     return showDialog<bool>(
@@ -1433,7 +1511,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       final isPulangMode = setup.tipeLaporan == 'Pulang';
       if (isPulangMode) {
         final lastCheckIn = StorageService.getLastCheckInTime();
-        if (lastCheckIn == null) {
+        final isQaBypass = StorageService.isSpvQaBypassActive();
+        if (lastCheckIn == null && !isQaBypass) {
           _isProcessingAI = false;
           _captureStep = 0;
           showDialog(
@@ -1463,20 +1542,23 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           return;
         }
 
-        final isEligible = AbsensiSetupService.isEligibleForAutoPulang(
-          shift: setup.effectiveJadwalShift,
-          checkInTime: lastCheckIn,
-        );
+        final isEligible = isQaBypass ||
+            (lastCheckIn != null &&
+                AbsensiSetupService.isEligibleForAutoPulang(
+                  shift: setup.effectiveJadwalShift,
+                  checkInTime: lastCheckIn,
+                ));
 
         // 1. Cek Kelayakan Pulang (Shift Berakhir ATAU Durasi Kerja Terpenuhi)
         if (!isEligible) {
           _isProcessingAI = false;
           _captureStep = 0;
+          final refTime = lastCheckIn ?? DateTime.now();
           final jamPulangStr = AbsensiSetupService.autoDetectJamPulang(
             shift: setup.effectiveJadwalShift,
-            time: lastCheckIn,
+            time: refTime,
           );
-          final worked = DateTime.now().difference(lastCheckIn);
+          final worked = DateTime.now().difference(refTime);
           final remaining = AbsensiSetupService.getRemainingWorkTime(
             shift: setup.effectiveJadwalShift,
             checkInTime: lastCheckIn,
@@ -1532,7 +1614,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       } else {
         // MODE MASUK: PROTEKSI ABSENSI MASUK GANDA (DOUBLE CHECK-IN GUARD)
         final lastCheckIn = StorageService.getLastCheckInTime();
-        if (lastCheckIn != null) {
+        final isQaBypass = StorageService.isSpvQaBypassActive();
+        if (lastCheckIn != null && !isQaBypass) {
           final isEligible = AbsensiSetupService.isEligibleForAutoPulang(
             shift: setup.effectiveJadwalShift,
             checkInTime: lastCheckIn,
@@ -1789,11 +1872,37 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             : absensiSetup2.effectiveJamPulang;
         // Salam pulang disesuaikan jam kepulangan (misal 18:00/22:00 -> Selamat Malam, 11:00 -> Selamat Siang)
         final greetingPulang = WhatsAppReportService.getGreetingFromTimeString(jamPulangText);
-        final rawSelesai = absensiSetup2.pekerjaanSelesai.trim();
+        String rawSelesai = absensiSetup2.pekerjaanSelesai.trim();
+        String rawBelum = absensiSetup2.pekerjaanBelum.trim();
+
+        // Auto-sync fallback jika teks belum terisi dari bottom sheet: ambil dari DailyTaskService lokal
+        if (rawSelesai.isEmpty || rawSelesai == '-') {
+          final cached = DailyTaskService.getCachedTasksLocally();
+          final completed = cached.where((t) => t.isCompleted).toList();
+          final pending = cached.where((t) => !t.isCompleted).toList();
+          if (completed.isNotEmpty) {
+            final sb = StringBuffer();
+            for (int i = 0; i < completed.length; i++) {
+              final t = completed[i];
+              final timeStr = (t.jamSelesai != null && t.jamSelesai!.isNotEmpty) ? ' (Selesai ${t.jamSelesai})' : '';
+              sb.writeln('${i + 1}. ${t.judul}$timeStr');
+            }
+            rawSelesai = sb.toString().trim();
+          }
+          if (pending.isNotEmpty && (rawBelum.isEmpty || rawBelum == '-')) {
+            final sb = StringBuffer();
+            for (int i = 0; i < pending.length; i++) {
+              final t = pending[i];
+              sb.writeln('${i + 1}. ${t.judul} (${t.posName})');
+            }
+            rawBelum = sb.toString().trim();
+          }
+        }
+
         final selesaiText = rawSelesai.isNotEmpty && rawSelesai != '-'
             ? WhatsAppReportService.formatAutoNumberedList(rawSelesai)
             : '-';
-        final belumText = absensiSetup2.pekerjaanBelum.trim().isNotEmpty ? absensiSetup2.pekerjaanBelum.trim() : '-';
+        final belumText = rawBelum.isNotEmpty && rawBelum != '-' ? rawBelum : '-';
         final nextShift = absensiSetup2.shiftSelanjutnya.trim().isNotEmpty ? absensiSetup2.shiftSelanjutnya.trim() : '-';
         shareText = '''$greetingPulang
 
@@ -2514,7 +2623,14 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                           ),
                         ),
 
-                        const Spacer(),
+                        // Secret tap 5x detector untuk SPV QA Bypass Mode
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onTap: _handleSecretQaTap,
+                            child: const SizedBox(height: 36),
+                          ),
+                        ),
 
                         // Flash Toggle Button (Off -> Auto -> On -> Torch Senter)
                         Container(
@@ -2766,10 +2882,15 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
     final shift = absSetup.effectiveJadwalShift;
     final shiftShort = shift.split('(').first.trim();
 
+    final isQaBypass = StorageService.isSpvQaBypassActive();
     String label;
     Color accentColor;
 
-    if (isCheckedInActive && lastCheckIn != null && now.isAfter(lastCheckIn)) {
+    if (isQaBypass) {
+      final isPulang = absSetup.tipeLaporan == 'Pulang';
+      label = isPulang ? '⚡ Pulang : $shiftShort (QA)' : '⚡ Masuk : $shiftShort (QA)';
+      accentColor = isPulang ? const Color(0xFF38BDF8) : const Color(0xFF4ADE80);
+    } else if (isCheckedInActive && lastCheckIn != null && now.isAfter(lastCheckIn)) {
       final diff = now.difference(lastCheckIn);
       final hours = diff.inHours;
       final minutes = diff.inMinutes.remainder(60);
@@ -2809,14 +2930,15 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
     }
 
     final isModePulangTap = absSetup.tipeLaporan == 'Pulang' &&
-        (isCheckedInActive && lastCheckIn != null &&
+        (isQaBypass || (isCheckedInActive && lastCheckIn != null &&
          AbsensiSetupService.isEligibleForAutoPulang(
            shift: shift,
            checkInTime: lastCheckIn,
            currentTime: now,
-         ));
+         )));
 
     return GestureDetector(
+      onLongPress: _toggleSpvQaBypass,
       onTap: () {
         if (isModePulangTap) {
           DailyPulangBottomSheet.show(context).then((saved) {

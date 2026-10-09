@@ -26,6 +26,12 @@ class NotificationService {
   static const String _dailyChannelDesc =
       'Pengingat dan status tugas harian teknisi BSS';
 
+  static const String priorityTaskChannelId = 'bss_task_priority_channel';
+  static const String _priorityTaskChannelId = priorityTaskChannelId;
+  static const String _priorityTaskChannelName = 'Tugas Prioritas BSS';
+  static const String _priorityTaskChannelDesc =
+      'Notifikasi prioritas tinggi penugasan baru dari Supervisor';
+
   String? _lastDailyTasksSignature;
   DateTime? _lastDailyTasksNotifyTime;
 
@@ -99,6 +105,17 @@ class NotificationService {
             importance: Importance.defaultImportance,
             playSound: true,
             enableVibration: false,
+          ),
+        );
+
+        await androidPlatform.createNotificationChannel(
+          const AndroidNotificationChannel(
+            _priorityTaskChannelId,
+            _priorityTaskChannelName,
+            description: _priorityTaskChannelDesc,
+            importance: Importance.max,
+            playSound: true,
+            enableVibration: true,
           ),
         );
         // Permission notifikasi sudah diminta di _requestInitialPermissionsAndInit() secara sequential
@@ -315,5 +332,48 @@ class NotificationService {
       await _notificationsPlugin.cancel(id: notificationIdDailyTasks);
       debugPrint('[NotificationService] Notifikasi daily tasks dibatalkan.');
     } catch (_) {}
+  }
+
+  static const int notificationIdNewTask = 3002;
+
+  /// Notifikasi instan saat SPV baru saja menugaskan pekerjaan baru (realtime pop-up heads-up)
+  Future<void> showNewTaskAlertNotification({
+    required String judul,
+    required String posName,
+    String? deskripsi,
+  }) async {
+    await init();
+    try {
+      const androidDetails = AndroidNotificationDetails(
+        _priorityTaskChannelId,
+        _priorityTaskChannelName,
+        channelDescription: _priorityTaskChannelDesc,
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        ticker: 'Tugas Baru dari SPV!',
+        icon: '@mipmap/ic_launcher',
+        color: Color(0xFFFF6500),
+        styleInformation: BigTextStyleInformation(''),
+      );
+
+      const details = NotificationDetails(android: androidDetails);
+
+      final body = (deskripsi != null && deskripsi.isNotEmpty)
+          ? 'Lokasi: $posName • $deskripsi'
+          : 'Lokasi: $posName • Segera cek dan kerjakan ya!';
+
+      await _notificationsPlugin.show(
+        id: notificationIdNewTask,
+        title: '🔔 Tugas Baru dari SPV: $judul',
+        body: body,
+        notificationDetails: details,
+        payload: 'daily_tasks_new',
+      );
+      debugPrint('[NotificationService] Alert tugas baru SPV terkirim: $judul');
+    } catch (e) {
+      debugPrint('[NotificationService] Error kirim alert tugas baru: $e');
+    }
   }
 }

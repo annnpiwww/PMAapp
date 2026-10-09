@@ -75,8 +75,8 @@ class AuthRepository extends ChangeNotifier {
       {'user': 'raldy@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop'},
       {'user': 'junifer manua', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua'},
       {'user': 'junifer@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua'},
-      {'user': 'alessandro', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro'},
-      {'user': 'alessandro@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro'},
+      {'user': 'alessandro sulistyo', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo'},
+      {'user': 'alessandro@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo'},
     ];
 
     for (final acc in hardcodedAccounts) {
@@ -106,6 +106,7 @@ class AuthRepository extends ChangeNotifier {
 
   Future<void> logout() async {
     _currentUser = null;
+    DailyTaskService.stopRealtimeListener();
     DailyTaskService.setAuthToken(null);
     await StorageService.clearUser();
     await StorageService.remove('user');

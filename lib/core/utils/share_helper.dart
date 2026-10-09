@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
 import 'package:share_plus/share_plus.dart';
@@ -75,8 +76,10 @@ class ShareHelper {
             subject: 'Laporan BSS Parking Timemark',
           ),
         );
-        return;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[ShareHelper] SharePlus Telegram with files failed: $e');
+      }
+      return;
     }
 
     try {
@@ -118,14 +121,12 @@ class ShareHelper {
           'imagePaths': imagePaths,
         });
         if (success == true) return;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[ShareHelper] Direct share to WhatsApp failed: $e');
+      }
     }
 
     // 2. Fallback: SharePlus atau URI scheme
-    final encodedText = Uri.encodeComponent(text);
-    final waDirectUri = Uri.parse('whatsapp://send?text=$encodedText');
-    final waWebUri = Uri.parse('https://api.whatsapp.com/send?text=$encodedText');
-
     final validFiles = <XFile>[];
     if (imagePaths != null && imagePaths.isNotEmpty) {
       for (final p in imagePaths) {
@@ -135,6 +136,9 @@ class ShareHelper {
       validFiles.add(XFile(imagePath));
     }
 
+    // PENTING: Jika ada file media (foto/video), kirim melalui SharePlus dengan lampiran file.
+    // JANGAN PERNAH fallback ke waDirectUri (whatsapp://send?text=...) karena URI scheme
+    // WhatsApp HANYA menerima teks dan otomatis membuang/menghilangkan semua file foto dan video!
     if (validFiles.isNotEmpty) {
       try {
         await SharePlus.instance.share(
@@ -144,9 +148,16 @@ class ShareHelper {
             subject: 'Laporan BSS Parking Timemark',
           ),
         );
-        return;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[ShareHelper] SharePlus WhatsApp with files failed: $e');
+      }
+      return;
     }
+
+    // Hanya jika benar-benar TIDAK ADA file media (laporan teks murni)
+    final encodedText = Uri.encodeComponent(text);
+    final waDirectUri = Uri.parse('whatsapp://send?text=$encodedText');
+    final waWebUri = Uri.parse('https://api.whatsapp.com/send?text=$encodedText');
 
     try {
       if (await canLaunchUrl(waDirectUri)) {

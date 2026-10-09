@@ -175,61 +175,64 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
 
   void _onTipeChanged(String tipe) {
     if (tipe == 'Pulang') {
-      final lastCheck = StorageService.getLastCheckInTime();
-      if (lastCheck == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Anda belum memiliki catatan absensi masuk aktif hari ini.'),
-            backgroundColor: Color(0xFFEF4444),
-            duration: Duration(seconds: 3),
-          ),
-        );
-        return;
-      }
+      final isBypass = StorageService.isSpvQaBypassActive();
+      if (!isBypass) {
+        final lastCheck = StorageService.getLastCheckInTime();
+        if (lastCheck == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Anda belum memiliki catatan absensi masuk aktif hari ini.'),
+              backgroundColor: Color(0xFFEF4444),
+              duration: Duration(seconds: 3),
+            ),
+          );
+          return;
+        }
 
-      final isEligible = AbsensiSetupService.isEligibleForAutoPulang(
-        shift: _selectedShift,
-        checkInTime: lastCheck,
-      );
-
-      if (!isEligible) {
-        final jamPulangStr = AbsensiSetupService.autoDetectJamPulang(shift: _selectedShift, time: lastCheck);
-        final worked = DateTime.now().difference(lastCheck);
-        final workedH = worked.inHours;
-        final workedM = worked.inMinutes.remainder(60);
-        final remaining = AbsensiSetupService.getRemainingWorkTime(
+        final isEligible = AbsensiSetupService.isEligibleForAutoPulang(
           shift: _selectedShift,
           checkInTime: lastCheck,
         );
 
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
-              children: [
-                Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 24),
-                SizedBox(width: 8),
-                Text('Belum Memenuhi Syarat Pulang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        if (!isEligible) {
+          final jamPulangStr = AbsensiSetupService.autoDetectJamPulang(shift: _selectedShift, time: lastCheck);
+          final worked = DateTime.now().difference(lastCheck);
+          final workedH = worked.inHours;
+          final workedM = worked.inMinutes.remainder(60);
+          final remaining = AbsensiSetupService.getRemainingWorkTime(
+            shift: _selectedShift,
+            checkInTime: lastCheck,
+          );
+
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 24),
+                  SizedBox(width: 8),
+                  Text('Belum Memenuhi Syarat Pulang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Text(
+                'Absensi kepulangan belum diizinkan karena shift belum berakhir.\n\n'
+                '• Jadwal Akhir Shift: Jam $jamPulangStr\n'
+                '• Durasi Berjalan: ${workedH}j ${workedM}m\n'
+                '${remaining != null && remaining > Duration.zero ? '• Sisa Durasi Normal: ${remaining.inHours}j ${remaining.inMinutes.remainder(60)}m lagi\n\n' : '\n'}'
+                'SOP BSS mewajibkan teknisi berada di pos hingga jam shift selesai ($jamPulangStr) atau durasi kerja terpenuhi.',
+                style: const TextStyle(fontSize: 13, height: 1.45),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
               ],
             ),
-            content: Text(
-              'Absensi kepulangan belum diizinkan karena shift belum berakhir.\n\n'
-              '• Jadwal Akhir Shift: Jam $jamPulangStr\n'
-              '• Durasi Berjalan: ${workedH}j ${workedM}m\n'
-              '${remaining != null && remaining > Duration.zero ? '• Sisa Durasi Normal: ${remaining.inHours}j ${remaining.inMinutes.remainder(60)}m lagi\n\n' : '\n'}'
-              'SOP BSS mewajibkan teknisi berada di pos hingga jam shift selesai ($jamPulangStr) atau durasi kerja terpenuhi.',
-              style: const TextStyle(fontSize: 13, height: 1.45),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        );
-        return;
+          );
+          return;
+        }
       }
     }
 
@@ -274,8 +277,8 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
 
     setup.updateShift(_selectedShift);
 
-    // Double check agar tidak tersimpan tipe Pulang jika belum memenuhi syarat
-    if (_tipeLaporan == 'Pulang') {
+    // Double check agar tidak tersimpan tipe Pulang jika belum memenuhi syarat (kecuali QA bypass)
+    if (_tipeLaporan == 'Pulang' && !StorageService.isSpvQaBypassActive()) {
       final lastCheck = StorageService.getLastCheckInTime();
       if (lastCheck != null &&
           !AbsensiSetupService.isEligibleForAutoPulang(

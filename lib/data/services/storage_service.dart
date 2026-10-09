@@ -31,13 +31,25 @@ class StorageService {
   static const String _keyLastCheckInTime = 'bss_last_check_in_time_v1';
   static const String _keyHasSeenTutorial = 'bss_has_seen_tutorial_v1';
   static const String _keyDemoBypassMode = 'bss_demo_bypass_mode_v1';
+  static const String _keySpvQaBypassMode = 'bss_spv_qa_bypass_mode_v1';
   static const String _keyCameraTimerSeconds = 'bss_camera_timer_seconds_v1';
   static const String _keyThemeMode = 'bss_theme_mode_v1';
+  static const String _keyKnownPendingTaskIds = 'bss_known_pending_task_ids_v1';
+
+  /// Mode QA / Developer SPV Farhan: bypass AI Vision (Auto-Ijo) dan durasi kerja 8 jam untuk testing.
+  static bool isSpvQaBypassActive() {
+    return _prefs?.getBool(_keySpvQaBypassMode) ?? false;
+  }
+
+  static Future<void> setSpvQaBypassMode(bool enabled) async {
+    await init();
+    await _prefs?.setBool(_keySpvQaBypassMode, enabled);
+  }
 
   /// Mode Demo / SPV Bypass: bypass timer durasi kerja minimal 8 jam / 4 jam untuk testing & demo.
-  /// Di versi rilis universal, SELALU bernilai false dan tidak bisa diaktifkan lewat SharedPreferences.
   static bool isDemoBypassActive() {
-    return const bool.fromEnvironment('BSS_DEMO_MODE', defaultValue: false);
+    final isEnv = const bool.fromEnvironment('BSS_DEMO_MODE', defaultValue: false);
+    return isEnv || isSpvQaBypassActive();
   }
 
   static Future<void> setDemoBypassMode(bool enabled) async {
@@ -776,6 +788,23 @@ class StorageService {
   static Future<void> saveThemeMode(String mode) async {
     await init();
     await _prefs?.setString(_keyThemeMode, mode);
+  }
+
+  // --- KNOWN PENDING TASK IDS (Untuk Push Alert SPV) ---
+  static Set<String> getKnownPendingTaskIds() {
+    final list = _prefs?.getStringList(_keyKnownPendingTaskIds);
+    if (list != null) return list.toSet();
+    return <String>{};
+  }
+
+  static Future<void> saveKnownPendingTaskIds(Set<String> ids) async {
+    await init();
+    await _prefs?.setStringList(_keyKnownPendingTaskIds, ids.toList());
+  }
+
+  static Future<void> clearKnownPendingTaskIds() async {
+    await init();
+    await _prefs?.remove(_keyKnownPendingTaskIds);
   }
 }
 

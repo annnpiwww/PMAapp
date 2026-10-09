@@ -271,6 +271,19 @@ class AiVisionService {
     final config = customConfig ?? getConfig();
     final criteria = filterCriteriaByConfig(template.sopCriteria, config);
 
+    // Root QA SPV Bypass (Auto-Ijo untuk Testing Farhan Lakoro)
+    if (StorageService.isSpvQaBypassActive()) {
+      return AiVerificationResult(
+        status: VerificationStatus.sesuai,
+        alasan: '⚡ Root QA SPV: AI Absensi dibypass otomatis (Mode Testing Farhan Lakoro).',
+        poinGagal: [],
+        poinLolos: criteria.map(SopCriteriaHelper.toPositiveStatement).toList(),
+        confidenceScore: 1.0,
+        providerName: 'Root QA Engine (SPV Farhan)',
+        isFallback: false,
+      );
+    }
+
     if (forceSimulateFailure) {
       return AiVerificationResult(
         status: VerificationStatus.tidakSesuai,
@@ -448,16 +461,16 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
 
 2. KOSAKATA NATURAL YANG WAJIB DIPRIORITASKAN:
    - "tampak kotor", "tampak berdebu", "terdapat tumpukan debu"
-   - "kabel tidak tertata rapi", "kabel tampak semrawut"
-   - "terdapat korosi", "terdapat karat", "terdapat kerusakan fisik"
-   - "stiker tampak kusam", "stiker rusak/terkelupas"
-   - "cat tampak pudar", "terdapat retakan pada beton"
+   - "kabel kurang rapi", "kabel perlu dirapikan dengan cable tie", "kabel belum tertata rapi"
+   - "terdapat korosi", "terdapat karat", "plat besi berkarat", "terdapat kerusakan fisik"
+   - "stiker tampak kusam", "stiker terkelupas", "stiker rusak"
+   - "cat tampak pudar", "lantai pulau gate berdebu", "permukaan pulau gate kotor"
    - "terdapat sisa material", "terdapat bekas stiker"
    - "terpasang dengan kokoh", "berfungsi normal", "tercetak dengan baik", "bersih dan bebas debu"
 
 3. KATA/ISTILAH YANG DILARANG KERAS (TERLALU FORMAL / GAYA AI KAKU):
-   - DILARANG: "degradasi fisik", "tidak terorganisir dengan rapi", "berdasarkan hasil observasi", "ditemukan adanya ketidaksesuaian", "kondisi secara keseluruhan", "secara signifikan", "mengalami deteriorasi", "parameter tidak terpenuhi", "sesuai standar operasional", "dalam kondisi optimal", "memiliki integritas struktural", "permukaan mengalami degradasi".
-   - DILARANG REDUNDAN: Jangan mengulang arti sama ("kabel tampak semrawut dan tidak terorganisir" -> gunakan "kabel tampak semrawut dan tidak tertata rapi").
+   - DILARANG: "semrawut", "beton pulau gate", "degradasi fisik", "tidak terorganisir dengan rapi", "berdasarkan hasil observasi", "ditemukan adanya ketidaksesuaian", "kondisi secara keseluruhan", "secara signifikan", "mengalami deteriorasi", "parameter tidak terpenuhi", "sesuai standar operasional", "dalam kondisi optimal", "memiliki integritas struktural", "permukaan mengalami degradasi".
+   - DILARANG REDUNDAN: Jangan mengulang arti sama ("kabel kurang rapi dan tidak terorganisir" -> cukup "kabel di dalam manless kurang rapi, perlu dirapikan").
    - DILARANG KALIMAT PERINTAH: Jangan gunakan "harus dibersihkan", "segera dicat ulang", "segera perbaiki". Tulis faktual apa yang terlihat.
 
 4. ATURAN STATUS:
@@ -468,10 +481,10 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
      * Contoh: "Kunci manless bersih, tidak berkarat, dan terpasang kokoh."
      * Contoh: "Kapasitas Drive C aman indikator biru dan folder temp bersih."
    - TIDAK_SESUAI (Temuan/Merah): Sebutkan masalah utama terlebih dahulu, lalu detail pendukung jika ada (8-16 kata).
-     * Contoh: "Kabel di dalam manless tampak semrawut dan tidak tertata rapi."
+     * Contoh: "Kabel di dalam manless kurang rapi dan perlu dirapikan dengan cable tie."
      * Contoh: "Dudukan bawah manless terdapat tumpukan debu dan korosi pada plat besi."
-     * Contoh: "Stiker panduan rusak dan body manless tampak kotor."
-     * Contoh: "Beton pulau gate tampak kotor dan terdapat retakan pada permukaan."
+     * Contoh: "Stiker panduan kusam/terkelupas dan body manless tampak berdebu."
+     * Contoh: "Permukaan lantai pulau gate berdebu dan cat tampak pudar."
      * Contoh: "Stiker receiver kuning tampak retak dan terkelupas pada bodi."
    - PERLU_CEK_MANUAL (Kuning): Foto blur, goyang, terlalu gelap, atau sudut terhalang.
      * Contoh: "Foto tampak blur dan kurang fokus, perlu cek fisik manual."

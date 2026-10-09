@@ -11,12 +11,14 @@ class MaintenanceSetupDialog extends StatefulWidget {
   final TemplateModel initialTemplate;
   final String? dailyTaskId;
   final PosLocation? initialLocation;
+  final VoidCallback? onChecklistFinished;
 
   const MaintenanceSetupDialog({
     super.key,
     required this.initialTemplate,
     this.dailyTaskId,
     this.initialLocation,
+    this.onChecklistFinished,
   });
 
   @override
@@ -37,7 +39,16 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedLocation = widget.initialLocation ?? LocationService.currentPos;
+    final available = LocationService.availablePosList;
+    if (widget.initialLocation != null) {
+      final found = available.where((p) => p.posId == widget.initialLocation!.posId).firstOrNull;
+      _selectedLocation = found ?? widget.initialLocation!;
+    } else {
+      _selectedLocation = LocationService.currentPos;
+    }
+    // Sinkronkan lokasi aktif ke LocationService
+    LocationService.setCurrentPos(_selectedLocation);
+    LocationService.clearLocationCache();
 
     // Pre-fill nama teknisi dari histori terakhir atau akun yang sedang aktif
     final lastTech = StorageService.getLastTechnicianName().trim();
@@ -192,10 +203,11 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
     LocationService.clearLocationCache();
 
     if (!mounted) return;
-    Navigator.pop(context);
+    final nav = Navigator.of(context);
+    final onFinished = widget.onChecklistFinished;
+    nav.pop();
     final isServer = widget.initialTemplate.jenis == TemplateCategory.maintServer;
-    Navigator.push(
-      context,
+    await nav.push(
       MaterialPageRoute(
         builder: (_) => MaintenanceChecklistScreen(
           template: widget.initialTemplate,
@@ -213,6 +225,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
         ),
       ),
     );
+    onFinished?.call();
   }
 
   Widget _buildStepperButton({

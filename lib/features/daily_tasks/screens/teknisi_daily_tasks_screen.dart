@@ -133,20 +133,17 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
 
       // 2. JIKA BELUM ADA PROGRESS: BUKA SETUP DIALOG
       if (foundTpl.isPerPoint) {
-        // Cari rekomendasi lokasi dari posTag / posName jika ada
-        PosLocation? matchedLoc;
-        final allLocs = LocationService.availablePosList;
-        for (final loc in allLocs) {
-          final tPos = task.posTag.trim().toLowerCase();
-          final tName = task.posName.trim().toLowerCase();
-          if (tPos.isNotEmpty && (loc.posId.toLowerCase() == tPos || loc.posName.toLowerCase().contains(tPos))) {
-            matchedLoc = loc;
-            break;
-          }
-          if (tName.isNotEmpty && (loc.posName.toLowerCase().contains(tName) || loc.cabangName.toLowerCase().contains(tName))) {
-            matchedLoc = loc;
-            break;
-          }
+        // Cari rekomendasi lokasi cerdas dari kata kunci SPV (posTag, posName, judul)
+        final matchedLoc = LocationService.resolveLocationFromTask(
+          posTag: task.posTag,
+          posName: task.posName,
+          judul: task.judul,
+        );
+
+        if (matchedLoc != null) {
+          // Sinkronkan langsung ke LocationService agar watermark & GPS sinkron
+          LocationService.setCurrentPos(matchedLoc);
+          LocationService.clearLocationCache();
         }
 
         await showDialog(
@@ -155,6 +152,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
             initialTemplate: foundTpl,
             dailyTaskId: task.id,
             initialLocation: matchedLoc,
+            onChecklistFinished: _loadTasks,
           ),
         );
         _loadTasks();
@@ -357,7 +355,8 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
 
                         // List Tugas
                         ..._tasks.map((task) {
-                          final isDone = task.isCompleted;
+                          final isDone = task.isCompleted ||
+                              (DailyTaskService.getCachedTasksLocally().any((ct) => ct.id == task.id && ct.isCompleted));
                           final isKhusus = task.kategori == 'khusus' || task.templateId == null || task.templateId!.isEmpty;
                           final ongoingMaint = !isDone ? DailyTaskService.getOngoingMaintenance(task) : null;
 
@@ -436,7 +435,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                 ),
                                 const SizedBox(height: 10),
 
-                                // Judul Pekerjaan
+                                // Judul Pekerjaan (Tercoret jelas bila status selesai)
                                 Text(
                                   task.judul,
                                   style: TextStyle(
@@ -445,6 +444,8 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                     fontWeight: FontWeight.bold,
                                     color: isDone ? textSub : textHead,
                                     decoration: isDone ? TextDecoration.lineThrough : null,
+                                    decorationColor: isDone ? (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)) : null,
+                                    decorationThickness: isDone ? 2.2 : null,
                                   ),
                                 ),
                                 const SizedBox(height: 4),

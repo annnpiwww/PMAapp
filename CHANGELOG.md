@@ -2,6 +2,117 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.74+82] — 2026-10-09
+
+### 🎯 Highlight Utama
+1. **Fix Tuntas WhatsApp Direct Media Sharing (Zero-Drop Media)**:
+   - **Eliminasi Gangguan ClipData**: Menghapus `ClipData` manual dari `MainActivity.kt` yang sebelumnya meracuni Intent `ACTION_SEND` WhatsApp sehingga dianggap sebagai paste teks dan membuang attachment media di `EXTRA_STREAM`.
+   - **Hapus Prefix Flags Rawan Exception**: Menghilangkan `FLAG_GRANT_PREFIX_URI_PERMISSION` yang memicu `SecurityException` pada `FileProvider` di sejumlah versi Android.
+   - **Native Permission Grant**: Menggunakan `grantUriPermission` murni untuk `com.whatsapp` dan `com.whatsapp.w4b` dengan `FLAG_GRANT_READ_URI_PERMISSION`.
+   - **MIME Type Spesifik & Tepat**:
+     - Foto: `image/*` untuk 1 maupun multiple foto.
+     - Video: `video/mp4` (atau `video/*`) untuk video dokumentasi.
+2. **Pencegahan Fallback Teks-Only di `ShareHelper`**:
+   - Jika berkas media foto/video valid ada, dilarang keras melakukan fallback ke URI `whatsapp://send?text=...` (karena skema URL selalu melucuti lampiran media). Fallback dialihkan ke `SharePlus` dengan file attachments.
+3. **Pembersihan Total Teks Catatan**:
+   - Menghapus penambahan teks `[X Video tersimpan di perangkat lokal]` pada `DailyTaskService.completeTask` sehingga catatan teknisi murni dan bersih.
+4. **Build & Distribusi**:
+   - Kompilasi Split APK: 32-bit (`armeabi-v7a`) dan 64-bit (`arm64-v8a`).
+
+---
+
+## [2.0.73+81] — 2026-10-09
+
+### 🎯 Highlight Utama
+1. **Fix WhatsApp Media Sharing (Foto & Video Terlampir Sempurna)**:
+   - Memperbaiki `MainActivity.kt` dengan `ClipData.newUri(contentResolver, ...)` yang membawa MIME type autentik dari `FileProvider` (`image/jpeg`, `image/*`, `video/mp4`, `video/*`).
+   - Mendaftarkan izin baca berkas secara otomatis ke seluruh target varian WhatsApp (`com.whatsapp` dan `com.whatsapp.w4b`) menggunakan `grantUriPermission` dan flag `FLAG_GRANT_PREFIX_URI_PERMISSION`.
+   - Mengatasi batasan arsitektur Android WhatsApp di mana intent gallery tidak dapat menerima berkas gabungan foto dan video sekaligus:
+     - Menyediakan dialog aksi terpisah di `CustomTaskExecutionScreen` jika tugas memiliki foto dan video: **"Kirim Foto (X)"** dan **"Kirim Video (Y)"**.
+     - Dialog tetap terbuka saat teknisi membagikan media pertama, sehingga teknisi dapat kembali dan langsung mengirim media kedua ke grup WhatsApp yang sama tanpa kendala.
+2. **Pembersihan Teks Laporan & Catatan**:
+   - Teks laporan yang dikirim ke WhatsApp murni 100% catatan teknisi tanpa injeksi `[1 video tersimpan di perangkat lokal]`.
+3. **Kualitas & Verifikasi**:
+   - `flutter analyze`: 0 issues found (clean).
+   - `flutter test`: 222 / 222 tests passed (100% green).
+   - Split APK arm64-v8a dikompilasi dan dikirim ke Telegram user.
+
+---
+
+## [2.0.72+80] — 2026-10-09
+
+### 🎯 Highlight Utama
+1. **Multi-Media Simultaneous Sharing (Foto + Video ke WhatsApp)**:
+   - Memperbaiki `MainActivity.kt` agar seluruh berkas bukti (gabungan foto dan video) dikirim secara simultan dalam `ACTION_SEND_MULTIPLE` dengan MIME type `*/*` (atau `image/*`/`video/*` jika homogen), lengkap dengan `grantUriPermission` dan `ClipData` untuk seluruh URI.
+   - Video kini tidak lagi terabaikan saat ada foto dokumentasi.
+2. **Pembersihan Teks Laporan WhatsApp**:
+   - Menghapus auto-injeksi teks `[X Video tersimpan di perangkat lokal]` pada dialog pelaporan WhatsApp di `CustomTaskExecutionScreen` agar pesan yang dikirimkan murni sesuai catatan asli teknisi.
+3. **Kualitas & Verifikasi**:
+   - `flutter analyze`: 0 issues found (clean).
+   - `flutter test`: 222 / 222 tests passed (100% green).
+
+---
+
+## [2.0.71+79] — 2026-10-09
+
+### 🎯 Highlight Utama
+1. **Fix Lampiran Foto Dokumentasi & Video ke WhatsApp (`MainActivity.kt`)**:
+   - Memperbaiki bug di mana saat teknisi membagikan laporan tugas daily ke WhatsApp, hanya teks yang muncul dan foto/video tidak terlampir.
+   - Menambahkan izin baca URI secara eksplisit via `grantUriPermission(packageName, uri, ...)` dan mendaftarkan berkas ke `ClipData` Android agar WhatsApp tidak menolak izin akses (`SecurityException`).
+   - Memisahkan MIME type media secara spesifik (`image/*` untuk foto dan `video/mp4` untuk video) guna mencegah penolakan intent (`ActivityNotFoundException`) saat sharing ke WhatsApp.
+2. **Kualitas & Verifikasi**:
+   - `flutter analyze`: 0 issues found (clean).
+   - `flutter test`: 222 / 222 tests passed (100% green).
+   - Android Kotlin native build verified.
+
+---
+
+## [2.0.70+78] — 2026-10-07
+
+### 🎯 Highlight Utama
+1. **Adaptive Light & Dark Mode `SpvTaskDispatcherScreen`**:
+   - Seluruh elemen antarmuka Penugasan & Pantau Status Tim (Scaffold, AppBar, Form Tugaskan Teknisi, Quick Status Segment, Active Filter Banner, Task Cards, dan Bottom Sheet Kontrol Tim) kini sepenuhnya adaptif dan menghormati tema aktif sistem/user (`ThemeService.isDarkMode(context)`).
+   - Memperbaiki bug di mana tampilan tetap gelap gulita (hardcoded `#0B1120` & `#111827`) saat aplikasi berada dalam Light Mode.
+2. **Kualitas & Verifikasi**:
+   - `flutter analyze`: 0 issues found (clean).
+   - `flutter test`: 100% test suite passing.
+
+---
+
+## [2.0.69+77] — 2026-10-06
+
+### 🎯 Highlight Utama
+1. **Redesign Status Tim (Konsep B Mobile-First & Task-Focused)**:
+   - Header atas dibuat ultra-compact (< 50px) dengan tanggal aktif (`📅 Hari Ini`), mini progress pill (`⚡ X/Y Selesai`), dan tombol akses cepat **🎛️ Kontrol Tim**.
+   - Layar utama fokus pada feed pekerjaan dengan Quick Status Filter 3-segment: `Selesai (X)`, `Belum Mulai (Y)`, dan `Semua (Z)`.
+   - Filter nama teknisi dipindahkan ke dalam bottom sheet **"Kontrol & Rekap Tim"** bersama statistik lengkap, progress bar, pemilihan tanggal, dan tombol salin WhatsApp.
+   - Desain task card dibuat ringkas (*compact high-scan grid*) dengan avatar inisial teknisi (`RL`, `AS`, `RS`, `JM`), badge status (`✓ Selesai · WITA` / `◷ Belum Mulai`), judul tugas coret (*strikethrough*), tag lokasi 📍, dan expandable catatan teknisi.
+2. **Root QA Bypass Mode (Khusus Testing SPV Farhan Lakoro)**:
+   - Fitur rahasia (Opsi B) untuk SPV Farhan agar leluasa menguji semua fitur aplikasi:
+     - **AI Absensi Auto-Ijo**: Hasil verifikasi AI langsung lolos (status SESUAI SOP) tanpa perlu seragam lengkap saat testing.
+     - **Bypass Shift 8 Jam**: Bebas berganti antara status Masuk dan Pulang kapan saja tanpa dibatasi durasi kerja minimum 8 jam / 4 jam.
+   - **Cara Aktivasi (Secret Gesture)**:
+     - Tap 5x cepat di area atas kosong layar kamera, **ATAU**
+     - Tahan (Long Press) 2 detik pada badge status absensi di layar kamera.
+   - Gating keamanan ketat: Hanya aktif jika login sebagai SPV / Farhan Lakoro. Teknisi lain tetap 100% mengikuti aturan SOP normal.
+3. **Kualitas & Verifikasi**:
+   - `flutter analyze`: 0 issues found (clean).
+   - `flutter test`: 222 / 222 tests passed (100% green).
+   - APK release build ARM64 terkirim langsung ke bot Telegram.
+
+---
+
+## [2.0.65+73] — 2026-10-05
+
+### 🎯 Highlight Utama
+1. **Gating Bagikan Laporan Maintenance**: Modal & kartu tombol bagikan WA/Telegram hanya muncul jika seluruh foto checkpoint telah lengkap 100%.
+2. **Pure Caption Pelaporan Tugas Daily**: Format pesan tugas selesai diperbarui menjadi pure caption (tanpa prefiks 'Dokumentasi:' & tanpa 'Notes:').
+3. **Perbaikan Bug Strikethrough Tugas Selesai**: Tugas yang telah selesai kini langsung tercoret (*line-through*) dengan kontras jelas di semua layar (Teknisi Daily Tasks, Daily Task Card, dan SPV Task Dispatcher) serta auto-sync seketika ke cache storage lokal.
+4. **Pembaruan Branding Footer**: Memperbarui teks info login menjadi `PMA app made by ❤️ annnpii`.
+5. **Sinkronisasi Callback Maintenance Setup**: Menyambungkan callback `onChecklistFinished` dari dialog setup maintenance ke layar tugas harian agar status tugas dan tampilan auto-reload saat kembali.
+
+---
+
 ## [2.0.64+72] — 2026-10-05
 
 ### 🎯 Highlight Utama

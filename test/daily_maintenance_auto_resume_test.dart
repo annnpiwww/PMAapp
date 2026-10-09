@@ -6,6 +6,7 @@ import 'package:bssparking_timemark/data/models/maintenance_submission.dart';
 import 'package:bssparking_timemark/data/models/template_model.dart';
 import 'package:bssparking_timemark/data/services/daily_task_service.dart';
 import 'package:bssparking_timemark/data/services/storage_service.dart';
+import 'package:bssparking_timemark/data/services/location_service.dart';
 import 'package:bssparking_timemark/data/repositories/template_repository.dart';
 import 'package:bssparking_timemark/features/maintenance/screens/maintenance_checklist_screen.dart';
 
@@ -244,6 +245,68 @@ void main() {
       expect(find.textContaining('3/4'), findsWidgets);
       // Memastikan label poin yang sudah selesai berstatus sesuai
       expect(find.textContaining('Dudukan Mesin & Baut Dinabolt'), findsOneWidget);
+    });
+
+    test('SPV location keyword TBM matches Toko Bintang Manado in getOngoingMaintenance', () {
+      final now = DateTime.now();
+      final task = DailyTaskModel(
+        id: 'task_tbm_01',
+        tanggal: '2026-10-05',
+        teknisiId: 'tek_01',
+        teknisiNama: 'Ryan Lumasuge',
+        posName: 'TBM',
+        posTag: 'TBM',
+        judul: 'Maintenance Manless Gate - TBM',
+        templateId: 'tpl_maint_manless',
+        kategori: 'maintenance',
+      );
+
+      final sub = MaintenanceSubmission(
+        id: 'sub_tbm_123',
+        templateId: 'tpl_maint_manless',
+        templateName: 'Maintenance Manless Gate',
+        userId: 'tek_01',
+        userName: 'Ryan Lumasuge',
+        userNpp: '12345',
+        posId: 'POS-TBM-01',
+        posName: 'Toko Bintang Manado',
+        cabangName: 'KC BSG',
+        points: [
+          const MaintenancePointResult(pointId: 'p1', label: 'Point 1', status: PointStatus.sesuai),
+          const MaintenancePointResult(pointId: 'p2', label: 'Point 2', status: PointStatus.belumFoto),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      final result = DailyTaskService.getOngoingMaintenance(task, submissions: [sub]);
+      expect(result, isNotNull);
+      expect(result!.id, equals('sub_tbm_123'));
+      expect(result.posName, equals('Toko Bintang Manado'));
+    });
+
+    test('LocationService.resolveLocationFromTask resolves TBM keyword and dynamically registers unknown pos', () {
+      // 1. Keyword TBM yang sudah ada di seed
+      final locTbm = LocationService.resolveLocationFromTask(
+        posTag: 'TBM',
+        posName: 'TBM',
+        judul: 'Maintenance Manless Gate - TBM',
+      );
+      expect(locTbm, isNotNull);
+      expect(locTbm!.locationTag, equals('TBM'));
+      expect(locTbm.posName, equals('Toko Bintang Manado'));
+
+      // 2. Keyword lokasi baru dari SPV (contoh: MTC) yang belum ada di seed
+      final locCustom = LocationService.resolveLocationFromTask(
+        posTag: 'MTC',
+        posName: 'Mega Trade Center',
+        judul: 'Maintenance Pos - MTC',
+      );
+      expect(locCustom, isNotNull);
+      expect(locCustom!.locationTag, equals('MTC'));
+      expect(locCustom.posName, equals('Mega Trade Center'));
+      // Pastikan lokasi baru terdaftar di availablePosList
+      expect(LocationService.availablePosList.any((p) => p.locationTag == 'MTC'), isTrue);
     });
   });
 }

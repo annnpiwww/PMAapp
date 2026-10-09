@@ -800,6 +800,131 @@ class _MaintenanceChecklistScreenState
 
                 const SizedBox(height: 12),
 
+                // Banner Edukasi & Actionable Loop jika Poin Tidak Sesuai / Perlu Cek
+                if (result.status == PointStatus.tidakSesuai || result.status == PointStatus.perluCekManual) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.25) : const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: isDark ? const Color(0xFFD97706) : const Color(0xFFF59E0B)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.tips_and_updates_rounded, size: 16, color: Color(0xFFD97706)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'PANDUAN TINDAKAN PERBAIKAN',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '• Rapikan atau bersihkan temuan di atas, lalu tekan Foto Ulang agar AI memvalidasi menjadi Sesuai (Hijau).\n'
+                          '• Jika kerusakan fisik permanen (stiker kusam, beton retak, butuh part kantor), tekan tombol "Tandai Kendala Fisik" di bawah agar terlapor resmi ke SPV.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.4,
+                            color: isDark ? const Color(0xFFFEF3C7) : const Color(0xFF78350F),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // Tampilan status kendala fisik jika sudah ditandai sebelumnya
+                if (result.kendalaFisik != null && result.kendalaFisik!.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.handyman_rounded, color: Colors.orange, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Kendala Fisik Terlapor: ${result.kendalaFisik}',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Colors.orange),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // Tombol Buka Kamera / Foto Ulang
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _openCameraForPoint(point);
+                    },
+                    icon: const Icon(Icons.camera_alt_rounded, size: 18),
+                    label: Text(
+                      result.status == PointStatus.belumFoto
+                          ? 'Buka Kamera & Verifikasi AI'
+                          : (result.status == PointStatus.tidakSesuai || result.status == PointStatus.perluCekManual
+                              ? 'Foto Ulang (Perbaiki Jadi Hijau)'
+                              : 'Foto Ulang & Verifikasi AI'),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: (result.status == PointStatus.tidakSesuai || result.status == PointStatus.perluCekManual)
+                          ? const Color(0xFF059669) // Emerald Green untuk memotivasi teknisi memperbaiki
+                          : AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Tombol Tandai Kendala Fisik / Butuh SPV (Hanya muncul jika tidak sesuai / cek manual / sudah ada kendala)
+                if (result.status == PointStatus.tidakSesuai ||
+                    result.status == PointStatus.perluCekManual ||
+                    (result.kendalaFisik != null && result.kendalaFisik!.isNotEmpty)) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _showDisposisiKendalaDialog(point, result);
+                      },
+                      icon: const Icon(Icons.handyman_rounded, size: 18),
+                      label: Text(
+                        (result.kendalaFisik != null && result.kendalaFisik!.isNotEmpty)
+                            ? 'Ubah Kendala Fisik / Butuh SPV'
+                            : 'Tandai Kendala Fisik / Butuh SPV',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.orange.shade800,
+                        side: BorderSide(color: Colors.orange.withValues(alpha: 0.6), width: 1.2),
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
                 // Tombol Tambah / Edit Catatan Temuan Lapangan
                 SizedBox(
                   width: double.infinity,
@@ -868,31 +993,8 @@ class _MaintenanceChecklistScreenState
                     ),
                   ),
                 ),
-
-                const SizedBox(height: 10),
-
-                // Tombol Buka Kamera
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _openCameraForPoint(point);
-                    },
-                    icon: const Icon(Icons.camera_alt_rounded, size: 18),
-                    label: Text(result.status == PointStatus.belumFoto
-                        ? 'Buka Kamera & Verifikasi AI'
-                        : 'Foto Ulang & Verifikasi AI'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                ),
                 const SizedBox(height: 8),
+
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
@@ -911,6 +1013,192 @@ class _MaintenanceChecklistScreenState
           ),
         );
       },
+    );
+  }
+
+  void _showDisposisiKendalaDialog(SopPoint point, MaintenancePointResult result) {
+    final isDark = ThemeService.isDarkMode(context);
+    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+
+    final quickReasons = [
+      'Butuh Pengadaan Stiker / Akrilik Baru',
+      'Kerusakan Fisik / Cor Pulau Retak (Butuh Sipil)',
+      'Sparepart / Komponen Rusak (Butuh Part Kantor)',
+      'Karat / Korosi Permanen (Butuh Cat / Semprot Karat)',
+      'Kabel / Pipa Tertanam Rusak (Butuh Rekondisi)',
+      'Lainnya (Tuliskan Keterangan Khusus)',
+    ];
+
+    String selectedReason = quickReasons.first;
+    final customCtrl = TextEditingController(
+      text: (result.kendalaFisik != null && !quickReasons.contains(result.kendalaFisik))
+          ? result.kendalaFisik
+          : '',
+    );
+    if (result.kendalaFisik != null && quickReasons.contains(result.kendalaFisik)) {
+      selectedReason = result.kendalaFisik!;
+    } else if (result.kendalaFisik != null && result.kendalaFisik!.isNotEmpty) {
+      selectedReason = quickReasons.last;
+    }
+
+    showDialog(
+      context: context,
+      builder: (dlgCtx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: cardBorder),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.handyman_rounded, color: Colors.orange, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Tandai Kendala Fisik',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textTitle),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Gunakan opsi ini jika poin maintenance belum bisa dibuat hijau karena kerusakan fisik permanen atau membutuhkan pengadaan baru/part dari kantor.',
+                  style: TextStyle(fontSize: 11, color: textSub, height: 1.3),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'PILIH JENIS KENDALA:',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: isDark ? const Color(0xFF38BDF8) : AppColors.primary),
+                ),
+                const SizedBox(height: 6),
+                ...quickReasons.map((reason) {
+                  final isSelected = selectedReason == reason;
+                  return InkWell(
+                    onTap: () {
+                      setDlgState(() {
+                        selectedReason = reason;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? Colors.orange.withValues(alpha: isDark ? 0.25 : 0.12)
+                            : (isDark ? const Color(0xFF1E293B) : Colors.grey.shade50),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected ? Colors.orange : cardBorder,
+                          width: isSelected ? 1.5 : 1.0,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                            size: 16,
+                            color: isSelected ? Colors.orange : textSub,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              reason,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: isSelected
+                                    ? (isDark ? Colors.white : Colors.black87)
+                                    : (isDark ? const Color(0xFFCBD5E1) : Colors.black87),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+                if (selectedReason == quickReasons.last) ...[
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: customCtrl,
+                    maxLines: 2,
+                    style: TextStyle(fontSize: 12, color: isDark ? Colors.white : AppColors.textPrimary),
+                    decoration: InputDecoration(
+                      hintText: 'Tuliskan rincian kendala...',
+                      hintStyle: TextStyle(fontSize: 11.5, color: textSub),
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: cardBorder)),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (result.kendalaFisik != null && result.kendalaFisik!.isNotEmpty) {
+                  final updated = result.copyWith(kendalaFisik: '');
+                  final idx = _submission.points.indexWhere((p) => p.pointId == point.id);
+                  if (idx >= 0) {
+                    setState(() {
+                      _submission.points[idx] = updated;
+                    });
+                    _save();
+                  }
+                }
+                Navigator.pop(dlgCtx);
+              },
+              child: Text(
+                (result.kendalaFisik != null && result.kendalaFisik!.isNotEmpty)
+                    ? 'Hapus Kendala'
+                    : 'Batal',
+                style: TextStyle(color: (result.kendalaFisik != null && result.kendalaFisik!.isNotEmpty) ? AppColors.danger : textSub),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () {
+                final finalReason = (selectedReason == quickReasons.last)
+                    ? (customCtrl.text.trim().isNotEmpty ? customCtrl.text.trim() : 'Kendala Fisik Belum Dirinci')
+                    : selectedReason;
+
+                final updated = result.copyWith(kendalaFisik: finalReason);
+                final idx = _submission.points.indexWhere((p) => p.pointId == point.id);
+                if (idx >= 0) {
+                  setState(() {
+                    _submission.points[idx] = updated;
+                  });
+                  _save();
+                }
+                Navigator.pop(dlgCtx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Kendala fisik ditandai: $finalReason'),
+                    backgroundColor: Colors.orange.shade800,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+              child: const Text('Simpan Kendala'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1392,6 +1680,36 @@ class _MaintenanceChecklistScreenState
                                   color: textSub),
                             ),
                           ],
+                          if (result.kendalaFisik != null && result.kendalaFisik!.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.handyman_rounded, size: 10, color: Colors.orange),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      'Kendala: ${result.kendalaFisik}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.orange,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 4),
                           Row(
                             children: [
@@ -1471,8 +1789,8 @@ class _MaintenanceChecklistScreenState
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Card Bagikan Laporan: 2 tombol WhatsApp & Telegram dalam 1 card
-                if (_submission.doneCount > 0)
+                // Card Bagikan Laporan: Hanya muncul jika seluruh checkpoint foto telah lengkap
+                if (_submission.isComplete)
                   Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(12),
@@ -1503,8 +1821,9 @@ class _MaintenanceChecklistScreenState
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Bagikan Laporan (${_submission.doneCount} Foto)',
-                              style: TextStyle(fontFamily: 'PlusJakartaSans', 
+                              'Bagikan Laporan (${_submission.doneCount} Foto Selesai)',
+                              style: const TextStyle(
+                                fontFamily: 'PlusJakartaSans', 
                                 fontWeight: FontWeight.w700,
                                 fontSize: 12,
                                 color: AppColors.textPrimary,
@@ -1514,12 +1833,12 @@ class _MaintenanceChecklistScreenState
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppColors.warning.withValues(alpha: 0.12),
+                                color: AppColors.success.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                '${_submission.doneCount}/${_submission.totalPoints} foto',
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.warning),
+                                '${_submission.doneCount}/${_submission.totalPoints} Foto Lengkap',
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.success),
                               ),
                             ),
                           ],
@@ -1659,11 +1978,20 @@ class _MaintenanceChecklistScreenState
                               final now = DateTime.now();
                               final timeStr =
                                   '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+                              final catatanReport =
+                                  'SOP Maintenance ${_submission.templateName} selesai (${_submission.sesuaiCount}/${_submission.totalPoints} poin sesuai)';
+                              
+                              // Update cache lokal seketika agar status & strikethrough langsung aktif
+                              await DailyTaskService.markTaskCompletedLocally(
+                                taskId: effectiveTaskId,
+                                jamSelesai: timeStr,
+                                catatan: catatanReport,
+                              );
+
                               unawaited(DailyTaskService.completeTask(
                                 taskId: effectiveTaskId,
                                 jamSelesai: timeStr,
-                                catatan:
-                                    'SOP Maintenance ${_submission.templateName} selesai (${_submission.sesuaiCount}/${_submission.totalPoints} poin sesuai)',
+                                catatan: catatanReport,
                                 localPhotoPaths: photoUrls,
                               ));
                             }

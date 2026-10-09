@@ -259,9 +259,12 @@ class WhatsAppReportService {
     text = text.replaceAll(RegExp(r'memiliki integritas struktural', caseSensitive: false), 'terpasang dengan kokoh');
     text = text.replaceAll(RegExp(r'permukaan mengalami degradasi', caseSensitive: false), 'permukaan mulai rusak');
     text = text.replaceAll(RegExp(r'sesuai standar operasional', caseSensitive: false), 'berfungsi normal');
+    text = text.replaceAll(RegExp(r'\bsemrawut\b', caseSensitive: false), 'kurang rapi');
+    text = text.replaceAll(RegExp(r'beton pulau gate', caseSensitive: false), 'lantai pulau gate');
 
     // Hindari redundansi umum
-    text = text.replaceAll(RegExp(r'semrawut dan tidak terorganisir.*', caseSensitive: false), 'semrawut dan tidak tertata rapi');
+    text = text.replaceAll(RegExp(r'semrawut dan tidak terorganisir.*', caseSensitive: false), 'kurang rapi dan perlu penataan kabel');
+    text = text.replaceAll(RegExp(r'semrawut dan tidak tertata rapi.*', caseSensitive: false), 'kurang rapi dan perlu penataan kabel');
     text = text.replaceAll(RegExp(r'kotor,?\s*berkarat,?\s*dan mengalami degradasi fisik.*', caseSensitive: false), 'kotor dan berkarat, dengan permukaan logam mulai rusak');
 
     // Normalisasi jika tidak dapat diverifikasi secara visual
@@ -817,6 +820,9 @@ class WhatsAppReportService {
           final unit = _gateName(iss.label);
           buffer.writeln('   ⚠️ $unit: $alasan');
         }
+        if (iss.kendalaFisik != null && iss.kendalaFisik!.trim().isNotEmpty) {
+          buffer.writeln('      👉 KENDALA: ${iss.kendalaFisik!.trim()}');
+        }
       }
       return;
     }
@@ -830,6 +836,9 @@ class WhatsAppReportService {
             ? cleanAlasanText(iss.alasan)
             : 'perlu perbaikan';
         buffer.writeln('   ⚠️ $alasan');
+        if (iss.kendalaFisik != null && iss.kendalaFisik!.trim().isNotEmpty) {
+          buffer.writeln('      👉 KENDALA: ${iss.kendalaFisik!.trim()}');
+        }
       }
     } else {
       final unitReasons = <String, String>{};
@@ -856,6 +865,9 @@ class WhatsAppReportService {
             ? cleanAlasanText(iss.alasan)
             : 'perlu perbaikan';
         buffer.writeln('   ⚠️ $unit: $alasan');
+        if (iss.kendalaFisik != null && iss.kendalaFisik!.trim().isNotEmpty) {
+          buffer.writeln('      👉 KENDALA: ${iss.kendalaFisik!.trim()}');
+        }
       }
     }
   }
