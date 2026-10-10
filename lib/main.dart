@@ -29,7 +29,7 @@ void main() async {
   } catch (_) {}
 
   // Run app langsung agar splash & UI tampil instan tanpa lag
-  runApp(const BssParkingTimemarkApp());
+  runApp(const PmaApp());
 
   // Background non-blocking inits (Repository, Network Time Sync, Auto-clean temporary photos, Flush GSheet offline queue)
   unawaited(Future.wait([
@@ -43,8 +43,8 @@ void main() async {
   ]));
 }
 
-class BssParkingTimemarkApp extends StatelessWidget {
-  const BssParkingTimemarkApp({super.key});
+class PmaApp extends StatelessWidget {
+  const PmaApp({super.key});
 
   @override
   Widget build(BuildContext context) {

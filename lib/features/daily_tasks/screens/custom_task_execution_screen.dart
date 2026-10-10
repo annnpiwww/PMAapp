@@ -216,7 +216,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
       HapticFeedback.heavyImpact();
       setState(() {
         _isSaving = false;
-        _errorMessage = 'Wajib mengambil minimal 1 foto atau video dokumentasi pekerjaan!';
+        _errorMessage = 'Ambil minimal 1 foto atau video bukti pekerjaan.';
       });
       return;
     }
@@ -226,7 +226,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
       HapticFeedback.heavyImpact();
       setState(() {
         _isSaving = false;
-        _errorMessage = 'Wajib mengisi catatan laporan pengerjaan!';
+        _errorMessage = 'Catatan laporan harus diisi.';
       });
       return;
     }
@@ -248,7 +248,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
       _showPostSaveDialog(jamSelesai, catatan);
     } else {
       setState(() {
-        _errorMessage = 'Gagal menyimpan laporan ke server. Periksa koneksi dan coba lagi.';
+        _errorMessage = 'Gagal menyimpan laporan. Periksa koneksi lalu coba lagi.';
       });
     }
   }
@@ -290,7 +290,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Tugas telah ditandai selesai dan dokumentasi tersimpan di database.',
+                'Tugas selesai dan bukti pekerjaan tersimpan.',
                 style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
               ),
               const SizedBox(height: 12),
@@ -801,7 +801,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
               maxLines: 3,
               style: TextStyle(color: textHead, fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Tuliskan catatan atau kendala pengerjaan...',
+                hintText: 'Tulis catatan atau kendala pekerjaan...',
                 hintStyle: TextStyle(color: textSub, fontSize: 13),
                 filled: true,
                 fillColor: bgCard,

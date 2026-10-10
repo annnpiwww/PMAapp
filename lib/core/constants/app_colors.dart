@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Brand Colors (BSS Parking Timemark v2.0.50 Signature: Putih, Biru, Orange, Cream)
+  // Brand Colors (PMAapp Signature: Putih, Biru, Orange, Cream)
   static const Color primary = Color(0xFF1A428A); // BSS Signature Royal Blue
   static const Color primaryLight = Color(0xFF2563EB); // Vibrant Operational Blue
   static const Color primaryDark = Color(0xFF0B192C); // Deep Midnight Navy

@@ -84,7 +84,7 @@ class ShareHelper {
           ShareParams(
             files: validFiles,
             text: text,
-            subject: 'Laporan BSS Parking Timemark',
+            subject: 'Laporan PMAapp',
           ),
         );
       } catch (e) {
@@ -100,12 +100,12 @@ class ShareHelper {
         await launchUrl(tgWebUri, mode: LaunchMode.externalApplication);
       } else {
         await SharePlus.instance.share(
-          ShareParams(text: text, subject: 'Laporan BSS Parking Timemark'),
+          ShareParams(text: text, subject: 'Laporan PMAapp'),
         );
       }
     } catch (_) {
       await SharePlus.instance.share(
-        ShareParams(text: text, subject: 'Laporan BSS Parking Timemark'),
+        ShareParams(text: text, subject: 'Laporan PMAapp'),
       );
     }
   }
@@ -166,7 +166,7 @@ class ShareHelper {
           ShareParams(
             files: validFiles,
             text: text,
-            subject: 'Laporan BSS Parking Timemark',
+            subject: 'Laporan PMAapp',
           ),
         );
       } catch (e) {
@@ -187,12 +187,12 @@ class ShareHelper {
         await launchUrl(waWebUri, mode: LaunchMode.externalApplication);
       } else {
         await SharePlus.instance.share(
-          ShareParams(text: text, subject: 'Laporan BSS Parking Timemark'),
+          ShareParams(text: text, subject: 'Laporan PMAapp'),
         );
       }
     } catch (_) {
       await SharePlus.instance.share(
-        ShareParams(text: text, subject: 'Laporan BSS Parking Timemark'),
+        ShareParams(text: text, subject: 'Laporan PMAapp'),
       );
     }
   }

@@ -6,7 +6,7 @@ import '../../../data/repositories/auth_repository.dart';
 import '../../camera/screens/camera_capture_screen.dart';
 import '../../auth/screens/login_screen.dart';
 
-/// Smooth, modern animated splash screen untuk BSS Parking Timemark.
+/// Smooth, modern animated splash screen untuk PMAapp.
 /// Menampilkan micro-interactions logo pulse, live status loading ringan,
 /// dan transisi fade ke viewfinder kamera utama tanpa jank.
 class SplashScreen extends StatefulWidget {
@@ -24,7 +24,7 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _pulseAnimation;
 
   final List<Timer> _pendingTimers = [];
-  String _loadingStatus = 'Menyiapkan sistem timemark...';
+  String _loadingStatus = 'Menyiapkan aplikasi...';
   double _progress = 0.15;
 
   @override
@@ -66,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen>
     _pendingTimers.add(Timer(const Duration(milliseconds: 600), () {
       if (!mounted) return;
       setState(() {
-        _loadingStatus = 'Sinkronisasi koordinat GPS & waktu WITA...';
+        _loadingStatus = 'Mengecek GPS dan waktu WITA...';
         _progress = 0.40;
       });
 
@@ -74,7 +74,7 @@ class _SplashScreenState extends State<SplashScreen>
       _pendingTimers.add(Timer(const Duration(milliseconds: 900), () {
         if (!mounted) return;
         setState(() {
-          _loadingStatus = 'Menghubungkan sensor optik kamera...';
+          _loadingStatus = 'Menyiapkan kamera...';
           _progress = 0.70;
         });
 
@@ -82,7 +82,7 @@ class _SplashScreenState extends State<SplashScreen>
         _pendingTimers.add(Timer(const Duration(milliseconds: 900), () {
           if (!mounted) return;
           setState(() {
-            _loadingStatus = 'Memuat template pemeriksaan teknisi...';
+            _loadingStatus = 'Memuat template checklist...';
             _progress = 0.92;
           });
 
@@ -90,7 +90,7 @@ class _SplashScreenState extends State<SplashScreen>
           _pendingTimers.add(Timer(const Duration(milliseconds: 600), () {
             if (!mounted) return;
             setState(() {
-              _loadingStatus = 'Kamera & sistem siap!';
+              _loadingStatus = 'Siap digunakan!';
               _progress = 1.0;
             });
 

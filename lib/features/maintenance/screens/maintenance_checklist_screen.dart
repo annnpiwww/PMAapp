@@ -1071,7 +1071,7 @@ class _MaintenanceChecklistScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Gunakan opsi ini jika poin maintenance belum bisa dibuat hijau karena kerusakan fisik permanen atau membutuhkan pengadaan baru/part dari kantor.',
+                  'Pilih opsi ini jika alat rusak fisik atau perlu penggantian sparepart.',
                   style: TextStyle(fontSize: 11, color: textSub, height: 1.3),
                 ),
                 const SizedBox(height: 12),
@@ -1134,7 +1134,7 @@ class _MaintenanceChecklistScreenState
                     maxLines: 2,
                     style: TextStyle(fontSize: 12, color: isDark ? Colors.white : AppColors.textPrimary),
                     decoration: InputDecoration(
-                      hintText: 'Tuliskan rincian kendala...',
+                      hintText: 'Tulis rincian kendala...',
                       hintStyle: TextStyle(fontSize: 11.5, color: textSub),
                       filled: true,
                       fillColor: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,

@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final identity = _identityCtrl.text.trim();
     final pass = _passwordCtrl.text.trim();
     if (identity.isEmpty || pass.isEmpty) {
-      setState(() => _errorMessage = 'Email/Username dan kata sandi wajib diisi');
+      setState(() => _errorMessage = 'Email atau username dan kata sandi wajib diisi.');
       return;
     }
 
@@ -192,7 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Absensi, Maintenance & Daily Task',
+                            'Absen, Maintenance & Daily Task',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontFamily: 'PlusJakartaSans',
@@ -265,7 +265,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   enableSuggestions: false,
                                   style: TextStyle(color: inputTextColor, fontSize: 14),
                                   decoration: InputDecoration(
-                                    hintText: 'Masukan Email',
+                                    hintText: 'Masukkan email',
                                     hintStyle: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       color: hintColor,
@@ -310,7 +310,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   style: TextStyle(color: inputTextColor, fontSize: 14),
                                   onSubmitted: (_) => _handleLogin(),
                                   decoration: InputDecoration(
-                                    hintText: 'Masukan Kata Sandi',
+                                    hintText: 'Masukkan kata sandi',
                                     hintStyle: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       color: hintColor,

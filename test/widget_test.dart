@@ -52,8 +52,8 @@ void main() {
   });
 
   testWidgets('App smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const BssParkingTimemarkApp());
-    expect(find.byType(BssParkingTimemarkApp), findsOneWidget);
+    await tester.pumpWidget(const PmaApp());
+    expect(find.byType(PmaApp), findsOneWidget);
     // Pump out the initial animation frames
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('PMA'), findsOneWidget);
@@ -62,6 +62,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 3500));
     await tester.pump(const Duration(milliseconds: 600));
     // Menavigasi ke LoginScreen jika belum login, atau CameraCaptureScreen jika sudah login
-    expect(find.byType(BssParkingTimemarkApp), findsOneWidget);
+    expect(find.byType(PmaApp), findsOneWidget);
   });
 }

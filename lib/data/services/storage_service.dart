@@ -143,7 +143,7 @@ class StorageService {
         ok: false,
         locked: true,
         retryAfterSeconds: secs,
-        message: 'Terlalu banyak percobaan. Silakan coba kembali dalam $secs detik.',
+        message: 'Terlalu banyak percobaan. Coba lagi dalam $secs detik.',
       );
     }
     final pin = enteredPin.trim();
@@ -168,7 +168,7 @@ class StorageService {
         ok: true,
         isDefaultPin: isDefault,
         message: isDefault
-            ? 'PIN masih bawaan (123321). Segera ganti melalui menu Profil.'
+            ? 'PIN masih bawaan (123321). Segera ganti di Profil.'
             : 'PIN sesuai.',
       );
     }
@@ -191,7 +191,7 @@ class StorageService {
     return PinVerifyResult(
       ok: false,
       remainingAttempts: left,
-      message: 'PIN tidak sesuai. Sisa $left kesempatan mencoba.',
+      message: 'PIN salah. Sisa $left kali percobaan.',
     );
   }
 

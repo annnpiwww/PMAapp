@@ -169,7 +169,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     if (_tasksToday.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Belum ada tugas pada tanggal ini untuk dibagikan'),
+          content: Text('Belum ada tugas pada tanggal ini.'),
           backgroundColor: Color(0xFFE11D48),
         ),
       );
@@ -198,14 +198,14 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
 
     if (lokasi.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lokasi wajib diisi')),
+        const SnackBar(content: Text('Lokasi harus diisi.')),
       );
       return;
     }
 
     if (pekerjaan.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Detail pekerjaan wajib diisi')),
+        const SnackBar(content: Text('Detail pekerjaan harus diisi.')),
       );
       return;
     }
@@ -239,7 +239,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Gagal mengirim tugas. Coba lagi.'),
+            content: Text('Tugas gagal dikirim. Periksa koneksi lalu coba lagi.'),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -1053,7 +1053,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Progress Harian Tim',
+                                'Progres Harian Tim',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,

@@ -528,7 +528,7 @@ class DailyTaskService {
 📋 <b>Tugas:</b> $judul$descLine
 ⏰ <b>Waktu:</b> $time
 
-<i>Mohon segera buka aplikasi BssparkingTimeMark untuk konfirmasi dan pengerjaan.</i>''';
+<i>Mohon segera buka aplikasi PMAapp untuk konfirmasi dan pengerjaan.</i>''';
   }
 
   /// Kirim notifikasi instan via Telegram bot (menggunakan tools/telegram_notify.sh atau Telegram Bot API)

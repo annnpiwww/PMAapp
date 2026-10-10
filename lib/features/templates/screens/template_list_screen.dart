@@ -40,7 +40,7 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
       context: context,
       builder: (_) => TechnicianPinDialog(
         title: 'Buka Kunci Admin SOP',
-        subtitle: 'Masukkan PIN untuk mengaktifkan mode edit template SOP.',
+        subtitle: 'Masukkan PIN untuk mengaktifkan edit template SOP.',
         onPinVerified: () {
           setState(() {
             _isAdmin = true;
@@ -48,7 +48,7 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text(
-                'Mode Admin aktif: Anda dapat mengedit & membuat template SOP.',
+                'Mode Admin aktif: bisa edit & buat template SOP.',
               ),
               backgroundColor: AppColors.primary,
               behavior: SnackBarBehavior.floating,
@@ -122,7 +122,7 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('Template bawaan berhasil di-reset!'),
+                      content: const Text('Template bawaan berhasil direset.'),
                       backgroundColor: AppColors.primary,
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(
@@ -573,7 +573,7 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                           size: 18,
                           color: AppColors.primary,
                         ),
-                        label: const Text('Pilih Kategori Absensi'),
+                        label: const Text('Pilih Kategori Absen'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           side: const BorderSide(color: AppColors.primary),

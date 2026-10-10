@@ -99,7 +99,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Melanjutkan progress: ${ongoing.doneCount}/${ongoing.totalPoints} foto selesai',
+                      'Lanjut progres: ${ongoing.doneCount}/${ongoing.totalPoints} foto selesai',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
@@ -247,7 +247,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'SPV belum memberikan tugas untuk akun ${user?.nama ?? "Teknisi"}.',
+                          'Belum ada tugas dari SPV hari ini.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontFamily: 'PlusJakartaSans',
@@ -260,7 +260,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                           child: OutlinedButton.icon(
                             onPressed: _loadTasks,
                             icon: const Icon(Icons.refresh_rounded, size: 16),
-                            label: const Text('Periksa Ulang'),
+                            label: const Text('Cek Ulang'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: textHead,
                               side: BorderSide(color: borderCard),
@@ -340,7 +340,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Tugas yang selesai otomatis terintegrasi ke Laporan Pulang saat absensi kepulangan.',
+                                  'Tugas yang selesai otomatis masuk ke Laporan Pulang saat absen pulang.',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: isDark ? const Color(0xFFE2E8F0) : AppColors.textPrimary,
@@ -473,7 +473,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
-                                            'Progress Maintenance',
+                                            'Progres Maintenance',
                                             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textSub),
                                           ),
                                           Text(

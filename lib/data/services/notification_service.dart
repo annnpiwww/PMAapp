@@ -20,7 +20,7 @@ class NotificationService {
   static const String _channelId = 'bss_absensi_channel';
   static const String _channelName = 'Absensi & Shift BSS';
   static const String _channelDesc =
-      'Pengingat jam kerja shift dan konfirmasi absensi teknisi';
+      'Pengingat jam shift dan konfirmasi absen teknisi';
 
   static const String _dailyChannelId = 'bss_daily_tasks_channel';
   static const String _dailyChannelName = 'Daily Tasks BSS';
@@ -31,7 +31,7 @@ class NotificationService {
   static const String _priorityTaskChannelId = priorityTaskChannelId;
   static const String _priorityTaskChannelName = 'Tugas Prioritas BSS';
   static const String _priorityTaskChannelDesc =
-      'Notifikasi prioritas tinggi penugasan baru dari Supervisor';
+      'Notifikasi tugas baru dari Supervisor';
 
   String? _lastDailyTasksSignature;
   DateTime? _lastDailyTasksNotifyTime;
@@ -207,8 +207,8 @@ class NotificationService {
 
       await _notificationsPlugin.zonedSchedule(
         id: notificationIdReminderPulang,
-        title: 'Waktunya Absensi Pulang! ⏰',
-        body: 'Waktu kerja shift $shift telah selesai. Yuk isi daily dulu ya dan ambil foto kepulangan!',
+        title: 'Waktunya Absen Pulang! ⏰',
+        body: 'Shift $shift sudah selesai. Isi Daily Task dulu lalu ambil foto pulang.',
         scheduledDate: scheduledDate,
         notificationDetails: details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -251,7 +251,7 @@ class NotificationService {
       await _notificationsPlugin.show(
         id: notificationIdPulang,
         title: 'Absen Pulang Berhasil',
-        body: 'Absen pulang : $shift$durasiInfo. Terima kasih atas kerja keras Anda hari ini!',
+        body: 'Absen pulang : $shift$durasiInfo. Terima kasih sudah bertugas hari ini.',
         notificationDetails: details,
       );
     } catch (e) {
@@ -374,7 +374,7 @@ class NotificationService {
 
       final body = (deskripsi != null && deskripsi.isNotEmpty)
           ? 'Lokasi: $posName • $deskripsi'
-          : 'Lokasi: $posName • Segera cek dan kerjakan ya!';
+          : 'Lokasi: $posName • Segera cek dan kerjakan.';
 
       await _notificationsPlugin.show(
         id: notificationIdNewTask,

@@ -221,7 +221,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
         if (lastCheck == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Anda belum memiliki catatan absensi masuk aktif hari ini.'),
+              content: Text('Belum ada catatan absen masuk aktif hari ini.'),
               backgroundColor: Color(0xFFEF4444),
               duration: Duration(seconds: 3),
             ),
@@ -252,15 +252,15 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                 children: [
                   Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 24),
                   SizedBox(width: 8),
-                  Text('Belum Memenuhi Syarat Pulang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text('Belum Waktunya Pulang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ],
               ),
               content: Text(
-                'Absensi kepulangan belum diizinkan karena shift belum berakhir.\n\n'
+                'Absen pulang belum bisa dilakukan karena shift belum selesai.\n\n'
                 '• Jadwal Akhir Shift: Jam $jamPulangStr\n'
                 '• Durasi Berjalan: ${workedH}j ${workedM}m\n'
-                '${remaining != null && remaining > Duration.zero ? '• Sisa Durasi Normal: ${remaining.inHours}j ${remaining.inMinutes.remainder(60)}m lagi\n\n' : '\n'}'
-                'SOP BSS mewajibkan teknisi berada di pos hingga jam shift selesai ($jamPulangStr) atau durasi kerja terpenuhi.',
+                '${remaining != null && remaining > Duration.zero ? '• Sisa Waktu Shift: ${remaining.inHours}j ${remaining.inMinutes.remainder(60)}m lagi\n\n' : '\n'}'
+                'Absen pulang bisa dilakukan setelah jam $jamPulangStr atau setelah durasi shift selesai.',
                 style: const TextStyle(fontSize: 13, height: 1.45),
               ),
               actions: [
@@ -563,7 +563,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                         Expanded(
                           child: _buildAttendanceTypeCard(
                             label: 'Masuk',
-                            sublabel: 'Check In Awal Dinas',
+                            sublabel: 'Mulai Bertugas',
                             icon: Icons.login_rounded,
                             isSelected: _tipeLaporan == 'Masuk',
                             activeColor: AppColors.success,
@@ -574,7 +574,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                         Expanded(
                           child: _buildAttendanceTypeCard(
                             label: 'Pulang',
-                            sublabel: 'Check Out & Handover',
+                            sublabel: 'Selesai & Handover',
                             icon: Icons.logout_rounded,
                             isSelected: _tipeLaporan == 'Pulang',
                             activeColor: AppColors.accent,

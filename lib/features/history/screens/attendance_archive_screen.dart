@@ -73,7 +73,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
   Future<void> _exportCsv() async {
     if (_records.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Belum ada catatan absensi untuk diekspor')),
+        const SnackBar(content: Text('Belum ada catatan absen untuk diekspor.')),
       );
       return;
     }
@@ -141,7 +141,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Sebanyak $count catatan absensi akan dihapus permanen dari perangkat ini dan tidak dapat dipulihkan.',
+              '$count catatan absen akan dihapus permanen dari HP ini dan tidak bisa dikembalikan.',
               style: TextStyle(
                 fontSize: 13,
                 height: 1.4,
@@ -164,7 +164,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Disarankan untuk melakukan Ekspor CSV terlebih dahulu agar laporan tidak hilang.',
+                      'Sebaiknya Ekspor CSV dulu agar data tidak hilang.',
                       style: TextStyle(
                         fontSize: 11.5,
                         color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF9A3412),
@@ -205,7 +205,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
       await _loadRecords();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Riwayat absensi berhasil dihapus')),
+          const SnackBar(content: Text('Riwayat absen berhasil dihapus.')),
         );
       }
     }

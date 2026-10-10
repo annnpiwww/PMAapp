@@ -571,7 +571,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  'Layanan Lokasi (GPS) Wajib Aktif',
+                  'GPS Wajib Aktif',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -587,12 +587,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Layanan lokasi (GPS) pada perangkat Anda saat ini nonaktif atau belum menyala.',
+                'GPS ponsel belum aktif.',
                 style: TextStyle(fontSize: 13, color: Colors.white70, height: 1.4),
               ),
               SizedBox(height: 10),
               Text(
-                'Sistem PMA App mewajibkan GPS aktif untuk verifikasi presensi yang sah dan pencegahan fraud. Silakan aktifkan GPS perangkat Anda.',
+                'Aktifkan GPS ponsel untuk mencatat lokasi absen.',
                 style: TextStyle(fontSize: 12, color: Colors.amberAccent, height: 1.4),
               ),
             ],
@@ -613,7 +613,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Layanan GPS berhasil aktif!'),
+                        content: Text('GPS sudah aktif.'),
                         backgroundColor: Colors.green,
                         duration: Duration(seconds: 2),
                       ),
@@ -623,7 +623,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('GPS masih nonaktif. Mohon nyalakan lokasi di pengaturan.'),
+                        content: Text('GPS masih mati. Nyalakan lokasi di pengaturan.'),
                         backgroundColor: Colors.red,
                         duration: Duration(seconds: 2),
                       ),
@@ -714,8 +714,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           ],
         ),
         content: const Text(
-          'Untuk mematuhi SOP BSS Parking, aplikasi memerlukan izin Kamera, Lokasi (GPS), dan Notifikasi.\n\n'
-          'Mohon setujui semua izin (acc) agar aplikasi dapat digunakan.',
+          'Aplikasi perlu izin Kamera, Lokasi (GPS), dan Notifikasi.\n\n'
+          'Izinkan semua akses agar aplikasi bisa digunakan.',
           style: TextStyle(fontSize: 13, height: 1.45),
         ),
         actions: [
@@ -1076,7 +1076,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                               ),
                               SizedBox(height: 1),
                               Text(
-                                'Tentukan alur kerja pemeriksaan atau absensi',
+                                'Pilih alur pemeriksaan atau absen',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: AppColors.textSecondary,
@@ -1397,7 +1397,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('⚡ Mode Sinyal Lemah: Foto dialihkan ke Cek Manual SPV.'),
+            content: Text('⚡ Sinyal Lemah: Foto dialihkan ke cek manual SPV.'),
             duration: Duration(seconds: 2),
             backgroundColor: Color(0xFF1E293B),
           ),
@@ -1551,8 +1551,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                 ],
               ),
               content: const Text(
-                'Anda belum memiliki catatan absensi Masuk aktif hari ini.\n\n'
-                'Silakan ambil foto absensi Masuk terlebih dahulu sebelum absensi Pulang.',
+                'Belum ada catatan absen Masuk hari ini.\n\n'
+                'Foto absen Masuk dulu sebelum absen Pulang.',
                 style: TextStyle(fontSize: 13, height: 1.45),
               ),
               actions: [
@@ -1595,15 +1595,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                 children: [
                   Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
                   SizedBox(width: 8),
-                  Text('Belum Bisa Absensi Pulang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text('Belum Waktunya Pulang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ],
               ),
               content: Text(
-                'Absensi kepulangan belum diizinkan karena shift belum berakhir.\n\n'
+                'Absen pulang belum bisa dilakukan karena shift belum selesai.\n\n'
                 '• Jadwal Akhir Shift: Jam $jamPulangStr\n'
                 '• Durasi Berjalan: ${worked.inHours}j ${worked.inMinutes.remainder(60)}m\n'
-                '${remaining != null && remaining > Duration.zero ? '• Sisa Durasi Normal: ${remaining.inHours}j ${remaining.inMinutes.remainder(60)}m lagi\n\n' : '\n'}'
-                'Absensi pulang dapat dilakukan setelah jam $jamPulangStr atau setelah durasi shift terpenuhi.',
+                '${remaining != null && remaining > Duration.zero ? '• Sisa Waktu Shift: ${remaining.inHours}j ${remaining.inMinutes.remainder(60)}m lagi\n\n' : '\n'}'
+                'Absen pulang bisa dilakukan setelah jam $jamPulangStr atau setelah durasi shift selesai.',
                 style: const TextStyle(fontSize: 13, height: 1.45),
               ),
               actions: [
@@ -1627,7 +1627,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           } else if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Isi daily dulu ya sebelum absensi pulang!'),
+                content: Text('Selesaikan Daily Task dulu sebelum absen pulang!'),
                 backgroundColor: Color(0xFFF59E0B),
                 duration: Duration(seconds: 2),
               ),
@@ -1679,11 +1679,11 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                     ],
                   ),
                   content: Text(
-                    'Anda sudah melakukan absensi masuk sebelumnya.\n\n'
+                    'Sudah absen masuk sebelumnya.\n\n'
                     '• Shift: ${setup.effectiveJadwalShift}\n'
                     '• Durasi Berjalan: ${worked.inHours}j ${worked.inMinutes.remainder(60)}m\n'
                     '• Sisa Waktu Shift: ${remaining != null ? "${remaining.inHours}j ${remaining.inMinutes.remainder(60)}m lagi" : "-"}\n\n'
-                    'Tidak perlu foto absensi masuk lagi agar data tidak terduplikasi di arsip. Tombol absensi pulang akan otomatis aktif setelah jam shift selesai.',
+                    'Tidak perlu foto absen masuk lagi. Tombol absen pulang otomatis aktif setelah jam shift selesai.',
                     style: const TextStyle(fontSize: 13, height: 1.45),
                   ),
                   actions: [
@@ -1964,7 +1964,7 @@ Jadwal Shift : $shiftText
 Terima Kasih''';
       }
     } else {
-      shareText = '''[BSS PARKING TIMEMARK]
+      shareText = '''[PMAapp]
 Kode: $kodeVerifikasi
 Waktu: ${TimemarkFormatter.formatIndonesianFullDate(capturedTimestamp)} ${TimemarkFormatter.formatClockTime(capturedTimestamp)}
 Lokasi: ${_activePos.posName} (${_activePos.cabangName})
@@ -3387,7 +3387,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                         style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
                       ),
                       subtitle: Text(
-                        'List daily yang harus dikerjakan',
+                        'Daftar tugas harian yang harus dikerjakan',
                         style: TextStyle(fontSize: 11, color: textSecondary),
                       ),
                       trailing: ValueListenableBuilder<int>(
@@ -3491,7 +3491,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                       'Arsip Kehadiran',
                       style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
                     ),
-                    subtitle: Text('Catatan absensi masuk & pulang 30 hari terakhir', style: TextStyle(fontSize: 11, color: textSecondary)),
+                    subtitle: Text('Catatan absen masuk & pulang 30 hari terakhir', style: TextStyle(fontSize: 11, color: textSecondary)),
                     trailing: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
@@ -3541,7 +3541,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
                         ),
                         subtitle: Text(
-                          isCurrentDark ? 'Beralih ke tampilan putih bersih' : 'Beralih ke tampilan gelap malam',
+                          isCurrentDark ? 'Ganti ke tema terang' : 'Ganti ke tema gelap',
                           style: TextStyle(fontSize: 11, color: textSecondary),
                         ),
                         trailing: Switch.adaptive(
@@ -3684,7 +3684,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
           ],
         ),
         content: Text(
-          'Apakah Anda yakin ingin keluar dari akun ini?',
+          'Yakin ingin keluar akun?',
           style: TextStyle(fontSize: 13, color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
         ),
         actions: [

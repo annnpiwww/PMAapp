@@ -85,7 +85,7 @@ class _TechnicianPinDialogState extends State<TechnicianPinDialog> {
             const SizedBox(height: 4),
             Text(
               widget.subtitle ??
-                  'Masukkan PIN teknisi untuk membuka menu pemeliharaan perangkat.',
+                  'Masukkan PIN teknisi untuk membuka menu maintenance.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 11.5,

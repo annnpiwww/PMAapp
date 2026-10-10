@@ -162,7 +162,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
     if (_selectedNextShift == null || _selectedNextShift!.isEmpty) {
       HapticFeedback.heavyImpact();
       setState(() {
-        _errorMessage = 'Wajib memilih Teknisi Shift Selanjutnya!';
+        _errorMessage = 'Pilih teknisi shift berikutnya.';
       });
       return;
     }
@@ -171,7 +171,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
     if (selesaiText.isEmpty) {
       HapticFeedback.heavyImpact();
       setState(() {
-        _errorMessage = 'Wajib mencatat pekerjaan yang telah diselesaikan!';
+        _errorMessage = 'Tulis pekerjaan yang sudah selesai.';
       });
       return;
     }
@@ -183,7 +183,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
       if (belumText.isEmpty) {
         HapticFeedback.heavyImpact();
         setState(() {
-          _errorMessage = 'Tuliskan pekerjaan yang belum selesai atau matikan toggle jika tidak ada.';
+          _errorMessage = 'Tulis pekerjaan yang belum selesai, atau matikan opsi jika tidak ada.';
         });
         return;
       }
@@ -296,7 +296,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Ringkasan pekerjaan sebelum absensi pulang',
+                          'Ringkasan pekerjaan sebelum absen pulang',
                           style: TextStyle(
                             fontSize: 11.5,
                             color: textSub,
@@ -674,7 +674,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                               ),
                               decoration: InputDecoration(
                                 isDense: true,
-                                hintText: 'Tuliskan pekerjaan atau pendingan yang belum selesai...',
+                                hintText: 'Tulis pekerjaan yang belum selesai...',
                                 hintStyle: TextStyle(
                                   fontSize: 12,
                                   color: hintColor,

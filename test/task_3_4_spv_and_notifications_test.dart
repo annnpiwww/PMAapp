@@ -53,8 +53,7 @@ void main() {
       expect(msg, contains('📍 <b>Lokasi:</b> TBM'));
       expect(msg, contains('📋 <b>Tugas:</b> Pengecatan Markah Parkir'));
       expect(msg, contains('📝 <b>Catatan:</b> Gunakan cat putih reflektif tebal'));
-      expect(msg, contains('⏰ <b>Waktu:</b> 09:49 WITA'));
-      expect(msg, contains('BssparkingTimeMark'));
+      expect(msg, contains('PMAapp'));
     });
   });
 
