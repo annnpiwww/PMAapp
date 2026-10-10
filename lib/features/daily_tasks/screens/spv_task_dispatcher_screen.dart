@@ -44,6 +44,13 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   @override
   void initState() {
     super.initState();
+    final currentUser = AuthRepository.instance.currentUser;
+    if (currentUser != null && currentUser.role != UserRole.ho) {
+      final userBranch = BranchService.parseBranchFromName(currentUser.cabangName);
+      if (BranchService.instance.currentBranch != userBranch) {
+        BranchService.instance.setBranch(userBranch);
+      }
+    }
     _technicians = List.from(BranchService.instance.getTechnicians());
     _selectedTech = _technicians.isNotEmpty ? _technicians.first : 'Teknisi';
     _lokasiCtrl = TextEditingController(text: BranchService.instance.currentBranch.defaultLocationTag);
@@ -276,9 +283,9 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
       appBar: AppBar(
         backgroundColor: bgAppBar,
         elevation: 0,
-        title: Text(
-          'Penugasan Teknisi (${BranchService.instance.currentBranch.name})',
-          style: const TextStyle(
+        title: const Text(
+          'Daily Task Team PMA',
+          style: TextStyle(
             fontFamily: 'PlusJakartaSans',
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -483,52 +490,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.accent, width: 1.5)),
             ),
           ),
-          const SizedBox(height: 8),
 
-          // Quick selection chips untuk lokasi resmi cabang
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: BranchService.instance.getLocationTags().map((tag) {
-              final isSelected = _lokasiCtrl.text.trim().toUpperCase() == tag;
-              return InkWell(
-                onTap: () {
-                  setState(() {
-                    _lokasiCtrl.text = tag;
-                    if (_taskCategory == 'maintenance' && _selectedTemplateId != null) {
-                      final found = _templates.firstWhere((e) => e['id'] == _selectedTemplateId);
-                      _pekerjaanCtrl.text = '${found['nama']} - $tag';
-                    }
-                  });
-                },
-                borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColors.accent
-                        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppColors.accent
-                          : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
-                    ),
-                  ),
-                  child: Text(
-                    tag,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                      color: isSelected
-                          ? Colors.white
-                          : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155)),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
           const SizedBox(height: 16),
 
           // Detail Pekerjaan
@@ -956,100 +918,125 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                     ),
                     const SizedBox(height: 12),
 
-                    // Switch Cabang Aktif SPV
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF0B1120) : const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(9),
-                        border: Border.all(color: recapBorder),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                if (BranchService.instance.currentBranch != AppBranch.manado) {
-                                  await BranchService.instance.setBranch(AppBranch.manado);
-                                  setState(() {
-                                    _technicians = List.from(BranchService.instance.getTechnicians());
-                                    _selectedTech = _technicians.isNotEmpty ? _technicians.first : 'Teknisi';
-                                    _lokasiCtrl.text = BranchService.instance.currentBranch.defaultLocationTag;
-                                    _selectedTechFilter = 'SEMUA';
-                                  });
-                                  await _loadTasks();
-                                  setModalState(() {});
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(7),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 6.5),
-                                decoration: BoxDecoration(
-                                  color: BranchService.instance.currentBranch == AppBranch.manado
-                                      ? AppColors.accent
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(7),
-                                ),
-                                child: Text(
-                                  'KC Manado',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: BranchService.instance.currentBranch == AppBranch.manado
-                                        ? FontWeight.bold
-                                        : FontWeight.w600,
+                    // Switch Cabang Aktif SPV (Hanya jika user login adalah HO, jika SPV terkunci sesuai cabangnya)
+                    if (AuthRepository.instance.currentUser?.role == UserRole.ho)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF0B1120) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(color: recapBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  if (BranchService.instance.currentBranch != AppBranch.manado) {
+                                    await BranchService.instance.setBranch(AppBranch.manado);
+                                    setState(() {
+                                      _technicians = List.from(BranchService.instance.getTechnicians());
+                                      _selectedTech = _technicians.isNotEmpty ? _technicians.first : 'Teknisi';
+                                      _lokasiCtrl.text = BranchService.instance.currentBranch.defaultLocationTag;
+                                      _selectedTechFilter = 'SEMUA';
+                                    });
+                                    await _loadTasks();
+                                    setModalState(() {});
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(7),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 6.5),
+                                  decoration: BoxDecoration(
                                     color: BranchService.instance.currentBranch == AppBranch.manado
-                                        ? Colors.white
-                                        : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                                        ? AppColors.accent
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(7),
+                                  ),
+                                  child: Text(
+                                    'KC Manado',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: BranchService.instance.currentBranch == AppBranch.manado
+                                          ? FontWeight.bold
+                                          : FontWeight.w600,
+                                      color: BranchService.instance.currentBranch == AppBranch.manado
+                                          ? Colors.white
+                                          : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                          Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                if (BranchService.instance.currentBranch != AppBranch.bali) {
-                                  await BranchService.instance.setBranch(AppBranch.bali);
-                                  setState(() {
-                                    _technicians = List.from(BranchService.instance.getTechnicians());
-                                    _selectedTech = _technicians.isNotEmpty ? _technicians.first : 'Teknisi';
-                                    _lokasiCtrl.text = BranchService.instance.currentBranch.defaultLocationTag;
-                                    _selectedTechFilter = 'SEMUA';
-                                  });
-                                  await _loadTasks();
-                                  setModalState(() {});
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(7),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 6.5),
-                                decoration: BoxDecoration(
-                                  color: BranchService.instance.currentBranch == AppBranch.bali
-                                      ? AppColors.accent
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(7),
-                                ),
-                                child: Text(
-                                  'KC Bali',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: BranchService.instance.currentBranch == AppBranch.bali
-                                        ? FontWeight.bold
-                                        : FontWeight.w600,
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  if (BranchService.instance.currentBranch != AppBranch.bali) {
+                                    await BranchService.instance.setBranch(AppBranch.bali);
+                                    setState(() {
+                                      _technicians = List.from(BranchService.instance.getTechnicians());
+                                      _selectedTech = _technicians.isNotEmpty ? _technicians.first : 'Teknisi';
+                                      _lokasiCtrl.text = BranchService.instance.currentBranch.defaultLocationTag;
+                                      _selectedTechFilter = 'SEMUA';
+                                    });
+                                    await _loadTasks();
+                                    setModalState(() {});
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(7),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 6.5),
+                                  decoration: BoxDecoration(
                                     color: BranchService.instance.currentBranch == AppBranch.bali
-                                        ? Colors.white
-                                        : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                                        ? AppColors.accent
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(7),
+                                  ),
+                                  child: Text(
+                                    'KC Bali',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: BranchService.instance.currentBranch == AppBranch.bali
+                                          ? FontWeight.bold
+                                          : FontWeight.w600,
+                                      color: BranchService.instance.currentBranch == AppBranch.bali
+                                          ? Colors.white
+                                          : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                      )
+                    else
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF0B1120) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: recapBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.location_on_rounded, size: 15, color: AppColors.accent),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Cabang: ${BranchService.instance.currentBranch.name}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
 
                     // SECTION 1: REKAP TIM LENGKAP
                     Container(

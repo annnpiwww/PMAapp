@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../data/repositories/auth_repository.dart';
-import '../../../data/services/branch_service.dart';
 import '../../camera/screens/camera_capture_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -20,18 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _errorMessage;
 
   @override
-  void initState() {
-    super.initState();
-    BranchService.instance.addListener(_onBranchChanged);
-  }
-
-  void _onBranchChanged() {
-    if (mounted) setState(() {});
-  }
-
-  @override
   void dispose() {
-    BranchService.instance.removeListener(_onBranchChanged);
     _identityCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
@@ -257,47 +245,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   const SizedBox(height: 16),
                                 ],
 
-                                // Selector Cabang Operasional
-                                Text(
-                                  'Cabang Operasional',
-                                  style: TextStyle(
-                                    fontFamily: 'PlusJakartaSans',
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: labelColor,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: inputBg,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: inputBorder),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: _buildBranchPill(
-                                          branch: AppBranch.manado,
-                                          title: '📍 KC Manado',
-                                          isSelected: BranchService.instance.currentBranch == AppBranch.manado,
-                                          isDark: isDark,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: _buildBranchPill(
-                                          branch: AppBranch.bali,
-                                          title: '📍 KC Bali',
-                                          isSelected: BranchService.instance.currentBranch == AppBranch.bali,
-                                          isDark: isDark,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 18),
+
 
                                 // Username / Email Input
                                 Text(
@@ -450,50 +398,5 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildBranchPill({
-    required AppBranch branch,
-    required String title,
-    required bool isSelected,
-    required bool isDark,
-  }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(9),
-      onTap: () {
-        setState(() {
-          BranchService.instance.setBranch(branch);
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? AppColors.accent : AppColors.primary)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(9),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: (isDark ? AppColors.accent : AppColors.primary).withValues(alpha: 0.25),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
-            fontSize: 12.5,
-            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-            color: isSelected
-                ? Colors.white
-                : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-          ),
-        ),
-      ),
-    );
-  }
+
 }

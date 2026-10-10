@@ -218,6 +218,8 @@ class StorageService {
   // --- GENERIC KEY VALUE HELPERS ---
   static String? getString(String key) => _prefs?.getString(key);
   static Future<bool>? setString(String key, String val) => _prefs?.setString(key, val);
+  static bool? getBool(String key) => _prefs?.getBool(key);
+  static Future<bool>? setBool(String key, bool val) => _prefs?.setBool(key, val);
   static Future<bool>? remove(String key) => _prefs?.remove(key);
 
   // --- TECHNICIAN SUPPORT NAME ---
@@ -533,6 +535,18 @@ class StorageService {
       // Migrasi: hapus permanen judul Absensi — paksa showTitle false jika masih true
       if (updated.elements.showTitle == true) {
         updated = updated.copyWith(elements: updated.elements.copyWith(showTitle: false), customTitle: '');
+        modified = true;
+      }
+
+      // Migrasi: cegah kebocoran tag cabang Bali (misal PCD) jika cabang aktif adalah KC Manado
+      final currentBranchCode = _prefs?.getString('app_branch');
+      final isManado = currentBranchCode == null || currentBranchCode == 'manado';
+      const baliTags = {
+        'PCD', 'PBKD', 'PKRD', 'PAS', 'PSD', 'PGA', 'TBB', 'TBG', 'KIH',
+        'BMS', 'BMK', 'SPD', 'GYS', 'PBB', 'RSPM'
+      };
+      if (isManado && baliTags.contains(updated.badgeTag.trim().toUpperCase())) {
+        updated = updated.copyWith(badgeTag: 'Absensi');
         modified = true;
       }
 

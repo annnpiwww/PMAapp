@@ -14,7 +14,7 @@ void main() {
     BranchService.instance.resetForTesting();
   });
 
-  testWidgets('LoginScreen displays branch selector pills and toggles branch correctly', (tester) async {
+  testWidgets('LoginScreen does not display manual branch selector pills (auto-detected on login)', (tester) async {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -26,24 +26,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 1. Verify branch selector exists with Manado selected by default
-    expect(find.text('Cabang Operasional'), findsOneWidget);
-    expect(find.text('📍 KC Manado'), findsOneWidget);
-    expect(find.text('📍 KC Bali'), findsOneWidget);
-    expect(BranchService.instance.currentBranch, equals(AppBranch.manado));
+    // Verify branch selector is removed from UI as requested
+    expect(find.text('Cabang Operasional'), findsNothing);
+    expect(find.text('📍 KC Manado'), findsNothing);
+    expect(find.text('📍 KC Bali'), findsNothing);
 
-    // 2. Tap KC Bali pill
-    await tester.tap(find.text('📍 KC Bali'));
-    await tester.pumpAndSettle();
-
-    // Verify branch changed to Bali
-    expect(BranchService.instance.currentBranch, equals(AppBranch.bali));
-
-    // 3. Tap KC Manado pill
-    await tester.tap(find.text('📍 KC Manado'));
-    await tester.pumpAndSettle();
-
-    // Verify branch changed back to Manado
-    expect(BranchService.instance.currentBranch, equals(AppBranch.manado));
+    // Verify input fields exist cleanly
+    expect(find.text('Email atau Username'), findsOneWidget);
+    expect(find.text('Kata Sandi'), findsOneWidget);
   });
 }

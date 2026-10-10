@@ -535,6 +535,12 @@ class LocationService {
 
   static set currentPos(PosLocation pos) {
     _ensureInitialized();
+    final currentBranch = BranchService.instance.currentBranch;
+    // Jika pos yang diset tidak cocok dengan cabang yang sedang aktif, tolak
+    if (!pos.matchesBranch(currentBranch)) {
+      debugPrint('[LocationService] Guard: Pos ${pos.locationTag} (${pos.cabangName}) tidak cocok dengan cabang aktif ${currentBranch.name}');
+      return;
+    }
     final list = List<PosLocation>.from(_locations);
     final idx = list.indexWhere((p) => p.posId == pos.posId);
     if (idx != -1) {
@@ -637,40 +643,35 @@ class LocationService {
       }
     }
 
-    // Fallback: jika branch tidak dispesifikasi secara eksplisit, coba cari di allLocations
-    if (branch == null) {
-      for (final pos in allLocations) {
-        if (pos.locationTag.toLowerCase() == q || pos.posName.toLowerCase() == q) {
-          return pos;
-        }
-      }
-    }
-
+    // Catatan: Pencarian dibatasi ketat pada cabang target untuk mencegah tag cabang lain (misal PCD Bali) bocor ke Manado
     return null;
   }
 
   /// Resolve PosLocation dari task daily (posTag, posName, judul)
-  /// Mengikuti kata kunci lokasi yang diinputkan SPV secara cerdas
+  /// Mengikuti kata kunci lokasi yang diinputkan SPV secara cerdas terisolasi per cabang
   static PosLocation? resolveLocationFromTask({
     String? posTag,
     String? posName,
     String? judul,
+    AppBranch? branch,
   }) {
+    final targetBranch = branch ?? BranchService.instance.currentBranch;
+
     // 1. Cek posTag terlebih dahulu (biasanya paling spesifik, misal 'TBM')
     if (posTag != null && posTag.trim().isNotEmpty && posTag.trim() != '-') {
-      final loc = findPosByTagOrName(posTag);
+      final loc = findPosByTagOrName(posTag, branch: targetBranch);
       if (loc != null) return loc;
     }
 
     // 2. Cek posName (misal 'Toko Bintang Manado' atau 'TBM')
     if (posName != null && posName.trim().isNotEmpty && posName.trim() != '-') {
-      final loc = findPosByTagOrName(posName);
+      final loc = findPosByTagOrName(posName, branch: targetBranch);
       if (loc != null) return loc;
     }
 
     // 3. Cek judul tugas jika mengandung kata kunci lokasi (misal 'Maintenance Manless Gate - TBM')
     if (judul != null && judul.trim().isNotEmpty) {
-      final loc = findPosByTagOrName(judul);
+      final loc = findPosByTagOrName(judul, branch: targetBranch);
       if (loc != null) return loc;
     }
 
@@ -686,9 +687,7 @@ class LocationService {
           ? posName.trim()
           : targetRaw;
 
-      final isBali = BranchService.instance.currentBranch == AppBranch.bali ||
-          BranchService.instance.getLocationTags(branch: AppBranch.bali).contains(cleanTag);
-      final targetBranch = isBali ? AppBranch.bali : AppBranch.manado;
+      final isBali = targetBranch == AppBranch.bali;
 
       final newLoc = PosLocation(
         posId: isBali

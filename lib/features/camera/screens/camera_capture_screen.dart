@@ -32,6 +32,7 @@ import '../../../data/services/notification_service.dart';
 import '../../../data/services/daily_task_service.dart';
 import '../widgets/interactive_watermark.dart';
 import '../widgets/sop_verification_modal.dart';
+import '../widgets/ios_pwa_install_modal.dart';
 import '../../history/screens/gallery_screen.dart';
 import '../../maintenance/screens/maintenance_history_screen.dart';
 import '../../locations/widgets/location_picker_modal.dart';
@@ -176,10 +177,26 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
     _activePos = LocationService.currentPos;
     _timerSeconds = StorageService.getCameraTimerSeconds();
+    if (_timerSeconds != 0 && _timerSeconds != 3 && _timerSeconds != 5) {
+      _timerSeconds = 0;
+      StorageService.saveCameraTimerSeconds(0);
+    }
 
     // Load persisted watermark configuration
     final savedConfig = StorageService.getWatermarkConfig();
     _watermarkConfig = savedConfig;
+
+    // Pastikan jika KC Manado, tidak ada badgeTag dari cabang Bali yang menempel
+    if (BranchService.instance.currentBranch == AppBranch.manado) {
+      final baliTags = BranchService.instance.getLocationTags(branch: AppBranch.bali);
+      if (baliTags.contains(_watermarkConfig.badgeTag.trim().toUpperCase())) {
+        _watermarkConfig = _watermarkConfig.copyWith(
+          badgeTag: _activePos.locationTag,
+          badgeColor: _activePos.tagColor,
+        );
+        StorageService.saveWatermarkConfig(_watermarkConfig);
+      }
+    }
 
     // Minta izin kamera & lokasi langsung di frame pertama UI muncul,
     // lalu init kamera & lokasi setelah izin diberikan (tidak perlu pancing
@@ -187,6 +204,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _requestInitialPermissionsAndInit();
       _refreshDailyTasksBadge();
+      IosPwaInstallModal.checkAndShowPrompt(context);
     });
 
     TemplateRepository.instance.addListener(_onTemplateRepoChange);
@@ -839,33 +857,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     final timerOptions = [
       (
         seconds: 0,
-        label: 'Tanpa Timer (Mati)',
-        desc: 'Foto langsung diambil saat tombol ditekan',
+        label: 'Mati',
       ),
       (
         seconds: 3,
         label: '3 Detik',
-        desc: 'Hitung mundur cepat untuk foto lebih stabil',
       ),
       (
         seconds: 5,
         label: '5 Detik',
-        desc: 'Waktu ideal untuk bersiap sebelum jepretan',
-      ),
-      (
-        seconds: 10,
-        label: '10 Detik',
-        desc: 'Waktu cukup untuk foto bersama / jarak jauh',
-      ),
-      (
-        seconds: 15,
-        label: '15 Detik',
-        desc: 'Waktu ekstra untuk posisi teknisi di lapangan',
-      ),
-      (
-        seconds: 20,
-        label: '20 Detik',
-        desc: 'Durasi maksimal untuk inspeksi & persiapan area',
       ),
     ];
 
@@ -956,11 +956,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                           isSelected ? FontWeight.bold : FontWeight.w500,
                       fontSize: 14,
                     ),
-                  ),
-                  subtitle: Text(
-                    opt.desc,
-                    style:
-                        const TextStyle(color: Colors.white54, fontSize: 11),
                   ),
                   trailing: isSelected
                       ? const Icon(
@@ -3562,6 +3557,32 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                       );
                     },
                   ),
+
+                  // Panduan Instalasi Layar Utama iPhone (PWA)
+                  if (kIsWeb)
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3B82F6).withValues(alpha: isDark ? 0.25 : 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.apple_rounded, color: Color(0xFF3B82F6), size: 22),
+                      ),
+                      title: Text(
+                        'Pasang di iPhone (PWA)',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
+                      ),
+                      subtitle: Text(
+                        'Panduan pasang ke layar utama tanpa URL bar',
+                        style: TextStyle(fontSize: 11, color: textSecondary),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        IosPwaInstallModal.show(context);
+                      },
+                    ),
 
                   Divider(height: 24, color: dividerColor),
 

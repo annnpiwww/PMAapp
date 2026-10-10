@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as imglib;
 import 'timemark_formatter.dart';
 import '../../data/models/watermark_config.dart';
+import '../../data/services/branch_service.dart';
 import '../../data/services/location_service.dart';
 import '../../data/services/storage_service.dart';
 
@@ -251,7 +252,7 @@ class ImageWatermarkProcessor {
       final baseScale = (imgWidth / 420.0).clamp(0.8, 12.0);
       final scale = baseScale * config.scale;
 
-      final String badgeTag;
+      String badgeTag;
       final Color badgeColor;
       if (isAbsensi) {
         badgeTag = config.badgeTag.isNotEmpty
@@ -275,6 +276,16 @@ class ImageWatermarkProcessor {
       } else {
         badgeTag = config.badgeTag.isNotEmpty ? config.badgeTag : activeLocationTag;
         badgeColor = config.badgeColor != const Color(0xFFF59E0B) ? config.badgeColor : activeLocationColor;
+      }
+
+      // Perlindungan ketat: Cegah tag cabang Bali (seperti PCD) bocor ke hasil watermark fisik KC Manado
+      if (BranchService.instance.currentBranch == AppBranch.manado) {
+        final baliTags = BranchService.instance.getLocationTags(branch: AppBranch.bali);
+        if (baliTags.contains(badgeTag.trim().toUpperCase())) {
+          badgeTag = activeLocationTag.isNotEmpty && !baliTags.contains(activeLocationTag.trim().toUpperCase())
+              ? activeLocationTag
+              : 'Absensi';
+        }
       }
 
       final padding = 18.0 * scale;

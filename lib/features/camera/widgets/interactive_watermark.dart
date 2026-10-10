@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/timemark_formatter.dart';
 import '../../../data/models/template_model.dart';
 import '../../../data/models/watermark_config.dart';
+import '../../../data/services/branch_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/storage_service.dart';
 import 'watermark_edit_modal.dart';
@@ -197,7 +198,7 @@ class _InteractiveWatermarkState extends State<InteractiveWatermark> {
 
   Widget _buildContent({required double scale, Key? contentKey}) {
     final isAbsensi = widget.template.jenis == TemplateCategory.absensi;
-    final String badgeTag;
+    String badgeTag;
     final Color badgeColor;
     if (isAbsensi) {
       badgeTag = widget.config.badgeTag.isNotEmpty
@@ -218,6 +219,16 @@ class _InteractiveWatermarkState extends State<InteractiveWatermark> {
       } else {
         badgeTag = widget.activeLocationTag.isNotEmpty ? widget.activeLocationTag : 'BSS';
         badgeColor = widget.activeLocationColor;
+      }
+    }
+
+    // Perlindungan ketat: Cegah tag cabang Bali (seperti PCD) bocor ke tampilan KC Manado
+    if (BranchService.instance.currentBranch == AppBranch.manado) {
+      final baliTags = BranchService.instance.getLocationTags(branch: AppBranch.bali);
+      if (baliTags.contains(badgeTag.trim().toUpperCase())) {
+        badgeTag = widget.activeLocationTag.isNotEmpty && !baliTags.contains(widget.activeLocationTag.trim().toUpperCase())
+            ? widget.activeLocationTag
+            : 'Absensi';
       }
     }
     final elements = widget.config.elements;
