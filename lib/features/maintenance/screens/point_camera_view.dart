@@ -563,7 +563,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
         PointCameraView.globalOfflineMode = true;
         aiResult = AiVerificationResult(
           status: VerificationStatus.perluCekManual,
-          alasan: 'Offline: Foto tersimpan aman di HP. Perlu cek manual ($err)',
+          alasan: 'Mode Offline: Foto tersimpan aman di HP. Perlu cek manual.',
           poinGagal: [],
           poinLolos: [],
           confidenceScore: 0.5,

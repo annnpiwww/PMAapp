@@ -377,7 +377,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Footer Info
                           Center(
                             child: Text(
-                              'PMA app made by ❤️ annnpii',
+                              'PMAapp powered by annnpii',
                               style: TextStyle(
                                 fontFamily: 'PlusJakartaSans',
                                 fontSize: 11,

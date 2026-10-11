@@ -30,13 +30,13 @@ void main() {
 
       // Verify header & titles use Maintenance: Server & Kasir
       expect(find.text('Maintenance: Server & Kasir'), findsWidgets);
-      expect(find.text('Pemeriksaan PC Server dan PC Kasir'), findsWidgets);
+      expect(find.text('Cek PC Server & PC Kasir'), findsWidgets);
       expect(find.text('PC Server & PC Kasir Terpisah'), findsOneWidget);
-      expect(find.text('1 PC Server (Wajib 6 foto)'), findsOneWidget);
+      expect(find.text('1 PC Server (6 foto)'), findsOneWidget);
       expect(find.text('Jumlah PC Kasir'), findsOneWidget);
 
       // Default state: Terpisah ON, 1 PC Kasir -> 12 photos
-      expect(find.textContaining('Total Wajib: 12 Foto (1 PC Server + 1 PC Kasir)'), findsOneWidget);
+      expect(find.textContaining('Target: 12 Foto (1 PC Server + 1 PC Kasir)'), findsOneWidget);
       expect(find.textContaining('6 foto PC Server + 6 foto PC Kasir (1 unit × 6 foto)'), findsOneWidget);
 
       // Increment PC Kasir counter
@@ -46,7 +46,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Now 2 PC Kasir -> 18 photos
-      expect(find.textContaining('Total Wajib: 18 Foto (1 PC Server + 2 PC Kasir)'), findsOneWidget);
+      expect(find.textContaining('Target: 18 Foto (1 PC Server + 2 PC Kasir)'), findsOneWidget);
       expect(find.textContaining('6 foto PC Server + 12 foto PC Kasir (2 unit × 6 foto)'), findsOneWidget);
 
       // Toggle Switch to Gabung (OFF)
@@ -57,8 +57,8 @@ void main() {
 
       // Gabung OFF -> 6 photos total
       expect(find.text('OFF: Gabung (1 Komputer)'), findsOneWidget);
-      expect(find.textContaining('Total Wajib: 6 Foto (1 Unit PC Server & Kasir Gabung)'), findsOneWidget);
-      expect(find.textContaining('6 foto SOP PC Server & PC Kasir gabung (1 komputer)'), findsOneWidget);
+      expect(find.textContaining('Target: 6 Foto (1 PC Server & Kasir All-in-One)'), findsOneWidget);
+      expect(find.textContaining('6 foto PC Server & Kasir (1 komputer)'), findsOneWidget);
     });
 
     testWidgets('Tapping Hanya Kasir card hides server options and calculates kasir photos correctly', (tester) async {
@@ -85,14 +85,14 @@ void main() {
 
       // Verify title updates
       expect(find.text('Maintenance: Kasir'), findsWidgets);
-      expect(find.text('Pemeriksaan Unit PC Kasir'), findsWidgets);
+      expect(find.text('Cek PC Kasir'), findsWidgets);
 
       // Server options should be hidden
       expect(find.text('PC Server & PC Kasir Terpisah'), findsNothing);
       expect(find.text('Sistem Operasi Server'), findsNothing);
 
       // Default 1 PC Kasir -> 6 photos
-      expect(find.textContaining('Total Wajib: 6 Foto (1 PC Kasir)'), findsOneWidget);
+      expect(find.textContaining('Target: 6 Foto (1 PC Kasir)'), findsOneWidget);
 
       // Increment to 3 PC Kasir
       final addBtn = find.byIcon(Icons.add_rounded);
@@ -102,8 +102,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // 3 PC Kasir -> 18 photos
-      expect(find.textContaining('Total Wajib: 18 Foto (3 PC Kasir)'), findsOneWidget);
-      expect(find.textContaining('18 foto SOP PC Kasir (3 unit × 6 foto)'), findsOneWidget);
+      expect(find.textContaining('Target: 18 Foto (3 PC Kasir)'), findsOneWidget);
+      expect(find.textContaining('18 foto PC Kasir (3 unit × 6 foto)'), findsOneWidget);
     });
   });
 

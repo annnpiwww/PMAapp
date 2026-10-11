@@ -345,7 +345,7 @@ class _SplashScreenState extends State<SplashScreen>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'Made by ❤️ annnpii',
+                              'PMAapp powered by annnpii',
                               style: TextStyle(
                                 fontFamily: 'PlusJakartaSans',
                                 fontSize: 10.5,

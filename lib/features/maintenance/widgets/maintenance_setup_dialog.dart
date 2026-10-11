@@ -118,28 +118,28 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
       case TemplateCategory.maintManless:
         return 'Pilih Dispenser Manless (In)';
       case TemplateCategory.maintPos:
-        return 'Pilih Pos yang Dikerjakan';
+        return 'Pilih Pos Maintenance';
       case TemplateCategory.maintServer:
         return _isOnlyKasir ? 'Maintenance: Kasir' : 'Maintenance: Server & Kasir';
       default:
-        return 'Pilih Unit yang Dikerjakan';
+        return 'Pilih Unit Maintenance';
     }
   }
 
   String get _unitSubtitle {
     switch (widget.initialTemplate.jenis) {
       case TemplateCategory.maintBarrier:
-        return 'Tentukan nomor gate yang dikerjakan (9 foto poin/gate)';
+        return 'Pilih gate yang dicek (9 foto/gate)';
       case TemplateCategory.maintManless:
-        return 'Tentukan nomor manless yang dikerjakan (8 foto poin/unit)';
+        return 'Pilih manless yang dicek (8 foto/unit)';
       case TemplateCategory.maintPos:
-        return 'Tentukan nomor pos yang dikerjakan (9 foto poin/pos)';
+        return 'Pilih pos yang dicek (9 foto/pos)';
       case TemplateCategory.maintServer:
         return _isOnlyKasir
-            ? 'Pemeriksaan Unit PC Kasir'
-            : 'Pemeriksaan PC Server dan PC Kasir';
+            ? 'Cek PC Kasir'
+            : 'Cek PC Server & PC Kasir';
       default:
-        return 'Tentukan nomor unit yang dikerjakan';
+        return 'Pilih unit yang dicek';
     }
   }
 
@@ -466,7 +466,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                     children: [
                       // Pilihan Ruang Lingkup Maintenance: Server & Kasir vs Hanya Kasir
                       Text(
-                        'Cakupan Pemeriksaan',
+                        'Pilih Perangkat',
                         style: TextStyle(
                           fontFamily: 'PlusJakartaSans',
                           fontSize: 12,
@@ -476,7 +476,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Pilih apakah maintenance mencakup Server atau khusus unit Kasir',
+                        'Pilih cek Server & Kasir atau khusus PC Kasir saja',
                         style: TextStyle(fontSize: 10.5, color: textSub),
                       ),
                       const SizedBox(height: 10),
@@ -688,7 +688,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  '1 PC Server (Wajib 6 foto)',
+                                  '1 PC Server (6 foto)',
                                   style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: textTitle),
                                 ),
                               ),
@@ -1000,10 +1000,10 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                 children: [
                                   Text(
                                     _isOnlyKasir
-                                        ? 'Total Wajib: $_totalPoints Foto ($_kasirCount PC Kasir)'
+                                        ? 'Target: $_totalPoints Foto ($_kasirCount PC Kasir)'
                                         : (_isServerKasirGabung
-                                            ? 'Total Wajib: 6 Foto (1 Unit PC Server & Kasir Gabung)'
-                                            : 'Total Wajib: $_totalPoints Foto (1 PC Server + $_kasirCount PC Kasir)'),
+                                            ? 'Target: 6 Foto (1 PC Server & Kasir All-in-One)'
+                                            : 'Target: $_totalPoints Foto (1 PC Server + $_kasirCount PC Kasir)'),
                                     style: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       fontSize: 11.5,
@@ -1014,9 +1014,9 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                   const SizedBox(height: 2),
                                   Text(
                                     _isOnlyKasir
-                                        ? '$_totalPoints foto SOP PC Kasir ($_kasirCount unit × 6 foto)'
+                                        ? '$_totalPoints foto PC Kasir ($_kasirCount unit × 6 foto)'
                                         : (_isServerKasirGabung
-                                            ? '6 foto SOP PC Server & PC Kasir gabung (1 komputer)'
+                                            ? '6 foto PC Server & Kasir (1 komputer)'
                                             : '6 foto PC Server + ${_kasirCount * 6} foto PC Kasir ($_kasirCount unit × 6 foto)'),
                                     style: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
@@ -1275,8 +1275,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                 children: [
                                   Text(
                                     _startUnit == _endUnit
-                                        ? 'Mengerjakan $_unitNoun $_startUnit saja (Total ${_unitNumbers.length} $_unitNoun)'
-                                        : 'Mengerjakan ${_unitNumbers.length} $_unitNoun: $_unitNoun $_startUnit s/d $_unitNoun $_endUnit',
+                                        ? 'Cek $_unitNoun $_startUnit saja (${_unitNumbers.length} $_unitNoun)'
+                                        : 'Cek ${_unitNumbers.length} $_unitNoun: $_unitNoun $_startUnit s/d $_unitNoun $_endUnit',
                                     style: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       fontSize: 11.5,
@@ -1286,7 +1286,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Wajib diambil: $_totalPoints Foto (${_unitNumbers.length} $_unitNoun × $_pointsPerUnit foto poin)',
+                                    'Target: $_totalPoints Foto (${_unitNumbers.length} $_unitNoun × $_pointsPerUnit foto)',
                                     style: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       fontSize: 10.5,
@@ -1344,7 +1344,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                         ),
                       ),
                       child: const Text(
-                        'Mulai Pemeriksaan',
+                        'Mulai Checklist',
                         style: TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 13),
                       ),

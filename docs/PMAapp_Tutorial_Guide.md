@@ -48,7 +48,7 @@
 - **Status Validasi**: Terverifikasi
 
 ### Footer Halaman
-`PMAapp • Sistem Manajemen Parkir & Time Mark • PMA App ❤️ Made by annnpii • Halaman 01 / 12`
+`PMAapp • Sistem Manajemen Parkir & Time Mark • PMAapp powered by annnpii • Halaman 01 / 12`
 
 ---
 
@@ -81,7 +81,7 @@ Login pakai akun resmi cabang. Aplikasi otomatis mengenali peran akun dan menamp
 > 💡 **Gagal Login**: Kalau muncul "Akun tidak ditemukan", cek lagi penulisan email dan pastikan ponsel terhubung internet. Untuk reset kata sandi, hubungi SPV atau Koordinator IT cabang.
 
 ### Footer Halaman
-`PMAapp • Login & Autentikasi • PMA App ❤️ Made by annnpii • Halaman 02 / 12`
+`PMAapp • Login & Autentikasi • PMAapp powered by annnpii • Halaman 02 / 12`
 
 ---
 
@@ -117,7 +117,7 @@ Kamera adalah fitur utama teknisi. Setiap foto otomatis dicap lokasi dan jam res
 > 💡 **Izin Lokasi & Kamera**: Pastikan izin kamera dan lokasi (GPS) di browser ponsel diatur ke **Izinkan (Allow)**. Jam foto diambil dari server jaringan NTP, jadi tidak terpengaruh jam ponsel.
 
 ### Footer Halaman
-`PMAapp • Kamera & Geotagging Absen • PMA App ❤️ Made by annnpii • Halaman 03 / 12`
+`PMAapp • Kamera & Geotagging Absen • PMAapp powered by annnpii • Halaman 03 / 12`
 
 ---
 
@@ -154,7 +154,7 @@ Form shift memastikan jam kerja tercatat sesuai jadwal resmi cabang BSS Parking:
 > 💡 **Jam Kerja Minimal**: Absen pulang baru bisa diproses setelah jam kerja minimal terpenuhi (8 jam untuk Shift 1, 2, 3; 4 jam untuk Shift 2.2). Telat masuk tercatat otomatis kalau check-in lewat jam mulai shift.
 
 ### Footer Halaman
-`PMAapp • Pengaturan Shift & Status Absen • PMA App ❤️ Made by annnpii • Halaman 04 / 12`
+`PMAapp • Pengaturan Shift & Status Absen • PMAapp powered by annnpii • Halaman 04 / 12`
 
 ---
 
@@ -190,7 +190,7 @@ Tiap kategori hardware punya jumlah foto wajib sendiri. Ketuk kartu untuk mulai 
 > 💡 **Cara Memilih**: Ketuk salah satu kartu di atas untuk membuka form pengaturan unit yang akan diperiksa.
 
 ### Footer Halaman
-`PMAapp • Katalog SOP Hardware • PMA App ❤️ Made by annnpii • Halaman 05 / 12`
+`PMAapp • Katalog SOP Hardware • PMAapp powered by annnpii • Halaman 05 / 12`
 
 ---
 
@@ -223,7 +223,7 @@ Sebelum foto, pilih nomor unit yang dikerjakan. Sistem otomatis menghitung jumla
 > 💡 **Syarat Kirim Laporan**: Laporan SOP tidak bisa dikirim kalau fotonya kurang dari jumlah wajib. Foto harus alat aslinya di lapangan, bukan layar monitor atau objek lain.
 
 ### Footer Halaman
-`PMAapp • Pengaturan Unit & Target Foto SOP • PMA App ❤️ Made by annnpii • Halaman 06 / 12`
+`PMAapp • Pengaturan Unit & Target Foto SOP • PMAapp powered by annnpii • Halaman 06 / 12`
 
 ---
 
@@ -256,7 +256,7 @@ Menu samping berisi semua fitur pendukung teknisi dalam satu panel yang bisa dib
 > 💡 **Panduan PWA iPhone**: Buka alamat aplikasi di Safari, ketuk ikon **Bagikan (Share)**, lalu pilih **Tambahkan ke Layar Utama (Add to Home Screen)**. Aplikasi akan terbuka layar penuh tanpa bilah alamat browser.
 
 ### Footer Halaman
-`PMAapp • Menu Samping & Profil • PMA App ❤️ Made by annnpii • Halaman 07 / 12`
+`PMAapp • Menu Samping & Profil • PMAapp powered by annnpii • Halaman 07 / 12`
 
 ---
 
@@ -289,7 +289,7 @@ Daily Task berisi tugas dari SPV. Tugas yang selesai langsung masuk laporan, tan
 > 💡 **Auto-Sync Absen Pulang**: Teknisi tidak perlu menulis ulang daftar pekerjaan saat jam kerja berakhir. Cukup pastikan semua tugas di Daily Task berstatus selesai sebelum absen pulang.
 
 ### Footer Halaman
-`PMAapp • Daily Task & Sinkronisasi • PMA App ❤️ Made by annnpii • Halaman 08 / 12`
+`PMAapp • Daily Task & Sinkronisasi • PMAapp powered by annnpii • Halaman 08 / 12`
 
 ---
 
@@ -322,7 +322,7 @@ Saat login sebagai SPV (contoh: `farhan@pma.com`), aplikasi menampilkan menu khu
 > 💡 **Beda Peran**: Menu "Penugasan Teknisi [SPV]" hanya muncul di akun SPV. Akun teknisi tidak bisa melihat atau membukanya.
 
 ### Footer Halaman
-`PMAapp • Menu & Hak Akses SPV • PMA App ❤️ Made by annnpii • Halaman 09 / 12`
+`PMAapp • Menu & Hak Akses SPV • PMAapp powered by annnpii • Halaman 09 / 12`
 
 ---
 
@@ -355,7 +355,7 @@ SPV bisa membagi tugas langsung dari ponsel, tanpa chat manual yang rawan terlew
 > 💡 **Kirim Langsung**: Pastikan ponsel terhubung internet saat menekan "Kirim Tugas". Tugas yang terkirim langsung terlihat di Daily Task teknisi tanpa perlu refresh.
 
 ### Footer Halaman
-`PMAapp • Pembagian Tugas Tim • PMA App ❤️ Made by annnpii • Halaman 10 / 12`
+`PMAapp • Pembagian Tugas Tim • PMAapp powered by annnpii • Halaman 10 / 12`
 
 ---
 
@@ -388,7 +388,7 @@ Tab Status Tim menampilkan aktivitas harian semua teknisi cabang:
 > 💡 **Tombol Kontrol Tim**: Ketuk tombol oranye "Kontrol Tim" di pojok kanan atas untuk membuat ringkasan harian tim yang siap disalin ke grup operasional cabang.
 
 ### Footer Halaman
-`PMAapp • Pantau Progres Tim • PMA App ❤️ Made by annnpii • Halaman 11 / 12`
+`PMAapp • Pantau Progres Tim • PMAapp powered by annnpii • Halaman 11 / 12`
 
 ---
 
@@ -428,4 +428,4 @@ Alur kerja yang wajib dijalankan semua petugas di setiap cabang BSS Parking:
 - **Bantuan Akun**: Hubungi Koordinator IT cabang atau SPV kalau butuh verifikasi akun.
 
 ### Footer Halaman
-`PMAapp • Panduan Operasional Lapangan • v2.4 • PMA App ❤️ Made by annnpii • Halaman 12 / 12`
+`PMAapp • Panduan Operasional Lapangan • v2.4 • PMAapp powered by annnpii • Halaman 12 / 12`

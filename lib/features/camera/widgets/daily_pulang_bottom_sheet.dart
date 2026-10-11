@@ -286,7 +286,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Laporan Kerja Harian',
+                          'Handover & Laporan Pulang',
                           style: TextStyle(
                             fontSize: 16.5,
                             fontWeight: FontWeight.w800,
@@ -296,7 +296,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Ringkasan pekerjaan sebelum absen pulang',
+                          'Ringkasan tugas & serah terima shift',
                           style: TextStyle(
                             fontSize: 11.5,
                             color: textSub,
@@ -725,7 +725,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                       Icon(Icons.check_circle_rounded, size: 20),
                       SizedBox(width: 8),
                       Text(
-                        'Simpan Laporan Harian',
+                        'Simpan & Lanjut Foto Pulang',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,

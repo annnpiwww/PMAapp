@@ -142,10 +142,10 @@ void main() {
   });
 
   group('GoogleSheetsService Auth & Secret Token Hardening', () {
-    test('Default secret token matches BSS_TIMEMARK_SECURE_TOKEN_2026', () async {
-      expect(GoogleSheetsService.defaultSecretToken, equals('BSS_TIMEMARK_SECURE_TOKEN_2026'));
+    test('Default secret token matches empty when not injected via dart-define', () async {
+      expect(GoogleSheetsService.defaultSecretToken, equals(''));
       final token = await GoogleSheetsService.getSecretToken();
-      expect(token, equals('BSS_TIMEMARK_SECURE_TOKEN_2026'));
+      expect(token, equals(''));
     });
 
     test('Custom secret token can be saved and retrieved', () async {

@@ -111,13 +111,11 @@ class AiVisionConfig {
   final double temperature;
 
   /// API key di-inject saat build via --dart-define=BSS_AI_API_KEY=...
-  /// Tidak ada secret hardcoded di source. Key runtime tersimpan di
-  /// SharedPreferences (diisi via Settings atau bawaan hasil build).
-  /// Untuk dev/test lokal: flutter run --dart-define=BSS_AI_API_KEY=...
-  /// API key default Google AI Studio (GAI) Free Tier
+  /// Key runtime tersimpan di SharedPreferences (diisi via Settings atau bawaan hasil build).
+  /// Untuk dev/test lokal: flutter run --dart-define=BSS_AI_API_KEY=sk-your-key
+  /// TIDAK ADA hardcoded key di source — wajib inject saat build.
   static const String defaultApiKey = String.fromEnvironment(
     'BSS_AI_API_KEY',
-    defaultValue: 'AQ.Ab8RN6' 'JWug2Q5a' 'OIfvgpmlD' '-sgTgeDF2' 'lbqJI1p-q' '5tXiFbWVw',
   );
   static const String defaultCustomUrl =
       'https://generativelanguage.googleapis.com/v1beta/openai';

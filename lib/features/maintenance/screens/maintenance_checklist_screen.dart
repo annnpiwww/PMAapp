@@ -1,19 +1,18 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
-import '../../../core/widgets/app_file_image.dart';
 import '../../../data/models/template_model.dart';
 import '../../../data/models/maintenance_submission.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/google_sheets_service.dart';
 import '../../../data/repositories/auth_repository.dart';
-import '../../../data/services/whatsapp_report_service.dart';
 import '../../../data/services/daily_task_service.dart';
 import '../widgets/photo_preview_dialog.dart';
+import '../widgets/maintenance_point_card.dart';
+import '../widgets/maintenance_share_report_card.dart';
 import 'point_camera_view.dart';
 import 'maintenance_history_screen.dart';
 
@@ -1399,8 +1398,8 @@ class _MaintenanceChecklistScreenState
                           unitNoun = 'Unit';
                         }
                         final String unitDesc = _effectiveUnits.length == 1
-                            ? '$unitNoun ${_effectiveUnits.first} diperiksa'
-                            : '${_effectiveUnits.length} $unitNoun ($unitNoun ${_effectiveUnits.first} - $unitNoun ${_effectiveUnits.last}) diperiksa';
+                            ? '$unitNoun ${_effectiveUnits.first} dicek'
+                            : '${_effectiveUnits.length} $unitNoun ($unitNoun ${_effectiveUnits.first} - $unitNoun ${_effectiveUnits.last}) dicek';
                         return Text(
                           '$unitDesc • $done/$total foto selesai (${(progress * 100).toInt()}%)',
                           style: TextStyle(
@@ -1446,9 +1445,9 @@ class _MaintenanceChecklistScreenState
               scrollDirection: Axis.horizontal,
               children: [
                 _buildFilterStatusChip('ALL', 'Semua', total, AppColors.primary),
-                _buildFilterStatusChip('BELUM', 'Belum Difoto', belumCount, const Color(0xFF64748B)),
+                _buildFilterStatusChip('BELUM', 'Belum Foto', belumCount, const Color(0xFF64748B)),
                 _buildFilterStatusChip('SESUAI', 'Sesuai', sesuaiCount, AppColors.success),
-                _buildFilterStatusChip('CEK', 'Perlu Dicek', perluCekCount, AppColors.warning),
+                _buildFilterStatusChip('CEK', 'Perlu Cek', perluCekCount, AppColors.warning),
               ],
             ),
           ),
@@ -1555,230 +1554,26 @@ class _MaintenanceChecklistScreenState
                   ),
                 );
 
-                final isDone = result.status != PointStatus.belumFoto;
-                IconData icon;
-                Color col;
-                switch (result.status) {
-                  case PointStatus.sesuai:
-                    icon = Icons.check_circle_rounded;
-                    col = AppColors.success;
-                    break;
-                  case PointStatus.tidakSesuai:
-                    icon = Icons.cancel_rounded;
-                    col = AppColors.danger;
-                    break;
-                  case PointStatus.perluCekManual:
-                    icon = Icons.help_rounded;
-                    col = AppColors.warning;
-                    break;
-                  default:
-                    icon = Icons.radio_button_unchecked_rounded;
-                    col = AppColors.textMuted;
-                }
-
-                // Tampilan Kartu: Redup jika sudah selesai difoto
-                final cardItemBg = isDark
-                    ? (isDone ? const Color(0xFF162032) : const Color(0xFF1E293B))
-                    : (isDone ? const Color(0xFFFBFBFB) : Colors.white);
-
-                return Opacity(
-                  opacity: isDone ? 0.82 : 1.0,
-                  child: Card(
-                    elevation: 0,
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4.5),
-                    color: cardItemBg,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(
-                        color: isDone
-                            ? col.withValues(alpha: 0.4)
-                            : cardBorder,
-                        width: isDone ? 1.2 : 1.0,
-                      ),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      leading: (isDone && result.imagePath != null && File(result.imagePath!).existsSync())
-                          ? GestureDetector(
-                              onTap: () {
-                                HapticFeedback.lightImpact();
-                                PhotoPreviewDialog.show(
-                                  context,
-                                  imagePath: result.imagePath!,
-                                  title: result.label,
-                                  pointResult: result,
-                                );
-                              },
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: AppFileImage(
-                                      path: result.imagePath!,
-                                      width: 44,
-                                      height: 44,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) => Container(
-                                        width: 44,
-                                        height: 44,
-                                        decoration: BoxDecoration(
-                                          color: col.withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Icon(icon, color: col, size: 24),
-                                      ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    right: -3,
-                                    bottom: -3,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: BoxDecoration(
-                                        color: col,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.white, width: 1.5),
-                                      ),
-                                      child: Icon(icon, color: Colors.white, size: 10),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: isDone ? col.withValues(alpha: 0.12) : AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.08),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                isDone ? icon : Icons.camera_alt_rounded,
-                                color: isDone ? col : AppColors.primary,
-                                size: 22,
-                              ),
-                            ),
-                      title: Text(
-                        result.label,
-                        style: TextStyle(fontFamily: 'PlusJakartaSans', 
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isDone
-                              ? textSub
-                              : textTitle,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (result.alasan.isNotEmpty) ...[
-                            Text(
-                              result.alasan,
-                              style: TextStyle(
-                                  fontSize: 10,
-                                  color: textSub),
-                            ),
-                          ],
-                          if (result.kendalaFisik != null && result.kendalaFisik!.isNotEmpty) ...[
-                            const SizedBox(height: 3),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.handyman_rounded, size: 10, color: Colors.orange),
-                                  const SizedBox(width: 4),
-                                  Flexible(
-                                    child: Text(
-                                      'Kendala: ${result.kendalaFisik}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.orange,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                    color: col.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(6)),
-                                child: Text(
-                                  result.status.label,
-                                  style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w700,
-                                      color: col),
-                                ),
-                              ),
-                              if (isDone) ...[
-                                const SizedBox(width: 6),
-                                const Text(
-                                  '• Terverifikasi AI',
-                                  style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textMuted),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (isDone && result.imagePath != null)
-                            IconButton(
-                              icon: const Icon(Icons.zoom_in_rounded, size: 22, color: Colors.blueAccent),
-                              tooltip: 'Periksa & Zoom Foto',
-                              onPressed: () {
-                                PhotoPreviewDialog.show(
-                                  context,
-                                  imagePath: result.imagePath!,
-                                  title: result.label,
-                                  pointResult: result,
-                                );
-                              },
-                            ),
-                          IconButton(
-                            icon: Icon(
-                              isDone ? Icons.refresh_rounded : Icons.camera_alt_rounded,
-                              color: isDone ? AppColors.textSecondary : AppColors.primary,
-                              size: 20,
-                            ),
-                            tooltip: isDone ? 'Foto Ulang' : 'Buka Kamera',
-                            onPressed: () => _openCameraForPoint(point),
-                          ),
-                        ],
-                      ),
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        if (!isDone) {
-                          _openCameraForPoint(point);
-                        } else {
-                          _showPointAction(point, result);
-                        }
-                      },
-                    ),
-                  ),
+                return MaintenancePointCard(
+                  result: result,
+                  point: point,
+                  isDark: isDark,
+                  onRetakePhoto: () => _openCameraForPoint(point),
+                  onPreviewPhoto: () {
+                    PhotoPreviewDialog.show(
+                      context,
+                      imagePath: result.imagePath!,
+                      title: result.label,
+                      pointResult: result,
+                    );
+                  },
+                  onTapCard: () {
+                    if (result.status == PointStatus.belumFoto) {
+                      _openCameraForPoint(point);
+                    } else {
+                      _showPointAction(point, result);
+                    }
+                  },
                 );
               },
             ),
@@ -1791,169 +1586,12 @@ class _MaintenanceChecklistScreenState
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Card Bagikan Laporan: Hanya muncul jika seluruh checkpoint foto telah lengkap
-                if (_submission.isComplete)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.cardBorder),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Icon(Icons.share_rounded, color: AppColors.primary, size: 14),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Bagikan Laporan (${_submission.doneCount} Foto Selesai)',
-                              style: const TextStyle(
-                                fontFamily: 'PlusJakartaSans', 
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppColors.success.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                '${_submission.doneCount}/${_submission.totalPoints} Foto Lengkap',
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.success),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () async {
-                                  final rangeNote = _effectiveUnits.length > 1
-                                      ? 'Pos ${_effectiveUnits.first} - Pos ${_effectiveUnits.last}'
-                                      : 'Pos ${_effectiveUnits.first}';
-                                  await _save();
-                                  // Proses 1: Sinkronisasi otomatis ke Google Sheet SPV di background
-                                  unawaited(GoogleSheetsService.syncMaintenanceToGoogleSheet(
-                                    submission: _submission,
-                                    category: widget.template.jenis,
-                                    unitCount: _effectiveUnits.length,
-                                  ));
-                                  // Proses 2: Kirim laporan teks & foto ke WhatsApp
-                                  await WhatsAppReportService.shareToWhatsApp(
-                                    submission: _submission,
-                                    category: widget.template.jenis,
-                                    unitCount: _effectiveUnits.length,
-                                    gateOutNotes: widget.template.jenis == TemplateCategory.maintPos ? rangeNote : null,
-                                  );
-                                  if (context.mounted) {
-                                    final fotoCount = _submission.points.where((p) => p.imagePath != null && p.imagePath!.isNotEmpty).length;
-                                    final msg = fotoCount > 1
-                                        ? '✓ $fotoCount foto dibuka di WhatsApp. Teks laporan telah disalin ke clipboard, silakan paste di chat!'
-                                        : '✓ Laporan dibuka di WhatsApp & disinkronkan ke Google Sheet SPV!';
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(msg),
-                                        backgroundColor: AppColors.success,
-                                        behavior: SnackBarBehavior.floating,
-                                        duration: const Duration(seconds: 4),
-                                      ),
-                                    );
-                                  }
-                                },
-                                icon: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 16),
-                                label: Text(
-                                  'WhatsApp',
-                                  style: TextStyle(fontFamily: 'PlusJakartaSans', 
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 11.5,
-                                    color: const Color(0xFF15803D),
-                                  ),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFDCFCE7),
-                                  side: const BorderSide(color: Color(0xFF86EFAC), width: 1.2),
-                                  padding: const EdgeInsets.symmetric(vertical: 11),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () async {
-                                  final rangeNote = _effectiveUnits.length > 1
-                                      ? 'Pos ${_effectiveUnits.first} - Pos ${_effectiveUnits.last}'
-                                      : 'Pos ${_effectiveUnits.first}';
-                                  await _save();
-                                  await WhatsAppReportService.shareToTelegram(
-                                    submission: _submission,
-                                    category: widget.template.jenis,
-                                    unitCount: _effectiveUnits.length,
-                                    gateOutNotes: widget.template.jenis == TemplateCategory.maintPos ? rangeNote : null,
-                                  );
-                                  if (context.mounted) {
-                                    final fotoCount = _submission.points.where((p) => p.imagePath != null && p.imagePath!.isNotEmpty).length;
-                                    final msg = fotoCount > 1
-                                        ? '✓ $fotoCount foto dibuka di Telegram. Teks laporan telah disalin ke clipboard, silakan paste di chat!'
-                                        : '✓ Laporan dibuka di Telegram!';
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(msg),
-                                        backgroundColor: AppColors.success,
-                                        behavior: SnackBarBehavior.floating,
-                                        duration: const Duration(seconds: 4),
-                                      ),
-                                    );
-                                  }
-                                },
-                                icon: const Icon(Icons.send_rounded, color: Color(0xFF0088CC), size: 16),
-                                label: Text(
-                                  'Telegram',
-                                  style: TextStyle(fontFamily: 'PlusJakartaSans', 
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 11.5,
-                                    color: const Color(0xFF0E6BA8),
-                                  ),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFE0F2FE),
-                                  side: const BorderSide(color: Color(0xFF7DD3FC), width: 1.2),
-                                  padding: const EdgeInsets.symmetric(vertical: 11),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                MaintenanceShareReportCard(
+                  submission: _submission,
+                  category: widget.template.jenis,
+                  effectiveUnits: _effectiveUnits,
+                  onSave: _save,
+                ),
 
                 // Tombol Simpan Laporan
                 SizedBox(

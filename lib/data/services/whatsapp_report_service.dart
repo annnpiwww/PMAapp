@@ -263,6 +263,10 @@ class WhatsAppReportService {
     text = text.replaceAll(RegExp(r'\bsemrawut\b', caseSensitive: false), 'kurang rapi');
     text = text.replaceAll(RegExp(r'beton pulau gate', caseSensitive: false), 'lantai pulau gate');
 
+    // Potong basa-basi pujian palsu pada kalimat merah/warning ("terpasang kokoh, namun area...")
+    text = text.replaceAll(RegExp(r'^[^\.,;]+(terpasang dengan kokoh|terpasang kokoh|berfungsi baik|kondisi baik)[,\s]+(namun|tetapi)\s+', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'^[^\.,;]+,\s*namun\s+', caseSensitive: false), '');
+
     // Hindari redundansi umum
     text = text.replaceAll(RegExp(r'semrawut dan tidak terorganisir.*', caseSensitive: false), 'kurang rapi dan perlu penataan kabel');
     text = text.replaceAll(RegExp(r'semrawut dan tidak tertata rapi.*', caseSensitive: false), 'kurang rapi dan perlu penataan kabel');
@@ -659,8 +663,8 @@ class WhatsAppReportService {
     if (l.contains('sensor loop') || l.contains('led detect')) {
       return 'sensor loop aktif mendeteksi kendaraan (LED Detect aktif)';
     }
-    if (l.contains('jalur kabel') || l.contains('coran aspal')) {
-      return 'jalur kabel sensor tertutup coran rata rapi';
+    if (l.contains('jalur kabel') || l.contains('coran aspal') || l.contains('paving')) {
+      return 'jalur kabel sensor tertanam rapi di bawah aspal/paving';
     }
     if (l.contains('stiker receiver') || l.contains('stiker barrier') || (l.contains('stiker') && !l.contains('bss') && !l.contains('parkways') && !l.contains('manless'))) {
       return 'stiker receiver kuning utuh rapi bebas retak/buram';
@@ -680,7 +684,7 @@ class WhatsAppReportService {
       return 'jalur kabel rapi terikat & stopkontak aman';
     }
     if (l.contains('standarisasi item') || l.contains('meja pos') || l.contains('kelengkapan meja')) {
-      return 'meja pos bersih & kelengkapan tertata rapi';
+      return 'item dalam pos lengkap (monitor, keyboard, scanner, printer & kipas angin)';
     }
     if (l.contains('aplikasi kasir') || l.contains('fungsi sistem') || l.contains('layar kasir')) {
       return 'aplikasi kasir online siap melayani';

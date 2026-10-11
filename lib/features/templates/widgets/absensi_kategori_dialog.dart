@@ -563,7 +563,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                         Expanded(
                           child: _buildAttendanceTypeCard(
                             label: 'Masuk',
-                            sublabel: 'Mulai Bertugas',
+                            sublabel: 'Mulai Kerja',
                             icon: Icons.login_rounded,
                             isSelected: _tipeLaporan == 'Masuk',
                             activeColor: AppColors.success,
@@ -1139,7 +1139,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
               Icon(Icons.handshake_outlined, size: 16, color: isDark ? const Color(0xFFF59E0B) : const Color(0xFFB45309)),
               const SizedBox(width: 6),
               Text(
-                'Laporan Kepulangan & Handover Pos',
+                'Handover & Laporan Pulang',
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
@@ -1175,7 +1175,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Ada IT Support Shift Selanjutnya?',
+                      'Ada Rekan Shift Berikutnya?',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textTitle),
                     ),
                     Switch(
@@ -1195,7 +1195,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                   const Divider(height: 8),
                   const SizedBox(height: 4),
                   Text(
-                    'Pilih atau Ketik Nama Petugas Pengganti:',
+                    'Pilih / Ketik Nama Rekan Pengganti:',
                     style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
                   ),
                   const SizedBox(height: 4),
@@ -1204,7 +1204,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: 'Nama rekan kerja pengganti shift',
+                      hintText: 'Nama rekan shift berikutnya',
                       prefixIcon: const Icon(Icons.person_outline, size: 16, color: Color(0xFFD97706)),
                       filled: true,
                       fillColor: inputBg,
@@ -1294,7 +1294,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                   style: TextStyle(fontSize: 11.5, height: 1.3, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                   decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Tulis ringkasan tugas selesai...\nTekan enter untuk nomor baru otomatis (1. 2. 3.)',
+                    hintText: 'Tulis ringkasan tugas selesai...\nTekan enter untuk penomoran otomatis (1. 2. 3.)',
                     hintStyle: TextStyle(fontSize: 10.5, color: isDark ? const Color(0xFF64748B) : AppColors.textMuted),
                     filled: true,
                     fillColor: inputBg,
@@ -1329,7 +1329,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Semua Pekerjaan Tuntas?',
+                      'Semua Tugas Beres?',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textTitle),
                     ),
                     Switch(
@@ -1356,7 +1356,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                       Icon(Icons.pending_actions_outlined, size: 14, color: AppColors.danger),
                       SizedBox(width: 4),
                       Text(
-                        'Pekerjaan Belum Selesai (Pending/PR):',
+                        'Pekerjaan Pending / PR:',
                         style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.danger),
                       ),
                     ],
@@ -1368,7 +1368,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                     style: TextStyle(fontSize: 11.5, height: 1.3, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: 'Tulis tugas tertunda untuk diserahterimakan...',
+                      hintText: 'Tulis tugas pending untuk rekan berikutnya...',
                       hintStyle: TextStyle(fontSize: 10.5, color: isDark ? const Color(0xFF64748B) : AppColors.textMuted),
                       filled: true,
                       fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFFFF1F2),

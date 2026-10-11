@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/maintenance_submission.dart';
 import '../models/template_model.dart';
+import '../../core/services/logger_service.dart';
 import 'whatsapp_report_service.dart';
 import 'secure_time_service.dart';
 
@@ -14,18 +15,21 @@ class GoogleSheetsService {
   static const String _kPendingQueue = 'bss_pending_gsheet_queue_v1';
   static const String _kSecretToken = 'bss_google_sheets_secret_token_v1';
 
-  /// Target Spreadsheet Resmi BSS Maintenance:
-  /// https://docs.google.com/spreadsheets/d/1b-ifRsQzt1yfyoBxgx5fV3pveYkXAHyt3LwW4xS7eqg/edit?hl=id&gid=0#gid=0
-  static const String defaultSpreadsheetUrl =
-      'https://docs.google.com/spreadsheets/d/1b-ifRsQzt1yfyoBxgx5fV3pveYkXAHyt3LwW4xS7eqg/edit?hl=id&gid=0#gid=0';
+  /// Wajib inject via --dart-define=BSS_GSHEET_SPREADSHEET_URL=...
+  /// TIDAK ADA URL hardcoded di source — mencegah endpoint leak via APK reverse-engineering.
+  static const String defaultSpreadsheetUrl = String.fromEnvironment(
+    'BSS_GSHEET_SPREADSHEET_URL',
+  );
 
-  static const String defaultAppsScriptUrl =
-      'https://script.google.com/macros/s/AKfycbwtVVR3uDpylNyEDvXsgnMI-lQ9R6D9I8xyIphhtC_T5ZAXlbD9_xJBIkDX143OPO4Z-Q/exec';
+  /// Wajib inject via --dart-define=BSS_GSHEET_SCRIPT_URL=...
+  static const String defaultAppsScriptUrl = String.fromEnvironment(
+    'BSS_GSHEET_SCRIPT_URL',
+  );
 
-  /// Default secret auth token untuk mencegah unauthorized submission ke Webhook Google Apps Script
+  /// Wajib inject via --dart-define=BSS_GSHEET_TOKEN=...
+  /// Token auth untuk mencegah unauthorized submission ke Webhook Google Apps Script.
   static const String defaultSecretToken = String.fromEnvironment(
     'BSS_GSHEET_TOKEN',
-    defaultValue: 'BSS_TIMEMARK_SECURE_TOKEN_2026',
   );
 
   static Future<String> getSecretToken() async {
@@ -198,7 +202,9 @@ class GoogleSheetsService {
           'timeWarning': timeWarning,
           'timestamp': DateTime.now().toIso8601String(),
         });
-      } catch (_) {}
+      } catch (e, stack) {
+        LoggerService.error('Failed to sync or enqueue maintenance to Google Sheets', tag: 'GoogleSheetsService', error: e, stackTrace: stack);
+      }
       return false;
     }
   }
@@ -260,9 +266,10 @@ class GoogleSheetsService {
       }
 
       await prefs.setStringList(_kPendingQueue, remaining);
-      debugPrint('[GoogleSheets] Antrean offline terkirim: $flushedCount, tersisa: ${remaining.length}');
+      LoggerService.info('Antrean offline terkirim: $flushedCount, tersisa: ${remaining.length}', tag: 'GoogleSheetsService');
       return flushedCount;
-    } catch (_) {
+    } catch (e, stack) {
+      LoggerService.error('Error during flushPendingQueue', tag: 'GoogleSheetsService', error: e, stackTrace: stack);
       return 0;
     }
   }

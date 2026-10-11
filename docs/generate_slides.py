@@ -437,7 +437,7 @@ html_content = f"""<!DOCTYPE html>
     color: #FFFFFF;
   }}
 
-  .footer-love {{
+  .footer-powered {{
     font-weight: 700;
     color: #FF6500;
   }}
@@ -698,7 +698,7 @@ html_content = f"""<!DOCTYPE html>
       <span>•</span>
       <span>Sistem Manajemen Parkir & Time Mark</span>
       <span>•</span>
-      <span class="footer-love">PMA App ❤️ Made by annnpii</span>
+      <span class="footer-powered">PMAapp powered by annnpii</span>
     </div>
     <span class="slide-num">Halaman 01 / 12</span>
   </div>
@@ -789,7 +789,7 @@ html_content = f"""<!DOCTYPE html>
       <span>•</span>
       <span>Login & Autentikasi</span>
       <span>•</span>
-      <span class="footer-love">PMA App ❤️ Made by annnpii</span>
+      <span class="footer-powered">PMAapp powered by annnpii</span>
     </div>
     <span class="slide-num">Halaman 02 / 12</span>
   </div>
@@ -890,7 +890,7 @@ html_content = f"""<!DOCTYPE html>
       <span>•</span>
       <span>Kamera & Geotagging Absen</span>
       <span>•</span>
-      <span class="footer-love">PMA App ❤️ Made by annnpii</span>
+      <span class="footer-powered">PMAapp powered by annnpii</span>
     </div>
     <span class="slide-num">Halaman 03 / 12</span>
   </div>
@@ -987,7 +987,7 @@ html_content = f"""<!DOCTYPE html>
       <span>•</span>
       <span>Pengaturan Shift & Status Absen</span>
       <span>•</span>
-      <span class="footer-love">PMA App ❤️ Made by annnpii</span>
+      <span class="footer-powered">PMAapp powered by annnpii</span>
     </div>
     <span class="slide-num">Halaman 04 / 12</span>
   </div>
@@ -1088,7 +1088,7 @@ html_content = f"""<!DOCTYPE html>
       <span>•</span>
       <span>Katalog SOP Hardware</span>
       <span>•</span>
-      <span class="footer-love">PMA App ❤️ Made by annnpii</span>
+      <span class="footer-powered">PMAapp powered by annnpii</span>
     </div>
     <span class="slide-num">Halaman 05 / 12</span>
   </div>
@@ -1179,7 +1179,7 @@ html_content = f"""<!DOCTYPE html>
       <span>•</span>
       <span>Pengaturan Unit & Target Foto SOP</span>
       <span>•</span>
-      <span class="footer-love">PMA App ❤️ Made by annnpii</span>
+      <span class="footer-powered">PMAapp powered by annnpii</span>
     </div>
     <span class="slide-num">Halaman 06 / 12</span>
   </div>
@@ -1270,7 +1270,7 @@ html_content = f"""<!DOCTYPE html>
       <span>•</span>
       <span>Menu Samping & Profil</span>
       <span>•</span>
-      <span class="footer-love">PMA App ❤️ Made by annnpii</span>
+      <span class="footer-powered">PMAapp powered by annnpii</span>
     </div>
     <span class="slide-num">Halaman 07 / 12</span>
   </div>
@@ -1361,7 +1361,7 @@ html_content = f"""<!DOCTYPE html>
       <span>•</span>
       <span>Daily Task & Sinkronisasi</span>
       <span>•</span>
-      <span class="footer-love">PMA App ❤️ Made by annnpii</span>
+      <span class="footer-powered">PMAapp powered by annnpii</span>
     </div>
     <span class="slide-num">Halaman 08 / 12</span>
   </div>
@@ -1452,7 +1452,7 @@ html_content = f"""<!DOCTYPE html>
       <span>•</span>
       <span>Menu & Hak Akses SPV</span>
       <span>•</span>
-      <span class="footer-love">PMA App ❤️ Made by annnpii</span>
+      <span class="footer-powered">PMAapp powered by annnpii</span>
     </div>
     <span class="slide-num">Halaman 09 / 12</span>
   </div>
@@ -1543,7 +1543,7 @@ html_content = f"""<!DOCTYPE html>
       <span>•</span>
       <span>Pembagian Tugas Tim</span>
       <span>•</span>
-      <span class="footer-love">PMA App ❤️ Made by annnpii</span>
+      <span class="footer-powered">PMAapp powered by annnpii</span>
     </div>
     <span class="slide-num">Halaman 10 / 12</span>
   </div>
@@ -1634,7 +1634,7 @@ html_content = f"""<!DOCTYPE html>
       <span>•</span>
       <span>Pantau Progres Tim</span>
       <span>•</span>
-      <span class="footer-love">PMA App ❤️ Made by annnpii</span>
+      <span class="footer-powered">PMAapp powered by annnpii</span>
     </div>
     <span class="slide-num">Halaman 11 / 12</span>
   </div>
@@ -1740,7 +1740,7 @@ html_content = f"""<!DOCTYPE html>
       <span>•</span>
       <span>Panduan Operasional Lapangan • v2.4</span>
       <span>•</span>
-      <span class="footer-love">PMA App ❤️ Made by annnpii</span>
+      <span class="footer-powered">PMAapp powered by annnpii</span>
     </div>
     <span class="slide-num">Halaman 12 / 12</span>
   </div>

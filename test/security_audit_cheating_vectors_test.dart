@@ -57,14 +57,13 @@ void main() {
       expect(result.providerName, equals('On-Device Mock Engine'));
     });
 
-    // 2. UJI CELAH 2: GOOGLE AI STUDIO CREDENTIALS
-    test('CELAH 2: Kredensial Default Terintegrasi Google AI Studio', () {
-      // Periksa default secret token di GoogleSheetsService
-      expect(GoogleSheetsService.defaultSecretToken, equals('BSS_TIMEMARK_SECURE_TOKEN_2026'));
+    // 2. UJI CELAH 2: GOOGLE AI STUDIO & GSHEET CREDENTIALS (PATCHED & HARDENED)
+    test('CELAH 2 [MITIGATED]: Kredensial Default Tidak Boleh Hardcoded di Source/Binary', () {
+      // Periksa default secret token di GoogleSheetsService harus kosong jika tanpa --dart-define
+      expect(GoogleSheetsService.defaultSecretToken, isEmpty);
 
-      // API Key AiVisionConfig terisi default Google AI Studio token
-      expect(AiVisionConfig.defaultApiKey, isNotEmpty);
-      expect(AiVisionConfig.defaultApiKey, startsWith('AQ.Ab8'));
+      // API Key AiVisionConfig tidak boleh hardcoded di source (wajib inject saat build)
+      expect(AiVisionConfig.defaultApiKey, isEmpty);
     });
 
     // 3. UJI CELAH 3: COLD-START CLOCK TAMPERING SAAT OFFLINE

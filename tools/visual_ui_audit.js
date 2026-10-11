@@ -218,10 +218,10 @@ function renderHandoverPulangModal() {
 <body>
 <div class="modal-sheet">
   <div class="drag-handle"></div>
-  <div class="modal-title">📋 Laporan Pekerjaan Shift Pulang</div>
-  <div class="modal-subtitle">Ringkasan operasional sebelum absensi pulang tercatat</div>
+  <div class="modal-title">📋 Handover & Laporan Pulang</div>
+  <div class="modal-subtitle">Ringkasan tugas & serah terima shift</div>
 
-  <div class="section-label">✅ Pekerjaan yang Telah Selesai</div>
+  <div class="section-label">✅ Pekerjaan Selesai Hari Ini</div>
   <div class="card-input">
     <textarea class="card-textarea" readonly>1. Pembersihan sensor barrier gate pos 1 dan 2
 2. Refill thermal paper tiket dispenser manless
@@ -229,7 +229,7 @@ function renderHandoverPulangModal() {
   </div>
 
   <div class="toggle-row">
-    <span class="toggle-text">⚠️ Ada Pekerjaan Belum Selesai (Pending)?</span>
+    <span class="toggle-text">⚠️ Ada Pekerjaan Pending / Belum Selesai?</span>
     <div class="switch-mock"><div class="switch-knob"></div></div>
   </div>
 

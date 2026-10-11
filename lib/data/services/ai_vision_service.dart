@@ -130,8 +130,22 @@ class SopCriteriaHelper {
       return 'Sikap tubuh tidak tegak / posisi tidak siap';
     } else if (lower.contains('kebersihan') || lower.contains('pos') || lower.contains('booth') || lower.contains('meja pos')) {
       return 'Area meja pos kotor atau ada tumpukan barang pribadi';
+    } else if (lower.contains('kabel') || lower.contains('cable')) {
+      return 'Kabel kurang rapi dan belum tertata dengan baik';
+    } else if (lower.contains('debu') || lower.contains('kotor')) {
+      return 'Perangkat tampak kotor atau berdebu';
+    } else if (lower.contains('karat') || lower.contains('korosi')) {
+      return 'Terdapat karat atau korosi pada perangkat';
+    } else if (lower.contains('stiker')) {
+      return 'Stiker tampak kusam, terkelupas, atau rusak';
+    } else if (lower.contains('printer')) {
+      return 'Printer kotor atau cetakan struk tidak jelas';
+    } else if (lower.contains('palang')) {
+      return 'Posisi palang tidak lurus atau mekanikal bermasalah';
+    } else if (lower.contains('dudukan') || lower.contains('dynabolt') || lower.contains('dinabolt')) {
+      return 'Dudukan tidak kokoh atau baut pengikat kendor';
     }
-    return 'Tidak memenuhi kriteria: $criterion';
+    return 'Kondisi belum sesuai standar SOP: $criterion';
   }
 
   static String toPositiveStatement(String criterion) {
@@ -141,6 +155,51 @@ class SopCriteriaHelper {
 
 class AiVisionService {
   static AiVisionConfig? _cachedConfig;
+
+  static String cleanTechnicianReason(String raw) {
+    var text = raw.trim();
+    if (text.isEmpty) return 'Evaluasi selesai';
+    text = text.replaceAll(RegExp(r'[\r\n]+'), ' ').trim();
+
+    // Normalisasi kata formal/kaku khas AI ke Natural Technician Language
+    text = text.replaceAll(RegExp(r'berdasarkan hasil observasi[,:\s]*', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'ditemukan adanya ketidaksesuaian\s*(pada)?', caseSensitive: false), 'terdapat temuan');
+    text = text.replaceAll(RegExp(r'tidak terorganisir dengan rapi', caseSensitive: false), 'tidak tertata rapi');
+    text = text.replaceAll(RegExp(r'degradasi fisik', caseSensitive: false), 'kerusakan fisik');
+    text = text.replaceAll(RegExp(r'mengalami deteriorasi', caseSensitive: false), 'mulai rusak');
+    text = text.replaceAll(RegExp(r'parameter tidak terpenuhi', caseSensitive: false), 'tidak sesuai');
+    text = text.replaceAll(RegExp(r'kondisi secara keseluruhan', caseSensitive: false), 'kondisi');
+    text = text.replaceAll(RegExp(r'secara signifikan\s*', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'dalam kondisi optimal', caseSensitive: false), 'kondisi baik dan normal');
+    text = text.replaceAll(RegExp(r'memiliki integritas struktural', caseSensitive: false), 'terpasang dengan kokoh');
+    text = text.replaceAll(RegExp(r'permukaan mengalami degradasi', caseSensitive: false), 'permukaan mulai rusak');
+    text = text.replaceAll(RegExp(r'sesuai standar operasional', caseSensitive: false), 'berfungsi normal');
+    text = text.replaceAll(RegExp(r'\bsemrawut\b', caseSensitive: false), 'kurang rapi');
+    text = text.replaceAll(RegExp(r'beton pulau gate', caseSensitive: false), 'lantai pulau gate');
+
+    // Sanitasi prefix klise
+    text = text.replaceAll(
+      RegExp(
+        r'^(kondisi\s+|foto hanya menampilkan\s+|foto tidak menampilkan\s+)',
+        caseSensitive: false,
+      ),
+      '',
+    );
+
+    // Ambil kalimat ringkas & potong jika terlalu panjang
+    if (text.length > 130) {
+      final sentences = text.split(RegExp(r'[.!]\s+'));
+      if (sentences.isNotEmpty && sentences.first.length >= 15) {
+        text = sentences.first.trim();
+      }
+      if (text.length > 130) {
+        text = '${text.substring(0, 127).trim()}...';
+      }
+    }
+
+    text = text.replaceAll(RegExp(r'\.$'), '').trim();
+    return text.isNotEmpty ? text : 'Kondisi telah diverifikasi';
+  }
 
   static void clearConfigCache() {
     _cachedConfig = null;
@@ -361,13 +420,22 @@ class AiVisionService {
         providerName: 'Google Gemini (${config.effectiveModelName})',
       );
     }
-    // Untuk per-point, kirim label point sebagai kriteria tunggal + konteks template
-    final pointCriteria = [point.label];
+    // Untuk per-point, kirim label point + detail checkpoints sebagai kriteria evaluasi presisi
+    final pointCriteria = [
+      point.label,
+      if (point.deskripsi.isNotEmpty) point.deskripsi,
+      ...point.checkpoints,
+    ];
+
+    final checkpointsStr = point.checkpoints.isNotEmpty
+        ? ' — Checkpoints: ${point.checkpoints.join("; ")}'
+        : '';
+
     return _runCustomEndpointVerification(
       imageBase64: imageBase64,
       criteria: pointCriteria,
       config: config,
-      extraContext: 'Template: ${template.nama} — Point: ${point.label}${point.deskripsi.isNotEmpty ? " (${point.deskripsi})" : ""}',
+      extraContext: 'Template: ${template.nama} — Point: ${point.label}${point.deskripsi.isNotEmpty ? " (${point.deskripsi})" : ""}$checkpointsStr',
     );
   }
 
@@ -469,25 +537,49 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
    - "terpasang dengan kokoh", "berfungsi normal", "tercetak dengan baik", "bersih dan bebas debu"
 
 3. KATA/ISTILAH YANG DILARANG KERAS (TERLALU FORMAL / GAYA AI KAKU):
-   - DILARANG: "semrawut", "beton pulau gate", "degradasi fisik", "tidak terorganisir dengan rapi", "berdasarkan hasil observasi", "ditemukan adanya ketidaksesuaian", "kondisi secara keseluruhan", "secara signifikan", "mengalami deteriorasi", "parameter tidak terpenuhi", "sesuai standar operasional", "dalam kondisi optimal", "memiliki integritas struktural", "permukaan mengalami degradasi".
-   - DILARANG REDUNDAN: Jangan mengulang arti sama ("kabel kurang rapi dan tidak terorganisir" -> cukup "kabel di dalam manless kurang rapi, perlu dirapikan").
+   - DILARANG KLISE KAKU: "terpasang dengan kokoh, namun...", "tampak bersih dan terlumasi dengan baik", "berdasarkan hasil observasi", "ditemukan adanya ketidaksesuaian", "kondisi secara keseluruhan", "secara signifikan", "mengalami degradasi", "degradasi fisik", "tidak terorganisir dengan rapi", "parameter tidak terpenuhi", "sesuai standar operasional", "dalam kondisi optimal", "memiliki integritas struktural".
+   - DILARANG BASA-BASI POSITIF PADA STATUS MERAH: Jika ada masalah (kotor/rusak/berkarat), JANGAN buka dengan pujian palsu seperti "Baut dynabolt terpasang kokoh, namun...". Langsung sebut masalah intinya!
+   - DILARANG REDUNDAN: Jangan mengulang kata ("kabel kurang rapi dan tidak tertata").
    - DILARANG KALIMAT PERINTAH: Jangan gunakan "harus dibersihkan", "segera dicat ulang", "segera perbaiki". Tulis faktual apa yang terlihat.
 
 4. ATURAN STATUS:
-   - SESUAI (Lulus/Hijau): Gunakan kalimat positif yang singkat, natural, dan langsung (8-14 kata).
+   - SESUAI (Lulus/Hijau): Kalimat positif singkat, natural, to the point (5-10 kata).
      * Contoh: "Area printer bersih dan bebas debu."
-     * Contoh: "Tombol tiket berfungsi normal dan struk tercetak dengan baik."
-     * Contoh: "Body manless bersih dan stiker panduan masih utuh."
-     * Contoh: "Kunci manless bersih, tidak berkarat, dan terpasang kokoh."
-     * Contoh: "Kapasitas Drive C aman indikator biru dan folder temp bersih."
-   - TIDAK_SESUAI (Temuan/Merah): Sebutkan masalah utama terlebih dahulu, lalu detail pendukung jika ada (8-16 kata).
-     * Contoh: "Kabel di dalam manless kurang rapi dan perlu dirapikan dengan cable tie."
-     * Contoh: "Dudukan bawah manless terdapat tumpukan debu dan korosi pada plat besi."
-     * Contoh: "Stiker panduan kusam/terkelupas dan body manless tampak berdebu."
-     * Contoh: "Permukaan lantai pulau gate berdebu dan cat tampak pudar."
-     * Contoh: "Stiker receiver kuning tampak retak dan terkelupas pada bodi."
-   - PERLU_CEK_MANUAL (Kuning): Foto blur, goyang, terlalu gelap, atau sudut terhalang.
-     * Contoh: "Foto tampak blur dan kurang fokus, perlu cek fisik manual."
+     * Contoh: "Tombol tiket normal dan struk tercetak jelas."
+     * Contoh: "Bodi manless bersih dan stiker panduan utuh."
+     * Contoh: "Palang terpasang lurus dan baut pengikat kencang."
+     * Contoh: "Per spring dan bearing terlumasi grease baru."
+     * Contoh: "Kapasitas Drive C aman (>20GB) dan folder temp bersih."
+   - TIDAK_SESUAI (Temuan/Merah): Langsung sebut objek dan masalah fisiknya, to the point tanpa basa-basi (6-14 kata).
+     * Format: [Objek] + [kondisi: kotor / berkarat / pudar / rusak / retak / kendor] + [lokasi].
+     * JANGAN: "Baut dynabolt terpasang kokoh, namun area dudukan kotor" (SALAH: bertele-tele).
+     * GUNAKAN: "Area dudukan mesin kotor dan banyak tumpukan debu." (BENAR: langsung to the point).
+     * Contoh Kotor: "Head printer kotor dan ada sisa robekan kertas di dalam printer."
+     * Contoh Berkarat: "Baut dynabolt berkarat dan plat dudukan mesin mulai korosi."
+     * Contoh Pudar/Kusam: "Cat bodi manless pudar dan stiker panduan kusam."
+     * Contoh Rusak/Baut Lepas: "Karet speed bump kotor dan baut dynabolt tidak terpasang."
+     * Contoh Kabel Kurang Rapi: "Kabel di dalam manless belum terikat rapi dan adaptor kendur."
+     * Contoh Kunci Rusak: "Gembok pintu manless berkarat dan anak kunci macet."
+   - PERLU_CEK_MANUAL (Kuning / Warning):
+     * Gunakan HANYA JIKA foto bermasalah teknis (blur, goyang, terlalu gelap, atau silau).
+     * Contoh: "Foto blur dan kurang fokus, perlu cek fisik langsung."
+     * Contoh: "Sudut foto terlalu gelap, indikator LED tidak terlihat."
+     * DILARANG pakai kuning jika objek jelas rusak/kotor/berkarat (wajib merah / tidak_sesuai)!
+
+5. ATURAN KHUSUS JALUR KABEL SENSOR LOOP DETECTOR (BARRIER GATE):
+   - Kabel sensor loop detector SELALU ditanam DI BAWAH permukaan jalan (bisa di bawah susunan paving block atau di bawah garis potongan aspal/beton yang di-sealant).
+   - JIKA foto menampilkan permukaan susunan paving block yang rata/rapi ATAU garis coran aspal/beton yang rata tanpa ada kabel mencuat/terkelupas ke atas, status WAJIB "sesuai" (LULUS / HIJAU).
+   - DILARANG memberi status "tidak_sesuai" atau "perlu_cek_manual" hanya karena kabel fisik tidak terlihat di atas paving/lantai! Kabel memang wajib tertanam di bawah permukaan.
+   - Contoh alasan sesuai: "Jalur kabel sensor tertanam rapi di bawah paving block dan permukaan rata." ATAU "Jalur coran kabel sensor tertutup rapi dan tidak ada kabel mencuat."
+   - Hanya beri "tidak_sesuai" jika paving/aspal amblas parah, bongkaran rusak, atau ada kabel fisik yang terkelupas/mencuat keluar ke permukaan.
+
+6. ATURAN KHUSUS STANDARISASI ITEM DALAM POS (POS KASIR):
+   - Fokus utama poin ini adalah KELENGKAPAN ITEM DALAM POS: Monitor, Keyboard, Mouse, Scanner, Printer, dan Kipas Angin.
+   - JIKA item di atas terlihat ada di meja pos, status WAJIB "sesuai" (LULUS / HIJAU).
+   - DILARANG memberi status "tidak_sesuai" atau "perlu_cek_manual" hanya karena meja tampak kusam, cat meja terkelupas, serat kayu terlihat, atau ada debu wajar pada meja! Itu kondisi keausan meja lama, BUKAN masalah item pos.
+   - Cukup dengan adanya item utama (monitor, keyboard, scanner, printer, kipas angin), status LANGSUNG HIJAU.
+   - Contoh alasan sesuai: "Item dalam pos lengkap: monitor, keyboard, scanner, printer, dan kipas angin ada."
+   - Hanya beri "tidak_sesuai" jika item utama tidak ada sama sekali atau pos kosong.
 
 OUTPUT STRICT JSON ONLY:
 {"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
@@ -497,154 +589,71 @@ OUTPUT STRICT JSON ONLY:
       final isPulang = tipeLaporan == 'Pulang';
       if (isPulang) {
         systemPrompt = '''
-BSS-Vision, grooming auditor for Technical Support Staff (Teknisi) at BSS Parking - MODE ABSENSI PULANG SHIFT.
-Task: Verify Teknisi grooming for PULANG (CLOCK-OUT) attendance ($hari).
+You are BSS-Vision. Evaluasi kerapian teknisi untuk absen pulang ($hari).
 
-HARI INI: $hari
+ATURAN ABSEN PULANG:
+1. Foto setengah badan sah dan lulus. Tidak perlu cek sepatu.
+2. ID Card atau tali lanyard terpasang di leher/dada. Jika tali lanyard terlihat, status LULUS (sesuai).
+3. Mengenakan seragam teknisi resmi atau seragam dinas hari $hari.
+4. Gaya bahasa alasan: Singkat, natural, to the point (5-10 kata).
+   - Contoh sesuai: "Seragam teknisi rapi dan tali lanyard terpasang."
+   - Contoh tidak sesuai: "Tidak memakai seragam resmi dan tanpa ID Card."
 
-ATURAN KHUSUS ABSENSI PULANG (TOLERAN & REALISTIS):
-1. FOTO SETENGAH BADAN DIPERBOLEHKAN & SAH (LULUS / SESUAI).
-2. SEPATU TIDAK DIPERIKSA / TIDAK WAJIB: Jangan periksa sepatu! Jika foto setengah badan atau sepatu tidak kelihatan, STATUS TETAP "sesuai". DILARANG memberi status "perlu_cek_manual" hanya karena sepatu tidak tampak di foto.
-3. ID CARD / TALI LANYARD: Tali lanyard ID Card atau kartu ID Card terpasang pada leher/dada. JIKA HANYA TALI LANYARD SAJA YANG TERLIHAT -> TETAP SAH & LULUS ("sesuai")! Hanya beri "tidak_sesuai" jika dada polos tanpa tali lanyard dan tanpa ID Card sama sekali.
-4. SERAGAM: Mengenakan seragam dinas hari $hari ATAU Seragam Teknisi resmi BSS dengan rapi. JIKA MEMAKAI SERAGAM TEKNISI RESMI PADA HARI SENIN-MINGGU, WAJIB DIHIJAUKAN (STATUS: SESUAI / LULUS)!
+STATUS:
+- sesuai: Seragam rapi dan ID Card/lanyard terpasang.
+- tidak_sesuai: Pakaian non-resmi (kaos oblong/bebas) atau tanpa ID Card/lanyard.
+- perlu_cek_manual: Foto sangat blur sehingga seragam tidak terbaca.
 
-HASIL STATUS:
-- sesuai: Seragam hari dinas rapi (atau seragam teknisi resmi) dan tali lanyard/ID card terpasang (foto setengah badan SAH & LULUS tanpa perlu cek sepatu).
-- tidak_sesuai: Salah seragam / pakaian bebas non-resmi atau dada polos tanpa tali lanyard / ID Card sama sekali.
-- perlu_cek_manual: Foto sangat blur sehingga seragam tidak dapat diidentifikasi.
-
-OUTPUT FORMAT: STRICT JSON ONLY.
-Schema:
+OUTPUT STRICT JSON ONLY:
 {"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
 ''';
       } else {
         systemPrompt = '''
-BSS-Vision, strict grooming auditor for Technical Support Staff (Teknisi) at BSS Parking - MODE ABSENSI MASUK SHIFT.
-Task: Verify Teknisi grooming strictly based on DAY OF THE WEEK ($hari) and company schedule.
+You are BSS-Vision. Evaluasi kerapian teknisi untuk absen masuk ($hari).
 
-HARI INI: $hari
+JADWAL SERAGAM:
+- Senin: Seragam Teknisi / PDH navy
+- Selasa: PDH navy / Seragam Teknisi
+- Rabu: Seragam Teknisi
+- Kamis: BSS Putih / Seragam Teknisi
+- Jumat: Batik / Seragam Teknisi
+- Sabtu: Olahraga biru-kuning / Seragam Teknisi
+- Minggu: Bebas rapi / Seragam Teknisi
+* Catatan: Seragam Teknisi resmi BSS selalu sah di semua hari (Senin-Minggu).
 
-JADWAL SERAGAM RESMI TEKNISI:
-- SENIN: Seragam Teknisi ATAU Seragam PDH biru navy (keduanya SAH & WAJIB LULUS/HIJAU).
-- SELASA: Seragam PDH biru navy ATAU Seragam Teknisi (keduanya SAH & WAJIB LULUS/HIJAU).
-- RABU: Seragam Teknisi (SAH & WAJIB LULUS/HIJAU).
-- KAMIS: Seragam BSS Parking warna putih ATAU Seragam Teknisi (keduanya SAH & WAJIB LULUS/HIJAU).
-- JUMAT: Batik ATAU Seragam Teknisi (keduanya SAH & WAJIB LULUS/HIJAU).
-- SABTU: Seragam Olahraga biru-kuning ATAU Seragam Teknisi (keduanya SAH & WAJIB LULUS/HIJAU).
-- MINGGU: Pakaian bebas rapi ATAU Seragam Teknisi (keduanya SAH & WAJIB LULUS/HIJAU).
+KRITERIA:
+1. Seragam: Seragam Teknisi resmi atau sesuai jadwal hari $hari, dipakai rapi.
+2. ID Card / tali lanyard terpasang di dada/leher.
+3. Celana panjang dan sepatu tertutup (tidak boleh sandal).
+4. Gaya bahasa alasan: Singkat, natural, to the point (5-10 kata).
+   - Contoh sesuai: "Seragam teknisi rapi, ID Card dan sepatu terpasang lengkap."
+   - Contoh tidak sesuai: "ID Card tidak terpasang di dada."
+   - Contoh tidak sesuai: "Memakai sandal, wajib sepatu kerja tertutup."
 
-ATURAN MUTLAK SERAGAM TEKNISI (SENIN s/d MINGGU):
-- SERAGAM TEKNISI SELALU SAH & WAJIB DIHIJAUKAN: Jika teknisi menggunakan Seragam Teknisi resmi BSS pada hari APAPUN (Senin, Selasa, Rabu, Kamis, Jumat, Sabtu, Minggu), status seragam WAJIB DIHIJAUKAN ("sesuai" / HIJAU / LULUS)!
-- DILARANG KERAS menggagalkan atau memberi status "tidak_sesuai" / "perlu_cek_manual" jika teknisi mengenakan Seragam Teknisi resmi BSS, sekalipun hari tersebut adalah hari Selasa (PDH), Kamis (Putih), atau Sabtu (Olahraga). Seragam Teknisi adalah seragam kerja standar teknisi yang sah digunakan setiap hari.
+STATUS:
+- sesuai: Seragam rapi, ID Card/lanyard ada, sepatu tertutup.
+- tidak_sesuai: Tanpa ID Card, pakai sandal, atau kaos oblong non-resmi.
+- perlu_cek_manual: Foto setengah badan (sepatu terpotong) atau foto blur.
 
-KRITERIA WAJIB TEKNISI (MUTLAK):
-1. Seragam: Mengenakan Seragam Teknisi resmi ATAU seragam sesuai jadwal hari ($hari), dan dikenakan rapi.
-2. ID Card terpasang pada badan (tali lanyard / kartu saku / yoyo terpasang jelas).
-3. Celana panjang & sepatu kerja tertutup (tidak boleh sandal/kaki terbuka).
-
-ATURAN EVALUASI KETAT (ZERO TOLERANCE):
-- ID CARD (WAJIB MUTLAK): ID Card atau tali lanyard WAJIB terlihat terpasang di baju/dada/leher. Jika ID Card TIDAK ADA / TIDAK TERLIHAT / DADA POLOS -> STATUS WAJIB "tidak_sesuai" (MERAH)! Masukkan "ID Card / Name Tag tidak terpasang di saku atau dada" ke poinGagal! DILARANG MELOLOSKAN JIKA TIDAK ADA ID CARD.
-- SEPATU KERJA: Jika kaki terlihat dan memakai sandal/kaki terbuka -> STATUS WAJIB "tidak_sesuai" (MERAH)! Jika kaki terpotong pada foto setengah badan -> beri status "perlu_cek_manual" dengan alasan sepatu tidak terlihat di foto.
-- SERAGAM: Jika memakai pakaian santai non-resmi (misal kaos oblong / singlet) bukan seragam dinas ataupun seragam teknisi -> STATUS WAJIB "tidak_sesuai" (MERAH)! Namun jika memakai Seragam Teknisi resmi atau seragam jadwal hari $hari -> WAJIB "sesuai" (HIJAU)!
-
-HASIL STATUS:
-- sesuai: Semua kriteria wajib terpenuhi lengkap termasuk ID Card dan seragam (baik Seragam Teknisi maupun seragam dinas hari $hari).
-- tidak_sesuai: Ada kriteria wajib yang tidak terpenuhi (misal tidak pakai ID Card, pakaian bebas non-resmi / kaos oblong, pakai sandal).
-- perlu_cek_manual: Foto terpotong sehingga sepatu/atribut tidak terlihat lengkap untuk memastikan kepatuhan.
-
-OUTPUT FORMAT: STRICT JSON ONLY.
-Schema:
+OUTPUT STRICT JSON ONLY:
 {"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
 ''';
       }
-    } else if (absensiKategori == AbsensiKategori.admin) {
-      systemPrompt = '''
-BSS-Vision, strict grooming auditor for ADMIN BSS Parking.
-Task: Verify Admin (Perempuan) grooming strictly.
-
-RULE ADMIN BSS PARKING:
-1. SERAGAM: Perempuan mengenakan baju seragam kombinasi warna BIRU dan HIJAU.
-2. ATRIBUT WAJIB:
-   - ID Card / Name Tag terpasang di saku/dada (lanyard / yoyo / card holder). JIKA TIDAK ADA ID CARD -> WAJIB "tidak_sesuai" (MERAH)!
-   - Pin Smile terpasang di dada.
-3. PENGECUALIAN ADMIN: Admin perempuan TIDAK WAJIB peluit dan TIDAK WAJIB topi.
-4. SEPATU: Wajib sepatu kerja tertutup rapi jika terlihat di foto.
-
-OUTPUT FORMAT: STRICT JSON ONLY.
-Schema:
-{"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
-''';
-    } else if (absensiKategori == AbsensiKategori.leader) {
-      systemPrompt = '''
-BSS-Vision, strict grooming auditor for LEADER BSS Parking.
-Task: Verify Leader (Laki-laki) grooming strictly.
-
-RULE LEADER BSS PARKING:
-1. SERAGAM: Kemeja berkerah warna HITAM dengan kombinasi HIJAU pada pundak dan patch BENDERA INDONESIA di lengan kanan.
-2. ATRIBUT WAJIB:
-   - ID Card / Name Tag terpasang di saku/dada. JIKA TIDAK ADA ID CARD -> WAJIB "tidak_sesuai" (MERAH)!
-   - Pin Smile terpasang di dada sebelah kanan pemakai.
-   - Peluit: Peluit plastik warna BIRU dengan tali BIRU menggantung di leher/dada.
-3. Baju seragam WAJIB dimasukkan ke dalam celana.
-4. Sepatu kerja hitam bersih.
-
-OUTPUT FORMAT: STRICT JSON ONLY.
-Schema:
-{"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
-''';
-    } else if (absensiKategori == AbsensiKategori.sppMerah) {
-      systemPrompt = '''
-BSS-Vision, strict grooming auditor for SPP/SPL MERAH BSS Parking.
-Task: Verify SPP/SPL Merah grooming strictly.
-
-RULE SPP/SPL MERAH:
-1. SERAGAM: Kemeja berkerah warna MERAH dengan kombinasi kerah dan lis kancing warna HITAM serta logo BSS Parking.
-2. ATRIBUT WAJIB:
-   - ID Card / Name Tag terpasang di saku kiri/dada. JIKA TIDAK ADA ID CARD -> WAJIB "tidak_sesuai" (MERAH)!
-   - Pin Smile terpasang di dada.
-   - Peluit: Peluit plastik warna BIRU dengan tali BIRU menggantung di leher/dada (petugas laki-laki).
-   - Topi dinas BSS Parking (petugas SPL).
-3. Baju seragam WAJIB dimasukkan ke dalam celana.
-4. Sepatu kerja hitam bersih.
-
-OUTPUT FORMAT: STRICT JSON ONLY.
-Schema:
-{"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
-''';
-    } else if (absensiKategori == AbsensiKategori.sppHijauAbu) {
-      systemPrompt = '''
-BSS-Vision, strict grooming auditor for SPP/SPL HIJAU-ABU BSS Parking.
-Task: Verify SPP/SPL Hijau-Abu grooming strictly.
-
-RULE SPP/SPL HIJAU-ABU:
-1. SERAGAM: Kemeja berkerah kombinasi warna ABU-ABU pada badan tengah, HIJAU pada dada atas, dan BIRU CERAH pada lengan serta logo BSS Parking.
-2. ATRIBUT WAJIB:
-   - ID Card / Name Tag terpasang di saku kiri/dada. JIKA TIDAK ADA ID CARD -> WAJIB "tidak_sesuai" (MERAH)!
-   - Pin Smile terpasang di dada.
-   - Peluit: Peluit plastik warna BIRU dengan tali BIRU menggantung di leher/dada (petugas laki-laki).
-   - Topi dinas BSS Parking (petugas SPL).
-3. Baju seragam WAJIB dimasukkan ke dalam celana.
-4. Sepatu kerja hitam bersih.
-
-OUTPUT FORMAT: STRICT JSON ONLY.
-Schema:
-{"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
-''';
     } else {
       systemPrompt = '''
-BSS-Vision, SOP compliance auditor for BSS Parking (Bahana Sulut Sentosa).
-Task: Verify photo against SOP criteria objectively and consistently.
+You are BSS-Vision. Evaluasi kesesuaian foto terhadap kriteria SOP BSS Parking.
 
 CRITERIA:
 $criteriaListStr
 
-TOLERANSI & KONSISTENSI:
-1. Foto absensi umumnya selfie / setengah badan. Cukup nilai atribut dan seragam yang berada di dalam frame kamera.
-2. Jangan mencari-cari kesalahan minor jika seragam resmi dan atribut utama terpasang rapi.
-3. Beri status "sesuai" jika atribut utama terpenuhi. HANYA beri "tidak_sesuai" jika terlihat pelanggaran nyata.
+ATURAN:
+1. Evaluasi atribut dan seragam yang tampak di frame kamera secara objektif.
+2. Gunakan bahasa ringkas, padat, to the point (5-10 kata).
+   - Contoh sesuai: "Seragam rapi dan atribut lengkap sesuai SOP."
+   - Contoh tidak sesuai: "[Sebutkan atribut yang kurang/salah]."
+3. Foto setengah badan wajar, nilai atribut yang terlihat.
 
-OUTPUT FORMAT: STRICT JSON ONLY.
-Schema:
+OUTPUT STRICT JSON ONLY:
 {"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
 ''';
     }
@@ -828,9 +837,10 @@ Schema:
         status = VerificationStatus.perluCekManual;
       }
 
-      final alasan = jsonMap['alasan'] as String? ??
+      final rawAlasan = jsonMap['alasan'] as String? ??
           jsonMap['reason'] as String? ??
           'Evaluasi selesai.';
+      final alasan = cleanTechnicianReason(rawAlasan);
 
       final rawPoinGagal = jsonMap['poinGagal'] as List<dynamic>? ??
           jsonMap['poin_gagal'] as List<dynamic>? ??
