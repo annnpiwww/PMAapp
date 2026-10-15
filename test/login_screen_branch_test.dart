@@ -31,8 +31,8 @@ void main() {
     expect(find.text('📍 KC Manado'), findsNothing);
     expect(find.text('📍 KC Bali'), findsNothing);
 
-    // Verify input fields exist cleanly
-    expect(find.text('Email atau Username'), findsOneWidget);
+    // Verify input fields exist cleanly (Username label and hintText)
+    expect(find.text('Username'), findsNWidgets(2));
     expect(find.text('Kata Sandi'), findsOneWidget);
   });
 }

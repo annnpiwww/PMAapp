@@ -261,6 +261,17 @@ class AiVisionService {
 
   static Future<AiConnectionTestResult> testConnection(
       AiVisionConfig config) async {
+    final effectiveApiKey = config.apiKey.trim().isNotEmpty
+        ? config.apiKey.trim()
+        : AiVisionConfig.defaultApiKey.trim();
+
+    if (effectiveApiKey.isEmpty) {
+      return AiConnectionTestResult(
+        isSuccess: false,
+        message: 'API Key AI belum dikonfigurasi. Masukkan API Key di Pengaturan.',
+      );
+    }
+
     final stopwatch = Stopwatch()..start();
     try {
       final uri = Uri.parse('${config.effectiveBaseUrl}/chat/completions');
@@ -269,8 +280,7 @@ class AiVisionService {
             uri,
             headers: {
               'Content-Type': 'application/json',
-              if (config.apiKey.trim().isNotEmpty)
-                'Authorization': 'Bearer ${config.apiKey.trim()}',
+              'Authorization': 'Bearer $effectiveApiKey',
             },
             body: jsonEncode({
               'model': config.effectiveModelName,
@@ -494,6 +504,21 @@ class AiVisionService {
     String? hariKerja,
     String? tipeLaporan,
   }) async {
+    final effectiveApiKey = config.apiKey.trim().isNotEmpty
+        ? config.apiKey.trim()
+        : AiVisionConfig.defaultApiKey.trim();
+
+    if (effectiveApiKey.isEmpty) {
+      return AiVerificationResult(
+        status: VerificationStatus.perluCekManual,
+        alasan: 'API Key AI belum dikonfigurasi. Foto dialihkan untuk Cek Manual oleh Supervisor.',
+        poinGagal: ['API Key AI Belum Dikonfigurasi'],
+        poinLolos: [],
+        confidenceScore: 0.0,
+        providerName: 'Google Gemini',
+      );
+    }
+
     final uri = Uri.parse('${config.effectiveBaseUrl}/chat/completions');
     final formattedImage = imageBase64.startsWith('data:image')
         ? imageBase64
@@ -720,8 +745,7 @@ OUTPUT STRICT JSON ONLY:
               uri,
               headers: {
                 'Content-Type': 'application/json',
-                if (config.apiKey.trim().isNotEmpty)
-                  'Authorization': 'Bearer ${config.apiKey.trim()}',
+                'Authorization': 'Bearer $effectiveApiKey',
               },
               body: jsonEncode({
                 'model': selectedModel,

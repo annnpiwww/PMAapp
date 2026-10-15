@@ -34,6 +34,14 @@ DART_DEFINES=(
 if [[ "${1:-build}" == "run" ]]; then
   echo "🚀 Running debug with injected secrets..."
   flutter run "${DART_DEFINES[@]}" "${@:2}"
+elif [[ "${1:-build}" == "split" ]]; then
+  echo "📦 Building release split per ABI APKs (v32 & v64) with injected secrets..."
+  flutter build apk --release --split-per-abi "${DART_DEFINES[@]}" "${@:2}"
+  echo "✅ Split APKs ready at build/app/outputs/flutter-apk/"
+elif [[ "${1:-build}" == "web" ]]; then
+  echo "🌐 Building release Web PWA with injected secrets..."
+  flutter build web --release --base-href "/" "${DART_DEFINES[@]}" "${@:2}"
+  echo "✅ Web ready at build/web"
 else
   echo "📦 Building release APK with injected secrets..."
   flutter build apk --release "${DART_DEFINES[@]}" "${@:2}"

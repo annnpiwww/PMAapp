@@ -69,8 +69,8 @@ void main() {
     expect(find.text('Shift 2'), findsOneWidget);
     expect(find.text('Shift 2.2'), findsOneWidget);
     expect(find.text('Shift 3'), findsOneWidget);
-    expect(find.text('03:00 – 11:00 WITA'), findsOneWidget);
-    expect(find.text('10:00 – 18:00 WITA'), findsOneWidget);
+    expect(find.text('03:00 - 11:00 WITA'), findsOneWidget);
+    expect(find.text('10:00 - 18:00 WITA'), findsOneWidget);
 
     // Custom Shift compact control
     expect(find.text('Custom Shift'), findsOneWidget);
