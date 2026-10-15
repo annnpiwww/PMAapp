@@ -500,6 +500,7 @@ class DailyTaskService {
           judul: judul,
           posName: posName,
           deskripsi: deskripsi,
+          tanggal: tanggal,
         ));
         return created;
       }
@@ -516,19 +517,24 @@ class DailyTaskService {
     required String posName,
     String deskripsi = '',
     String? timeStr,
+    String? tanggal,
   }) {
     final now = DateTime.now();
+    final todayKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final isTomorrowOrOther = tanggal != null && tanggal != todayKey;
+    final dateBadge = isTomorrowOrOther ? ' [JADWAL: $tanggal]' : '';
     final time = timeStr ?? '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} WITA';
     final descLine = deskripsi.trim().isNotEmpty ? '\n📝 <b>Catatan:</b> ${deskripsi.trim()}' : '';
+    final targetDateLine = isTomorrowOrOther ? '\n📅 <b>Target Tanggal:</b> $tanggal' : '';
 
-    return '''🔔 <b>TUGAS BARU DARI SUPERVISOR</b>
+    return '''🔔 <b>TUGAS BARU DARI SUPERVISOR$dateBadge</b>
 ━━━━━━━━━━━━━━━━━━
 👤 <b>Teknisi:</b> $teknisiNama
 📍 <b>Lokasi:</b> $posName
-📋 <b>Tugas:</b> $judul$descLine
-⏰ <b>Waktu:</b> $time
+📋 <b>Tugas:</b> $judul$targetDateLine$descLine
+⏰ <b>Waktu Dibuat:</b> $time
 
-<i>Mohon segera buka aplikasi PMAapp untuk konfirmasi dan pengerjaan.</i>''';
+<i>Mohon buka aplikasi PMAapp untuk konfirmasi dan pengerjaan.</i>''';
   }
 
   /// Kirim notifikasi instan via Telegram bot (menggunakan tools/telegram_notify.sh atau Telegram Bot API)
@@ -538,6 +544,7 @@ class DailyTaskService {
     required String posName,
     String deskripsi = '',
     String? timeStr,
+    String? tanggal,
   }) async {
     try {
       final message = formatTelegramTaskMessage(
@@ -546,6 +553,7 @@ class DailyTaskService {
         posName: posName,
         deskripsi: deskripsi,
         timeStr: timeStr,
+        tanggal: tanggal,
       );
 
       // 1. Coba eksekusi lewat tools/telegram_notify.sh jika script tersedia (Native only)

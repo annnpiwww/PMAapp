@@ -1108,7 +1108,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             MaintenanceSetupDialog(initialTemplate: _selectedTemplate),
       );
       if (mounted) {
+        // Reset _selectedTemplate kembali ke Absensi / Grooming agar saat balik
+        // ke kamera grooming tombol shutter tidak memicu MaintenanceSetupDialog lagi
+        final templates = TemplateRepository.instance.templates;
+        final defaultAbsensi = templates.firstWhere(
+          (t) => t.jenis == TemplateCategory.absensi,
+          orElse: () => TemplateRepository.defaultTemplates.first,
+        );
         setState(() {
+          _selectedTemplate = defaultAbsensi;
           _activePos = LocationService.currentPos;
         });
       }

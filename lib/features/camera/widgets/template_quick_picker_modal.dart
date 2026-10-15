@@ -194,6 +194,12 @@ class TemplateQuickPickerModal extends StatelessWidget {
                             builder: (_) =>
                                 MaintenanceSetupDialog(initialTemplate: t),
                           );
+                          final templates = TemplateRepository.instance.templates;
+                          final defaultAbsensi = templates.firstWhere(
+                            (tpl) => tpl.jenis == TemplateCategory.absensi,
+                            orElse: () => TemplateRepository.defaultTemplates.first,
+                          );
+                          onTemplateSelected(defaultAbsensi);
                           onLocationRefreshRequired?.call();
                         } else if (t.jenis == TemplateCategory.absensi) {
                           AbsensiKategoriDialog.show(context, onSaved: () {

@@ -44,6 +44,9 @@ class PointCameraView extends StatefulWidget {
 }
 
 class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingObserver {
+  static List<CameraDescription>? _cachedCameras;
+  static ResolutionPreset? _cachedWebPreset;
+
   CameraController? _controller;
   bool _isInit = false;
   bool _hasInitError = false;
@@ -126,7 +129,12 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
           _statusText = 'Menyiapkan kamera...';
         });
       }
-      _cameras = await availableCameras();
+      if (_cachedCameras != null && _cachedCameras!.isNotEmpty) {
+        _cameras = _cachedCameras!;
+      } else {
+        _cameras = await availableCameras();
+        _cachedCameras = _cameras;
+      }
       if (_cameras.isEmpty) {
         if (mounted) {
           setState(() {
@@ -150,11 +158,13 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
 
   Future<void> _initializeControllerWithFallback(int cameraIndex) async {
     // Pada platform Web PWA (Chrome/Safari), preset ultraHigh/max sering hang atau ditolak browser.
-    // Gunakan preset high -> medium -> low untuk web agar inisialisasi instan dan stabil.
+    // Gunakan preset yang sudah terbukti sukses atau fallback medium -> high -> low agar inisialisasi instan.
     final presets = kIsWeb
         ? [
-            ResolutionPreset.high,
+            if (_cachedWebPreset != null && _cachedWebPreset != ResolutionPreset.medium)
+              _cachedWebPreset!,
             ResolutionPreset.medium,
+            ResolutionPreset.high,
             ResolutionPreset.low,
           ]
         : [
@@ -173,6 +183,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
     }
 
     Object? lastErr;
+    final timeoutDur = kIsWeb ? const Duration(seconds: 4) : const Duration(seconds: 7);
     for (final preset in presets) {
       try {
         final ctrl = CameraController(
@@ -181,8 +192,11 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
           enableAudio: false,
           imageFormatGroup: ImageFormatGroup.jpeg,
         );
-        await ctrl.initialize().timeout(const Duration(seconds: 7));
+        await ctrl.initialize().timeout(timeoutDur);
         _controller = ctrl;
+        if (kIsWeb) {
+          _cachedWebPreset = preset;
+        }
         try {
           await _controller!.setFocusMode(FocusMode.auto);
           await _controller!.setExposureMode(ExposureMode.auto);

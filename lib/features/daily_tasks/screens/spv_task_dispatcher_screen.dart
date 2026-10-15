@@ -25,12 +25,14 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
 
   // Filter States
   DateTime _selectedDate = DateTime.now();
+  DateTime _targetDispatchDate = DateTime.now();
   String _selectedStatusFilter = 'ALL'; // 'ALL', 'PENDING', 'COMPLETED'
   String _selectedTechFilter = 'SEMUA';
   final Set<String> _expandedTaskIds = <String>{};
 
   late List<String> _technicians;
   late String _selectedTech;
+  String? _shift1ManadoTech;
   late final TextEditingController _lokasiCtrl;
   final _pekerjaanCtrl = TextEditingController();
   final _catatanCtrl = TextEditingController();
@@ -56,6 +58,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     }
     _technicians = List.from(BranchService.instance.getTechnicians());
     _selectedTech = _technicians.isNotEmpty ? _technicians.first : 'Teknisi';
+    _shift1ManadoTech = _technicians.isNotEmpty ? _technicians.first : null;
     _lokasiCtrl = TextEditingController(text: BranchService.instance.currentBranch.defaultLocationTag);
     _tabController = TabController(length: 2, vsync: this);
     _loadTasks();
@@ -80,6 +83,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
 
   String _formatDateDisplay(DateTime dt) {
     final now = DateTime.now();
+    final tomorrow = now.add(const Duration(days: 1));
     final yesterday = now.subtract(const Duration(days: 1));
     final dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
     final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -90,6 +94,8 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
 
     if (_isSameDay(dt, now)) {
       return 'Hari Ini ($dateNum $mName)';
+    } else if (_isSameDay(dt, tomorrow)) {
+      return 'Besok ($dateNum $mName)';
     } else if (_isSameDay(dt, yesterday)) {
       return 'Kemarin ($dateNum $mName)';
     } else {
@@ -535,6 +541,214 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     );
   }
 
+  Future<void> _pickTargetDispatchDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _targetDispatchDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 30)),
+      builder: (context, child) {
+        final isDark = ThemeService.isDarkMode(context);
+        return Theme(
+          data: isDark
+              ? ThemeData.dark().copyWith(
+                  colorScheme: const ColorScheme.dark(
+                    primary: AppColors.accent,
+                    onPrimary: Colors.white,
+                    surface: Color(0xFF1E293B),
+                    onSurface: Colors.white,
+                  ),
+                  dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF0F172A)),
+                )
+              : ThemeData.light().copyWith(
+                  colorScheme: const ColorScheme.light(
+                    primary: AppColors.accent,
+                    onPrimary: Colors.white,
+                    surface: Colors.white,
+                    onSurface: Color(0xFF1E293B),
+                  ),
+                ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _targetDispatchDate = picked;
+      });
+    }
+  }
+
+  Widget _buildRoutineTaskItem({
+    required String num,
+    required String title,
+    required bool isDark,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 18,
+          height: 18,
+          margin: const EdgeInsets.only(top: 1.5),
+          decoration: BoxDecoration(
+            color: AppColors.accent.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.accent.withValues(alpha: 0.5), width: 1),
+          ),
+          child: Center(
+            child: Text(
+              num,
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.accent),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
+              height: 1.3,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _dispatchShift1ManadoRoutine(String selectedTech) async {
+    if (_isLoading) return;
+
+    final isDark = ThemeService.isDarkMode(context);
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.bolt_rounded, color: AppColors.accent, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Tugaskan Rutin Shift 1',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Kirim 2 tugas rutin Shift 1 ke teknisi:',
+                style: TextStyle(fontSize: 13, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '👤 $selectedTech',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '📅 Target: ${_formatDateDisplay(_targetDispatchDate)}',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.accent),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '1. Pengecekan Sistem Gate out 1-6 PBM (bukti dokumentasi layar aplikasi kasir)\n2. Pengecekan Sistem Gate ojek',
+                style: TextStyle(fontSize: 12, height: 1.4, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Batal', style: TextStyle(color: Color(0xFF94A3B8))),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Kirim Sekarang', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isLoading = true);
+    final targetDateKey = _formatDateToKey(_targetDispatchDate);
+
+    // 1. Task Gate Out 1-6 PBM
+    final res1 = await DailyTaskService.createTask(
+      tanggal: targetDateKey,
+      teknisiNama: selectedTech,
+      posName: 'PBM',
+      posTag: 'PBM',
+      judul: 'Pengecekan Sistem Gate out 1-6 PBM (bukti dokumentasi layar aplikasi kasir)',
+      deskripsi: 'Pengecekan operasional sistem gate out 1-6 pos PBM. Wajib lampirkan bukti foto dokumentasi layar aplikasi kasir aktif.',
+      kategori: 'khusus',
+    );
+
+    // 2. Task Gate Ojek
+    final res2 = await DailyTaskService.createTask(
+      tanggal: targetDateKey,
+      teknisiNama: selectedTech,
+      posName: 'PBM',
+      posTag: 'PBM',
+      judul: 'Pengecekan Sistem Gate ojek',
+      deskripsi: 'Pengecekan fungsionalitas barrier gate ojek, tap card reader, dan sensor kendaraan.',
+      kategori: 'khusus',
+    );
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (res1 != null && res2 != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('2 Tugas Rutin Shift 1 berhasil dikirim ke $selectedTech untuk ${_formatDateDisplay(_targetDispatchDate)}'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        _selectedDate = _targetDispatchDate;
+        _tabController.animateTo(1);
+        _loadTasks();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res1 != null || res2 != null
+                ? 'Sebagian tugas berhasil dikirim. Periksa Status Tim.'
+                : 'Tugas rutin gagal dikirim. Periksa koneksi lalu coba lagi.'),
+            backgroundColor: res1 != null || res2 != null ? AppColors.warning : AppColors.danger,
+          ),
+        );
+        _selectedDate = _targetDispatchDate;
+        _tabController.animateTo(1);
+        _loadTasks();
+      }
+    }
+  }
+
   Future<void> _submitTask() async {
     if (_isLoading) return; // Anti-double submit
 
@@ -558,7 +772,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     setState(() => _isLoading = true);
 
     final res = await DailyTaskService.createTask(
-      tanggal: _formatDateToKey(DateTime.now()),
+      tanggal: _formatDateToKey(_targetDispatchDate),
       teknisiNama: _selectedTech,
       posName: lokasi,
       posTag: lokasi,
@@ -575,10 +789,11 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
         _catatanCtrl.clear();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Tugas berhasil dikirim ke $_selectedTech'),
+            content: Text('Tugas berhasil dikirim ke $_selectedTech untuk ${_formatDateDisplay(_targetDispatchDate)}'),
             backgroundColor: AppColors.success,
           ),
         );
+        _selectedDate = _targetDispatchDate;
         _tabController.animateTo(1);
         _loadTasks();
       } else {
@@ -678,6 +893,303 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // QUICK DISPATCH: RUTIN SHIFT 1 MANADO (2 TUGAS PERMANEN)
+          if (BranchService.instance.currentBranch == AppBranch.manado) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
+                      : [const Color(0xFFEFF6FF), Colors.white],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.accent.withValues(alpha: isDark ? 0.35 : 0.45),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.bolt_rounded, color: AppColors.accent, size: 20),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Rutin Shift 1 KC Manado',
+                              style: TextStyle(
+                                fontFamily: 'PlusJakartaSans',
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              ),
+                            ),
+                            Text(
+                              '2 Tugas Permanen Pagi (03:00 - 11:00 WITA)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'PBM',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.accent,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // List 2 tugas permanen
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF111827).withValues(alpha: 0.5) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildRoutineTaskItem(
+                          num: '1',
+                          title: 'Pengecekan Sistem Gate out 1-6 PBM (bukti dokumentasi layar aplikasi kasir)',
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildRoutineTaskItem(
+                          num: '2',
+                          title: 'Pengecekan Sistem Gate ojek',
+                          isDark: isDark,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Row teknisi dan tombol kirim
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            color: inputBg,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: inputBorder),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _shift1ManadoTech ?? (_technicians.isNotEmpty ? _technicians.first : null),
+                              isExpanded: true,
+                              dropdownColor: inputBg,
+                              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+                              items: _technicians.map((t) => DropdownMenuItem(
+                                value: t,
+                                child: Text(t, overflow: TextOverflow.ellipsis),
+                              )).toList(),
+                              onChanged: (val) {
+                                if (val != null) setState(() => _shift1ManadoTech = val);
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 6,
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading
+                              ? null
+                              : () => _dispatchShift1ManadoRoutine(_shift1ManadoTech ?? _selectedTech),
+                          icon: const Icon(Icons.send_rounded, size: 14),
+                          label: const Text(
+                            'Kirim 2 Tugas',
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 11),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // PILIH TARGET TANGGAL PENUGASAN
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Target Tanggal Penugasan *',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor),
+              ),
+              InkWell(
+                onTap: _pickTargetDispatchDate,
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_month_rounded, size: 14, color: AppColors.accent),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatDateDisplay(_targetDispatchDate),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.all(3.5),
+            decoration: BoxDecoration(
+              color: inputBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: inputBorder, width: 1.0),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() => _targetDispatchDate = DateTime.now()),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _isSameDay(_targetDispatchDate, DateTime.now()) ? AppColors.accent : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        'Hari Ini',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: _isSameDay(_targetDispatchDate, DateTime.now()) ? Colors.white : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() => _targetDispatchDate = DateTime.now().add(const Duration(days: 1))),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _isSameDay(_targetDispatchDate, DateTime.now().add(const Duration(days: 1))) ? AppColors.accent : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        'Besok',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: _isSameDay(_targetDispatchDate, DateTime.now().add(const Duration(days: 1))) ? Colors.white : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: _pickTargetDispatchDate,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: (!_isSameDay(_targetDispatchDate, DateTime.now()) && !_isSameDay(_targetDispatchDate, DateTime.now().add(const Duration(days: 1))))
+                            ? AppColors.accent
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.event_rounded,
+                            size: 14,
+                            color: (!_isSameDay(_targetDispatchDate, DateTime.now()) && !_isSameDay(_targetDispatchDate, DateTime.now().add(const Duration(days: 1))))
+                                ? Colors.white
+                                : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Pilih Lain',
+                            style: TextStyle(
+                              fontFamily: 'PlusJakartaSans',
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: (!_isSameDay(_targetDispatchDate, DateTime.now()) && !_isSameDay(_targetDispatchDate, DateTime.now().add(const Duration(days: 1))))
+                                  ? Colors.white
+                                  : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Segment Jenis Tugas
           Text(
             'Jenis Tugas *',

@@ -35,6 +35,22 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
+  String _formatTaskDateBadge(String tanggal) {
+    try {
+      final parts = tanggal.split('-');
+      if (parts.length == 3) {
+        final taskDate = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+        final now = DateTime.now();
+        final tomorrow = now.add(const Duration(days: 1));
+        if (taskDate.year == tomorrow.year && taskDate.month == tomorrow.month && taskDate.day == tomorrow.day) {
+          return '📅 Besok';
+        }
+        return '📅 ${parts[2]}/${parts[1]}';
+      }
+    } catch (_) {}
+    return '📅 $tanggal';
+  }
+
   Future<void> _loadTasks() async {
     final user = AuthRepository.instance.currentUser;
     if (user == null) {
@@ -377,27 +393,50 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: isKhusus
-                                            ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
-                                            : const Color(0xFF3B82F6).withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(
-                                          color: isKhusus
-                                              ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
-                                              : const Color(0xFF3B82F6).withValues(alpha: 0.35),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: isKhusus
+                                                ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                                                : const Color(0xFF3B82F6).withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(
+                                              color: isKhusus
+                                                  ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                                                  : const Color(0xFF3B82F6).withValues(alpha: 0.35),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            isKhusus ? 'Tugas Khusus' : 'Maintenance',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              color: isKhusus ? const Color(0xFFFBBF24) : const Color(0xFF60A5FA),
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                      child: Text(
-                                        isKhusus ? 'Tugas Khusus' : 'Maintenance',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: isKhusus ? const Color(0xFFFBBF24) : const Color(0xFF60A5FA),
-                                        ),
-                                      ),
+                                        if (task.tanggal != _todayStr()) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.accent.withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+                                            ),
+                                            child: Text(
+                                              _formatTaskDateBadge(task.tanggal),
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.accent,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
