@@ -14,7 +14,7 @@ void main() {
     await StorageService.saveAttendanceRecord(
       AttendanceRecord(
         id: 'test_1',
-        timestamp: DateTime(2026, 9, 14, 8, 15),
+        timestamp: DateTime.now().subtract(const Duration(hours: 2)),
         type: AttendanceType.masuk,
         shiftName: 'Shift 1 (03:00 - 11:00)',
         technicianName: 'Farhan Lakoro',

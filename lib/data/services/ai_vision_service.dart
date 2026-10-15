@@ -44,6 +44,30 @@ class AiVerificationResult {
     this.briefingKategori,
   });
 
+  AiVerificationResult copyWith({
+    VerificationStatus? status,
+    String? alasan,
+    List<String>? poinGagal,
+    List<String>? poinLolos,
+    double? confidenceScore,
+    String? providerName,
+    bool? isFallback,
+    int? personCount,
+    String? briefingKategori,
+  }) {
+    return AiVerificationResult(
+      status: status ?? this.status,
+      alasan: alasan ?? this.alasan,
+      poinGagal: poinGagal ?? this.poinGagal,
+      poinLolos: poinLolos ?? this.poinLolos,
+      confidenceScore: confidenceScore ?? this.confidenceScore,
+      providerName: providerName ?? this.providerName,
+      isFallback: isFallback ?? this.isFallback,
+      personCount: personCount ?? this.personCount,
+      briefingKategori: briefingKategori ?? this.briefingKategori,
+    );
+  }
+
   bool get isApproved => status == VerificationStatus.sesuai;
   bool get isSesuai => status == VerificationStatus.sesuai;
   bool get isRejected => status == VerificationStatus.tidakSesuai;
@@ -275,6 +299,19 @@ class AiVisionService {
     final stopwatch = Stopwatch()..start();
     try {
       final uri = Uri.parse('${config.effectiveBaseUrl}/chat/completions');
+      final testPayload = <String, dynamic>{
+        'model': config.effectiveModelName,
+        'messages': [
+          {'role': 'user', 'content': 'ping'}
+        ],
+        'max_tokens': 5,
+      };
+      if (config.effectiveModelName.contains('3.1') ||
+          config.effectiveModelName.contains('reasoning') ||
+          config.effectiveModelName.contains('thinking')) {
+        testPayload['reasoning_effort'] = 'none';
+      }
+
       final response = await http
           .post(
             uri,
@@ -282,13 +319,7 @@ class AiVisionService {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $effectiveApiKey',
             },
-            body: jsonEncode({
-              'model': config.effectiveModelName,
-              'messages': [
-                {'role': 'user', 'content': 'ping'}
-              ],
-              'max_tokens': 5,
-            }),
+            body: jsonEncode(testPayload),
           )
           .timeout(const Duration(seconds: AiVisionConfig.perModelTimeoutSeconds));
 
@@ -709,15 +740,18 @@ OUTPUT STRICT JSON ONLY:
       {'type': 'image_url', 'image_url': {'url': formattedImage}},
     ];
 
-    // Model tunggal yang konsisten sesuai konfigurasi user (tidak ada silent fallback siluman ke model berbeda arsitektur)
-    final selectedModel = config.effectiveModelName;
+    final primaryModel = config.effectiveModelName;
+    // Smart Fast Fallback: jika model utama lambat/gangguan, alihkan cepat ke gemini-flash-lite-latest
+    final fallbackModel = (primaryModel == 'gemini-3.1-flash-lite')
+        ? 'gemini-flash-lite-latest'
+        : 'gemini-3.1-flash-lite';
+    final candidateModels = [primaryModel, fallbackModel];
 
     final DateTime budgetStart = DateTime.now();
     final Duration totalBudget =
         const Duration(seconds: AiVisionConfig.totalBudgetSeconds);
     String errorMessage = '';
 
-    // Max 2x attempt pada model yang sama (1st try + 1x quick retry jika jaringan tersendat)
     const maxAttempts = 2;
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       if (DateTime.now().difference(budgetStart) >= totalBudget) {
@@ -728,18 +762,41 @@ OUTPUT STRICT JSON ONLY:
       final remaining = totalBudget - DateTime.now().difference(budgetStart);
       if (remaining.inSeconds < 2) break;
 
-      // Timeout ringkas per attempt (maks 6-7 detik) agar modal segera tampil
+      final currentModel =
+          candidateModels[attempt.clamp(0, candidateModels.length - 1)];
+      final isFallback = currentModel != primaryModel;
+
+      // Timeout ringkas per attempt (default 8s) agar modal segera tampil
       final perModelTimeout = Duration(
         seconds: config.timeoutSeconds.clamp(4, remaining.inSeconds),
       );
 
       final isRetry = attempt > 0;
       if (isRetry) {
-        debugPrint('[BSS-Vision] RETRY ${attempt + 1}/$maxAttempts on $selectedModel');
+        debugPrint('[BSS-Vision] RETRY/FAILOVER ${attempt + 1}/$maxAttempts ke $currentModel');
       }
 
       final client = http.Client();
       try {
+        final requestBody = <String, dynamic>{
+          'model': currentModel,
+          'messages': [
+            {'role': 'system', 'content': systemPrompt},
+            {'role': 'user', 'content': userContent},
+          ],
+          'max_tokens': config.maxTokens,
+          'temperature': config.temperature,
+          'response_format': {'type': 'json_object'},
+          'stream': false,
+        };
+
+        // Bypass CoT reasoning thinking delay 30s pada gemini-3.1 agar inferensi vision instan (<2 detik)
+        if (currentModel.contains('3.1') ||
+            currentModel.contains('reasoning') ||
+            currentModel.contains('thinking')) {
+          requestBody['reasoning_effort'] = 'none';
+        }
+
         final response = await client
             .post(
               uri,
@@ -747,17 +804,7 @@ OUTPUT STRICT JSON ONLY:
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer $effectiveApiKey',
               },
-              body: jsonEncode({
-                'model': selectedModel,
-                'messages': [
-                  {'role': 'system', 'content': systemPrompt},
-                  {'role': 'user', 'content': userContent},
-                ],
-                'max_tokens': config.maxTokens,
-                'temperature': config.temperature,
-                'response_format': {'type': 'json_object'},
-                'stream': false,
-              }),
+              body: jsonEncode(requestBody),
             )
             .timeout(perModelTimeout);
 
@@ -770,7 +817,11 @@ OUTPUT STRICT JSON ONLY:
             final parsedResult =
                 _parseAiJsonResponse(rawContent, criteria, config);
             if (parsedResult != null) {
-              return parsedResult;
+              return parsedResult.copyWith(
+                providerName: isFallback
+                    ? 'Google Gemini ($currentModel - Failover)'
+                    : 'Google Gemini ($currentModel)',
+              );
             }
             errorMessage = 'Format JSON response tidak sesuai';
             break;
@@ -779,27 +830,27 @@ OUTPUT STRICT JSON ONLY:
           break;
         } else {
           errorMessage = 'Server error HTTP ${response.statusCode}';
-          debugPrint('[BSS-Vision] HTTP ${response.statusCode} $selectedModel: ${response.body.substring(0, response.body.length.clamp(0, 300))}');
+          debugPrint('[BSS-Vision] HTTP ${response.statusCode} $currentModel: ${response.body.substring(0, response.body.length.clamp(0, 300))}');
           final retryable = [429, 502, 503, 504].contains(response.statusCode);
           if (retryable && attempt == 0 && remaining.inSeconds > 4) {
-            await Future.delayed(const Duration(milliseconds: 600));
+            await Future.delayed(const Duration(milliseconds: 300));
             continue;
           }
           break;
         }
       } catch (e, st) {
-        debugPrint('[BSS-Vision] ERROR $selectedModel attempt ${attempt + 1}: $e\n$st');
+        debugPrint('[BSS-Vision] ERROR $currentModel attempt ${attempt + 1}: $e\n$st');
         final isTimeout = e is TimeoutException;
         final isSocket = e.toString().contains('SocketException') ||
             e.toString().contains('Connection') ||
             e.toString().contains('ClientException');
         if ((isTimeout || isSocket) && attempt == 0 && remaining.inSeconds > 4) {
-          errorMessage = 'Koneksi tersendat ($selectedModel) - coba lagi';
-          await Future.delayed(const Duration(milliseconds: 600));
+          errorMessage = 'Failover jaringan ($currentModel) -> switch ke $fallbackModel';
+          await Future.delayed(const Duration(milliseconds: 300));
           continue;
         }
         if (isTimeout) {
-          errorMessage = 'Timeout ${config.timeoutSeconds}s ($selectedModel)';
+          errorMessage = 'Timeout ${config.timeoutSeconds}s ($currentModel)';
         } else {
           errorMessage = e.toString().replaceAll('Exception:', '').trim();
           if (errorMessage.length > 180) errorMessage = errorMessage.substring(0, 180);

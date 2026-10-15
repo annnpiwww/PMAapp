@@ -119,19 +119,19 @@ class AiVisionConfig {
   static const String defaultCustomUrl =
       'https://generativelanguage.googleapis.com/v1beta/openai';
 
-  /// Primary gemini-flash-lite (lock-in user).
+  /// Primary gemini-flash-lite (super cepat <2s via reasoning_effort: none).
   static const String defaultCustomModel = 'gemini-3.1-flash-lite';
-  /// Model yang konsisten — tidak melakukan silent fallback siluman ke model berbeda arsitektur
-  /// yang bisa membalikkan status hijau ke merah pada foto yang sama.
+  /// Model Vision Google AI Studio yang terbukti stabil & kompatibel
   static const List<String> availableModels = [
     'gemini-3.1-flash-lite',
+    'gemini-flash-lite-latest',
   ];
 
-  /// Timeout per-request: 25 detik untuk keandalan jaringan seluler di lapangan.
-  static const int perModelTimeoutSeconds = 25;
+  /// Timeout per-request: 8 detik untuk respons instan (normal <2-3 detik)
+  static const int perModelTimeoutSeconds = 8;
 
-  /// Total budget 35 detik: toleransi jika ada 1x retry cepat.
-  static const int totalBudgetSeconds = 35;
+  /// Total budget 16 detik: toleransi jika ada 1x failover ke fallback model.
+  static const int totalBudgetSeconds = 16;
 
   const AiVisionConfig({
     this.provider = AiProviderType.customEndpoint,

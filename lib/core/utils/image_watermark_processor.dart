@@ -135,13 +135,28 @@ class ImageWatermarkProcessor {
           return base64Encode(jpegBytes);
         }
       }
-      return base64Encode(validBytes);
+      final safeBytes = _compressBytesFallback(validBytes);
+      return base64Encode(safeBytes);
     } catch (_) {
       if (directBytes != null && directBytes.isNotEmpty) {
-        return base64Encode(directBytes);
+        final safeBytes = _compressBytesFallback(directBytes);
+        return base64Encode(safeBytes);
       }
     }
     return null;
+  }
+
+  /// Helper darurat untuk memastikan payload AI Vision tidak pernah membengkak >250KB di jaringan seluler
+  static Uint8List _compressBytesFallback(Uint8List rawBytes) {
+    if (rawBytes.length <= 250 * 1024) return rawBytes;
+    try {
+      final decoded = imglib.decodeImage(rawBytes);
+      if (decoded != null) {
+        final resized = imglib.copyResize(decoded, width: 420);
+        return Uint8List.fromList(imglib.encodeJpg(resized, quality: 50));
+      }
+    } catch (_) {}
+    return rawBytes;
   }
 
   /// Burns the live camera watermark directly onto the captured photo file with optimized performance.

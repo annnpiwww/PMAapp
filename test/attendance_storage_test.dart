@@ -169,9 +169,10 @@ void main() {
     });
 
     test('StorageService saveAttendanceRecord and sorting works', () async {
+      final now = DateTime.now();
       final recordEarlier = AttendanceRecord(
         id: 'rec_1',
-        timestamp: DateTime(2026, 9, 13, 7, 0),
+        timestamp: now.subtract(const Duration(hours: 8)),
         type: AttendanceType.masuk,
         shiftName: 'Shift Pagi',
         technicianName: 'Budi',
@@ -183,7 +184,7 @@ void main() {
 
       final recordLater = AttendanceRecord(
         id: 'rec_2',
-        timestamp: DateTime(2026, 9, 13, 15, 30),
+        timestamp: now.subtract(const Duration(hours: 1)),
         type: AttendanceType.pulang,
         shiftName: 'Shift Pagi',
         technicianName: 'Budi',
