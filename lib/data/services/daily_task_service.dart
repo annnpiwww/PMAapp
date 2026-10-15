@@ -830,7 +830,71 @@ class DailyTaskService {
     return sb.toString();
   }
 
-  /// Format rekapitulasi tim untuk SPV membagikan laporan harian seluruh teknisi
+  /// Format broadcast penugasan pagi tim untuk WhatsApp / Telegram
+  static String formatMorningDispatchReport({
+    required List<DailyTaskModel> tasks,
+    required Map<String, String> techShiftMap,
+    AppBranch? branch,
+  }) {
+    if (tasks.isEmpty) {
+      return 'Selamat pagi\nList pekerjaan hari ini belum ada.\n\nTetap semangat team🔥';
+    }
+
+    final activeBranch = branch ?? BranchService.instance.currentBranch;
+    final officialShifts = BranchService.instance.getShifts(branch: activeBranch);
+
+    // Filter tasks & group by technician
+    final techTaskMap = <String, List<DailyTaskModel>>{};
+    for (final t in tasks) {
+      final name = t.teknisiNama.trim();
+      if (name.isNotEmpty) {
+        techTaskMap.putIfAbsent(name, () => []).add(t);
+      }
+    }
+
+    final defaultShift = officialShifts.isNotEmpty ? officialShifts.first : 'Shift 1';
+    final shiftToTechs = <String, List<String>>{};
+
+    for (final tech in techTaskMap.keys) {
+      final shift = techShiftMap[tech] ?? defaultShift;
+      shiftToTechs.putIfAbsent(shift, () => []).add(tech);
+    }
+
+    // Sort shifts according to officialShifts order
+    final sortedShifts = shiftToTechs.keys.toList()
+      ..sort((a, b) {
+        final indexA = officialShifts.indexOf(a);
+        final indexB = officialShifts.indexOf(b);
+        if (indexA != -1 && indexB != -1) return indexA.compareTo(indexB);
+        if (indexA != -1) return -1;
+        if (indexB != -1) return 1;
+        return a.compareTo(b);
+      });
+
+    final sb = StringBuffer();
+    sb.writeln('Selamat pagi');
+    sb.writeln('List pekerjaan hari ini \n');
+
+    for (int sIdx = 0; sIdx < sortedShifts.length; sIdx++) {
+      final shift = sortedShifts[sIdx];
+      final techs = shiftToTechs[shift]!;
+
+      for (int tIdx = 0; tIdx < techs.length; tIdx++) {
+        final tech = techs[tIdx];
+        final techTasks = techTaskMap[tech] ?? [];
+
+        sb.writeln('$shift : $tech');
+        for (int i = 0; i < techTasks.length; i++) {
+          sb.writeln('${i + 1}. ${techTasks[i].judul.trim()}');
+        }
+        sb.writeln();
+      }
+    }
+
+    sb.write('Tetap semangat team🔥');
+    return sb.toString();
+  }
+
   /// Format rekapitulasi tim untuk SPV membagikan laporan harian seluruh teknisi
   static String formatSpvTeamRecap({
     required String tanggal,

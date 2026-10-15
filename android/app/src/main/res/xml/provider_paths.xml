@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <external-path name="external" path="." />
-    <external-files-path name="external_files" path="." />
-    <cache-path name="cache" path="." />
-    <external-cache-path name="external_cache" path="." />
-    <files-path name="files" path="." />
-    <root-path name="root" path="." />
+    <!-- SEC-06/SEC-08: restrict to share/ subdir only; no root-path / broad external-path -->
+    <cache-path name="cache" path="share/" />
+    <external-cache-path name="external_cache" path="share/" />
+    <files-path name="files" path="share/" />
 </paths>

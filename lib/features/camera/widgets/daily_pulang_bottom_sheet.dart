@@ -211,19 +211,19 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final isDark = ThemeService.isDarkMode(context);
 
-    final sheetBg = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-    final cardBg = isDark ? const Color(0xFF1E293B) : AppColors.surfaceContainerLow;
-    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final inputBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final inputBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final inputTextColor = isDark ? Colors.white : AppColors.textPrimary;
-    final hintColor = isDark ? const Color(0xFF64748B) : AppColors.textMuted;
-    final dividerColor = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final handleColor = isDark ? const Color(0xFF475569) : AppColors.cardBorder;
-    final toggleCardBg = isDark ? const Color(0xFF1E293B) : AppColors.creamContainer;
-    final toggleInnerBg = isDark ? const Color(0xFF0B1120) : Colors.white;
+    final sheetBg = isDark ? AppColors.darkSurface : Colors.white;
+    final textTitle = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
+    final textSub = isDark ? AppColors.textDarkSecondary : AppColors.textSecondary;
+    final cardBg = isDark ? AppColors.darkSurfaceContainer : AppColors.surfaceContainerLow;
+    final cardBorder = isDark ? AppColors.darkBorderMuted : AppColors.cardBorder;
+    final inputBg = isDark ? AppColors.darkSurfaceContainer : Colors.white;
+    final inputBorder = isDark ? AppColors.darkBorderMuted : AppColors.cardBorder;
+    final inputTextColor = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
+    final hintColor = isDark ? AppColors.textDarkMuted : AppColors.textMuted;
+    final dividerColor = isDark ? AppColors.darkBorder : AppColors.cardBorder;
+    final handleColor = isDark ? AppColors.darkBorderMuted : AppColors.cardBorder;
+    final toggleCardBg = isDark ? AppColors.darkSurfaceContainer : AppColors.creamContainer;
+    final toggleInnerBg = isDark ? AppColors.darkBackground : Colors.white;
 
     return Container(
       padding: EdgeInsets.only(bottom: bottomInset),

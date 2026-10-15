@@ -72,19 +72,19 @@ void main() {
         posName: 'PASAR BERSEHATI',
         cabangName: 'Manado',
         points: [
-          MaintenancePointResult(
+          const MaintenancePointResult(
             pointId: 'srv_1_01',
             label: 'Server Utama - Pembersihan Storage & File Temp',
             status: PointStatus.sesuai,
             alasan: 'Kapasitas partisi root pada df -h aman dan folder /tmp bersih',
           ),
-          MaintenancePointResult(
+          const MaintenancePointResult(
             pointId: 'srv_1_02',
             label: 'Server Utama - Nonaktifkan Update, Antivirus & Firewall',
             status: PointStatus.sesuai,
             alasan: 'Status firewall ufw inactive dan auto-update dinonaktifkan',
           ),
-          MaintenancePointResult(
+          const MaintenancePointResult(
             pointId: 'srv_2_01',
             label: 'Kasir 1 - Pembersihan Storage & File Temp',
             status: PointStatus.sesuai,
@@ -150,13 +150,13 @@ void main() {
         posName: 'PASAR BERSEHATI',
         cabangName: 'Manado',
         points: [
-          MaintenancePointResult(
+          const MaintenancePointResult(
             pointId: 'srv_1_01',
             label: 'PC Kasir 1 - Pembersihan Storage & File Temp',
             status: PointStatus.sesuai,
             alasan: 'Drive C aman dan file temp bersih',
           ),
-          MaintenancePointResult(
+          const MaintenancePointResult(
             pointId: 'srv_2_01',
             label: 'PC Kasir 2 - Pembersihan Storage & File Temp',
             status: PointStatus.sesuai,

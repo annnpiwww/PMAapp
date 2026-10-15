@@ -123,7 +123,7 @@ void main() {
         posName: 'Pos 1',
         cabangName: 'Cabang Test',
         points: [
-          MaintenancePointResult(
+          const MaintenancePointResult(
             pointId: 'srv_1_01',
             label: 'PC Server & Kasir - Pembersihan Storage Linux (df -h & /tmp)',
             status: PointStatus.sesuai,

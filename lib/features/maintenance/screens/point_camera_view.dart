@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
@@ -47,6 +46,7 @@ class PointCameraView extends StatefulWidget {
 class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingObserver {
   CameraController? _controller;
   bool _isInit = false;
+  bool _hasInitError = false;
   bool _isCapturing = false;
   late bool _isOfflineFastMode;
   late WatermarkConfig _watermarkConfig;
@@ -120,23 +120,50 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
 
   Future<void> _initCam() async {
     try {
+      if (mounted) {
+        setState(() {
+          _hasInitError = false;
+          _statusText = 'Menyiapkan kamera...';
+        });
+      }
       _cameras = await availableCameras();
-      if (_cameras.isEmpty) return;
+      if (_cameras.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _hasInitError = true;
+            _statusText = 'Tidak ada sensor kamera ditemukan';
+          });
+        }
+        return;
+      }
       _selectedCameraIndex = 0;
       await _initializeControllerWithFallback(_selectedCameraIndex);
     } catch (e) {
-      if (mounted) setState(() => _statusText = 'Kamera error: $e');
+      if (mounted) {
+        setState(() {
+          _hasInitError = true;
+          _statusText = 'Kamera error: $e';
+        });
+      }
     }
   }
 
   Future<void> _initializeControllerWithFallback(int cameraIndex) async {
-    final presets = [
-      ResolutionPreset.max,
-      ResolutionPreset.ultraHigh,
-      ResolutionPreset.veryHigh,
-      ResolutionPreset.high,
-      ResolutionPreset.medium,
-    ];
+    // Pada platform Web PWA (Chrome/Safari), preset ultraHigh/max sering hang atau ditolak browser.
+    // Gunakan preset high -> medium -> low untuk web agar inisialisasi instan dan stabil.
+    final presets = kIsWeb
+        ? [
+            ResolutionPreset.high,
+            ResolutionPreset.medium,
+            ResolutionPreset.low,
+          ]
+        : [
+            ResolutionPreset.max,
+            ResolutionPreset.ultraHigh,
+            ResolutionPreset.veryHigh,
+            ResolutionPreset.high,
+            ResolutionPreset.medium,
+          ];
 
     if (_controller != null) {
       try {
@@ -145,7 +172,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
       _controller = null;
     }
 
-    CameraException? lastErr;
+    Object? lastErr;
     for (final preset in presets) {
       try {
         final ctrl = CameraController(
@@ -154,7 +181,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
           enableAudio: false,
           imageFormatGroup: ImageFormatGroup.jpeg,
         );
-        await ctrl.initialize();
+        await ctrl.initialize().timeout(const Duration(seconds: 7));
         _controller = ctrl;
         try {
           await _controller!.setFocusMode(FocusMode.auto);
@@ -163,11 +190,12 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
         if (mounted) {
           setState(() {
             _isInit = true;
+            _hasInitError = false;
             _statusText = 'Arahkan kamera ke objek';
           });
         }
         return;
-      } on CameraException catch (e) {
+      } catch (e) {
         lastErr = e;
         debugPrint('[PointCameraView] Preset $preset failed on camera $cameraIndex: $e');
         try {
@@ -180,7 +208,8 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
     if (mounted) {
       setState(() {
         _isInit = false;
-        _statusText = 'Kamera gagal dimulai (${lastErr?.description ?? lastErr?.code ?? 'Perangkat sibuk'})';
+        _hasInitError = true;
+        _statusText = 'Kamera gagal dimulai (${lastErr is CameraException ? (lastErr.description ?? lastErr.code) : 'Perangkat sibuk atau izin ditolak'})';
       });
     }
   }
@@ -420,7 +449,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
 
     try {
       final file = await _controller!.takePicture();
-      final bytes = await File(file.path).readAsBytes();
+      final Uint8List bytes = await file.readAsBytes();
 
       final verifiedTime = SecureTimeService.getVerifiedTime();
       final now = verifiedTime.accurateTime;
@@ -885,8 +914,68 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
 
   Widget _buildCameraViewport(Size media) {
     if (!_isInit || _controller == null) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+      if (_hasInitError) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+                  ),
+                  child: const Icon(Icons.videocam_off_rounded, color: Colors.redAccent, size: 36),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _statusText,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Pastikan izin kamera di browser/HP aktif atau tutup aplikasi lain yang sedang menggunakan kamera.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 11, height: 1.4),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: _initCam,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Coba Lagi', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: Colors.white),
+            const SizedBox(height: 16),
+            Text(
+              _statusText.isNotEmpty ? _statusText : 'Menyiapkan kamera...',
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+        ),
       );
     }
 

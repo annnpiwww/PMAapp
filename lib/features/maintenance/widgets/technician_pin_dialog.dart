@@ -101,7 +101,7 @@ class _TechnicianPinDialogState extends State<TechnicianPinDialog> {
               textAlign: TextAlign.center,
               autofocus: true,
               maxLength: 6,
-              style: TextStyle(fontFamily: 'PlusJakartaSans', 
+              style: const TextStyle(fontFamily: 'PlusJakartaSans', 
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 8,

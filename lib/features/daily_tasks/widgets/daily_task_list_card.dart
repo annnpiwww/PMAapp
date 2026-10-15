@@ -74,7 +74,7 @@ class _DailyTaskListCardState extends State<DailyTaskListCard> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withValues(alpha: 0.95),
+        color: AppColors.darkSurface.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: done == total ? AppColors.success.withValues(alpha: 0.4) : AppColors.accent.withValues(alpha: 0.4),
@@ -125,14 +125,14 @@ class _DailyTaskListCardState extends State<DailyTaskListCard> {
                           style: TextStyle(
                             fontFamily: 'PlusJakartaSans',
                             fontSize: 11,
-                            color: done == total ? AppColors.success : const Color(0xFF94A3B8),
+                            color: done == total ? AppColors.success : AppColors.textDarkSecondary,
                           ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.refresh_rounded, size: 16, color: Color(0xFF94A3B8)),
+                    icon: const Icon(Icons.refresh_rounded, size: 16, color: AppColors.textDarkSecondary),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: _loadTasks,
@@ -140,7 +140,7 @@ class _DailyTaskListCardState extends State<DailyTaskListCard> {
                   const SizedBox(width: 8),
                   Icon(
                     _isCollapsed ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded,
-                    color: const Color(0xFF94A3B8),
+                    color: AppColors.textDarkSecondary,
                     size: 20,
                   ),
                 ],
@@ -150,7 +150,7 @@ class _DailyTaskListCardState extends State<DailyTaskListCard> {
 
           // Collapsible Task List
           if (!_isCollapsed) ...[
-            const Divider(color: Color(0xFF334155), height: 1),
+            const Divider(color: AppColors.darkBorderMuted, height: 1),
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -164,10 +164,10 @@ class _DailyTaskListCardState extends State<DailyTaskListCard> {
                 return Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
+                    color: AppColors.darkBackground,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: isDone ? AppColors.success.withValues(alpha: 0.3) : const Color(0xFF334155),
+                      color: isDone ? AppColors.success.withValues(alpha: 0.3) : AppColors.darkBorderMuted,
                     ),
                   ),
                   child: Row(
@@ -177,7 +177,7 @@ class _DailyTaskListCardState extends State<DailyTaskListCard> {
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: (isDone ? AppColors.success : const Color(0xFF334155)).withValues(alpha: 0.2),
+                          color: (isDone ? AppColors.success : AppColors.darkBorderMuted).withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: isDone ? AppColors.success : const Color(0xFF475569),
@@ -188,7 +188,7 @@ class _DailyTaskListCardState extends State<DailyTaskListCard> {
                           child: Icon(
                             isDone ? Icons.check_rounded : Icons.pending_outlined,
                             size: 16,
-                            color: isDone ? AppColors.success : const Color(0xFF94A3B8),
+                            color: isDone ? AppColors.success : AppColors.textDarkSecondary,
                           ),
                         ),
                       ),
@@ -204,16 +204,16 @@ class _DailyTaskListCardState extends State<DailyTaskListCard> {
                                 fontFamily: 'PlusJakartaSans',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: isDone ? const Color(0xFF94A3B8) : Colors.white,
+                                color: isDone ? AppColors.textDarkSecondary : Colors.white,
                                 decoration: isDone ? TextDecoration.lineThrough : null,
-                                decorationColor: isDone ? const Color(0xFF94A3B8) : null,
+                                decorationColor: isDone ? AppColors.textDarkSecondary : null,
                                 decorationThickness: isDone ? 2.0 : null,
                               ),
                             ),
                             if (task.posTag.isNotEmpty)
                               Text(
                                 '${task.posTag} • ${task.posName}',
-                                style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                                style: const TextStyle(fontSize: 10, color: AppColors.textDarkMuted),
                               ),
                           ],
                         ),

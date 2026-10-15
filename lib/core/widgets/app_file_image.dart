@@ -97,6 +97,7 @@ class AppFileImage extends StatelessWidget {
     }
 
     // 4. Platform Native Mobile (File Storage)
+    // honey: existsSync on main thread, fine for <100 files, cache if grows
     try {
       final file = File(p);
       if (file.existsSync()) {

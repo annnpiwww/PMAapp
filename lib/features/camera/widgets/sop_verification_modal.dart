@@ -77,19 +77,22 @@ class SopVerificationModal extends StatelessWidget {
     final confidencePercent = (result.confidenceScore * 100).toInt();
     final screenH = MediaQuery.of(context).size.height;
     final maxHeight = screenH > 0 ? screenH * 0.90 : 650.0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final modalBg = isDark ? AppColors.darkSurface : Colors.white;
+    final handleColor = isDark ? AppColors.darkBorderMuted : Colors.grey.shade300;
 
     return SafeArea(
       top: false,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxHeight),
         child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border(
-              top: BorderSide(color: AppColors.accent, width: 2.5),
+          decoration: BoxDecoration(
+            color: modalBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(AppColors.radiusBottomSheet)),
+            border: const Border(
+              top: BorderSide(color: AppColors.accent, width: 3.0),
             ),
-            boxShadow: [
+            boxShadow: const [
               BoxShadow(
                 color: Color(0x1F000000),
                 blurRadius: 24,
@@ -111,7 +114,7 @@ class SopVerificationModal extends StatelessWidget {
                 width: 44,
                 height: 4.5,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: handleColor,
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -308,9 +311,9 @@ class SopVerificationModal extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
+                color: isDark ? AppColors.darkSurfaceContainer : AppColors.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.cardBorder),
+                border: Border.all(color: isDark ? AppColors.darkBorderMuted : AppColors.cardBorder),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -319,19 +322,19 @@ class SopVerificationModal extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.qr_code_2_rounded, size: 18, color: AppColors.textSecondary),
+                        Icon(Icons.qr_code_2_rounded, size: 18, color: isDark ? AppColors.textDarkSecondary : AppColors.textSecondary),
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             kodeVerifikasi,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
                               fontFamily: 'monospace',
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.5,
-                              color: AppColors.textPrimary,
+                              color: isDark ? AppColors.textDarkPrimary : AppColors.textPrimary,
                             ),
                           ),
                         ),
@@ -533,9 +536,9 @@ class SopVerificationModal extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.infoLight,
+                color: isDark ? AppColors.darkSurfaceContainer : AppColors.infoLight,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.infoBorder),
+                border: Border.all(color: isDark ? AppColors.darkBorderMuted : AppColors.infoBorder),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -556,9 +559,9 @@ class SopVerificationModal extends StatelessWidget {
                   Expanded(
                     child: Text(
                       result.alasan,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12.5,
-                        color: AppColors.textPrimary,
+                        color: isDark ? AppColors.textDarkPrimary : AppColors.textPrimary,
                         height: 1.5,
                       ),
                     ),
@@ -741,12 +744,12 @@ class SopVerificationModal extends StatelessWidget {
                               child: OutlinedButton.icon(
                                 onPressed: onShareWhatsApp,
                                 icon: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 16),
-                                label: Text(
+                                label: const Text(
                                   'WhatsApp',
                                   style: TextStyle(fontFamily: 'PlusJakartaSans', 
                                     fontWeight: FontWeight.w700,
                                     fontSize: 11.5,
-                                    color: const Color(0xFF15803D),
+                                    color: Color(0xFF15803D),
                                   ),
                                 ),
                                 style: OutlinedButton.styleFrom(
@@ -766,12 +769,12 @@ class SopVerificationModal extends StatelessWidget {
                               child: OutlinedButton.icon(
                                 onPressed: onShareTelegram,
                                 icon: const Icon(Icons.send_rounded, color: Color(0xFF229ED9), size: 16),
-                                label: Text(
+                                label: const Text(
                                   'Telegram',
                                   style: TextStyle(fontFamily: 'PlusJakartaSans', 
                                     fontWeight: FontWeight.w700,
                                     fontSize: 11.5,
-                                    color: const Color(0xFF0369A1),
+                                    color: Color(0xFF0369A1),
                                   ),
                                 ),
                                 style: OutlinedButton.styleFrom(

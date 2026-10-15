@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final identity = _identityCtrl.text.trim();
     final pass = _passwordCtrl.text.trim();
     if (identity.isEmpty || pass.isEmpty) {
-      setState(() => _errorMessage = 'Email atau username dan kata sandi wajib diisi.');
+      setState(() => _errorMessage = 'Username dan kata sandi wajib diisi.');
       return;
     }
 
@@ -61,98 +61,105 @@ class _LoginScreenState extends State<LoginScreen> {
       valueListenable: ThemeService.themeModeNotifier,
       builder: (context, currentMode, _) {
         final isDark = ThemeService.isDarkMode(context);
-        final bgScaffold = isDark ? const Color(0xFF0F172A) : const Color(0xFFFAF8F5);
-        final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-        final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-        final titleColor = isDark ? Colors.white : const Color(0xFF0F172A);
-        final subtitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-        final labelColor = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569);
-        final inputBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
-        final inputBorder = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
-        final inputTextColor = isDark ? Colors.white : const Color(0xFF0F172A);
-        final hintColor = isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8);
-        final iconColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+        final bgScaffold = isDark ? AppColors.darkBackground : AppColors.background;
+        final cardBg = isDark ? AppColors.darkSurface : Colors.white;
+        final cardBorder = isDark ? AppColors.darkBorderMuted : AppColors.cardBorder;
+        final titleColor = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
+        final subtitleColor = isDark ? AppColors.textDarkSecondary : AppColors.textSecondary;
+        final labelColor = isDark ? AppColors.textDarkPrimary : AppColors.textSecondary;
+        final inputBg = isDark ? AppColors.darkSurfaceContainer : AppColors.surfaceContainerLow;
+        final inputBorder = isDark ? AppColors.darkBorderMuted : AppColors.cardBorder;
+        final inputTextColor = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
+        final hintColor = isDark ? AppColors.textDarkMuted : AppColors.textMuted;
+        final iconColor = isDark ? AppColors.textDarkSecondary : AppColors.textMuted;
 
         return Scaffold(
           backgroundColor: bgScaffold,
           body: SafeArea(
             child: Stack(
               children: [
-                // Top-right Theme Toggle
+                // Top-right Theme Toggle with >=44dp touch target
                 Positioned(
-                  top: 12,
+                  top: 8,
                   right: 16,
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(22),
                       onTap: () => ThemeService.toggleTheme(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: cardBorder),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+                        child: Tooltip(
+                          message: isDark ? 'Beralih ke mode terang' : 'Beralih ke mode gelap',
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: cardBg,
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(color: cardBorder, width: 1.2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                              size: 15,
-                              color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF1E448D),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                                  size: 16,
+                                  color: isDark ? AppColors.warning : AppColors.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  isDark ? 'Terang' : 'Gelap',
+                                  style: TextStyle(
+                                    fontFamily: 'PlusJakartaSans',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? AppColors.textDarkPrimary : AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 5),
-                            Text(
-                              isDark ? 'Terang' : 'Gelap',
-                              style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-
                 Center(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 400),
+                      constraints: const BoxConstraints(maxWidth: 420),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          const SizedBox(height: 10),
+
                           // Logo Resmi Aplikasi BSS Parking
                           Center(
                             child: Container(
-                              width: 84,
-                              height: 84,
-                              padding: const EdgeInsets.all(4),
+                              width: 88,
+                              height: 88,
+                              padding: const EdgeInsets.all(5),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Colors.white,
+                                color: isDark ? const Color(0xFF1E293B) : Colors.white,
                                 border: Border.all(
                                   color: AppColors.accent,
-                                  width: 2.5,
+                                  width: 2.2,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.accent.withValues(alpha: isDark ? 0.35 : 0.2),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 4),
+                                    color: AppColors.accent.withValues(alpha: isDark ? 0.35 : 0.22),
+                                    blurRadius: 22,
+                                    offset: const Offset(0, 6),
                                   ),
                                 ],
                               ),
@@ -167,9 +174,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                         'PMA',
                                         style: TextStyle(
                                           fontFamily: 'PlusJakartaSans',
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w900,
                                           color: Colors.white,
+                                          letterSpacing: -0.5,
                                         ),
                                       ),
                                     ),
@@ -178,16 +186,17 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 18),
+                          const SizedBox(height: 16),
+
                           Text(
                             'PMA App',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontFamily: 'PlusJakartaSans',
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
                               color: titleColor,
-                              letterSpacing: -0.5,
+                              letterSpacing: -0.6,
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -201,19 +210,19 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: subtitleColor,
                             ),
                           ),
-                          const SizedBox(height: 32),
+                          const SizedBox(height: 28),
 
                           // Card Form Login
                           Container(
-                            padding: const EdgeInsets.all(22),
+                            padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
                               color: cardBg,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: cardBorder),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: cardBorder, width: 1.2),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-                                  blurRadius: 16,
+                                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+                                  blurRadius: 20,
                                   offset: const Offset(0, 8),
                                 ),
                               ],
@@ -223,49 +232,58 @@ class _LoginScreenState extends State<LoginScreen> {
                               children: [
                                 if (_errorMessage != null) ...[
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                                     decoration: BoxDecoration(
                                       color: AppColors.danger.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: AppColors.danger.withValues(alpha: 0.35)),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppColors.danger.withValues(alpha: 0.4), width: 1),
                                     ),
                                     child: Row(
                                       children: [
-                                        const Icon(Icons.error_outline_rounded, size: 16, color: AppColors.danger),
-                                        const SizedBox(width: 8),
+                                        const Icon(Icons.error_outline_rounded, size: 18, color: AppColors.danger),
+                                        const SizedBox(width: 10),
                                         Expanded(
                                           child: Text(
                                             _errorMessage!,
-                                            style: const TextStyle(fontSize: 12, color: AppColors.danger, fontWeight: FontWeight.w500),
+                                            style: const TextStyle(
+                                              fontFamily: 'PlusJakartaSans',
+                                              fontSize: 12,
+                                              color: AppColors.danger,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 18),
                                 ],
 
-
-
-                                // Username / Email Input
+                                // Username Input
                                 Text(
-                                  'Email atau Username',
+                                  'Username',
                                   style: TextStyle(
                                     fontFamily: 'PlusJakartaSans',
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w700,
                                     color: labelColor,
+                                    letterSpacing: 0.1,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 TextField(
                                   controller: _identityCtrl,
-                                  keyboardType: TextInputType.emailAddress,
+                                  keyboardType: TextInputType.text,
                                   autocorrect: false,
                                   enableSuggestions: false,
-                                  style: TextStyle(color: inputTextColor, fontSize: 14),
+                                  style: TextStyle(
+                                    fontFamily: 'PlusJakartaSans',
+                                    color: inputTextColor,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                   decoration: InputDecoration(
-                                    hintText: 'Masukkan email',
+                                    hintText: 'Username',
                                     hintStyle: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       color: hintColor,
@@ -273,20 +291,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                     filled: true,
                                     fillColor: inputBg,
-                                    prefixIcon: Icon(Icons.alternate_email_rounded, color: iconColor, size: 18),
+                                    prefixIcon: Icon(Icons.person_outline_rounded, color: iconColor, size: 20),
                                     border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(14),
                                       borderSide: BorderSide(color: inputBorder),
                                     ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(14),
                                       borderSide: BorderSide(color: inputBorder),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: const BorderSide(color: AppColors.accent, width: 1.8),
                                     ),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
                                   ),
                                 ),
                                 const SizedBox(height: 18),
@@ -297,8 +315,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   style: TextStyle(
                                     fontFamily: 'PlusJakartaSans',
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w700,
                                     color: labelColor,
+                                    letterSpacing: 0.1,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -307,10 +326,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                   obscureText: _obscurePassword,
                                   autocorrect: false,
                                   enableSuggestions: false,
-                                  style: TextStyle(color: inputTextColor, fontSize: 14),
+                                  style: TextStyle(
+                                    fontFamily: 'PlusJakartaSans',
+                                    color: inputTextColor,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                   onSubmitted: (_) => _handleLogin(),
                                   decoration: InputDecoration(
-                                    hintText: 'Masukkan kata sandi',
+                                    hintText: 'Katasandi',
                                     hintStyle: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       color: hintColor,
@@ -318,69 +342,77 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                     filled: true,
                                     fillColor: inputBg,
-                                    prefixIcon: Icon(Icons.lock_outline_rounded, color: iconColor, size: 18),
+                                    prefixIcon: Icon(Icons.lock_outline_rounded, color: iconColor, size: 20),
                                     suffixIcon: IconButton(
+                                      tooltip: _obscurePassword ? 'Tampilkan kata sandi' : 'Sembunyikan kata sandi',
                                       icon: Icon(
                                         _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                                         color: iconColor,
-                                        size: 18,
+                                        size: 20,
                                       ),
                                       onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                                     ),
                                     border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(14),
                                       borderSide: BorderSide(color: inputBorder),
                                     ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(14),
                                       borderSide: BorderSide(color: inputBorder),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: const BorderSide(color: AppColors.accent, width: 1.8),
                                     ),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
                                   ),
                                 ),
                                 const SizedBox(height: 26),
 
                                 // Tombol Masuk
-                                ElevatedButton(
-                                  onPressed: _isLoading ? null : _handleLogin,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.accent,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    elevation: 0,
-                                  ),
-                                  child: _isLoading
-                                      ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                        )
-                                      : const Text(
-                                          'Masuk',
-                                          style: TextStyle(
-                                            fontFamily: 'PlusJakartaSans',
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
+                                Semantics(
+                                  label: 'Tombol masuk akun',
+                                  button: true,
+                                  child: ElevatedButton(
+                                    onPressed: _isLoading ? null : _handleLogin,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.accent,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 15),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      elevation: 0,
+                                      shadowColor: Colors.transparent,
+                                    ),
+                                    child: _isLoading
+                                        ? const SizedBox(
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                                          )
+                                        : const Text(
+                                            'Login',
+                                            style: TextStyle(
+                                              fontFamily: 'PlusJakartaSans',
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 0.2,
+                                            ),
                                           ),
-                                        ),
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(height: 28),
 
-                          // Footer Info
+                          // Footer
                           Center(
                             child: Text(
                               'PMAapp powered by annnpii',
                               style: TextStyle(
                                 fontFamily: 'PlusJakartaSans',
                                 fontSize: 11,
+                                fontWeight: FontWeight.w500,
                                 color: subtitleColor,
                               ),
                             ),

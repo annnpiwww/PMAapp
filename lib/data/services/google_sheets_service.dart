@@ -134,7 +134,6 @@ class GoogleSheetsService {
 
       final payload = {
         'action': 'sync_maintenance',
-        'authToken': secretToken,
         'secretToken': secretToken,
         'id': submission.id,
         // Sesuai 5 kolom utama Google Sheet
@@ -161,7 +160,6 @@ class GoogleSheetsService {
             headers: {
               'Content-Type': 'application/json',
               'X-Auth-Token': secretToken,
-              'Authorization': 'Bearer $secretToken',
             },
             body: jsonEncode(payload),
           )
@@ -190,7 +188,6 @@ class GoogleSheetsService {
 
         await _enqueuePendingPayload({
           'action': 'sync_maintenance',
-          'authToken': secretToken,
           'secretToken': secretToken,
           'id': submission.id,
           'tanggal': tanggalDisplay,
@@ -244,7 +241,6 @@ class GoogleSheetsService {
             headers: {
               'Content-Type': 'application/json',
               'X-Auth-Token': secretToken,
-              'Authorization': 'Bearer $secretToken',
             },
             body: item,
           ).timeout(const Duration(seconds: 10));

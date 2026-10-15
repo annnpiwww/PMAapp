@@ -27,13 +27,14 @@ class VerificationStepCard extends StatelessWidget {
     final stepNum = currentStep.clamp(1, 4);
     final progressValue = stepNum / 4.0;
     final isDone = stepNum >= 4;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 380),
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.92),
+        color: AppColors.darkSurface.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isDone ? AppColors.success : AppColors.accent,
@@ -65,7 +66,7 @@ class VerificationStepCard extends StatelessWidget {
                 alignment: Alignment.center,
                 child: isDone
                     ? const Icon(Icons.check_rounded, color: AppColors.success, size: 18)
-                    : SizedBox(
+                    : const SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
@@ -102,7 +103,7 @@ class VerificationStepCard extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF94A3B8),
+                          color: AppColors.textDarkSecondary,
                         ),
                       ),
                     ],
@@ -114,18 +115,24 @@ class VerificationStepCard extends StatelessWidget {
 
               // Step Counter Badge: e.g. "3/4"
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: isDark ? AppColors.darkSurfaceContainer : AppColors.darkBackground,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF334155)),
+                  border: Border.all(
+                    color: isDone
+                        ? AppColors.success.withValues(alpha: 0.5)
+                        : (isDark ? AppColors.darkBorderMuted : Colors.white24),
+                    width: 0.9,
+                  ),
                 ),
                 child: Text(
                   '$stepNum/4',
                   style: TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: 'PlusJakartaSans',
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
                     color: isDone ? AppColors.success : AppColors.accent,
                   ),
                 ),
@@ -141,7 +148,7 @@ class VerificationStepCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progressValue,
               minHeight: 4,
-              backgroundColor: const Color(0xFF1E293B),
+              backgroundColor: isDark ? AppColors.darkSurfaceContainer : const Color(0xFF1E293B),
               valueColor: AlwaysStoppedAnimation<Color>(
                 isDone ? AppColors.success : AppColors.accent,
               ),
@@ -156,10 +163,10 @@ class VerificationStepCard extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                 alignment: Alignment.center,
-                child: Row(
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
+                  children: [
                     Icon(Icons.bolt_rounded, size: 14, color: AppColors.accent),
                     SizedBox(width: 4),
                     Flexible(
@@ -168,10 +175,9 @@ class VerificationStepCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFFCBD5E1),
+                          color: AppColors.textDarkSecondary,
                           decoration: TextDecoration.underline,
                         ),
                       ),

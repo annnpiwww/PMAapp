@@ -156,8 +156,11 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     AbsensiSetupService.instance.addListener(_onAbsensiSetupChange);
     BranchService.instance.addListener(_onBranchChange);
 
+    // honey: 1s tick refreshes clock/attendance pill only; guard mounted and active to avoid rebuild after dispose. If cheap, wrap pill in ValueListenableBuilder to avoid full setState.
     _liveAttendanceTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      if (_liveAttendanceTimer?.isActive != true) return;
+      if (_liveAttendanceTimer!.tick % 1 == 0) setState(() {});
     });
   }
 
@@ -352,8 +355,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       try {
         final previewSize =
             controller.value.previewSize ?? const Size(720, 1280);
-        await controller.setFocusPoint(Offset(0.5, 0.5));
-        await controller.setExposurePoint(Offset(0.5, 0.5));
+        await controller.setFocusPoint(const Offset(0.5, 0.5));
+        await controller.setExposurePoint(const Offset(0.5, 0.5));
         // silence unused previewSize warning
         assert(previewSize.width > 0);
       } catch (_) {}
@@ -1717,11 +1720,11 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                         else
                           Container(
                             color: const Color(0xFF0F172A),
-                            child: Center(
+                            child: const Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const SizedBox(
+                                  SizedBox(
                                     width: 32,
                                     height: 32,
                                     child: CircularProgressIndicator(
@@ -1729,8 +1732,8 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                       strokeWidth: 3,
                                     ),
                                   ),
-                                  const SizedBox(height: 14),
-                                  const Text(
+                                  SizedBox(height: 14),
+                                  Text(
                                     'Loading',
                                     style: TextStyle(
                                       color: Colors.white,
@@ -1822,40 +1825,50 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                             ),
                           ),
 
-                        // Floating Shortcut Location Button (Bottom-Right of Viewfinder: Icon only, compact 15px)
+                        // Floating Shortcut Location Button (Bottom-Right of Viewfinder: 48dp touch hitbox, sleek visual)
                         if (_isCameraInitialized && _cameraController != null)
                           Positioned(
-                            right: 14,
-                            bottom: 14,
-                            child: GestureDetector(
-                              onTap: _showRealtimeLocationPicker,
-                              child: Container(
-                                width: 34,
-                                height: 34,
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.65),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: AppColors.accent.withValues(
-                                      alpha: 0.85,
-                                    ),
-                                    width: 1.2,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.35,
+                            right: 8,
+                            bottom: 8,
+                            child: Semantics(
+                              label: 'Pilih lokasi realtime',
+                              button: true,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: _showRealtimeLocationPicker,
+                                child: Container(
+                                  width: 48,
+                                  height: 48,
+                                  alignment: Alignment.center,
+                                  child: Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.7),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: AppColors.accent.withValues(
+                                          alpha: 0.9,
+                                        ),
+                                        width: 1.4,
                                       ),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.35,
+                                          ),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.my_location_rounded,
-                                    color: AppColors.accent,
-                                    size: 15,
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.my_location_rounded,
+                                        color: AppColors.accent,
+                                        size: 16,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1884,33 +1897,37 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                         ValueListenableBuilder<int>(
                           valueListenable: DailyTaskService.pendingCountNotifier,
                           builder: (context, pendingCount, _) {
-                            return Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? Colors.black.withValues(alpha: 0.45)
-                                        : const Color(0xFFF1F5F9),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isDark ? Colors.white24 : AppColors.cardBorder,
-                                      width: 0.8,
+                            return Semantics(
+                              label: 'Buka menu utama',
+                              button: true,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Container(
+                                    width: 38,
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? Colors.black.withValues(alpha: 0.45)
+                                          : const Color(0xFFF1F5F9),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isDark ? Colors.white24 : AppColors.cardBorder,
+                                        width: 0.8,
+                                      ),
+                                    ),
+                                    child: IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                                      icon: Icon(
+                                        Icons.menu_rounded,
+                                        color: isDark ? Colors.white : AppColors.textPrimary,
+                                        size: 20,
+                                      ),
+                                      onPressed: () =>
+                                          _scaffoldKey.currentState?.openDrawer(),
                                     ),
                                   ),
-                                  child: IconButton(
-                                    padding: EdgeInsets.zero,
-                                    icon: Icon(
-                                      Icons.menu_rounded,
-                                      color: isDark ? Colors.white : AppColors.textPrimary,
-                                      size: 20,
-                                    ),
-                                    onPressed: () =>
-                                        _scaffoldKey.currentState?.openDrawer(),
-                                  ),
-                                ),
                                 if (pendingCount > 0)
                                   Positioned(
                                     top: -2,
@@ -1938,114 +1955,125 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                     ),
                                   ),
                               ],
-                            );
-                          },
-                        ),
+                            ),
+                          );
+                        },
+                      ),
 
                         const SizedBox(width: 8),
 
-                        // Quick Ratio Selector Pill
+                        // Quick Ratio Selector Pill (44dp touch target)
                         GestureDetector(
+                          behavior: HitTestBehavior.opaque,
                           onTap: _showRatioPickerModal,
-                          child: Container(
-                            height: 36,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 11,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.black.withValues(alpha: 0.45) : const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                color: isDark ? Colors.white24 : AppColors.cardBorder,
-                                width: 0.8,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+                            child: Container(
+                              height: 38,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
                               ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _aspectRatio.icon,
-                                  color: AppColors.accent,
-                                  size: 14,
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.black.withValues(alpha: 0.45) : AppColors.surfaceContainerLow,
+                                borderRadius: BorderRadius.circular(19),
+                                border: Border.all(
+                                  color: isDark ? Colors.white24 : AppColors.cardBorder,
+                                  width: 0.8,
                                 ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  _aspectRatio.label,
-                                  style: TextStyle(
-                                    color: isDark ? Colors.white : AppColors.textPrimary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    fontFamily: 'PlusJakartaSans',
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _aspectRatio.icon,
+                                    color: AppColors.accent,
+                                    size: 15,
                                   ),
-                                ),
-                                const SizedBox(width: 2),
-                                Icon(
-                                  Icons.arrow_drop_down_rounded,
-                                  color: isDark ? Colors.white70 : AppColors.textSecondary,
-                                  size: 16,
-                                ),
-                              ],
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    _aspectRatio.label,
+                                    style: TextStyle(
+                                      color: isDark ? Colors.white : AppColors.textPrimary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      fontFamily: 'PlusJakartaSans',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Icon(
+                                    Icons.arrow_drop_down_rounded,
+                                    color: isDark ? Colors.white70 : AppColors.textSecondary,
+                                    size: 16,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
 
                         const SizedBox(width: 8),
 
-                        // Quick Timer Selector Pill
+                        // Quick Timer Selector Pill (44dp touch target)
                         GestureDetector(
+                          behavior: HitTestBehavior.opaque,
                           onTap: _isCountingDown ? null : _showTimerPickerModal,
-                          child: Container(
-                            height: 36,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 11,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _timerSeconds > 0
-                                  ? AppColors.accent.withValues(alpha: 0.22)
-                                  : (isDark ? Colors.black.withValues(alpha: 0.45) : const Color(0xFFF1F5F9)),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                color: _timerSeconds > 0
-                                    ? AppColors.accent
-                                    : (isDark ? Colors.white24 : AppColors.cardBorder),
-                                width: 0.8,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+                            child: Container(
+                              height: 38,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
                               ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _timerSeconds > 0
-                                      ? Icons.timer_rounded
-                                      : Icons.timer_outlined,
+                              decoration: BoxDecoration(
+                                color: _timerSeconds > 0
+                                    ? AppColors.accent.withValues(alpha: 0.22)
+                                    : (isDark ? Colors.black.withValues(alpha: 0.45) : AppColors.surfaceContainerLow),
+                                borderRadius: BorderRadius.circular(19),
+                                border: Border.all(
                                   color: _timerSeconds > 0
                                       ? AppColors.accent
-                                      : (isDark ? Colors.white70 : AppColors.textSecondary),
-                                  size: 14,
+                                      : (isDark ? Colors.white24 : AppColors.cardBorder),
+                                  width: 0.8,
                                 ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  _timerSeconds > 0
-                                      ? '${_timerSeconds}s'
-                                      : 'Timer',
-                                  style: TextStyle(
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _timerSeconds > 0
+                                        ? Icons.timer_rounded
+                                        : Icons.timer_outlined,
                                     color: _timerSeconds > 0
                                         ? AppColors.accent
-                                        : (isDark ? Colors.white : AppColors.textPrimary),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    fontFamily: 'PlusJakartaSans',
+                                        : (isDark ? Colors.white70 : AppColors.textSecondary),
+                                    size: 15,
                                   ),
-                                ),
-                                const SizedBox(width: 2),
-                                Icon(
-                                  Icons.arrow_drop_down_rounded,
-                                  color: _timerSeconds > 0
-                                      ? AppColors.accent
-                                      : (isDark ? Colors.white70 : AppColors.textSecondary),
-                                  size: 16,
-                                ),
-                              ],
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    _timerSeconds > 0
+                                        ? '${_timerSeconds}s'
+                                        : 'Timer',
+                                    style: TextStyle(
+                                      color: _timerSeconds > 0
+                                        ? AppColors.accent
+                                        : (isDark ? Colors.white : AppColors.textPrimary),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      fontFamily: 'PlusJakartaSans',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Icon(
+                                    Icons.arrow_drop_down_rounded,
+                                    color: _timerSeconds > 0
+                                        ? AppColors.accent
+                                        : (isDark ? Colors.white70 : AppColors.textSecondary),
+                                    size: 16,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -2060,54 +2088,64 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                         ),
 
                         // Flash Toggle Button (Off -> Auto -> On -> Torch Senter)
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.black.withValues(alpha: 0.45) : const Color(0xFFF1F5F9),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: isDark ? Colors.white24 : AppColors.cardBorder, width: 0.8),
-                          ),
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: Icon(
-                              _flashMode == FlashMode.off
-                                  ? Icons.flash_off_rounded
-                                  : (_flashMode == FlashMode.auto
-                                        ? Icons.flash_auto_rounded
-                                        : (_flashMode == FlashMode.torch
-                                              ? Icons.flashlight_on_rounded
-                                              : Icons.flash_on_rounded)),
-                              color: _flashMode == FlashMode.off
-                                  ? (isDark ? Colors.white70 : AppColors.textSecondary)
-                                  : (_flashMode == FlashMode.torch
-                                        ? Colors.cyanAccent
-                                        : Colors.amber),
-                              size: 18,
+                        Semantics(
+                          label: 'Pengaturan lampu kilat kamera',
+                          button: true,
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.black.withValues(alpha: 0.45) : const Color(0xFFF1F5F9),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: isDark ? Colors.white24 : AppColors.cardBorder, width: 0.8),
                             ),
-                            onPressed: _toggleFlash,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                              icon: Icon(
+                                _flashMode == FlashMode.off
+                                    ? Icons.flash_off_rounded
+                                    : (_flashMode == FlashMode.auto
+                                          ? Icons.flash_auto_rounded
+                                          : (_flashMode == FlashMode.torch
+                                                ? Icons.flashlight_on_rounded
+                                                : Icons.flash_on_rounded)),
+                                color: _flashMode == FlashMode.off
+                                    ? (isDark ? Colors.white70 : AppColors.textSecondary)
+                                    : (_flashMode == FlashMode.torch
+                                          ? Colors.cyanAccent
+                                          : Colors.amber),
+                                size: 18,
+                              ),
+                              onPressed: _toggleFlash,
+                            ),
                           ),
                         ),
 
                         const SizedBox(width: 8),
 
                         // Camera Flip Switch
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.black.withValues(alpha: 0.45) : const Color(0xFFF1F5F9),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: isDark ? Colors.white24 : AppColors.cardBorder, width: 0.8),
-                          ),
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: Icon(
-                              Icons.flip_camera_ios_rounded,
-                              color: isDark ? Colors.white : AppColors.textPrimary,
-                              size: 18,
+                        Semantics(
+                          label: 'Putar kamera depan atau belakang',
+                          button: true,
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.black.withValues(alpha: 0.45) : const Color(0xFFF1F5F9),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: isDark ? Colors.white24 : AppColors.cardBorder, width: 0.8),
                             ),
-                            onPressed: _toggleCameraFlip,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                              icon: Icon(
+                                Icons.flip_camera_ios_rounded,
+                                color: isDark ? Colors.white : AppColors.textPrimary,
+                                size: 18,
+                              ),
+                              onPressed: _toggleCameraFlip,
+                            ),
                           ),
                         ),
                       ],
@@ -2115,50 +2153,60 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                   ),
                 ),
 
-                // 4. Right-side Zoom Controls (Compact 34x34 round buttons with proper right padding)
+                // 4. Right-side Zoom Controls (Accessible 44dp hit area, sleek 36px visual circle)
                 Positioned(
-                  right: 16,
-                  top: topBarH + (midH - 24 - 120) / 2,
+                  right: 10,
+                  top: topBarH + (midH - 24 - 130) / 2,
                   child: Column(
                     children: [1.0, 2.0, 5.0].map((zoomVal) {
                       final isSelected = (_currentZoom - zoomVal).abs() < 0.2;
-                      return GestureDetector(
-                        onTap: () => _setZoom(zoomVal),
-                        child: Container(
-                          width: 34,
-                          height: 34,
-                          margin: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Colors.white
-                                : Colors.black.withValues(alpha: 0.45),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSelected
-                                  ? Colors.white
-                                  : Colors.white.withValues(alpha: 0.25),
-                              width: 1,
-                            ),
-                            boxShadow: isSelected
-                                ? [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.3),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${zoomVal.toInt()}x',
-                              style: TextStyle(
+                      return Semantics(
+                        label: 'Zoom ${zoomVal.toInt()} kali',
+                        button: true,
+                        selected: isSelected,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _setZoom(zoomVal),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            alignment: Alignment.center,
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
                                 color: isSelected
-                                    ? const Color(0xFF0F2C59)
-                                    : Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                fontFamily: 'monospace',
+                                    ? Colors.white
+                                    : Colors.black.withValues(alpha: 0.5),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.white.withValues(alpha: 0.3),
+                                  width: 1.2,
+                                ),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.35),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${zoomVal.toInt()}x',
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? const Color(0xFF0F2C59)
+                                        : Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    fontFamily: 'PlusJakartaSans',
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -2451,79 +2499,84 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         // Left: Last Photo Thumbnail / Galeri Foto
-        GestureDetector(
-          onTap: () {
-            HapticFeedback.lightImpact();
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const GalleryScreen()),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: isTransparent
-                        ? Colors.black.withValues(alpha: 0.45)
-                        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
+        Semantics(
+          label: 'Buka galeri riwayat foto',
+          button: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const GalleryScreen()),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
                       color: isTransparent
-                          ? Colors.white38
-                          : (isDark ? const Color(0xFF334155) : AppColors.cardBorder),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: isTransparent ? 0.3 : 0.06),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                          ? Colors.black.withValues(alpha: 0.45)
+                          : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isTransparent
+                            ? Colors.white38
+                            : (isDark ? const Color(0xFF334155) : AppColors.cardBorder),
+                        width: 1.5,
                       ),
-                    ],
-                  ),
-                  child: (lastSubmission != null &&
-                          lastSubmission.imagePath != null &&
-                          lastSubmission.imagePath!.isNotEmpty)
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: AppFileImage(
-                            path: lastSubmission.imagePath!,
-                            cacheWidth: 800,
-                            fit: BoxFit.cover,
-                            errorBuilder: (ctx, err, stack) => Icon(
-                              Icons.photo_library_outlined,
-                              color: isTransparent
-                                  ? Colors.white
-                                  : (isDark ? Colors.white : AppColors.primary),
-                              size: 22,
-                            ),
-                          ),
-                        )
-                      : Icon(
-                          Icons.photo_library_outlined,
-                          color: isTransparent
-                              ? Colors.white70
-                              : (isDark ? Colors.white70 : AppColors.textSecondary),
-                          size: 22,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: isTransparent ? 0.3 : 0.06),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'Galeri',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'PlusJakartaSans',
-                    color: isTransparent
-                        ? Colors.white70
-                        : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
+                      ],
+                    ),
+                    child: (lastSubmission != null &&
+                            lastSubmission.imagePath != null &&
+                            lastSubmission.imagePath!.isNotEmpty)
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: AppFileImage(
+                              path: lastSubmission.imagePath!,
+                              cacheWidth: 800,
+                              fit: BoxFit.cover,
+                              errorBuilder: (ctx, err, stack) => Icon(
+                                Icons.photo_library_outlined,
+                                color: isTransparent
+                                    ? Colors.white
+                                    : (isDark ? Colors.white : AppColors.primary),
+                                size: 22,
+                              ),
+                            ),
+                          )
+                        : Icon(
+                            Icons.photo_library_outlined,
+                            color: isTransparent
+                                ? Colors.white70
+                                : (isDark ? Colors.white70 : AppColors.textSecondary),
+                            size: 22,
+                          ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 5),
+                  Text(
+                    'Galeri',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'PlusJakartaSans',
+                      color: isTransparent
+                          ? Colors.white70
+                          : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -2534,67 +2587,72 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
           children: [
             _buildAttendanceShiftShortcutPill(isTransparent, isDark: isDark),
             const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () {
-                if (_isProcessingAI) return;
-                HapticFeedback.mediumImpact();
-                if (_isCountingDown) {
-                  _cancelTimer();
-                } else {
-                  _startTimedCapture();
-                }
-              },
-              child: Container(
-                width: 78,
-                height: 78,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.transparent,
-                  border: Border.all(
-                    color: _isProcessingAI
-                        ? (isDark ? Colors.white24 : Colors.black26)
-                        : AppColors.accent,
-                    width: 3.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (_isProcessingAI
-                              ? Colors.black
-                              : AppColors.accent)
-                          .withValues(alpha: 0.35),
-                      blurRadius: 12,
-                      spreadRadius: 1.0,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(4.5),
+            Semantics(
+              label: _isCountingDown ? 'Batalkan timer foto' : 'Ambil foto verifikasi',
+              button: true,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (_isProcessingAI) return;
+                  HapticFeedback.mediumImpact();
+                  if (_isCountingDown) {
+                    _cancelTimer();
+                  } else {
+                    _startTimedCapture();
+                  }
+                },
                 child: Container(
+                  width: 78,
+                  height: 78,
                   decoration: BoxDecoration(
-                    color: _isProcessingAI
-                        ? Colors.grey.shade600
-                        : (isTransparent
-                            ? Colors.white
-                            : (isDark ? AppColors.primary : const Color(0xFF1E448D))),
                     shape: BoxShape.circle,
+                    color: Colors.transparent,
+                    border: Border.all(
+                      color: _isProcessingAI
+                          ? (isDark ? Colors.white24 : Colors.black26)
+                          : AppColors.accent,
+                      width: 3.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (_isProcessingAI
+                                ? Colors.black
+                                : AppColors.accent)
+                            .withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        spreadRadius: 1.0,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: Center(
-                    child: _isProcessingAI
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  padding: const EdgeInsets.all(4.5),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: _isProcessingAI
+                          ? Colors.grey.shade600
+                          : (isTransparent
+                              ? Colors.white
+                              : (isDark ? AppColors.primary : const Color(0xFF1E448D))),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: _isProcessingAI
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Icon(
+                              Icons.camera_alt_rounded,
+                              color: isTransparent
+                                  ? const Color(0xFF0F2C59)
+                                  : Colors.white,
+                              size: 30,
                             ),
-                          )
-                        : Icon(
-                            Icons.camera_alt_rounded,
-                            color: isTransparent
-                                ? const Color(0xFF0F2C59)
-                                : Colors.white,
-                            size: 30,
-                          ),
+                    ),
                   ),
                 ),
               ),
@@ -2603,59 +2661,64 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
         ),
 
         // Right: Template Icon "SOP" Shortcut Button
-        GestureDetector(
-          onTap: () {
-            HapticFeedback.lightImpact();
-            _showTemplateQuickPicker();
-          },
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: isTransparent
-                        ? Colors.black.withValues(alpha: 0.45)
-                        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
+        Semantics(
+          label: 'Pilih template SOP',
+          button: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              _showTemplateQuickPicker();
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
                       color: isTransparent
-                          ? Colors.white38
-                          : (isDark ? const Color(0xFF334155) : AppColors.cardBorder),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: isTransparent ? 0.3 : 0.06),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                          ? Colors.black.withValues(alpha: 0.45)
+                          : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isTransparent
+                            ? Colors.white38
+                            : (isDark ? const Color(0xFF334155) : AppColors.cardBorder),
+                        width: 1.5,
                       ),
-                    ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: isTransparent ? 0.3 : 0.06),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.assignment_outlined,
+                      color: isTransparent
+                          ? Colors.white
+                          : (isDark ? Colors.white : AppColors.primary),
+                      size: 24,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.assignment_outlined,
-                    color: isTransparent
-                        ? Colors.white
-                        : (isDark ? Colors.white : AppColors.primary),
-                    size: 24,
+                  const SizedBox(height: 5),
+                  Text(
+                    'SOP',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'PlusJakartaSans',
+                      color: isTransparent
+                          ? Colors.white70
+                          : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'SOP',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'PlusJakartaSans',
-                    color: isTransparent
-                        ? Colors.white70
-                        : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

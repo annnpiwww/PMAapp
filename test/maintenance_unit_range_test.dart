@@ -14,8 +14,8 @@ void main() {
 
       final pos06 = posTemplate.sopPoints.firstWhere((p) => p.id == 'pos_06');
       expect(pos06.label, contains('Stiker Logo BSS Parking'));
-      expect(pos06.deskripsi, contains('hanya tampil logo BSS Parking'));
-      expect(pos06.checkpoints.any((c) => c.contains('Bukan stiker kuning Parkways')), isTrue);
+      expect(pos06.deskripsi, contains('tampil logo BSS Parking rapi'));
+      expect(pos06.checkpoints.any((c) => c.contains('logo resmi BSS Parking')), isTrue);
     });
 
     test('Selected pos range 1 to 3 generates exactly points for Pos 1, 2, and 3', () {

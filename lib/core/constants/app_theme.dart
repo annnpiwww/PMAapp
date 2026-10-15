@@ -160,10 +160,9 @@ class AppTheme {
           fontFamily: fontFamily,
         );
 
-    const darkBg = Color(0xFF0B1120);
-    const darkSurface = Color(0xFF111827);
-    const darkBorder = Color(0xFF1E293B);
-
+    const darkBg = AppColors.darkBackground;
+    const darkSurface = AppColors.darkSurface;
+    const darkBorder = AppColors.darkBorder;
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,

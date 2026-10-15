@@ -63,8 +63,11 @@ class _InteractiveWatermarkState extends State<InteractiveWatermark> {
     _positionX = widget.config.positionX;
     _positionY = widget.config.positionY;
     _scale = widget.config.scale;
+    // honey: 1s ticker updates clock text only; isolated setState on this leaf keeps parent tree untouched. Guard mounted + isActive to avoid setState after dispose. ValueNotifier-sharing is optional if multiple watermarks share a clock.
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _now = DateTime.now());
+      if (!mounted) return;
+      if (_ticker?.isActive != true) return;
+      setState(() => _now = DateTime.now());
     });
   }
 
@@ -725,16 +728,16 @@ class _InteractiveWatermarkState extends State<InteractiveWatermark> {
       }
     }
 
-    // Default: Gunakan logo BSS Parking resmi PNG transparan teks putih di atas background card biru
+    // Default: Gunakan logo BSS Parking resmi (PNG transparan teks putih di atas card biru)
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 36, maxWidth: 110),
+      constraints: const BoxConstraints(maxHeight: 34, maxWidth: 105),
       child: Image.asset(
         'foto/bssfotologo_transparent.png',
         fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => Column(
+        errorBuilder: (context, error, stackTrace) => const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
-          children: const [
+          children: [
             Text(
               'BSS',
               style: TextStyle(

@@ -36,15 +36,15 @@ void main() {
     test('generateReportText outputs all 9 points exactly 1:1 and gate header for single gate', () {
       final now = DateTime.now();
       final points = [
-        MaintenancePointResult(pointId: 'bar_1_01', label: 'Gate 1 - Dudukan Mesin & Baut Dynabolt', status: PointStatus.sesuai),
-        MaintenancePointResult(pointId: 'bar_1_02', label: 'Gate 1 - Fisik Palang Tertutup Lurus', status: PointStatus.sesuai),
-        MaintenancePointResult(pointId: 'bar_1_03', label: 'Gate 1 - Fisik Palang Terbuka', status: PointStatus.sesuai),
-        MaintenancePointResult(pointId: 'bar_1_04', label: 'Gate 1 - Pelumas (Spring/Bearing)', status: PointStatus.sesuai),
-        MaintenancePointResult(pointId: 'bar_1_05', label: 'Gate 1 - Sensor Loop Detector', status: PointStatus.sesuai),
-        MaintenancePointResult(pointId: 'bar_1_06', label: 'Gate 1 - Jalur Kabel Sensor', status: PointStatus.sesuai),
-        MaintenancePointResult(pointId: 'bar_1_07', label: 'Gate 1 - Stiker Receiver Barrier Gate', status: PointStatus.sesuai),
-        MaintenancePointResult(pointId: 'bar_1_08', label: 'Gate 1 - Tiang CCTV & Housing', status: PointStatus.sesuai),
-        MaintenancePointResult(pointId: 'bar_1_09', label: 'Gate 1 - Speedbump Gate', status: PointStatus.sesuai),
+        const MaintenancePointResult(pointId: 'bar_1_01', label: 'Gate 1 - Dudukan Mesin & Baut Dynabolt', status: PointStatus.sesuai),
+        const MaintenancePointResult(pointId: 'bar_1_02', label: 'Gate 1 - Fisik Palang Tertutup Lurus', status: PointStatus.sesuai),
+        const MaintenancePointResult(pointId: 'bar_1_03', label: 'Gate 1 - Fisik Palang Terbuka', status: PointStatus.sesuai),
+        const MaintenancePointResult(pointId: 'bar_1_04', label: 'Gate 1 - Pelumas (Spring/Bearing)', status: PointStatus.sesuai),
+        const MaintenancePointResult(pointId: 'bar_1_05', label: 'Gate 1 - Sensor Loop Detector', status: PointStatus.sesuai),
+        const MaintenancePointResult(pointId: 'bar_1_06', label: 'Gate 1 - Jalur Kabel Sensor', status: PointStatus.sesuai),
+        const MaintenancePointResult(pointId: 'bar_1_07', label: 'Gate 1 - Stiker Receiver Barrier Gate', status: PointStatus.sesuai),
+        const MaintenancePointResult(pointId: 'bar_1_08', label: 'Gate 1 - Tiang CCTV & Housing', status: PointStatus.sesuai),
+        const MaintenancePointResult(pointId: 'bar_1_09', label: 'Gate 1 - Speedbump Gate', status: PointStatus.sesuai),
       ];
 
       final sub = MaintenanceSubmission(
@@ -89,10 +89,10 @@ void main() {
     test('generateReportText handles multi-gate with issues correctly', () {
       final now = DateTime.now();
       final points = [
-        MaintenancePointResult(pointId: 'bar_1_01', label: 'Gate 1 - Dudukan Mesin & Baut Dynabolt', status: PointStatus.sesuai),
-        MaintenancePointResult(pointId: 'bar_2_01', label: 'Gate 2 - Dudukan Mesin & Baut Dynabolt', status: PointStatus.tidakSesuai, alasan: 'Baut kendor perlu dikencangkan'),
-        MaintenancePointResult(pointId: 'bar_1_07', label: 'Gate 1 - Stiker Receiver Barrier Gate', status: PointStatus.sesuai),
-        MaintenancePointResult(pointId: 'bar_2_07', label: 'Gate 2 - Stiker Receiver Barrier Gate', status: PointStatus.sesuai),
+        const MaintenancePointResult(pointId: 'bar_1_01', label: 'Gate 1 - Dudukan Mesin & Baut Dynabolt', status: PointStatus.sesuai),
+        const MaintenancePointResult(pointId: 'bar_2_01', label: 'Gate 2 - Dudukan Mesin & Baut Dynabolt', status: PointStatus.tidakSesuai, alasan: 'Baut kendor perlu dikencangkan'),
+        const MaintenancePointResult(pointId: 'bar_1_07', label: 'Gate 1 - Stiker Receiver Barrier Gate', status: PointStatus.sesuai),
+        const MaintenancePointResult(pointId: 'bar_2_07', label: 'Gate 2 - Stiker Receiver Barrier Gate', status: PointStatus.sesuai),
       ];
 
       final sub = MaintenanceSubmission(
@@ -136,8 +136,8 @@ void main() {
         posName: 'Pos 1 Megamas',
         cabangName: 'Manado',
         points: [
-          MaintenancePointResult(pointId: 'bar_1_01', label: 'Gate 1 - Dudukan Mesin', status: PointStatus.sesuai),
-          MaintenancePointResult(pointId: 'bar_1_02', label: 'Gate 1 - Fisik Palang', status: PointStatus.belumFoto),
+          const MaintenancePointResult(pointId: 'bar_1_01', label: 'Gate 1 - Dudukan Mesin', status: PointStatus.sesuai),
+          const MaintenancePointResult(pointId: 'bar_1_02', label: 'Gate 1 - Fisik Palang', status: PointStatus.belumFoto),
         ],
         createdAt: now,
         updatedAt: now,
@@ -154,8 +154,8 @@ void main() {
         posName: 'Pos 2 Mantos',
         cabangName: 'Manado',
         points: [
-          MaintenancePointResult(pointId: 'bar_1_01', label: 'Gate 1 - Dudukan Mesin', status: PointStatus.sesuai),
-          MaintenancePointResult(pointId: 'bar_1_02', label: 'Gate 1 - Fisik Palang', status: PointStatus.sesuai),
+          const MaintenancePointResult(pointId: 'bar_1_01', label: 'Gate 1 - Dudukan Mesin', status: PointStatus.sesuai),
+          const MaintenancePointResult(pointId: 'bar_1_02', label: 'Gate 1 - Fisik Palang', status: PointStatus.sesuai),
         ],
         createdAt: now,
         updatedAt: now,

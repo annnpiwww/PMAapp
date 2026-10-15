@@ -279,9 +279,9 @@ class _MaintenanceChecklistScreenState
             SopPoint(id: 'pos_${i}_03', label: '${pfx}Standarisasi Item dalam Pos', deskripsi: 'Monitor, Keyboard, Mouse, Scanner, Kipas Angin meja tertata rapi tanpa barang pribadi'),
             SopPoint(id: 'pos_${i}_04', label: '${pfx}Fungsi Sistem Aplikasi Kasir', deskripsi: 'Foto layar aplikasi kasir status ready online, tanpa cashbox'),
             SopPoint(id: 'pos_${i}_05', label: '${pfx}Kunci Pintu Pos (Grendel Pintu)', deskripsi: 'Grendel pintu pos terpasang dengan baik dan berfungsi normal'),
-            SopPoint(id: 'pos_${i}_06', label: '${pfx}Stiker Logo BSS Parking — Sisi Depan', deskripsi: 'Stiker body depan hanya tampil logo BSS Parking (hanya 1 stiker, bukan stiker kuning Parkways)'),
-            SopPoint(id: 'pos_${i}_07', label: '${pfx}Stiker BSS Parking & Parkways — Sisi Kiri', deskripsi: 'Stiker body kiri (BSS Parking putih & Parkways P kuning) rapih'),
-            SopPoint(id: 'pos_${i}_08', label: '${pfx}Stiker BSS Parking & Parkways — Sisi Kanan', deskripsi: 'Stiker body kanan (BSS Parking putih & Parkways P kuning) rapih'),
+            SopPoint(id: 'pos_${i}_06', label: '${pfx}Stiker Logo BSS Parking - Sisi Depan', deskripsi: 'Stiker body depan hanya tampil logo BSS Parking (hanya 1 stiker, bukan stiker kuning Parkways)'),
+            SopPoint(id: 'pos_${i}_07', label: '${pfx}Stiker BSS Parking & Parkways - Sisi Kiri', deskripsi: 'Stiker body kiri (BSS Parking putih & Parkways P kuning) rapih'),
+            SopPoint(id: 'pos_${i}_08', label: '${pfx}Stiker BSS Parking & Parkways - Sisi Kanan', deskripsi: 'Stiker body kanan (BSS Parking putih & Parkways P kuning) rapih'),
             SopPoint(id: 'pos_${i}_09', label: '${pfx}Kondisi Pulau Parkir', deskripsi: 'Warna cat kuning-hitam rapi, tidak retak, dan tidak ada kabel yang terlihat'),
           ]);
           break;
@@ -1208,24 +1208,25 @@ class _MaintenanceChecklistScreenState
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: ChoiceChip(
+        materialTapTargetSize: MaterialTapTargetSize.padded,
         label: Text('$label ($count)'),
         labelStyle: TextStyle(
           fontSize: 11,
           fontFamily: 'PlusJakartaSans',
           fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-          color: isSelected ? Colors.white : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
+          color: isSelected ? Colors.white : (isDark ? AppColors.textDarkSecondary : AppColors.textSecondary),
         ),
         selected: isSelected,
         selectedColor: AppColors.primary,
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        backgroundColor: isDark ? AppColors.darkSurfaceContainer : Colors.white,
         side: BorderSide(
-          color: isSelected ? Colors.transparent : (isDark ? const Color(0xFF334155) : AppColors.cardBorder),
+          color: isSelected ? Colors.transparent : (isDark ? AppColors.darkBorderMuted : AppColors.cardBorder),
           width: 1.1,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         showCheckmark: true,
         checkmarkColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         onSelected: (selected) {
           if (selected) {
             HapticFeedback.selectionClick();
@@ -1244,24 +1245,25 @@ class _MaintenanceChecklistScreenState
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: ChoiceChip(
+        materialTapTargetSize: MaterialTapTargetSize.padded,
         label: Text('$label ($count)'),
         labelStyle: TextStyle(
           fontSize: 10.5,
           fontFamily: 'PlusJakartaSans',
           fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-          color: isSelected ? Colors.white : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
+          color: isSelected ? Colors.white : (isDark ? AppColors.textDarkSecondary : AppColors.textSecondary),
         ),
         selected: isSelected,
         selectedColor: activeColor,
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        backgroundColor: isDark ? AppColors.darkSurfaceContainer : Colors.white,
         side: BorderSide(
-          color: isSelected ? Colors.transparent : (isDark ? const Color(0xFF334155) : AppColors.cardBorder),
+          color: isSelected ? Colors.transparent : (isDark ? AppColors.darkBorderMuted : AppColors.cardBorder),
           width: 1.1,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         showCheckmark: true,
         checkmarkColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         onSelected: (selected) {
           if (selected) {
             HapticFeedback.selectionClick();

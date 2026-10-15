@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/submission_model.dart';
 import 'storage_service.dart';
 import 'branch_service.dart';
+import 'secure_time_service.dart';
 
 class AbsensiSetupService extends ChangeNotifier {
   static final AbsensiSetupService instance = AbsensiSetupService._internal();
@@ -117,7 +118,8 @@ class AbsensiSetupService extends ChangeNotifier {
   }) {
     if (checkInTime == null) return null;
     if (StorageService.isDemoBypassActive()) return Duration.zero;
-    final now = currentTime ?? DateTime.now();
+    // honey: waktu terverifikasi mencegah manipulasi jam device; fallback ke currentTime untuk unit test
+    final now = currentTime ?? SecureTimeService.getVerifiedTime().accurateTime;
     final minDuration = getMinimumWorkDuration(shift);
     final worked = now.isAfter(checkInTime) ? now.difference(checkInTime) : Duration.zero;
     if (worked >= minDuration) return Duration.zero;
@@ -168,7 +170,8 @@ class AbsensiSetupService extends ChangeNotifier {
       return true;
     }
 
-    final now = currentTime ?? DateTime.now();
+    // honey: waktu terverifikasi mencegah bypass pulang cepat via ubah jam device
+    final now = currentTime ?? SecureTimeService.getVerifiedTime().accurateTime;
 
     // Syarat 1: Jam akhir jadwal shift sudah tiba / lewat
     final scheduledPulang = getScheduledPulangTime(
@@ -321,7 +324,7 @@ class AbsensiSetupService extends ChangeNotifier {
         pekerjaanBelum = prefs.getString(_kBelum) ?? '';
       }
       notifyListeners();
-    } catch (_) {}
+    } catch (e, st) { debugPrint('[AbsensiSetup] _load failed: $e'); debugPrint('$st'); }
   }
 
   Future<void> _save() async {
@@ -341,7 +344,7 @@ class AbsensiSetupService extends ChangeNotifier {
       await prefs.setString(_kSelesai, pekerjaanSelesai);
       await prefs.setString(_kBelum, pekerjaanBelum);
       await prefs.setString(_kHandoverDate, handoverDate);
-    } catch (_) {}
+    } catch (e, st) { debugPrint('[AbsensiSetup] _save failed: $e'); debugPrint('$st'); }
   }
 
   void updateKategori(AbsensiKategori k) {

@@ -29,16 +29,48 @@ class ShareHelper {
     }
   }
 
+  /// Mengonversi format markdown bold (*teks*) menjadi Unicode Mathematical Bold
+  /// agar tetap tebal saat dibagikan ke Telegram (yang tidak mem-parse asterisks secara otomatis).
+  static String convertMarkdownBoldToUnicode(String input) {
+    if (!input.contains('*')) return input;
+
+    final regex = RegExp(r'\*([^*]+)\*');
+    return input.replaceAllMapped(regex, (match) {
+      final inner = match.group(1) ?? '';
+      final buffer = StringBuffer();
+      for (final rune in inner.runes) {
+        // A-Z (0x41 - 0x5A) -> Mathematical Bold Capital (0x1D400 - 0x1D419)
+        if (rune >= 0x41 && rune <= 0x5A) {
+          buffer.writeCharCode(0x1D400 + (rune - 0x41));
+        }
+        // a-z (0x61 - 0x7A) -> Mathematical Bold Small (0x1D41A - 0x1D433)
+        else if (rune >= 0x61 && rune <= 0x7A) {
+          buffer.writeCharCode(0x1D41A + (rune - 0x61));
+        }
+        // 0-9 (0x30 - 0x39) -> Mathematical Bold Digit (0x1D7CE - 0x1D7D7)
+        else if (rune >= 0x30 && rune <= 0x39) {
+          buffer.writeCharCode(0x1D7CE + (rune - 0x30));
+        } else {
+          buffer.writeCharCode(rune);
+        }
+      }
+      return buffer.toString();
+    });
+  }
+
   /// Opens Telegram directly with pre-filled message and/or shares image without system picker
   static Future<void> shareToTelegram({
     required String text,
     String? imagePath,
     List<String>? imagePaths,
   }) async {
+    // Format text khusus Telegram: konversi *teks* menjadi karakter Unicode Bold
+    final formattedText = convertMarkdownBoldToUnicode(text);
+
     // Otomatis selalu salin teks ke clipboard jika ada teks laporan
     // (Jaminan anti-gagal jika Telegram/WA di device tertentu mengabaikan EXTRA_TEXT saat mengirim gambar)
-    if (text.isNotEmpty) {
-      try { await Clipboard.setData(ClipboardData(text: text)); } catch (_) {}
+    if (formattedText.isNotEmpty) {
+      try { await Clipboard.setData(ClipboardData(text: formattedText)); } catch (_) {}
     }
 
     // 1. Coba Direct Intent Android (Langsung Buka Telegram tanpa dialog picker)
@@ -46,7 +78,7 @@ class ShareHelper {
       try {
         final success = await _directChannel.invokeMethod<bool>('shareDirect', {
           'target': 'telegram',
-          'text': text,
+          'text': formattedText,
           'imagePath': imagePath,
           'imagePaths': imagePaths,
         });
@@ -55,7 +87,7 @@ class ShareHelper {
     }
 
     // 2. Fallback: SharePlus atau URI scheme
-    final encodedText = Uri.encodeComponent(text);
+    final encodedText = Uri.encodeComponent(formattedText);
     final tgDirectUri = Uri.parse('tg://msg?text=$encodedText');
     final tgWebUri = Uri.parse('https://t.me/share/url?text=$encodedText');
 
@@ -83,7 +115,7 @@ class ShareHelper {
         await SharePlus.instance.share(
           ShareParams(
             files: validFiles,
-            text: text,
+            text: formattedText,
             subject: 'Laporan PMAapp',
           ),
         );
@@ -100,12 +132,12 @@ class ShareHelper {
         await launchUrl(tgWebUri, mode: LaunchMode.externalApplication);
       } else {
         await SharePlus.instance.share(
-          ShareParams(text: text, subject: 'Laporan PMAapp'),
+          ShareParams(text: formattedText, subject: 'Laporan PMAapp'),
         );
       }
     } catch (_) {
       await SharePlus.instance.share(
-        ShareParams(text: text, subject: 'Laporan PMAapp'),
+        ShareParams(text: formattedText, subject: 'Laporan PMAapp'),
       );
     }
   }

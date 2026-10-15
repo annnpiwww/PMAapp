@@ -16,7 +16,7 @@ void main() {
 
   group('Daily Task Video & Kendala Fisik Tests', () {
     test('MaintenancePointResult supports kendalaFisik and serializes to JSON properly', () {
-      final point = MaintenancePointResult(
+      final point = const MaintenancePointResult(
         pointId: 'manless_1',
         label: 'Kebersihan stiker panduan',
         status: PointStatus.tidakSesuai,
@@ -47,20 +47,20 @@ void main() {
         createdAt: DateTime(2026, 10, 6, 14, 30),
         updatedAt: DateTime(2026, 10, 6, 14, 30),
         points: [
-          MaintenancePointResult(
+          const MaintenancePointResult(
             pointId: 'p1',
             label: 'Pembersihan printer tiket',
             status: PointStatus.sesuai,
             alasan: 'Printer bersih',
           ),
-          MaintenancePointResult(
+          const MaintenancePointResult(
             pointId: 'p2',
             label: 'Kebersihan luar manless & stiker panduan',
             status: PointStatus.tidakSesuai,
             alasan: 'Stiker panduan kusam dan mengelupas',
             kendalaFisik: 'Butuh Pengadaan Stiker Baru',
           ),
-          MaintenancePointResult(
+          const MaintenancePointResult(
             pointId: 'p3',
             label: 'Kondisi fisik lantai dan beton pulau gate',
             status: PointStatus.tidakSesuai,

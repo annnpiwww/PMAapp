@@ -54,7 +54,7 @@ class TemplateRepository extends ChangeNotifier {
         'Pulau parkir rapi, cat jelas, dan tidak ada kabel terlihat',
       ],
       sopPoints: [
-        SopPoint(
+        const SopPoint(
           id: 'pos_01',
           label: 'Pembersihan Total Printer Pos',
           deskripsi: 'Head printer, roller karet, dan tempat kertas bersih',
@@ -66,7 +66,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Buka penutup printer, foto dari atas agar head, roller, dan tempat kertas terlihat jelas.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'pos_02',
           label: 'Kerapian Jalur Kabel & Stopkontak',
           deskripsi: 'Kabel terikat rapi dan colokan adaptor kencang',
@@ -77,7 +77,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto area stopkontak dan kabel bawah meja, pastikan kabel terikat rapi dan colokan kencang.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'pos_03',
           label: 'Standarisasi Item dalam Pos',
           deskripsi: 'Item dalam pos lengkap: monitor, keyboard, mouse, scanner, printer, dan kipas angin',
@@ -88,7 +88,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto meja pos memperlihatkan monitor, keyboard, scanner, printer, dan kipas angin.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'pos_04',
           label: 'Fungsi Sistem Aplikasi Kasir',
           deskripsi: 'Layar aplikasi kasir ready online',
@@ -98,7 +98,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto layar monitor menampilkan aplikasi kasir BSS status ready online.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'pos_05',
           label: 'Kunci Pintu Pos (Grendel Pintu)',
           deskripsi: 'Grendel pintu pos terpasang kuat dan berfungsi normal',
@@ -108,9 +108,9 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto kunci grendel pintu pos terpasang kuat dan berfungsi normal.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'pos_06',
-          label: 'Stiker Logo BSS Parking — Sisi Depan',
+          label: 'Stiker Logo BSS Parking - Sisi Depan',
           deskripsi: 'Stiker bodi depan tampil logo BSS Parking rapi',
           checkpoints: [
             'Bodi depan menampilkan stiker logo resmi BSS Parking',
@@ -118,7 +118,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto stiker logo BSS Parking di bodi depan pos.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'pos_07',
           label: 'Stiker BSS Parking & Parkways — Sisi Kiri',
           deskripsi: 'Stiker BSS Parking dan Parkways di bodi kiri rapi',
@@ -128,7 +128,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto stiker BSS Parking dan Parkways di sisi kiri pos.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'pos_08',
           label: 'Stiker BSS Parking & Parkways — Sisi Kanan',
           deskripsi: 'Stiker BSS Parking dan Parkways di bodi kanan rapi',
@@ -138,7 +138,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto stiker BSS Parking dan Parkways di sisi kanan pos.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'pos_09',
           label: 'Kondisi Pulau Parkir',
           deskripsi: 'Cat pulau parkir rapi, beton utuh, dan tidak ada kabel terlihat',
@@ -175,7 +175,7 @@ class TemplateRepository extends ChangeNotifier {
         'Speed bump lajur gate terpasang kuat dengan baut dynabolt',
       ],
       sopPoints: [
-        SopPoint(
+        const SopPoint(
           id: 'bar_01',
           label: 'Dudukan Mesin & Baut Dynabolt',
           deskripsi: 'Dudukan mesin kokoh ke beton pulau dan baut dynabolt kencang',
@@ -185,7 +185,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto kaki baseplate mesin barrier gate memperlihatkan baut dynabolt kencang.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'bar_02',
           label: 'Fisik Palang Tertutup Lurus',
           deskripsi: 'Palang tertutup posisi 0° lurus horizontal dan baut kencang',
@@ -195,7 +195,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto palang posisi tertutup penuh dari arah samping lajur.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'bar_03',
           label: 'Fisik Palang Terbuka',
           deskripsi: 'Palang terbuka 90° tegak lurus dan gerak lancar tanpa macet',
@@ -205,7 +205,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto palang saat terbuka penuh 90° tegak lurus.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'bar_04',
           label: 'Pelumas (Spring/Bearing)',
           deskripsi: 'Per spring dan bearing terlumasi grease baru bebas karat',
@@ -215,7 +215,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Buka pintu mesin barrier gate, foto per spring dan bearing yang diberi grease.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'bar_05',
           label: 'Sensor Loop Detector',
           deskripsi: 'Modul loop detector aktif mendeteksi kendaraan (LED Detect aktif)',
@@ -225,7 +225,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto modul Loop Detector di dalam mesin saat LED DETECT menyala.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'bar_06',
           label: 'Jalur Kabel Sensor',
           deskripsi: 'Jalur kabel sensor tertanam rapi di bawah aspal/beton atau paving block, dan tidak ada kabel yang mencuat keluar',
@@ -235,7 +235,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto permukaan jalur kabel sensor loop (aspal coran atau paving block) di depan/belakang gate.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'bar_07',
           label: 'Stiker Receiver Barrier Gate',
           deskripsi: 'Stiker receiver kuning terlihat jelas, utuh, dan tidak rusak',
@@ -245,7 +245,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto stiker receiver kuning bergambar peringatan palang.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'bar_08',
           label: 'Tiang CCTV & Housing',
           deskripsi: 'Tiang CCTV kokoh tegak lurus dan housing kamera bersih bening',
@@ -255,7 +255,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto tiang CCTV dan housing kamera di area barrier gate.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'bar_09',
           label: 'Speedbump Gate',
           deskripsi: 'Karet speed bump terpasang kuat di lajur gate dengan baut dynabolt lengkap',
@@ -290,7 +290,7 @@ class TemplateRepository extends ChangeNotifier {
         'Kunci pintu manless dan gembok berfungsi normal',
       ],
       sopPoints: [
-        SopPoint(
+        const SopPoint(
           id: 'man_01',
           label: 'Pembersihan Total Printer Tiket',
           deskripsi: 'Head thermal, roller karet, dan tempat kertas bersih',
@@ -302,7 +302,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto dari atas modul printer tiket yang terbuka memperlihatkan head dan ruang kertas.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'man_02',
           label: 'Kebersihan Dalam Manless & Kerapihan Kabel Dalam Manless',
           deskripsi: 'Ruang dalam manless bersih dan kabel tertata rapi',
@@ -312,7 +312,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Buka pintu belakang manless, foto ruang dalam yang bersih dan kabel yang rapi.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'man_03',
           label: 'Fungsi Tombol & Struk Tiket Keluar',
           deskripsi: 'Tombol tiket normal dan struk karcis tercetak keluar dengan baik',
@@ -322,7 +322,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto struk karcis yang baru keluar dari mulut dispenser tiket.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'man_04',
           label: 'Sensor Loop Kendaraan (Layar/LED Aktif)',
           deskripsi: 'Layar display menampilkan petunjuk tiket atau LED loop aktif',
@@ -332,7 +332,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto layar display dispenser manless atau LED modul loop yang menyala aktif.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'man_05',
           label: 'Kebersihan Luar Manless & Stiker Panduan',
           deskripsi: 'Bodi luar bersih dan stiker petunjuk terbaca jelas',
@@ -342,7 +342,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto tampak depan dispenser manless dari luar.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'man_06',
           label: 'Dudukan Bawah Manless ke Pulau',
           deskripsi: 'Dudukan bawah manless kokoh ke pulau beton dan tidak goyang',
@@ -351,7 +351,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto bagian kaki bawah manless yang menempel di beton pulau.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'man_07',
           label: 'Kondisi Fisik Beton Pulau Gate',
           deskripsi: 'Permukaan beton pulau bersih dan cat pembatas rapi',
@@ -361,7 +361,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto permukaan beton pulau gate in/out.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'man_08',
           label: 'Kunci Manless & Gembok',
           deskripsi: 'Kunci pintu manless dan gembok berfungsi normal dan bebas karat',
@@ -394,7 +394,7 @@ class TemplateRepository extends ChangeNotifier {
         'Koneksi jaringan server stabil tanpa RTO (ping loss 0%)',
       ],
       sopPoints: [
-        SopPoint(
+        const SopPoint(
           id: 'srv_01',
           label: 'Pembersihan Storage & File Temp',
           deskripsi: 'Kapasitas Drive C: >20GB (indikator biru) dan folder temp bersih',
@@ -404,7 +404,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto layar monitor Windows Explorer memperlihatkan kapasitas Drive C: dan folder temp.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'srv_02',
           label: 'Matikan Windows Update, Antivirus & Firewall',
           deskripsi: 'Tiga jendela: Windows Update, Antivirus, dan Firewall status OFF',
@@ -415,7 +415,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto layar monitor memperlihatkan ketiga jendela: Update, Antivirus, dan Firewall status OFF.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'srv_03',
           label: 'Fungsi Keyboard & Mouse (KeyTest / Notepad)',
           deskripsi: 'Keyboard merespon normal dan kursor mouse aktif di layar',
@@ -425,7 +425,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto layar monitor hasil keytest.com atau Notepad tes ketikan & kursor mouse.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'srv_04',
           label: 'Pembersihan Debu CPU & Pasta Processor',
           deskripsi: 'Motherboard dan kipas bersih dari debu, pasta processor baru',
@@ -436,7 +436,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto bagian dalam casing CPU memperlihatkan motherboard bersih & pasta processor.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'srv_05',
           label: 'Port USB & Kerapian Kabel Belakang CPU',
           deskripsi: 'Kabel belakang CPU terikat rapi dan port USB terpasang kencang',
@@ -446,7 +446,7 @@ class TemplateRepository extends ChangeNotifier {
           ],
           panduanFoto: 'Foto panel belakang CPU memperlihatkan kerapian kabel & colokan USB.',
         ),
-        SopPoint(
+        const SopPoint(
           id: 'srv_06',
           label: 'Koneksi Jaringan Server Bebas RTO',
           deskripsi: 'Hasil ping CMD stabil time < 5ms dan Loss 0% tanpa RTO',

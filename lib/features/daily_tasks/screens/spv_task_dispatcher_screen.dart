@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
@@ -7,6 +8,7 @@ import '../../../data/models/user_model.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/services/daily_task_service.dart';
 import '../../../data/services/branch_service.dart';
+import '../../../data/services/storage_service.dart';
 import '../widgets/spv_task_card.dart';
 
 class SpvTaskDispatcherScreen extends StatefulWidget {
@@ -191,6 +193,348 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     );
   }
 
+  void _showMorningDispatchBottomSheet(bool isDark) {
+    final branchTechs = BranchService.instance.getTechnicians();
+    final teamTasks = _tasksToday.where((t) => branchTechs.contains(t.teknisiNama.trim())).toList();
+
+    if (teamTasks.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Expanded(child: Text('Belum ada tugas pada tanggal ini untuk dibagikan.')),
+            ],
+          ),
+          backgroundColor: const Color(0xFFF59E0B),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
+    final branchShifts = BranchService.instance.getShifts();
+    final savedShifts = Map<String, String>.from(StorageService.getSpvTechShifts());
+
+    // Pastikan semua teknisi aktif punya default shift jika belum ada di cache
+    final activeTechs = teamTasks.map((t) => t.teknisiNama.trim()).toSet().toList();
+    for (int i = 0; i < activeTechs.length; i++) {
+      final tech = activeTechs[i];
+      if (!savedShifts.containsKey(tech) || !branchShifts.contains(savedShifts[tech])) {
+        savedShifts[tech] = (i < branchShifts.length) ? branchShifts[i] : (branchShifts.isNotEmpty ? branchShifts.first : 'Shift 1');
+      }
+    }
+
+    final sheetBg = isDark ? const Color(0xFF111827) : Colors.white;
+    final handleColor = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+    final titleColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final subColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final cardBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFF8FAFC);
+    final cardBorder = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+    final previewBg = isDark ? const Color(0xFF030712) : const Color(0xFFF1F5F9);
+    final previewBorder = isDark ? const Color(0xFF1F2937) : const Color(0xFFCBD5E1);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetContext) {
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            final previewText = DailyTaskService.formatMorningDispatchReport(
+              tasks: teamTasks,
+              techShiftMap: savedShifts,
+              branch: BranchService.instance.currentBranch,
+            );
+
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.88,
+              ),
+              padding: const EdgeInsets.only(top: 10, left: 16, right: 16, bottom: 24),
+              decoration: BoxDecoration(
+                color: sheetBg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                border: Border(top: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Handle Bar
+                    Center(
+                      child: Container(
+                        width: 38,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: handleColor,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Title Header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF25D366).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.share_rounded, size: 18, color: Color(0xFF25D366)),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Format Briefing Tim (WA/Telegram)',
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: titleColor,
+                                  ),
+                                ),
+                                Text(
+                                  '${teamTasks.length} tugas • ${activeTechs.length} teknisi aktif',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: subColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(bottomSheetContext),
+                          icon: Icon(Icons.close_rounded, size: 20, color: subColor),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Scrollable Content
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Section: Atur Shift Teknisi
+                            Text(
+                              'ATUR SHIFT TEKNISI HARI INI',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: subColor,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: cardBorder),
+                              ),
+                              child: Column(
+                                children: activeTechs.map((tech) {
+                                  final techTaskCount = teamTasks.where((t) => t.teknisiNama.trim() == tech).length;
+                                  final currentShift = savedShifts[tech] ?? (branchShifts.isNotEmpty ? branchShifts.first : 'Shift 1');
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.accent),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                tech,
+                                                style: TextStyle(
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: titleColor,
+                                                ),
+                                              ),
+                                              Text(
+                                                '$techTaskCount tugas',
+                                                style: TextStyle(
+                                                  fontSize: 10.5,
+                                                  color: subColor,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: sheetBg,
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: cardBorder),
+                                          ),
+                                          child: DropdownButtonHideUnderline(
+                                            child: DropdownButton<String>(
+                                              value: branchShifts.contains(currentShift) ? currentShift : branchShifts.first,
+                                              isDense: true,
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w600,
+                                                color: titleColor,
+                                              ),
+                                              dropdownColor: sheetBg,
+                                              items: branchShifts.map((s) {
+                                                return DropdownMenuItem(
+                                                  value: s,
+                                                  child: Text(s, style: TextStyle(color: titleColor, fontSize: 11.5)),
+                                                );
+                                              }).toList(),
+                                              onChanged: (val) {
+                                                if (val != null) {
+                                                  savedShifts[tech] = val;
+                                                  StorageService.saveSpvTechShift(tech, val);
+                                                  setModalState(() {});
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+
+                            // Section: Live Preview Teks
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'PREVIEW PESAN SIAP KIRIM',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: subColor,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const Text(
+                                  'Auto-grouped by Shift',
+                                  style: TextStyle(fontSize: 10, color: AppColors.accent, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: previewBg,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: previewBorder),
+                              ),
+                              child: SelectableText(
+                                previewText,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 12,
+                                  height: 1.45,
+                                  color: titleColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Action Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: previewText));
+                              Navigator.pop(bottomSheetContext);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Row(
+                                    children: [
+                                      Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                                      SizedBox(width: 8),
+                                      Text('Format briefing berhasil disalin ke clipboard!'),
+                                    ],
+                                  ),
+                                  backgroundColor: const Color(0xFF10B981),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            label: const Text('Salin Format'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.accent,
+                              side: const BorderSide(color: AppColors.accent, width: 1.2),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(bottomSheetContext);
+                              SharePlus.instance.share(
+                                ShareParams(
+                                  text: previewText,
+                                  subject: 'Briefing Harian Tim - ${_formatDateToKey(_selectedDate)}',
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.send_rounded, size: 16),
+                            label: const Text('Kirim ke WA'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF25D366),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _submitTask() async {
     if (_isLoading) return; // Anti-double submit
 
@@ -293,6 +637,14 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
             color: Colors.white,
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Format Briefing WA / Telegram',
+            icon: const Icon(Icons.share_rounded, color: Colors.white),
+            onPressed: () => _showMorningDispatchBottomSheet(isDark),
+          ),
+          const SizedBox(width: 4),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppColors.accent,
@@ -333,29 +685,41 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
           ),
           const SizedBox(height: 6),
           Container(
+            padding: const EdgeInsets.all(3.5),
             decoration: BoxDecoration(
               color: inputBg,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: inputBorder),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: inputBorder, width: 1.0),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: InkWell(
                     onTap: () => setState(() => _taskCategory = 'khusus'),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
                         color: _taskCategory == 'khusus' ? AppColors.accent : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: _taskCategory == 'khusus'
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.accent.withValues(alpha: 0.3),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
                       ),
                       child: Text(
                         'Tugas Khusus',
                         textAlign: TextAlign.center,
                         style: TextStyle(
+                          fontFamily: 'PlusJakartaSans',
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
+                          letterSpacing: 0.1,
                           color: _taskCategory == 'khusus' ? Colors.white : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                         ),
                       ),
@@ -365,19 +729,30 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                 Expanded(
                   child: InkWell(
                     onTap: () => setState(() => _taskCategory = 'maintenance'),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
                         color: _taskCategory == 'maintenance' ? AppColors.accent : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: _taskCategory == 'maintenance'
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.accent.withValues(alpha: 0.3),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
                       ),
                       child: Text(
                         'Maintenance SOP',
                         textAlign: TextAlign.center,
                         style: TextStyle(
+                          fontFamily: 'PlusJakartaSans',
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
+                          letterSpacing: 0.1,
                           color: _taskCategory == 'maintenance' ? Colors.white : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                         ),
                       ),
@@ -1116,6 +1491,21 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                             ],
                           ),
                           const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(bottomSheetContext);
+                              _showMorningDispatchBottomSheet(isDark);
+                            },
+                            icon: const Icon(Icons.copy_rounded, size: 14),
+                            label: const Text('Format Briefing Pagi (WA / Telegram)'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.accent,
+                              side: const BorderSide(color: AppColors.accent, width: 1.2),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           ElevatedButton.icon(
                             onPressed: () {
                               Navigator.pop(bottomSheetContext);

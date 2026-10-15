@@ -37,8 +37,9 @@ class CameraTimerPickerModal extends StatelessWidget {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF0F172A),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        color: AppColors.darkSurface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppColors.radiusBottomSheet)),
+        border: Border(top: BorderSide(color: AppColors.darkBorderMuted, width: 1.2)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: SafeArea(

@@ -45,6 +45,8 @@ class TimemarkFormatter {
   }
 
   /// Formats time with seconds: "12:43:25 WITA"
+  /// honey: TODO timezone true conversion via package:timezone — saat ini masih toLocal() + label param,
+  /// belum konversi true WIB/WITA/WIT. Jika butuh akurat, init timezone DB dan pakai TZDateTime.
   static String formatTimeWithSeconds(DateTime dateTime, {String timezone = 'WITA'}) {
     final local = dateTime.toLocal();
     final hour = local.hour.toString().padLeft(2, '0');
@@ -68,14 +70,16 @@ class TimemarkFormatter {
   }
 
   /// Formats standard audit timemark: "23 Aug 2026 • 14:35:10 WITA"
+  /// honey: TODO timezone true conversion — sama seperti formatTimeWithSeconds, label saja bukan konversi.
   static String formatTimemarkWib(DateTime dateTime, {String timezone = 'WITA'}) {
     final format = DateFormat('dd MMM yyyy • HH:mm:ss');
     return '${format.format(dateTime)} $timezone';
   }
 
   /// Menghitung durasi kerja: misal "8h 19 min"
+  /// Jika negative -> flag manipulasi jam agar audit tahu.
   static String formatWorkDuration(Duration diff) {
-    if (diff.isNegative || diff.inMinutes <= 0) return '0h 00 min';
+    if (diff.isNegative || diff.inMinutes <= 0) return '[JAM MANIPULASI] 0h 00 min';
     final hours = diff.inHours;
     final minutes = diff.inMinutes.remainder(60);
     return '${hours}h ${minutes.toString().padLeft(2, '0')} min';

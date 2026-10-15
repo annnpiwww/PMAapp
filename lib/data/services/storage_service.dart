@@ -36,6 +36,7 @@ class StorageService {
   static const String _keyCameraTimerSeconds = 'bss_camera_timer_seconds_v1';
   static const String _keyThemeMode = 'bss_theme_mode_v1';
   static const String _keyKnownPendingTaskIds = 'bss_known_pending_task_ids_v1';
+  static const String _keySpvTechShifts = 'bss_spv_tech_shifts_v1';
 
   /// Mode QA / Developer SPV Farhan: bypass AI Vision (Auto-Ijo) dan durasi kerja 8 jam untuk testing.
   static bool isSpvQaBypassActive() {
@@ -243,7 +244,9 @@ class StorageService {
         DateTime? latestPulang;
 
         for (final s in submissions) {
-          final isRecent = now.difference(s.timestampCapture).inHours < 24;
+          // F-03: pakai isAfter(subtract 24h) agar tepat 24j edge inclusive; inHours<24 hilang via trunc
+          final cutoff = now.subtract(const Duration(hours: 24));
+          final isRecent = s.timestampCapture.isAfter(cutoff);
           if (!isRecent) continue;
 
           final isAbsensi = s.templateName.toLowerCase().contains('absensi') ||
@@ -278,7 +281,8 @@ class StorageService {
     if (str != null && str.isNotEmpty) {
       try {
         final parsed = DateTime.parse(str);
-        if (DateTime.now().difference(parsed).inHours < 24) {
+        // F-03: 24h edge fix — Duration check bukan inHours trunc
+        if (parsed.isAfter(DateTime.now().subtract(const Duration(hours: 24)))) {
           return parsed;
         }
       } catch (_) {}
@@ -291,7 +295,8 @@ class StorageService {
     final submissions = getSubmissions();
     if (submissions == null || submissions.isEmpty) {
       final lastCheckIn = getLastCheckInTime();
-      return lastCheckIn != null && DateTime.now().difference(lastCheckIn).inHours < 24;
+      // F-03: Duration 24h edge fix
+      return lastCheckIn != null && lastCheckIn.isAfter(DateTime.now().subtract(const Duration(hours: 24)));
     }
     final now = DateTime.now();
 
@@ -299,7 +304,8 @@ class StorageService {
     DateTime? latestPulang;
 
     for (final s in submissions) {
-      final isRecent = now.difference(s.timestampCapture).inHours < 24;
+      // F-03: pakai isAfter cutoff untuk tepat 24j edge
+      final isRecent = s.timestampCapture.isAfter(now.subtract(const Duration(hours: 24)));
       if (!isRecent) continue;
 
       final isAbsensi = s.templateName.toLowerCase().contains('absensi') ||
@@ -319,7 +325,7 @@ class StorageService {
       return latestPulang == null || latestMasuk.isAfter(latestPulang);
     }
     final lastCheckIn = getLastCheckInTime();
-    return lastCheckIn != null && now.difference(lastCheckIn).inHours < 24;
+    return lastCheckIn != null && lastCheckIn.isAfter(now.subtract(const Duration(hours: 24)));
   }
 
   static Future<void> saveLastCheckInTime(DateTime time) async {
@@ -820,6 +826,27 @@ class StorageService {
   static Future<void> clearKnownPendingTaskIds() async {
     await init();
     await _prefs?.remove(_keyKnownPendingTaskIds);
+  }
+
+  // --- SPV TECHNICIAN SHIFTS PREFERENCES ---
+  static Map<String, String> getSpvTechShifts() {
+    final raw = _prefs?.getString(_keySpvTechShifts);
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          return decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
+        }
+      } catch (_) {}
+    }
+    return <String, String>{};
+  }
+
+  static Future<void> saveSpvTechShift(String techName, String shift) async {
+    await init();
+    final map = getSpvTechShifts();
+    map[techName.trim()] = shift.trim();
+    await _prefs?.setString(_keySpvTechShifts, jsonEncode(map));
   }
 }
 

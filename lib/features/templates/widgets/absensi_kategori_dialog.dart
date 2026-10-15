@@ -51,25 +51,25 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     {
       'title': 'Shift 1',
       'full': 'Shift 1 (03:00 - 11:00)',
-      'hours': '03:00 – 11:00 WITA',
+      'hours': '03:00 - 11:00 WITA',
       'period': 'Pagi • 8 Jam',
     },
     {
       'title': 'Shift 2',
       'full': 'Shift 2 (10:00 - 18:00)',
-      'hours': '10:00 – 18:00 WITA',
+      'hours': '10:00 - 18:00 WITA',
       'period': 'Siang • 8 Jam',
     },
     {
       'title': 'Shift 2.2',
       'full': 'Shift 2.2 (10:00 - 14:00)',
-      'hours': '10:00 – 14:00 WITA',
+      'hours': '10:00 - 14:00 WITA',
       'period': 'Paruh Waktu • 4 Jam',
     },
     {
       'title': 'Shift 3',
       'full': 'Shift 3 (14:00 - 22:00)',
-      'hours': '14:00 – 22:00 WITA',
+      'hours': '14:00 - 22:00 WITA',
       'period': 'Sore-Malam • 8 Jam',
     },
   ];
@@ -78,37 +78,37 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     {
       'title': 'Shift 1',
       'full': 'Shift 1 (06.00 - 14.00)',
-      'hours': '06:00 – 14:00 WITA',
+      'hours': '06:00 - 14:00 WITA',
       'period': 'Pagi • 8 Jam',
     },
     {
       'title': 'Shift 2',
       'full': 'Shift 2 (14.00 - 22.00)',
-      'hours': '14:00 – 22:00 WITA',
+      'hours': '14:00 - 22:00 WITA',
       'period': 'Siang • 8 Jam',
     },
     {
       'title': 'Shift 3',
       'full': 'Shift 3 (22.00 - 06.00)',
-      'hours': '22:00 – 06:00 WITA',
+      'hours': '22:00 - 06:00 WITA',
       'period': 'Malam • 8 Jam',
     },
     {
       'title': 'Shift 4',
       'full': 'Shift 4 (08.30 - 16.30)',
-      'hours': '08:30 – 16:30 WITA',
+      'hours': '08:30 - 16:30 WITA',
       'period': 'Normal • 8 Jam',
     },
     {
       'title': 'Shift 2.2',
       'full': 'Shift 2.2 (18.00 - 22.00)',
-      'hours': '18:00 – 22:00 WITA',
+      'hours': '18:00 - 22:00 WITA',
       'period': 'Malam • 4 Jam',
     },
     {
       'title': 'Shift 4.1',
       'full': 'Shift 4.1 (08.00 - 12.00)',
-      'hours': '08:00 – 12:00 WITA',
+      'hours': '08:00 - 12:00 WITA',
       'period': 'Pagi • 4 Jam',
     },
   ];
@@ -371,13 +371,13 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     final maxDialogHeight = mediaQuery.size.height * 0.88;
     final isDark = ThemeService.isDarkMode(context);
 
-    final dialogBg = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-    final headerBorder = isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9);
-    final inputBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFFFFBEB);
-    final inputBorderColor = isDark ? const Color(0xFF475569) : const Color(0xFFFDE68A);
-    final inputTextColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final dialogBg = isDark ? AppColors.darkSurface : Colors.white;
+    final textTitle = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
+    final textSub = isDark ? AppColors.textDarkSecondary : AppColors.textSecondary;
+    final headerBorder = isDark ? AppColors.darkBorder : AppColors.cardBorder;
+    final inputBg = isDark ? AppColors.darkSurfaceContainer : AppColors.surfaceContainerLow;
+    final inputBorderColor = isDark ? AppColors.darkBorderMuted : AppColors.cardBorder;
+    final inputTextColor = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),

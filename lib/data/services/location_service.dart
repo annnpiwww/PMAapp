@@ -885,7 +885,8 @@ class LocationService {
       }
     } catch (_) {}
 
-    // Fallback: GPS tidak tersedia atau belum lock — gunakan titik pos penugasan
+    // SEC-03 HONEY: Fallback honey — titik pos penugasan, bukan GPS hardware. Caller WAJIB cek isFallback/isDefaultFallback sebelum pakai koordinat.
+    // Fallback tetap ada untuk UX offline, tapi status fallback tidak boleh diabaikan (jangan treat sebagai lokasi valid).
     _cachedLocationResult = LocationResult(
       lat: pos.lat,
       lng: pos.lng,
@@ -900,6 +901,7 @@ class LocationService {
       locationTag: pos.locationTag,
       tagColor: pos.tagColor,
     );
+    assert(_cachedLocationResult!.isFallback && _cachedLocationResult!.isDefaultFallback, 'SEC-03: fallback must be flagged isFallback=true');
     // Catat waktu tapi jangan blokir fetch berikutnya jika masih fallback
     _lastLocationFetchTime = DateTime.now();
     return _cachedLocationResult!;

@@ -129,7 +129,7 @@ class _WatermarkCustomizerModalState extends State<WatermarkCustomizerModal> {
                           color: AppColors.primary, size: 20),
                     ),
                     const SizedBox(width: 10),
-                    Text(
+                    const Text(
                       'Kustomisasi Watermark',
                       style: TextStyle(fontFamily: 'PlusJakartaSans', 
                         fontSize: 16,
@@ -173,31 +173,29 @@ class _WatermarkCustomizerModalState extends State<WatermarkCustomizerModal> {
                       Row(
                         children: [
                           Container(
-                            width: 50,
+                            width: 28,
                             height: 28,
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(5),
+                              shape: BoxShape.circle,
                             ),
                             child: _logoImagePath != null &&
                                     (kIsWeb || File(_logoImagePath!).existsSync())
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
+                                ? ClipOval(
                                     child: AppFileImage(
                                       path: _logoImagePath!,
                                       fit: BoxFit.contain,
                                     ),
                                   )
-                                : ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
+                                : ClipOval(
                                     child: Image.asset(
-                                      'foto/bssfotologo.jpg',
-                                      fit: BoxFit.contain,
+                                      'foto/splash_logo.png',
+                                      fit: BoxFit.cover,
                                     ),
                                   ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
+                          const Text(
                             '14:20:08',
                             style: TextStyle(fontFamily: 'PlusJakartaSans', 
                               fontSize: 18,
@@ -268,27 +266,25 @@ class _WatermarkCustomizerModalState extends State<WatermarkCustomizerModal> {
               child: Row(
                 children: [
                   Container(
-                    width: 58,
-                    height: 36,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
+                      shape: BoxShape.circle,
                       border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: _logoImagePath != null &&
                             (kIsWeb || File(_logoImagePath!).existsSync())
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(7),
+                        ? ClipOval(
                             child: AppFileImage(
                               path: _logoImagePath!,
                               fit: BoxFit.contain,
                             ),
                           )
-                        : ClipRRect(
-                            borderRadius: BorderRadius.circular(7),
+                        : ClipOval(
                             child: Image.asset(
-                              'foto/bssfotologo.jpg',
-                              fit: BoxFit.contain,
+                              'foto/splash_logo.png',
+                              fit: BoxFit.cover,
                             ),
                           ),
                   ),
@@ -360,34 +356,40 @@ class _WatermarkCustomizerModalState extends State<WatermarkCustomizerModal> {
               children: _palette.map((color) {
                 final isSelected = _selectedColor.toARGB32() == color.toARGB32();
                 return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {
                     setState(() => _selectedColor = color);
                     _applyChanges();
                   },
                   child: Container(
-                    margin: const EdgeInsets.only(right: 10),
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isSelected ? Colors.black : Colors.transparent,
-                        width: 2.5,
+                    margin: const EdgeInsets.only(right: 6),
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected ? Colors.black : Colors.transparent,
+                          width: 2.5,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: color.withValues(alpha: 0.4),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
                       ),
-                      boxShadow: isSelected
-                          ? [
-                              BoxShadow(
-                                color: color.withValues(alpha: 0.4),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              )
-                            ]
+                      child: isSelected
+                          ? const Icon(Icons.check_rounded, color: Colors.white, size: 18)
                           : null,
                     ),
-                    child: isSelected
-                        ? const Icon(Icons.check_rounded, color: Colors.white, size: 18)
-                        : null,
                   ),
                 );
               }).toList(),

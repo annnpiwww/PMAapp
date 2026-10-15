@@ -58,11 +58,9 @@ void main() {
     });
 
     // 2. UJI CELAH 2: GOOGLE AI STUDIO & GSHEET CREDENTIALS (PATCHED & HARDENED)
-    test('CELAH 2 [MITIGATED]: Kredensial Default Tidak Boleh Hardcoded di Source/Binary', () {
-      // Periksa default secret token di GoogleSheetsService harus kosong jika tanpa --dart-define
+    test('CELAH 2 [MITIGATED]: Kredensial Default GSheets Tidak Boleh Hardcoded di Source/Binary', () {
+      // SEC-01 fix: fail-closed — tanpa --dart-define defaultApiKey kosong, tidak bocor di binary
       expect(GoogleSheetsService.defaultSecretToken, isEmpty);
-
-      // API Key AiVisionConfig tidak boleh hardcoded di source (wajib inject saat build)
       expect(AiVisionConfig.defaultApiKey, isEmpty);
     });
 

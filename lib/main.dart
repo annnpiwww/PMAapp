@@ -32,6 +32,7 @@ void main() async {
   runApp(const PmaApp());
 
   // Background non-blocking inits (Repository, Network Time Sync, Auto-clean temporary photos, Flush GSheet offline queue)
+  // honey: eagerError false ensures one failing init doesn't cancel others; then/catchError logs without swallowing silently
   unawaited(Future.wait([
     TemplateRepository.instance.init(),
     SubmissionRepository.instance.init(),
@@ -40,7 +41,9 @@ void main() async {
     PhotoCleanupService.cleanOldPhotos(maxDays: 7),
     GoogleSheetsService.flushPendingQueue(),
     NotificationService.instance.init(),
-  ]));
+  ], eagerError: false)
+      .then((_) => debugPrint('bg init done'))
+      .catchError((Object e, StackTrace st) => debugPrint('bg init error $e\n$st')));
 }
 
 class PmaApp extends StatelessWidget {

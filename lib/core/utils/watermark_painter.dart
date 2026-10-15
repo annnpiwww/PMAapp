@@ -306,14 +306,14 @@ class _LiveTimemarkWatermarkWidgetState
 
     // Default Logo BSS Parking dari asset resmi (PNG transparan teks putih di atas card biru)
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 36, maxWidth: 110),
+      constraints: const BoxConstraints(maxHeight: 34, maxWidth: 105),
       child: Image.asset(
         'foto/bssfotologo_transparent.png',
         fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => Column(
+        errorBuilder: (context, error, stackTrace) => const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
-          children: const [
+          children: [
             Text(
               'BSS',
               style: TextStyle(

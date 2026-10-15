@@ -301,16 +301,17 @@ class _WatermarkEditModalState extends State<WatermarkEditModal> {
                               ),
                             )
                           else
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(3),
-                              child: Container(
-                                color: const Color(0xFF1E448D),
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            Container(
+                              width: 24,
+                              height: 24,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                              ),
+                              child: ClipOval(
                                 child: Image.asset(
-                                  'foto/bssfotologo_transparent.png',
-                                  width: 32,
-                                  height: 18,
-                                  fit: BoxFit.contain,
+                                  'foto/splash_logo.png',
+                                  fit: BoxFit.cover,
                                 ),
                               ),
                             ),

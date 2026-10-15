@@ -45,11 +45,25 @@ class AppColors {
   // Text Colors (High-Contrast Readability)
   static const Color textPrimary = Color(0xFF18181B); // Charcoal Neutral 900
   static const Color textSecondary = Color(0xFF52525B); // Zinc 600
-  static const Color textMuted = Color(0xFFA1A1AA); // Zinc 400
+  static const Color textMuted = Color(0xFF71717A); // Zinc 500 - WCAG 4.5:1 on white
   static const Color textLight = Colors.white;
+  // Dark Theme Neutral (Standardized Deep Slate / Obsidian)
+  static const Color darkBackground = Color(0xFF0B1120); // Deep Midnight Canvas
+  static const Color darkSurface = Color(0xFF111827); // Dark Surface Card
+  static const Color darkSurfaceContainer = Color(0xFF1E293B); // Dark Container / Inputs
+  static const Color darkBorder = Color(0xFF1E293B); // Dark Sublte Border
+  static const Color darkBorderMuted = Color(0xFF334155); // Dark Accent Border
+  static const Color textDarkPrimary = Color(0xFFF8FAFC); // Slate 50
+  static const Color textDarkSecondary = Color(0xFF94A3B8); // Slate 400
+  static const Color textDarkMuted = Color(0xFF64748B); // Slate 500
 
-  // Dark Theme Neutral
-  static const Color darkBackground = Color(0xFF090D16);
-  static const Color darkSurface = Color(0xFF111827);
-  static const Color darkBorder = Color(0xFF1F2937);
+  // Tactile Design Dimensions & Radii Scale
+  static const double radiusSmall = 8.0;
+  static const double radiusChip = 10.0;
+  static const double radiusInput = 14.0;
+  static const double radiusButton = 14.0;
+  static const double radiusCard = 16.0;
+  static const double radiusModal = 24.0;
+  static const double radiusBottomSheet = 28.0;
+  static const double minTouchTarget = 48.0;
 }

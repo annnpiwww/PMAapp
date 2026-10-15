@@ -28,8 +28,8 @@ class CameraDrawer extends StatelessWidget {
     showDialog(
       context: context,
       builder: (dCtx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusCard)),
         title: Row(
           children: [
             const Icon(Icons.logout_rounded, color: AppColors.danger, size: 24),
@@ -39,7 +39,7 @@ class CameraDrawer extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
-                color: isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary,
+                color: isDark ? AppColors.textDarkPrimary : AppColors.textPrimary,
               ),
             ),
           ],
@@ -48,7 +48,7 @@ class CameraDrawer extends StatelessWidget {
           'Yakin ingin keluar akun?',
           style: TextStyle(
             fontSize: 13,
-            color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary,
+            color: isDark ? AppColors.textDarkSecondary : AppColors.textSecondary,
           ),
         ),
         actions: [
@@ -85,10 +85,10 @@ class CameraDrawer extends StatelessWidget {
       valueListenable: ThemeService.themeModeNotifier,
       builder: (context, currentMode, _) {
         final isDark = ThemeService.isDarkMode(context);
-        final drawerBg = isDark ? const Color(0xFF0F172A) : Colors.white;
-        final textPrimary = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
-        final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-        final dividerColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+        final drawerBg = isDark ? AppColors.darkSurface : Colors.white;
+        final textPrimary = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
+        final textSecondary = isDark ? AppColors.textDarkSecondary : AppColors.textSecondary;
+        final dividerColor = isDark ? AppColors.darkBorder : AppColors.cardBorder;
 
         return Drawer(
           width: 310,
@@ -104,7 +104,7 @@ class CameraDrawer extends StatelessWidget {
                       // Drawer Header with Pure Transparent Logo on Blue Background
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.fromLTRB(20, 52, 20, 28),
+                        padding: const EdgeInsets.fromLTRB(20, 52, 20, 24),
                         decoration: const BoxDecoration(
                           color: AppColors.primary,
                           border: Border(

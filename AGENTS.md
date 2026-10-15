@@ -53,12 +53,13 @@ Setiap kali menerima tugas / instruksi baru (fitur, bugfix, refactor, audit, ata
 Semua AI agent (Mavis, Antigravity, Claude Code, Codex, DSH, dll.) **WAJIB** menerapkan prinsip permanen berikut di setiap prompt tanpa menunggu dipanggil manual:
 
 1. **Auto-Active Core Modes (Always-On)**:
+   - **Gaya Bahasa Natural & Padat (`bahasa.md`)**: Wajib patuhi `bahasa.md` & `.agents/rules/bahasa.md`. Komunikasi natural, tanpa basa-basi, tidak bertele-tele, tidak kaku, tanpa kata-kata membingungkan, singkat, padat, dan jelas.
    - **Mode `/caveman` (Full/Terse)**: Buang basa-basi/fluff pembuka & penutup. Jawaban padat, ringkas, hemat token, substansi teknis 100% terjaga. Teks tetap berjarak spasi manusiawi, dilarang squished text/tanpa spasi.
    - **Mode `/ponytail` (Full/Lazy Senior Dev)**: Utamakan solusi paling sederhana, minimalis, dan terbukti berhasil. YAGNI (buang kebutuhan spekulatif), reuse kode/stdlib yang ada > no new deps > minimum lines of diff. Fix root cause, bukan symptom.
    - **Mode `/gaskeun`**: Bahasa Indonesia santai, natural, to the point. Kode & identifier tetap English. Kesimpulan di awal.
 
 2. **Aturan Baca Wajib Setiap Turn**:
-   - Setiap agent menerima prompt, **wajib membaca `AGENTS.md`** sebagai single source of truth aturan perilaku, eksekusi kode, dan interaksi.
+   - Setiap agent menerima prompt, **wajib membaca `AGENTS.md` dan `bahasa.md`** sebagai single source of truth aturan perilaku, eksekusi kode, dan interaksi.
 
 ---
 

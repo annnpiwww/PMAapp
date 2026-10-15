@@ -161,6 +161,10 @@ class AiVisionService {
     if (text.isEmpty) return 'Evaluasi selesai';
     text = text.replaceAll(RegExp(r'[\r\n]+'), ' ').trim();
 
+    // Normalisasi salam, basa-basi pembuka & penutup khas LLM
+    text = text.replaceAll(RegExp(r'\b(halo|selamat\s+(pagi|siang|sore|malam)|terima kasih|baik|tentu|berikut\s+hasil\s+evaluasi|berdasarkan\s+analisis\s+gambar)[,:\s!.]*', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'(terima\s+kasih|semoga\s+membantu|mohon\s+dicek\s+kembali)[.!]*$', caseSensitive: false), '');
+
     // Normalisasi kata formal/kaku khas AI ke Natural Technician Language
     text = text.replaceAll(RegExp(r'berdasarkan hasil observasi[,:\s]*', caseSensitive: false), '');
     text = text.replaceAll(RegExp(r'ditemukan adanya ketidaksesuaian\s*(pada)?', caseSensitive: false), 'terdapat temuan');
@@ -180,24 +184,33 @@ class AiVisionService {
     // Sanitasi prefix klise
     text = text.replaceAll(
       RegExp(
-        r'^(kondisi\s+|foto hanya menampilkan\s+|foto tidak menampilkan\s+)',
+        r'^(kondisi\s+|foto hanya menampilkan\s+|foto tidak menampilkan\s+|terlihat\s+bahwa\s+)',
         caseSensitive: false,
       ),
       '',
     );
 
-    // Ambil kalimat ringkas & potong jika terlalu panjang
-    if (text.length > 130) {
-      final sentences = text.split(RegExp(r'[.!]\s+'));
-      if (sentences.isNotEmpty && sentences.first.length >= 15) {
-        text = sentences.first.trim();
-      }
-      if (text.length > 130) {
-        text = '${text.substring(0, 127).trim()}...';
+    // Ambil kalimat pertama saja (strict 1 kalimat fakta lapangan, max 95 karakter)
+    final sentences = text.split(RegExp(r'[.!;\n]+\s*'));
+    String firstSentence = '';
+    for (final s in sentences) {
+      final trimmed = s.replaceAll(RegExp(r'^[,\s.-]+'), '').trim();
+      if (trimmed.length >= 10) {
+        firstSentence = trimmed;
+        break;
       }
     }
+    if (firstSentence.isNotEmpty) {
+      text = firstSentence;
+    }
+    if (text.length > 95) {
+      text = '${text.substring(0, 92).trim()}...';
+    }
 
-    text = text.replaceAll(RegExp(r'\.$'), '').trim();
+    text = text.replaceAll(RegExp(r'[.\s]+$'), '').trim();
+    if (text.isNotEmpty) {
+      text = '${text[0].toUpperCase()}${text.substring(1)}';
+    }
     return text.isNotEmpty ? text : 'Kondisi telah diverifikasi';
   }
 
@@ -331,16 +344,22 @@ class AiVisionService {
     final criteria = filterCriteriaByConfig(template.sopCriteria, config);
 
     // Root QA SPV Bypass (Auto-Ijo untuk Testing Farhan Lakoro)
+    // SEC-02: bypass hanya diizinkan pada debug build; di release diblokir & di-log.
     if (StorageService.isSpvQaBypassActive()) {
-      return AiVerificationResult(
-        status: VerificationStatus.sesuai,
-        alasan: '⚡ Root QA SPV: AI Absensi dibypass otomatis (Mode Testing Farhan Lakoro).',
-        poinGagal: [],
-        poinLolos: criteria.map(SopCriteriaHelper.toPositiveStatement).toList(),
-        confidenceScore: 1.0,
-        providerName: 'Root QA Engine (SPV Farhan)',
-        isFallback: false,
-      );
+      assert(kDebugMode, 'SPV QA bypass must only be active in debug builds');
+      if (!kDebugMode) {
+        debugPrint('[SECURITY][SEC-02] SPV QA bypass attempt blocked in release mode');
+      } else {
+        return AiVerificationResult(
+          status: VerificationStatus.sesuai,
+          alasan: '⚡ Root QA SPV: AI Absensi dibypass otomatis (Mode Testing Farhan Lakoro).',
+          poinGagal: [],
+          poinLolos: criteria.map(SopCriteriaHelper.toPositiveStatement).toList(),
+          confidenceScore: 1.0,
+          providerName: 'Root QA Engine (SPV Farhan)',
+          isFallback: false,
+        );
+      }
     }
 
     if (forceSimulateFailure) {
@@ -537,13 +556,15 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
    - "terpasang dengan kokoh", "berfungsi normal", "tercetak dengan baik", "bersih dan bebas debu"
 
 3. KATA/ISTILAH YANG DILARANG KERAS (TERLALU FORMAL / GAYA AI KAKU):
+   - DILARANG SALAM & BASA-BASI: Jangan pernah menyertakan salam ("Halo", "Selamat Pagi/Siang", "Terima kasih", "Berdasarkan analisis...").
+   - DILARANG LEBIH DARI 1 KALIMAT: Output alasan WAJIB HANYA 1 KALIMAT TUNGGAL (maksimal 12 kata), padat dan to the point.
    - DILARANG KLISE KAKU: "terpasang dengan kokoh, namun...", "tampak bersih dan terlumasi dengan baik", "berdasarkan hasil observasi", "ditemukan adanya ketidaksesuaian", "kondisi secara keseluruhan", "secara signifikan", "mengalami degradasi", "degradasi fisik", "tidak terorganisir dengan rapi", "parameter tidak terpenuhi", "sesuai standar operasional", "dalam kondisi optimal", "memiliki integritas struktural".
    - DILARANG BASA-BASI POSITIF PADA STATUS MERAH: Jika ada masalah (kotor/rusak/berkarat), JANGAN buka dengan pujian palsu seperti "Baut dynabolt terpasang kokoh, namun...". Langsung sebut masalah intinya!
    - DILARANG REDUNDAN: Jangan mengulang kata ("kabel kurang rapi dan tidak tertata").
    - DILARANG KALIMAT PERINTAH: Jangan gunakan "harus dibersihkan", "segera dicat ulang", "segera perbaiki". Tulis faktual apa yang terlihat.
 
 4. ATURAN STATUS:
-   - SESUAI (Lulus/Hijau): Kalimat positif singkat, natural, to the point (5-10 kata).
+   - SESUAI (Lulus/Hijau): Tepat 1 kalimat positif singkat, natural, to the point (5-10 kata).
      * Contoh: "Area printer bersih dan bebas debu."
      * Contoh: "Tombol tiket normal dan struk tercetak jelas."
      * Contoh: "Bodi manless bersih dan stiker panduan utuh."

@@ -72,13 +72,13 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
+        title: const Text(
           'Hapus Template SOP?',
           style: TextStyle(fontFamily: 'PlusJakartaSans', fontWeight: FontWeight.w700),
         ),
         content: Text(
           'Hapus template "${template.nama}" dari daftar SOP?',
-          style: TextStyle(fontFamily: 'PlusJakartaSans', ),
+          style: const TextStyle(fontFamily: 'PlusJakartaSans', ),
         ),
         actions: [
           TextButton(
@@ -259,7 +259,7 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                           color: AppColors.textMuted,
                         ),
                         const SizedBox(height: 12),
-                        Text(
+                        const Text(
                           'Belum ada template SOP.',
                           style: TextStyle(fontFamily: 'PlusJakartaSans', 
                             fontSize: 14,
