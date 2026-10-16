@@ -1,46 +1,12 @@
 enum AbsensiKategori {
-  teknisi,
-  admin,
-  leader,
-  sppMerah,
-  sppHijauAbu;
+  teknisi;
 
   String get displayName {
-    switch (this) {
-      case AbsensiKategori.teknisi:
-        return 'Teknisi';
-      case AbsensiKategori.admin:
-        return 'Admin';
-      case AbsensiKategori.leader:
-        return 'Leader';
-      case AbsensiKategori.sppMerah:
-        return 'SPP/SPL Merah';
-      case AbsensiKategori.sppHijauAbu:
-        return 'SPP/SPL Hijau-Abu';
-    }
+    return 'Teknisi';
   }
 
   static AbsensiKategori fromString(String? s) {
-    if (s == null) return AbsensiKategori.teknisi;
-    switch (s.toLowerCase()) {
-      case 'admin':
-        return AbsensiKategori.admin;
-      case 'leader':
-        return AbsensiKategori.leader;
-      case 'spp_merah':
-      case 'sppmerah':
-      case 'spp/spl merah':
-      case 'merah':
-        return AbsensiKategori.sppMerah;
-      case 'spp_hijau_abu':
-      case 'spphijauabu':
-      case 'spp/spl hijau-abu':
-      case 'hijau':
-        return AbsensiKategori.sppHijauAbu;
-      case 'teknisi':
-      default:
-        return AbsensiKategori.teknisi;
-    }
+    return AbsensiKategori.teknisi;
   }
 }
 

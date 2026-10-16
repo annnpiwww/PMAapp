@@ -14,9 +14,9 @@ void main() {
       final neg2 = SopCriteriaHelper.toNegativeStatement(pos2);
       expect(neg2, contains('tidak terpasang'));
 
-      const pos3 = 'Rambut rapi / Jilbab rapi sesuai standar grooming BSS';
+      const pos3 = 'Wajah terlihat jelas tanpa masker / kacamata';
       final neg3 = SopCriteriaHelper.toNegativeStatement(pos3);
-      expect(neg3, contains('tidak rapi'));
+      expect(neg3, contains('Wajah tertutup'));
 
       const pos4 = 'Sepatu dinas pantofel / PDL hitam bersih';
       final neg4 = SopCriteriaHelper.toNegativeStatement(pos4);

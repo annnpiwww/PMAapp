@@ -37,7 +37,6 @@ class SopVerificationModal extends StatelessWidget {
   static const Color _amberTint = Color(0xFFFEF3C7);
   static const Color _successBright = Color(0xFF0E9F6E);
   static const Color _successTint = Color(0xFFE6F7F0);
-  static const Color _footerMuted = Color(0xFF64748B);
 
   static bool _doesFileExist(String? path) {
     if (path == null || path.trim().isEmpty) return false;
@@ -128,14 +127,14 @@ class SopVerificationModal extends StatelessWidget {
           ),
           child: SingleChildScrollView(
             physics: const ClampingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _header(),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _statusBanner(
                   color: bannerColor,
                   tint: bannerTint,
@@ -146,36 +145,32 @@ class SopVerificationModal extends StatelessWidget {
 
                 // Foto hasil unggahan: kartu besar, sudut membulat, border oranye.
                 if (_hasValidImage) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   _photoCard(context),
                 ],
 
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 _aiCard(aiTitle),
 
-                // Daftar kriteria gagal: ringkas, ikon status, bisa dibuka.
+                // Satu checkpoint ringkas berisi seluruh temuan AI apa adanya.
                 if (result.poinGagal.isNotEmpty) ...[
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
                   _sectionLabel('YANG PERLU DIPERBAIKI'),
-                  const SizedBox(height: 2),
-                  ...result.poinGagal.map(
-                    (p) => _FailedPointRow(text: p, sopRef: _matchSopRef(p)),
+                  const SizedBox(height: 8),
+                  _NeedsFixCard(
+                    title: template.jenis == TemplateCategory.absensi
+                        ? 'Grooming teknisi belum memenuhi SOP'
+                        : '${result.poinGagal.length} kriteria belum memenuhi standar SOP',
+                    points: result.poinGagal,
                   ),
                 ],
 
-                if (result.poinLolos.isNotEmpty) ...[
-                  const SizedBox(height: 18),
-                  _sectionLabel('KRITERIA TERPENUHI'),
-                  const SizedBox(height: 2),
-                  ...result.poinLolos.map((p) => _passedRow(p)),
-                ],
-
-                if (tips.isNotEmpty) ...[
-                  const SizedBox(height: 16),
+                if (tips.isNotEmpty && !isSuccess) ...[
+                  const SizedBox(height: 14),
                   _tipsCard(tips),
                 ],
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
                 if (isFailure) ...[
                   ElevatedButton.icon(
@@ -192,35 +187,7 @@ class SopVerificationModal extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.accent,
                       foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 52),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: () => _showContohFoto(context),
-                    icon: const Icon(
-                      Icons.image_outlined,
-                      size: 20,
-                      color: _onDark,
-                    ),
-                    label: const Text(
-                      'Lihat contoh foto',
-                      style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: _onDark,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 52),
-                      side: const BorderSide(
-                        color: AppColors.accent,
-                        width: 1.5,
-                      ),
+                      minimumSize: const Size(double.infinity, 50),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -427,10 +394,6 @@ class SopVerificationModal extends StatelessWidget {
                     ],
                   ),
                 ],
-
-                // Kode & label template dipindah ke footer kecil (bukan area utama).
-                const SizedBox(height: 14),
-                _footer(),
               ],
             ),
           ),
@@ -486,34 +449,6 @@ class SopVerificationModal extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: _cardBlueDeep,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.photo_camera_rounded,
-                size: 13,
-                color: Color(0xFF7FB0E8),
-              ),
-              SizedBox(width: 5),
-              Text(
-                'Foto 1 dari 1',
-                style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF9CC3F0),
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -526,7 +461,7 @@ class SopVerificationModal extends StatelessWidget {
     required String subtitle,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: tint,
         borderRadius: BorderRadius.circular(14),
@@ -636,7 +571,7 @@ class SopVerificationModal extends StatelessWidget {
   Widget _aiCard(String title) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _cardBlue,
         borderRadius: BorderRadius.circular(14),
@@ -711,45 +646,10 @@ class SopVerificationModal extends StatelessWidget {
     );
   }
 
-  Widget _passedRow(String text) {
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _divider)),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 11),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: const BoxDecoration(
-              color: _successBright,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.check_rounded, color: Colors.white, size: 13),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 13.5,
-                fontWeight: FontWeight.w600,
-                color: _onDark,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _tipsCard(List<String> tips) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _cardBlueDeep,
         borderRadius: BorderRadius.circular(14),
@@ -806,223 +706,6 @@ class SopVerificationModal extends StatelessWidget {
     );
   }
 
-  Widget _footer() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(Icons.qr_code_2_rounded, size: 13, color: _footerMuted),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            kodeVerifikasi,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-              color: _footerMuted,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            template.nama,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontFamily: 'PlusJakartaSans',
-              fontSize: 11,
-              color: _footerMuted,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Cari kriteria SOP asli dari template yang paling relevan dengan temuan AI,
-  /// supaya panel penjelasan tidak menampilkan teks karangan.
-  String? _matchSopRef(String point) {
-    if (template.sopCriteria.isEmpty) return null;
-    final target = _words(point);
-    String? best;
-    int bestScore = 0;
-    for (final criteria in template.sopCriteria) {
-      final score = target.intersection(_words(criteria)).length;
-      if (score > bestScore) {
-        bestScore = score;
-        best = criteria;
-      }
-    }
-    return bestScore >= 2 ? best : null;
-  }
-
-  static Set<String> _words(String s) => s
-      .toLowerCase()
-      .split(RegExp(r'[^a-z0-9]+'))
-      .where((w) => w.length >= 4)
-      .toSet();
-
-  void _showContohFoto(BuildContext context) {
-    final panduan = <String>[
-      ...template.contohFotoDescriptions.map((e) => e.trim()),
-      ...template.sopPoints.map((p) => p.panduanFoto.trim()),
-    ].where((e) => e.isNotEmpty).toList();
-    final criteria = template.sopCriteria
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-    final contohImages = template.sopPoints
-        .map((p) => p.contohFoto)
-        .whereType<String>()
-        .where((e) => e.startsWith('http'))
-        .toList();
-    final hasContent =
-        contohImages.isNotEmpty || panduan.isNotEmpty || criteria.isNotEmpty;
-
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.7),
-      builder: (ctx) => Dialog(
-        backgroundColor: _sheetBg,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 32),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(ctx).size.height * 0.75,
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Contoh Foto yang Benar',
-                  style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: _onDark,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  template.nama,
-                  style: const TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    fontSize: 12,
-                    color: _onDarkMuted,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                if (!hasContent)
-                  const Text(
-                    'Belum ada panduan contoh foto untuk template ini.',
-                    style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontSize: 13,
-                      color: _onDarkMuted,
-                    ),
-                  )
-                else ...[
-                  for (final url in contohImages) ...[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        url,
-                        width: double.infinity,
-                        height: 160,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  if (panduan.isNotEmpty) ...[
-                    _dialogSectionTitle('Panduan Pengambilan Foto'),
-                    ...panduan.map((t) => _dialogBullet(t)),
-                  ],
-                  if (criteria.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    _dialogSectionTitle('Kriteria yang Diverifikasi AI'),
-                    ...criteria.map((t) => _dialogBullet(t)),
-                  ],
-                ],
-                const SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
-                    side: const BorderSide(color: AppColors.accent, width: 1.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text(
-                    'Tutup',
-                    style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontWeight: FontWeight.w800,
-                      color: _onDark,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _dialogSectionTitle(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontFamily: 'PlusJakartaSans',
-          fontSize: 12.5,
-          fontWeight: FontWeight.w800,
-          color: _onDark,
-        ),
-      ),
-    );
-  }
-
-  Widget _dialogBullet(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: Icon(Icons.circle, size: 5, color: AppColors.accent),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 12.5,
-                height: 1.45,
-                color: _onDarkBody,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showFullImagePreview(
     BuildContext context, {
     String? path,
@@ -1064,99 +747,84 @@ class SopVerificationModal extends StatelessWidget {
   }
 }
 
-/// Baris kriteria gagal: ikon status + teks, bisa dibuka untuk melihat standar SOP.
-class _FailedPointRow extends StatefulWidget {
-  final String text;
-  final String? sopRef;
+/// Satu kartu ringkas berisi seluruh temuan AI apa adanya (verbatim),
+/// bukan kartu merah terpisah per pelanggaran.
+class _NeedsFixCard extends StatelessWidget {
+  final String title;
+  final List<String> points;
 
-  const _FailedPointRow({required this.text, this.sopRef});
-
-  @override
-  State<_FailedPointRow> createState() => _FailedPointRowState();
-}
-
-class _FailedPointRowState extends State<_FailedPointRow> {
-  bool _open = false;
+  const _NeedsFixCard({required this.title, required this.points});
 
   @override
   Widget build(BuildContext context) {
-    final canExpand = widget.sopRef != null;
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: SopVerificationModal._divider),
-        ),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: SopVerificationModal._cardBlueDeep,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            onTap: canExpand ? () => setState(() => _open = !_open) : null,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 11),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(5),
-                    decoration: const BoxDecoration(
-                      color: SopVerificationModal._dangerBright,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.close_rounded,
-                      color: Colors.white,
-                      size: 14,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      widget.text,
-                      style: const TextStyle(
-                        fontFamily: 'PlusJakartaSans',
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: SopVerificationModal._onDark,
-                        height: 1.35,
-                      ),
-                    ),
-                  ),
-                  if (canExpand)
-                    AnimatedRotation(
-                      turns: _open ? 0.25 : 0,
-                      duration: const Duration(milliseconds: 180),
-                      child: const Icon(
-                        Icons.chevron_right_rounded,
-                        color: SopVerificationModal._onDarkMuted,
-                        size: 22,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          AnimatedCrossFade(
-            duration: const Duration(milliseconds: 180),
-            crossFadeState:
-                _open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-            firstChild: const SizedBox(width: double.infinity),
-            secondChild: Padding(
-              padding: const EdgeInsets.only(left: 38, right: 4, bottom: 12),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: SopVerificationModal._cardBlueDeep,
-                  borderRadius: BorderRadius.circular(10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: const BoxDecoration(
+                  color: SopVerificationModal._dangerBright,
+                  shape: BoxShape.circle,
                 ),
+                child: const Icon(
+                  Icons.close_rounded,
+                  color: Colors.white,
+                  size: 14,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
                 child: Text(
-                  'Standar SOP: ${widget.sopRef}',
+                  title,
                   style: const TextStyle(
                     fontFamily: 'PlusJakartaSans',
-                    fontSize: 12,
-                    height: 1.45,
-                    color: SopVerificationModal._onDarkBody,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: SopVerificationModal._onDark,
+                    height: 1.35,
                   ),
                 ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...points.map(
+            (p) => Padding(
+              padding: const EdgeInsets.only(left: 32, bottom: 5),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 7),
+                    child: Icon(
+                      Icons.circle,
+                      size: 5,
+                      color: SopVerificationModal._onDarkMuted,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      p,
+                      style: const TextStyle(
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 12.5,
+                        height: 1.45,
+                        color: SopVerificationModal._onDarkBody,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

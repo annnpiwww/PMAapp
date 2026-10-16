@@ -138,14 +138,6 @@ class SopCriteriaHelper {
       return 'Tidak menggunakan seragam resmi BSS Parking / seragam tidak rapi dan tidak terkancing';
     } else if (lower.contains('lanyard') || lower.contains('yoyo') || lower.contains('id card') || lower.contains('name tag')) {
       return 'ID Card / Name Tag tidak terpasang di saku atau dada';
-    } else if (lower.contains('peluit')) {
-      return 'Peluit biru bertali tidak terpasang di leher atau dada';
-    } else if (lower.contains('topi')) {
-      return 'Topi dinas BSS tidak digunakan';
-    } else if (lower.contains('pin smile')) {
-      return 'Pin smile tidak terpasang di dada sebelah kanan';
-    } else if (lower.contains('rambut') || lower.contains('jilbab') || lower.contains('grooming')) {
-      return 'Grooming tidak rapi (rambut atau jilbab melebihi standar BSS)';
     } else if (lower.contains('sepatu')) {
       return 'Tidak mengenakan sepatu kerja warna hitam yang bersih';
     } else if (lower.contains('wajah') || lower.contains('masker') || lower.contains('kacamata')) {
@@ -258,7 +250,6 @@ class AiVisionService {
       final cl = c.toLowerCase();
       if ((cl.contains('seragam') ||
               cl.contains('rambut') ||
-              cl.contains('jilbab') ||
               cl.contains('sepatu')) &&
           !config.enableGroomingCheck) {
         return false;
@@ -722,7 +713,7 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
 OUTPUT STRICT JSON ONLY:
 {"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
 ''';
-    } else if (absensiKategori == AbsensiKategori.teknisi) {
+    } else {
       final hari = (hariKerja ?? 'SENIN').toUpperCase();
       final isPulang = tipeLaporan == 'Pulang';
       if (isPulang) {
@@ -777,23 +768,6 @@ OUTPUT STRICT JSON ONLY:
 {"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
 ''';
       }
-    } else {
-      systemPrompt = '''
-You are BSS-Vision. Evaluasi kesesuaian foto terhadap kriteria SOP BSS Parking.
-
-CRITERIA:
-$criteriaListStr
-
-ATURAN:
-1. Evaluasi atribut dan seragam yang tampak di frame kamera secara objektif.
-2. Gunakan bahasa ringkas, padat, to the point (5-10 kata).
-   - Contoh sesuai: "Seragam rapi dan atribut lengkap sesuai SOP."
-   - Contoh tidak sesuai: "[Sebutkan atribut yang kurang/salah]."
-3. Foto setengah badan wajar, nilai atribut yang terlihat.
-
-OUTPUT STRICT JSON ONLY:
-{"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
-''';
     }
 
     final userContent = [

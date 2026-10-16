@@ -104,12 +104,12 @@ void main() {
 
       expect(templates.length, greaterThanOrEqualTo(5));
 
-      // Absensi check: kriteria ringkas 7 item
+      // Absensi check: kriteria ringkas 4 item teknisi
       final absensi = templates.firstWhere((t) => t.id == 'tpl_absensi_01');
       expect(absensi.nama, equals('Absensi'));
-      expect(absensi.sopCriteria.length, equals(7));
+      expect(absensi.sopCriteria.length, equals(4));
       expect(absensi.sopCriteria.any((c) => c.contains('dimasukkan dalam celana')), isTrue);
-      expect(absensi.sopCriteria.any((c) => c.contains('Pin smile')), isTrue);
+      expect(absensi.sopCriteria.any((c) => c.contains('Sepatu Hitam')), isTrue);
 
       // Maintenance templates checks (technician per-point ringkas representatif)
       final maintPos = templates.firstWhere((t) => t.id == 'tpl_maint_pos');

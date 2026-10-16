@@ -76,7 +76,6 @@ void main() {
 
     expect(find.byType(SopVerificationModal), findsOneWidget);
     expect(find.text('Foto lolos validasi'), findsOneWidget);
-    expect(find.text('VERIF-TEST-1234'), findsOneWidget);
   });
 
   testWidgets('SopVerificationModal renders cleanly with imageBytes on Web/Mobile', (tester) async {
@@ -117,7 +116,5 @@ void main() {
     await tester.pump();
 
     expect(find.byType(SopVerificationModal), findsOneWidget);
-    expect(find.text('BYTES-1234'), findsOneWidget);
-    expect(find.text('Foto saat ini'), findsOneWidget);
   });
 }

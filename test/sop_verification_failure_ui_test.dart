@@ -61,42 +61,71 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Header + banner status.
+    // Header tanpa badge jumlah foto + banner status.
     expect(find.text('Validasi Grooming'), findsOneWidget);
-    expect(find.text('Foto 1 dari 1'), findsOneWidget);
+    expect(find.text('Foto 1 dari 1'), findsNothing);
     expect(find.text('Foto belum lolos validasi'), findsOneWidget);
     expect(find.text('1 hal perlu diperbaiki'), findsOneWidget);
 
-    // Kartu alasan AI + daftar kriteria gagal + tips dari template.
+    // Kartu alasan AI + satu checkpoint ringkas berisi temuan AI apa adanya.
     expect(find.text('Alasan AI menolak foto'), findsOneWidget);
     expect(find.text('YANG PERLU DIPERBAIKI'), findsOneWidget);
+    expect(
+      find.text('Grooming teknisi belum memenuhi SOP'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Wajah dan tubuh teknisi tidak terlihat'),
+      findsOneWidget,
+    );
     expect(find.text('Tips agar lolos'), findsOneWidget);
     expect(find.text('Foto full body tegap menghadap kamera'), findsOneWidget);
 
     // Confidence AI tidak lagi ditampilkan sebagai status kelulusan.
     expect(find.textContaining('Tingkat Keyakinan'), findsNothing);
 
-    // Opsi buka penjelasan: standar SOP asli dari template.
-    await tester.tap(find.text('Wajah dan tubuh teknisi tidak terlihat'));
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Standar SOP: Wajah terlihat jelas tanpa masker / kacamata'),
-      findsOneWidget,
-    );
+    // Kode BSS + label kategori disembunyikan dari tampilan.
+    expect(find.text('VERIF-FAIL-1'), findsNothing);
 
-    // CTA utama oranye + sekunder outline, keduanya berfungsi.
-    await tester.ensureVisible(find.text('Lihat contoh foto'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Lihat contoh foto'));
-    await tester.pumpAndSettle();
-    expect(find.text('Contoh Foto yang Benar'), findsOneWidget);
-    await tester.tap(find.text('Tutup'));
-    await tester.pumpAndSettle();
+    // Tombol contoh foto dihapus; hanya CTA utama Foto Ulang.
+    expect(find.text('Lihat contoh foto'), findsNothing);
 
+    // CTA utama oranye berfungsi.
     await tester.ensureVisible(find.text('Foto Ulang'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Foto Ulang'));
     await tester.pumpAndSettle();
     expect(retakeCalled, isTrue);
+  });
+
+  testWidgets('State lolos menyembunyikan kartu tips', (tester) async {
+    final success = AiVerificationResult(
+      status: VerificationStatus.sesuai,
+      confidenceScore: 0.93,
+      alasan: 'Seragam rapi dan lengkap.',
+      poinLolos: ['Seragam rapi'],
+      poinGagal: [],
+      providerName: 'Gemini Flash',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SopVerificationModal(
+            template: template,
+            result: success,
+            kodeVerifikasi: 'VERIF-OK-1',
+            onRetake: () {},
+            onSave: () {},
+            onCancel: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Foto lolos validasi'), findsOneWidget);
+    expect(find.text('Tips agar lolos'), findsNothing);
+    expect(find.text('Simpan & Kirim Laporan'), findsOneWidget);
   });
 }

@@ -20,11 +20,8 @@ class TemplateRepository extends ChangeNotifier {
       sopCriteria: [
         'Seragam resmi BSS Parking bersih, rapi, terkancing & dimasukkan dalam celana',
         'ID Card / Name Tag terpasang jelas di saku kiri (tali lanyard / yoyo lanyard sah)',
-        'Rambut rapi / jilbab rapi sesuai standar grooming BSS',
-        'Sepatu Hitam bersih',
         'Wajah terlihat jelas tanpa masker / kacamata',
-        'Peluit & Topi untuk petugas SPL laki-laki',
-        'Pin smile terpasang di dada sebelah kanan',
+        'Sepatu Hitam bersih',
       ],
       aiMode: AiMode.singleFoto,
       requiredRole: TemplateRole.all,

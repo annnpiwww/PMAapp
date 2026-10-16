@@ -1242,7 +1242,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         template: _selectedTemplate,
         imageBase64: imageBase64,
         absensiKategori: isAbsensi ? absensiSetup.selectedKategori : null,
-        hariKerja: isAbsensi && absensiSetup.selectedKategori == AbsensiKategori.teknisi ? absensiSetup.hariKerja : null,
+        hariKerja: isAbsensi ? absensiSetup.hariKerja : null,
         tipeLaporan: isAbsensi ? absensiSetup.tipeLaporan : null,
       );
       aiResult = await Future.any([aiFuture, _aiBypassCompleter!.future]);
@@ -1292,7 +1292,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
     // Build share text — teknisi has special Masuk/Pulang format (data dari SOP page)
     final absensiSetup2 = AbsensiSetupService.instance;
-    final isTeknisi = _selectedTemplate.jenis == TemplateCategory.absensi && absensiSetup2.selectedKategori == AbsensiKategori.teknisi;
+    final isTeknisi = _selectedTemplate.jenis == TemplateCategory.absensi;
     final lastTechName = StorageService.getLastTechnicianName().trim();
     final effectiveUserName = lastTechName.isNotEmpty ? lastTechName : user.nama;
     final currentTipeLaporan = absensiSetup2.tipeLaporan;
@@ -1418,7 +1418,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
 
       final absSetup = AbsensiSetupService.instance;
       final isAbsensiSave = _selectedTemplate.jenis == TemplateCategory.absensi;
-      final isTeknisiSave = isAbsensiSave && absSetup.selectedKategori == AbsensiKategori.teknisi;
+      final isTeknisiSave = isAbsensiSave;
 
       final submission = SubmissionModel(
         id: 'SUB-${DateTime.now().millisecondsSinceEpoch}',
