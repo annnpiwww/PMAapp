@@ -125,9 +125,17 @@ class DailyTaskService {
   }
 
   static String get baseUrl {
-    // Mendukung custom override dari storage jika admin ganti endpoint
-    final custom = StorageService.getString('custom_supabase_url') ?? StorageService.getString('custom_pocketbase_url');
-    if (custom != null && custom.isNotEmpty) return custom;
+    // Bersihkan key legacy pocketbase jika masih ada di local storage / shared preferences
+    try {
+      if (StorageService.getString('custom_pocketbase_url') != null) {
+        StorageService.remove('custom_pocketbase_url');
+      }
+    } catch (_) {}
+
+    final custom = StorageService.getString('custom_supabase_url');
+    if (custom != null && custom.isNotEmpty && custom.startsWith('https://') && !custom.contains('8090') && !custom.contains('trakingduit')) {
+      return custom;
+    }
     return const String.fromEnvironment('SUPABASE_URL', defaultValue: _defaultBaseUrl);
   }
 

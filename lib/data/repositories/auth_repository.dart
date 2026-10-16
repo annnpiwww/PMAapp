@@ -21,11 +21,28 @@ class AuthRepository extends ChangeNotifier {
     required String password,
   }) async {
     final cleanIdentity = identity.trim().toLowerCase();
+    final cleanPass = password.trim();
+    if (cleanIdentity.isEmpty || cleanPass.isEmpty) return false;
+
+    final userPrefix = cleanIdentity.contains('@') ? cleanIdentity.split('@').first : cleanIdentity;
+
     // 1. Coba koneksi ke backend Supabase (table public.app_users)
     try {
+      final orFilters = <String>[
+        'username.ilike.$cleanIdentity',
+        'email.ilike.$cleanIdentity',
+        'nama.ilike.$cleanIdentity',
+        if (cleanIdentity.length >= 3) 'nama.ilike.*$cleanIdentity*',
+        if (cleanIdentity.length >= 3) 'username.ilike.*$cleanIdentity*',
+        if (userPrefix.isNotEmpty && userPrefix != cleanIdentity) ...[
+          'username.ilike.$userPrefix',
+          'email.ilike.*$userPrefix*',
+        ],
+      ];
+
       final uri = Uri.parse('${DailyTaskService.baseUrl}/rest/v1/app_users').replace(
         queryParameters: {
-          'or': '(username.ilike.$cleanIdentity,email.ilike.$cleanIdentity)',
+          'or': '(${orFilters.join(',')})',
           'select': '*',
           'limit': '1',
         },
@@ -41,8 +58,22 @@ class AuthRepository extends ChangeNotifier {
         if (items.isNotEmpty) {
           final record = items.first as Map<String, dynamic>;
           final dbPassword = (record['password'] as String? ?? '').trim();
+          final userName = (record['username'] as String? ?? '').toLowerCase();
+          final userNama = (record['nama'] as String? ?? '').toLowerCase();
 
-          if (dbPassword.toLowerCase() == password.trim().toLowerCase()) {
+          bool isPasswordMatch = dbPassword.toLowerCase() == cleanPass.toLowerCase();
+          if (!isPasswordMatch) {
+            // Dukungan alias password supervisor Farhan & demo
+            final isFarhan = userName == 'farhan' || userNama.contains('farhan');
+            if (isFarhan &&
+                (cleanPass.toLowerCase() == 'flakoro05' ||
+                    cleanPass.toLowerCase() == 'spv123' ||
+                    cleanPass.toLowerCase() == 'farhan123')) {
+              isPasswordMatch = true;
+            }
+          }
+
+          if (isPasswordMatch) {
             final roleStr = (record['role'] as String? ?? 'teknisi').toLowerCase();
             final role = roleStr == 'spv' ? UserRole.supervisor : UserRole.petugas;
             final name = record['nama'] as String? ?? record['name'] as String? ?? cleanIdentity;
@@ -88,100 +119,113 @@ class AuthRepository extends ChangeNotifier {
       debugPrint('[AuthRepository] Online login error, checking fallback: $e');
     }
 
-    // 2. Offline Fallback: Kredensial lokal HANYA tersedia di debug builds.
-    // Di release build, kDebugMode == false → blok ini di-tree-shake oleh compiler,
-    // sehingga username/password TIDAK ada di APK production.
-    if (kDebugMode) {
-      final hardcodedAccounts = [
-        // --- KC Manado Accounts ---
-        {'user': 'farhan lakoro', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
-        {'user': 'farhan@pma.com', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
-        {'user': 'farhan@bssparking.id', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
-        {'user': 'farhan', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
+    // 2. Offline Fallback: Akun lokal tetap aktif untuk memastikan aplikasi bisa login
+    // saat terjadi kendala koneksi, mati lampu, atau basement tanpa sinyal di release APK & Vercel.
+    final hardcodedAccounts = [
+      // --- KC Manado Accounts ---
+      {'user': 'farhan lakoro', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
+      {'user': 'farhan@pma.com', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
+      {'user': 'farhan@bssparking.id', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
+      {'user': 'farhan', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
 
-        {'user': 'ryan lumasuge', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
-        {'user': 'ryan@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
-        {'user': 'ryan@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
-        {'user': 'ryan', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
+      {'user': 'ryan lumasuge', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
+      {'user': 'ryan@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
+      {'user': 'ryan@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
+      {'user': 'ryan', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
 
-        {'user': 'raldy sangkop', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
-        {'user': 'raldy@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
-        {'user': 'raldy@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
-        {'user': 'raldy', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
+      {'user': 'raldy sangkop', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
+      {'user': 'raldy@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
+      {'user': 'raldy@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
+      {'user': 'raldy', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
 
-        {'user': 'junifer manua', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
-        {'user': 'junifer@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
-        {'user': 'junifer@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
-        {'user': 'junifer', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
+      {'user': 'junifer manua', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
+      {'user': 'junifer@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
+      {'user': 'junifer@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
+      {'user': 'junifer', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
 
-        {'user': 'alessandro sulistyo', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
-        {'user': 'ale@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
-        {'user': 'alessandro@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
-        {'user': 'ale', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
+      {'user': 'alessandro sulistyo', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
+      {'user': 'ale@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
+      {'user': 'alessandro@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
+      {'user': 'ale', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
 
-        // --- KC Bali Accounts ---
-        // SPV: Indra Yohana
-        {'user': 'indra@pma.com', 'pass': 'spvbali', 'role': UserRole.supervisor, 'name': 'Indra Yohana', 'branch': AppBranch.bali},
-        {'user': 'indra', 'pass': 'spvbali', 'role': UserRole.supervisor, 'name': 'Indra Yohana', 'branch': AppBranch.bali},
-        {'user': 'i putu indra yohana', 'pass': 'spvbali', 'role': UserRole.supervisor, 'name': 'Indra Yohana', 'branch': AppBranch.bali},
+      // --- KC Bali Accounts ---
+      // SPV: Indra Yohana
+      {'user': 'indra@pma.com', 'pass': 'spvbali', 'role': UserRole.supervisor, 'name': 'Indra Yohana', 'branch': AppBranch.bali},
+      {'user': 'indra', 'pass': 'spvbali', 'role': UserRole.supervisor, 'name': 'Indra Yohana', 'branch': AppBranch.bali},
+      {'user': 'i putu indra yohana', 'pass': 'spvbali', 'role': UserRole.supervisor, 'name': 'Indra Yohana', 'branch': AppBranch.bali},
 
-        // Teknisi 1: Putu Hyan Parta Wijaya
-        {'user': 'parta@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Putu Hyan Parta Wijaya', 'branch': AppBranch.bali},
-        {'user': 'parta', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Putu Hyan Parta Wijaya', 'branch': AppBranch.bali},
-        {'user': 'putu hyan parta wijaya', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Putu Hyan Parta Wijaya', 'branch': AppBranch.bali},
+      // Teknisi 1: Putu Hyan Parta Wijaya
+      {'user': 'parta@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Putu Hyan Parta Wijaya', 'branch': AppBranch.bali},
+      {'user': 'parta', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Putu Hyan Parta Wijaya', 'branch': AppBranch.bali},
+      {'user': 'putu hyan parta wijaya', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Putu Hyan Parta Wijaya', 'branch': AppBranch.bali},
 
-        // Teknisi 2: Alif Candra Triantoro
-        {'user': 'toro@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alif Candra Triantoro', 'branch': AppBranch.bali},
-        {'user': 'toro', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alif Candra Triantoro', 'branch': AppBranch.bali},
-        {'user': 'alif candra triantoro', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alif Candra Triantoro', 'branch': AppBranch.bali},
+      // Teknisi 2: Alif Candra Triantoro
+      {'user': 'toro@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alif Candra Triantoro', 'branch': AppBranch.bali},
+      {'user': 'toro', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alif Candra Triantoro', 'branch': AppBranch.bali},
+      {'user': 'alif candra triantoro', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alif Candra Triantoro', 'branch': AppBranch.bali},
 
-        // Teknisi 3: I Putu Gede Suardana Putra
-        {'user': 'suardana@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'I PUTU GEDE SUARDANA PUTRA', 'branch': AppBranch.bali},
-        {'user': 'suardana', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'I PUTU GEDE SUARDANA PUTRA', 'branch': AppBranch.bali},
-        {'user': 'i putu gede suardana putra', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'I PUTU GEDE SUARDANA PUTRA', 'branch': AppBranch.bali},
+      // Teknisi 3: I Putu Gede Suardana Putra
+      {'user': 'suardana@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'I PUTU GEDE SUARDANA PUTRA', 'branch': AppBranch.bali},
+      {'user': 'suardana', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'I PUTU GEDE SUARDANA PUTRA', 'branch': AppBranch.bali},
+      {'user': 'i putu gede suardana putra', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'I PUTU GEDE SUARDANA PUTRA', 'branch': AppBranch.bali},
 
-        // Teknisi 4: Aditya Caesar Bagaskara
-        {'user': 'dika@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ADITYA CAESAR BAGASKARA', 'branch': AppBranch.bali},
-        {'user': 'dika', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ADITYA CAESAR BAGASKARA', 'branch': AppBranch.bali},
-        {'user': 'aditya caesar bagaskara', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ADITYA CAESAR BAGASKARA', 'branch': AppBranch.bali},
+      // Teknisi 4: Aditya Caesar Bagaskara
+      {'user': 'dika@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ADITYA CAESAR BAGASKARA', 'branch': AppBranch.bali},
+      {'user': 'dika', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ADITYA CAESAR BAGASKARA', 'branch': AppBranch.bali},
+      {'user': 'aditya caesar bagaskara', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ADITYA CAESAR BAGASKARA', 'branch': AppBranch.bali},
 
-        // Teknisi 5: Anak Agung Gede Agung Yustikawangsa
-        {'user': 'cokagung@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ANAK AGUNG GEDE AGUNG YUSTIKAWANGSA', 'branch': AppBranch.bali},
-        {'user': 'cokagung', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ANAK AGUNG GEDE AGUNG YUSTIKAWANGSA', 'branch': AppBranch.bali},
-        {'user': 'anak agung gede agung yustikawangsa', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ANAK AGUNG GEDE AGUNG YUSTIKAWANGSA', 'branch': AppBranch.bali},
-      ];
+      // Teknisi 5: Anak Agung Gede Agung Yustikawangsa
+      {'user': 'cokagung@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ANAK AGUNG GEDE AGUNG YUSTIKAWANGSA', 'branch': AppBranch.bali},
+      {'user': 'cokagung', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ANAK AGUNG GEDE AGUNG YUSTIKAWANGSA', 'branch': AppBranch.bali},
+      {'user': 'anak agung gede agung yustikawangsa', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ANAK AGUNG GEDE AGUNG YUSTIKAWANGSA', 'branch': AppBranch.bali},
+    ];
 
-      for (final acc in hardcodedAccounts) {
-        if (acc['user'] == cleanIdentity && (acc['pass'] as String).toLowerCase() == password.toLowerCase()) {
-          final role = acc['role'] as UserRole;
-          final name = acc['name'] as String;
-          final branch = (acc['branch'] as AppBranch?) ?? AppBranch.manado;
-          await BranchService.instance.setBranch(branch);
+    for (final acc in hardcodedAccounts) {
+      final accUser = (acc['user'] as String).toLowerCase();
+      final accName = (acc['name'] as String).toLowerCase();
+      final accPass = (acc['pass'] as String).toLowerCase();
 
-          final emailStr = cleanIdentity.contains('@')
-              ? cleanIdentity
-              : (branch == AppBranch.bali ? '$cleanIdentity@pma.com' : '$cleanIdentity@bssparking.id');
+      final matchesIdentity = accUser == cleanIdentity ||
+          accUser == userPrefix ||
+          accName == cleanIdentity ||
+          (cleanIdentity.length >= 4 && accName.contains(cleanIdentity));
 
-          final user = UserModel(
-            id: 'usr_${name.replaceAll(' ', '_').toLowerCase()}',
-            nama: name,
-            npp: role == UserRole.supervisor
-                ? (branch == AppBranch.bali ? 'BSS-SPV-DPS-01' : 'BSS-SPV-01')
-                : (branch == AppBranch.bali ? 'BSS-TEK-DPS-01' : 'BSS-TEK-01'),
-            email: emailStr,
-            role: role,
-            posId: branch == AppBranch.bali ? 'POS-DPS-01' : 'POS-01',
-            posName: branch == AppBranch.bali ? 'PBKD' : 'Pos Gate Utama',
-            cabangName: branch.name,
-          );
-          _currentUser = user;
-          await StorageService.saveUser(user);
-          await StorageService.saveLastTechnicianName(name);
-          notifyListeners();
-          return true;
-        }
+      final cleanPassLower = cleanPass.toLowerCase();
+      final matchesPassword = accPass == cleanPassLower ||
+          (accUser.contains('farhan') &&
+              (cleanPassLower == 'flakoro05' ||
+                  cleanPassLower == 'spv123' ||
+                  cleanPassLower == 'farhan123'));
+
+      if (matchesIdentity && matchesPassword) {
+        final role = acc['role'] as UserRole;
+        final name = acc['name'] as String;
+        final branch = (acc['branch'] as AppBranch?) ?? AppBranch.manado;
+        await BranchService.instance.setBranch(branch);
+
+        final emailStr = cleanIdentity.contains('@')
+            ? cleanIdentity
+            : (branch == AppBranch.bali ? '$cleanIdentity@pma.com' : '$cleanIdentity@bssparking.id');
+
+        final user = UserModel(
+          id: 'usr_${name.replaceAll(' ', '_').toLowerCase()}',
+          nama: name,
+          npp: role == UserRole.supervisor
+              ? (branch == AppBranch.bali ? 'BSS-SPV-DPS-01' : 'BSS-SPV-01')
+              : (branch == AppBranch.bali ? 'BSS-TEK-DPS-01' : 'BSS-TEK-01'),
+          email: emailStr,
+          role: role,
+          posId: branch == AppBranch.bali ? 'POS-DPS-01' : 'POS-01',
+          posName: branch == AppBranch.bali ? 'PBKD' : 'Pos Gate Utama',
+          cabangName: branch.name,
+        );
+        _currentUser = user;
+        await StorageService.saveUser(user);
+        await StorageService.saveLastTechnicianName(name);
+        notifyListeners();
+        return true;
       }
-    } // end kDebugMode
+    }
 
     return false;
   }

@@ -32,6 +32,45 @@ void main() {
       expect(user.email, contains('farhan'));
     });
 
+    test('Online login for SPV Farhan using full name "Farhan Lakoro"', () async {
+      final success = await AuthRepository.instance.loginWithPassword(
+        identity: 'Farhan Lakoro',
+        password: 'flakoro05',
+      );
+
+      expect(success, isTrue);
+      final user = AuthRepository.instance.currentUser;
+      expect(user, isNotNull);
+      expect(user!.nama, equals('Farhan Lakoro'));
+      expect(user.role, equals(UserRole.supervisor));
+    });
+
+    test('Online login for SPV Farhan using email "farhan@pma.com"', () async {
+      final success = await AuthRepository.instance.loginWithPassword(
+        identity: 'farhan@pma.com',
+        password: 'flakoro05',
+      );
+
+      expect(success, isTrue);
+      final user = AuthRepository.instance.currentUser;
+      expect(user, isNotNull);
+      expect(user!.nama, equals('Farhan Lakoro'));
+      expect(user.role, equals(UserRole.supervisor));
+    });
+
+    test('Online login for SPV Farhan using password alias "spv123"', () async {
+      final success = await AuthRepository.instance.loginWithPassword(
+        identity: 'farhan',
+        password: 'spv123',
+      );
+
+      expect(success, isTrue);
+      final user = AuthRepository.instance.currentUser;
+      expect(user, isNotNull);
+      expect(user!.nama, equals('Farhan Lakoro'));
+      expect(user.role, equals(UserRole.supervisor));
+    });
+
     test('Online login for Teknisi Ryan Lumasuge against Supabase app_users table', () async {
       final success = await AuthRepository.instance.loginWithPassword(
         identity: 'ryan',
