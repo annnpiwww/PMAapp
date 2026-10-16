@@ -75,7 +75,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(SopVerificationModal), findsOneWidget);
-    expect(find.text('SELESAI VERIFIKASI'), findsOneWidget);
+    expect(find.text('Foto lolos validasi'), findsOneWidget);
     expect(find.text('VERIF-TEST-1234'), findsOneWidget);
   });
 
@@ -118,6 +118,6 @@ void main() {
 
     expect(find.byType(SopVerificationModal), findsOneWidget);
     expect(find.text('BYTES-1234'), findsOneWidget);
-    expect(find.text('Cek Kejernihan Foto'), findsOneWidget);
+    expect(find.text('Foto saat ini'), findsOneWidget);
   });
 }
