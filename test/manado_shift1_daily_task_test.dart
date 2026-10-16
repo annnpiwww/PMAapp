@@ -22,15 +22,17 @@ void main() {
 
   group('Shift 1 KC Manado Routine & Target Date Tests', () {
     test('DailyTaskService formats Telegram alert with target date properly', () {
+      final tomorrow = DateTime.now().add(const Duration(days: 1));
+      final tomorrowStr = '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
       final msgTomorrow = DailyTaskService.formatTelegramTaskMessage(
         teknisiNama: 'Ryan Lumasuge',
         judul: 'Pengecekan Sistem Gate out 1-6 PBM (bukti dokumentasi layar aplikasi kasir)',
         posName: 'PBM',
-        tanggal: '2026-10-16',
+        tanggal: tomorrowStr,
       );
 
-      expect(msgTomorrow, contains('[JADWAL: 2026-10-16]'));
-      expect(msgTomorrow, contains('Target Tanggal:</b> 2026-10-16'));
+      expect(msgTomorrow, contains('[JADWAL: $tomorrowStr]'));
+      expect(msgTomorrow, contains('Target Tanggal:</b> $tomorrowStr'));
       expect(msgTomorrow, contains('Ryan Lumasuge'));
       expect(msgTomorrow, contains('PBM'));
     });

@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -9,12 +11,27 @@ class ShareHelper {
   static const MethodChannel _directChannel =
       MethodChannel('com.bssparking.timemark/direct_share');
 
-  /// Saves photo to device gallery
+  /// Saves photo to device gallery (supports both local file path and remote URL)
   static Future<bool> savePhotoToGallery(String? imagePath) async {
     if (kIsWeb) return true; // Web browser doesn't have native Gallery access
     if (imagePath == null || imagePath.isEmpty) return false;
-    final file = File(imagePath);
-    if (!file.existsSync()) return false;
+
+    File file;
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      try {
+        final res = await http.get(Uri.parse(imagePath)).timeout(const Duration(seconds: 25));
+        if (res.statusCode != 200) return false;
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File('${tempDir.path}/task_proof_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await tempFile.writeAsBytes(res.bodyBytes);
+        file = tempFile;
+      } catch (_) {
+        return false;
+      }
+    } else {
+      file = File(imagePath);
+      if (!file.existsSync()) return false;
+    }
 
     try {
       final hasAccess = await Gal.hasAccess(toAlbum: true);

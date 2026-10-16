@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../core/utils/share_helper.dart';
 import '../models/maintenance_submission.dart';
 import '../models/template_model.dart';
@@ -323,6 +323,130 @@ class WhatsAppReportService {
       return rawLabel.split(' - ').first.trim();
     }
     return rawLabel;
+  }
+
+  /// Ekstrak nomor unit numerik dari string nama unit (contoh: "Barrier Gate 2" -> 2, "Pos 3" -> 3)
+  static int _extractUnitNumberFromString(String unitStr) {
+    final lower = unitStr.toLowerCase();
+    final match = RegExp(r'\d+').firstMatch(unitStr);
+    if (match != null) {
+      final parsed = int.tryParse(match.group(0)!);
+      if (parsed != null) return parsed;
+    }
+    if (lower.contains('server')) return 0;
+    return 999;
+  }
+
+  /// Ekstrak nomor unit numerik dari MaintenancePointResult (dari pointId atau label)
+  static int _extractUnitNumberFromPoint(MaintenancePointResult p) {
+    final parts = p.pointId.split('_');
+    if (parts.length >= 3) {
+      final u = int.tryParse(parts[1]);
+      if (u != null) return u;
+    }
+    final unitName = _gateName(p.label);
+    return _extractUnitNumberFromString(unitName);
+  }
+
+  /// Ekstrak nomor urut SOP checkpoint (contoh: bar_1_09 -> 9, bar_04 -> 4)
+  static int _extractSopIndex(String pointId) {
+    final parts = pointId.split('_');
+    if (parts.isNotEmpty) {
+      final last = int.tryParse(parts.last);
+      if (last != null) return last;
+    }
+    final match = RegExp(r'\d+$').firstMatch(pointId);
+    if (match != null) {
+      return int.tryParse(match.group(0)!) ?? 999;
+    }
+    return 999;
+  }
+
+  /// Pembanding untuk sorting terstruktur: Unit 1..N lalu Point SOP 1..9
+  static int _comparePoints(MaintenancePointResult a, MaintenancePointResult b) {
+    final unitA = _extractUnitNumberFromPoint(a);
+    final unitB = _extractUnitNumberFromPoint(b);
+    if (unitA != unitB) {
+      return unitA.compareTo(unitB);
+    }
+    final sopA = _extractSopIndex(a.pointId);
+    final sopB = _extractSopIndex(b.pointId);
+    if (sopA != sopB) {
+      return sopA.compareTo(sopB);
+    }
+    return a.pointId.compareTo(b.pointId);
+  }
+
+  /// Deteksi kategori tipe unit (Gate, Pos, Manless, Kasir, Server, dll.)
+  static String _detectUnitType(String unitName) {
+    final l = unitName.toLowerCase();
+    if (l.contains('gate') || l.contains('barrier')) return 'Gate';
+    if (l.contains('pos')) return 'Pos';
+    if (l.contains('manless') || l.contains('dispenser')) return 'Manless';
+    if (l.contains('kasir')) return 'Kasir';
+    if (l.contains('server')) return 'Server';
+    final cleaned = unitName.replaceAll(RegExp(r'\d+'), '').trim();
+    return cleaned.isNotEmpty ? cleaned : unitName;
+  }
+
+  /// Format daftar unit menjadi string ringkas (Smart Consolidated).
+  /// Contoh:
+  /// ['Barrier Gate 1', 'Barrier Gate 2', 'Barrier Gate 3', 'Barrier Gate 4'] -> "Gate 1 - 4"
+  /// ['Barrier Gate 1', 'Barrier Gate 2'] -> "Gate 1 - 2"
+  /// ['Barrier Gate 1', 'Barrier Gate 3'] -> "Gate 1, 3"
+  /// ['Pos 1', 'Pos 2'] -> "Pos 1 - 2"
+  /// ['Manless 1', 'Manless 2', 'Manless 3'] -> "Manless 1 - 3"
+  /// ['PC Kasir 1', 'PC Kasir 2', 'PC Kasir 3'] -> "Kasir 1 - 3"
+  /// ['Barrier Gate 1'] -> "Barrier Gate 1"
+  static String _formatUnitList(List<String> units) {
+    if (units.isEmpty) return '';
+    if (units.length == 1) return units.first;
+
+    final firstType = _detectUnitType(units.first);
+    final allSameType = units.every((u) => _detectUnitType(u) == firstType);
+    if (!allSameType) {
+      return units.join(', ');
+    }
+
+    final numbers = <int>[];
+    for (final u in units) {
+      final num = _extractUnitNumberFromString(u);
+      if (num > 0 && num < 900) {
+        numbers.add(num);
+      }
+    }
+
+    if (numbers.length != units.length) {
+      return units.join(', ');
+    }
+
+    numbers.sort();
+
+    final rangeParts = <String>[];
+    int rangeStart = numbers.first;
+    int rangeEnd = rangeStart;
+
+    for (int i = 1; i < numbers.length; i++) {
+      final current = numbers[i];
+      if (current == rangeEnd + 1) {
+        rangeEnd = current;
+      } else if (current != rangeEnd) {
+        if (rangeStart == rangeEnd) {
+          rangeParts.add('$rangeStart');
+        } else {
+          rangeParts.add('$rangeStart - $rangeEnd');
+        }
+        rangeStart = current;
+        rangeEnd = current;
+      }
+    }
+    if (rangeStart == rangeEnd) {
+      rangeParts.add('$rangeStart');
+    } else {
+      rangeParts.add('$rangeStart - $rangeEnd');
+    }
+
+    return '$firstType ${rangeParts.join(', ')}';
   }
 
   /// Helper tampilkan lokasi dengan tag: "Pasar Bersehati Manado (PBM)"
@@ -758,13 +882,18 @@ class WhatsAppReportService {
 
   /// Model 1 Formatter: Memisahkan unit yang sesuai (hijau) dan unit yang bermasalah (warning).
   /// Menampilkan hasil observasi AI aktual pada status hijau, anti-kata "sesuai" generic.
+  /// Menjamin urutan unit selalu konsisten dan berurutan secara numerik (Gate 1 -> Gate 2 -> Gate 3 -> Gate 4).
   static void _appendThematicModel1Line({
     required StringBuffer buffer,
     required int no,
     required String themeLabel,
     required List<MaintenancePointResult> relevant,
   }) {
-    final done = relevant
+    // Sort relevant points by unit number then SOP index
+    final sortedRelevant = List<MaintenancePointResult>.from(relevant)
+      ..sort(_comparePoints);
+
+    final done = sortedRelevant
         .where((p) => p.status != PointStatus.belumFoto)
         .toList();
     if (done.isEmpty) {
@@ -782,11 +911,26 @@ class WhatsAppReportService {
 
     buffer.writeln('$no. *${themeLabel.trim()}* :');
 
-    final uniqueUnits = relevant.map((p) => _gateName(p.label)).toSet();
-    final isSingleUnit = relevant.length <= 1 || uniqueUnits.length <= 1;
     final defaultOk = _defaultObservationForTheme(themeLabel);
 
-    // 1. Jika SEMUA unit sesuai (tidak ada issue)
+    // Kelompokkan poin yang sudah selesai per unit
+    final unitPointsMap = <String, List<MaintenancePointResult>>{};
+    for (final p in done) {
+      final unit = _gateName(p.label);
+      unitPointsMap.putIfAbsent(unit, () => []).add(p);
+    }
+
+    final sortedUnits = unitPointsMap.keys.toList()
+      ..sort((a, b) {
+        final numA = _extractUnitNumberFromString(a);
+        final numB = _extractUnitNumberFromString(b);
+        if (numA != numB) return numA.compareTo(numB);
+        return a.compareTo(b);
+      });
+
+    final isSingleUnit = sortedUnits.length <= 1;
+
+    // 1. Jika SEMUA unit sesuai (tidak ada issue sama sekali)
     if (issues.isEmpty) {
       if (done.length < relevant.length) {
         buffer.writeln('   ⚠️ baru ${done.length}/${relevant.length} unit diperiksa (semua aman)');
@@ -794,48 +938,39 @@ class WhatsAppReportService {
         final okAlasan = _findBestOkAlasan(okPoints, fallback: defaultOk);
         buffer.writeln('   ✅ $okAlasan');
       } else {
-        final unitReasons = <String, String>{};
-        for (final p in okPoints) {
-          final u = _gateName(p.label);
-          final r = _formatOkAlasan(p.alasan, fallback: defaultOk);
-          unitReasons[u] = r;
-        }
-
-        final distinct = unitReasons.values.toSet();
-        if (distinct.length == 1) {
-          buffer.writeln('   ✅ ${distinct.first}');
+        // Multi-unit Smart Consolidated: Rangkum menjadi 1 baris ringkas per tipe unit!
+        final unitTypes = sortedUnits.map(_detectUnitType).toSet();
+        if (unitTypes.length == 1) {
+          final okAlasan = _findBestOkAlasan(okPoints, fallback: defaultOk);
+          buffer.writeln('   ✅ ${_formatUnitList(sortedUnits)}: $okAlasan');
         } else {
-          for (final entry in unitReasons.entries) {
-            buffer.writeln('   ✅ ${entry.key}: ${entry.value}');
+          // Berbeda tipe (misal Server Utama dan Kasir 1-3)
+          final typeToUnits = <String, List<String>>{};
+          for (final u in sortedUnits) {
+            final t = _detectUnitType(u);
+            typeToUnits.putIfAbsent(t, () => []).add(u);
+          }
+          for (final entry in typeToUnits.entries) {
+            final groupUnits = entry.value;
+            final groupPoints = groupUnits.expand((u) => unitPointsMap[u]!).toList();
+            final groupOkAlasan = _findBestOkAlasan(groupPoints, fallback: defaultOk);
+            if (groupUnits.length == 1) {
+              buffer.writeln('   ✅ ${groupUnits.first}: $groupOkAlasan');
+            } else {
+              buffer.writeln('   ✅ ${_formatUnitList(groupUnits)}: $groupOkAlasan');
+            }
           }
         }
       }
       return;
     }
 
-    // 2. Jika SEMUA unit bermasalah (tidak ada yang hijau)
-    if (okPoints.isEmpty) {
-      for (final iss in issues) {
-        final alasan = _isMeaningfulAlasan(iss.alasan)
-            ? cleanAlasanText(iss.alasan)
-            : 'perlu perbaikan';
-        if (isSingleUnit) {
-          buffer.writeln('   ⚠️ $alasan');
-        } else {
-          final unit = _gateName(iss.label);
-          buffer.writeln('   ⚠️ $unit: $alasan');
-        }
-        if (iss.kendalaFisik != null && iss.kendalaFisik!.trim().isNotEmpty) {
-          buffer.writeln('      👉 KENDALA: ${iss.kendalaFisik!.trim()}');
-        }
-      }
-      return;
-    }
-
-    // 3. MODEL 1: CAMPUR (Ada yang hijau, ada yang bermasalah)
+    // 2. Jika Single Unit (ada issue)
     if (isSingleUnit) {
-      final okAlasan = _findBestOkAlasan(okPoints, fallback: defaultOk);
-      buffer.writeln('   ✅ $okAlasan');
+      if (okPoints.isNotEmpty) {
+        final okAlasan = _findBestOkAlasan(okPoints, fallback: defaultOk);
+        buffer.writeln('   ✅ $okAlasan');
+      }
       for (final iss in issues) {
         final alasan = _isMeaningfulAlasan(iss.alasan)
             ? cleanAlasanText(iss.alasan)
@@ -845,34 +980,57 @@ class WhatsAppReportService {
           buffer.writeln('      👉 KENDALA: ${iss.kendalaFisik!.trim()}');
         }
       }
-    } else {
-      final unitReasons = <String, String>{};
-      for (final p in okPoints) {
-        final u = _gateName(p.label);
-        final r = _formatOkAlasan(p.alasan, fallback: defaultOk);
-        unitReasons[u] = r;
-      }
+      return;
+    }
 
-      final distinct = unitReasons.values.toSet();
-      if (unitReasons.length == 1) {
-        buffer.writeln('   ✅ ${unitReasons.keys.first}: ${unitReasons.values.first}');
-      } else if (distinct.length == 1) {
-        buffer.writeln('   ✅ ${unitReasons.keys.join(', ')}: ${distinct.first}');
+    // 3. Multi-unit Smart Consolidated (ada issue & ada ok):
+    // Urutkan unit secara berurutan numerik. Gabungkan blok bertetangga yang sama-sama OK.
+    // Unit yang bermasalah dicetak spesifik per unit.
+    int i = 0;
+    while (i < sortedUnits.length) {
+      final u = sortedUnits[i];
+      final uPoints = unitPointsMap[u]!;
+      final uIssues = uPoints.where((p) => p.status == PointStatus.tidakSesuai || _hasIssue(p)).toList();
+
+      if (uIssues.isNotEmpty) {
+        for (final iss in uIssues) {
+          final alasan = _isMeaningfulAlasan(iss.alasan)
+              ? cleanAlasanText(iss.alasan)
+              : 'perlu perbaikan';
+          buffer.writeln('   ⚠️ $u: $alasan');
+          if (iss.kendalaFisik != null && iss.kendalaFisik!.trim().isNotEmpty) {
+            buffer.writeln('      👉 KENDALA: ${iss.kendalaFisik!.trim()}');
+          }
+        }
+        i++;
       } else {
-        for (final entry in unitReasons.entries) {
-          buffer.writeln('   ✅ ${entry.key}: ${entry.value}');
-        }
-      }
+        // Unit u adalah OK. Cari unit berikutnya yang bertetangga, juga OK, dan bertipe sama.
+        final okChunkUnits = <String>[u];
+        final okChunkPoints = <MaintenancePointResult>[...uPoints];
+        final uType = _detectUnitType(u);
 
-      for (final iss in issues) {
-        final unit = _gateName(iss.label);
-        final alasan = _isMeaningfulAlasan(iss.alasan)
-            ? cleanAlasanText(iss.alasan)
-            : 'perlu perbaikan';
-        buffer.writeln('   ⚠️ $unit: $alasan');
-        if (iss.kendalaFisik != null && iss.kendalaFisik!.trim().isNotEmpty) {
-          buffer.writeln('      👉 KENDALA: ${iss.kendalaFisik!.trim()}');
+        int j = i + 1;
+        while (j < sortedUnits.length) {
+          final nextU = sortedUnits[j];
+          final nextType = _detectUnitType(nextU);
+          if (nextType != uType) break;
+
+          final nextPoints = unitPointsMap[nextU]!;
+          final nextIssues = nextPoints.where((p) => p.status == PointStatus.tidakSesuai || _hasIssue(p)).toList();
+          if (nextIssues.isNotEmpty) break;
+
+          okChunkUnits.add(nextU);
+          okChunkPoints.addAll(nextPoints);
+          j++;
         }
+
+        final alasan = _findBestOkAlasan(okChunkPoints, fallback: defaultOk);
+        if (okChunkUnits.length == 1) {
+          buffer.writeln('   ✅ $u: $alasan');
+        } else {
+          buffer.writeln('   ✅ ${_formatUnitList(okChunkUnits)}: $alasan');
+        }
+        i = j;
       }
     }
   }
@@ -1238,6 +1396,74 @@ class WhatsAppReportService {
     }
   }
 
+  /// Menyiapkan file-file foto terurut untuk dibagikan ke WhatsApp dan Telegram:
+  /// - Mengurutkan point berdasarkan nomor unit (Gate 1..N) dan urutan checkpoint SOP (1..9).
+  /// - Menyalin foto ke folder `cache/share/` dengan penomoran urut (`01_...jpg`, `02_...jpg`, dst).
+  /// - Mengatur timestamp berurutan bertahap agar WhatsApp/Telegram menampilkan urutan foto yang runtut.
+  static Future<List<String>> prepareSortedSharePhotos(
+    MaintenanceSubmission submission, {
+    Directory? overrideTempDir,
+  }) async {
+    final sortedPoints = List<MaintenancePointResult>.from(submission.points)
+      ..sort(_comparePoints);
+
+    final validPoints = sortedPoints.where((pt) {
+      if (pt.imagePath == null || pt.imagePath!.trim().isEmpty) return false;
+      if (!kIsWeb) {
+        return File(pt.imagePath!).existsSync();
+      }
+      return true;
+    }).toList();
+
+    if (validPoints.isEmpty) return [];
+
+    if (kIsWeb) {
+      return validPoints.map((p) => p.imagePath!).toList();
+    }
+
+    try {
+      final tempDir = overrideTempDir ?? await getTemporaryDirectory();
+      final shareDir = Directory('${tempDir.path}/share');
+      if (!shareDir.existsSync()) {
+        shareDir.createSync(recursive: true);
+      }
+
+      final resultPaths = <String>[];
+      final baseTime = DateTime.now();
+
+      for (int i = 0; i < validPoints.length; i++) {
+        final pt = validPoints[i];
+        final srcFile = File(pt.imagePath!);
+        final ext = srcFile.path.contains('.') ? srcFile.path.split('.').last : 'jpg';
+        final seq = (i + 1).toString().padLeft(2, '0');
+
+        // Bersihkan nama label agar aman sebagai nama file
+        final safeLabel = pt.label
+            .replaceAll(RegExp(r'[^\w\s\-]'), '')
+            .trim()
+            .replaceAll(RegExp(r'\s+'), '_');
+
+        final fileName = '${seq}_${pt.pointId}_$safeLabel.$ext';
+        final destFile = File('${shareDir.path}/$fileName');
+
+        // Salin ke folder share
+        await srcFile.copy(destFile.path);
+
+        // Atur waktu modifikasi bertahap agar gallery/WhatsApp mengurutkannya secara runtut
+        try {
+          await destFile.setLastModified(baseTime.add(Duration(seconds: i)));
+        } catch (_) {}
+
+        resultPaths.add(destFile.path);
+      }
+
+      return resultPaths;
+    } catch (e) {
+      debugPrint('[WhatsAppReportService] Gagal menyiapkan foto terurut: $e');
+      return validPoints.map((p) => p.imagePath!).toList();
+    }
+  }
+
   /// Bagikan laporan teks dan file-file foto sekaligus ke WhatsApp
   static Future<void> shareToWhatsApp({
     required MaintenanceSubmission submission,
@@ -1254,21 +1480,7 @@ class WhatsAppReportService {
       additionalNotes: additionalNotes,
     );
 
-    final xfiles = <XFile>[];
-    for (final pt in submission.points) {
-      if (pt.imagePath != null && pt.imagePath!.isNotEmpty) {
-        if (kIsWeb) {
-          xfiles.add(XFile(pt.imagePath!, name: '${pt.pointId}.jpg'));
-        } else {
-          final f = File(pt.imagePath!);
-          if (f.existsSync()) {
-            xfiles.add(XFile(pt.imagePath!, name: '${pt.pointId}.jpg'));
-          }
-        }
-      }
-    }
-
-    final filePaths = xfiles.map((e) => e.path).toList();
+    final filePaths = await prepareSortedSharePhotos(submission);
     await ShareHelper.shareToWhatsApp(
       text: text,
       imagePaths: filePaths.isNotEmpty ? filePaths : null,
@@ -1291,21 +1503,7 @@ class WhatsAppReportService {
       additionalNotes: additionalNotes,
     );
 
-    final xfiles = <XFile>[];
-    for (final pt in submission.points) {
-      if (pt.imagePath != null && pt.imagePath!.isNotEmpty) {
-        if (kIsWeb) {
-          xfiles.add(XFile(pt.imagePath!, name: '${pt.pointId}.jpg'));
-        } else {
-          final f = File(pt.imagePath!);
-          if (f.existsSync()) {
-            xfiles.add(XFile(pt.imagePath!, name: '${pt.pointId}.jpg'));
-          }
-        }
-      }
-    }
-
-    final filePaths = xfiles.map((e) => e.path).toList();
+    final filePaths = await prepareSortedSharePhotos(submission);
     await ShareHelper.shareToTelegram(
       text: text,
       imagePaths: filePaths.isNotEmpty ? filePaths : null,

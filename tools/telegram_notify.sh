@@ -74,7 +74,7 @@ elif [[ "$MODE" == "document" ]]; then
   if [[ "$CAPTION" =~ %0[Aa] ]]; then
     CAPTION="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))' "$CAPTION")"
   fi
-  RESP=$(curl -sS --fail --max-time 600 --retry 3 --retry-all-errors --retry-delay 10 --ipv4 \
+  RESP=$(curl --http1.1 --progress-bar --fail --max-time 600 --retry 3 --retry-all-errors --retry-delay 10 --ipv4 \
     -X POST "${API}/sendDocument" \
     -F "chat_id=${CHAT}" \
     -F "document=@${FILE}" \

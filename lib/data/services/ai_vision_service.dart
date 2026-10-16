@@ -658,6 +658,67 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
    - Contoh alasan sesuai: "Item dalam pos lengkap: monitor, keyboard, scanner, printer, dan kipas angin ada."
    - Hanya beri "tidak_sesuai" jika item utama tidak ada sama sekali atau pos kosong.
 
+7. ATURAN KHUSUS DUDUKAN MESIN & BAUT DYNABOLT (BARRIER GATE):
+   - Fokus HANYA pada baut dynabolt dan plat baseplate dudukan mesin: apakah baseplate terpasang kokoh ke lantai/beton.
+   - Debu semen, pasir, noda oli jalanan, atau noda cuaca pada lantai pulau parkir adalah kondisi wajar -> status WAJIB "sesuai" (LULUS / HIJAU).
+   - DILARANG memberi status "tidak_sesuai" hanya karena area lantai berdebu atau kotor wajar!
+   - Hanya beri "tidak_sesuai" jika baut dynabolt hilang/lepas, drat kendur, atau plat baseplate retak/patah.
+   - Contoh alasan sesuai: "Baut dynabolt baseplate terpasang kokoh pada dudukan mesin."
+   - Contoh alasan tidak sesuai: "Baut dynabolt tidak terpasang lengkap pada baseplate dudukan mesin."
+
+8. ATURAN KHUSUS PELUMAS SPRING / BEARING (BARRIER GATE):
+   - JIKA foto menampilkan bagian dalam mesin barrier gate dengan per spring (pegas) atau bearing/as terlihat di dalam frame, status WAJIB "sesuai" (LULUS / HIJAU).
+   - Toleransi kondisi grease dan pencahayaan dalam mesin: jangan mempermasalahkan warna gemuk gelap, grease lama, atau sedikit karat wajar. Yang penting per spring / mekanik barrier terdokumentasi jelas di dalam mesin.
+   - Contoh alasan sesuai: "Per spring dan bearing mekanik barrier gate terdokumentasi terpasang baik."
+   - Hanya beri "tidak_sesuai" jika per spring patah/terlepas atau bagian dalam mesin kosong tanpa komponen mekanik.
+
+9. ATURAN KHUSUS SPEEDBUMP GATE (BARRIER GATE):
+   - Fokus HANYA pada kondisi fisik karet speed bump di lajur jalan.
+   - DILARANG mengecek, menghitung, atau mempermasalahkan baut dynabolt kecil di aspal jalan (abaikan baut)!
+   - JIKA karet speed bump terpasang di lajur, fisik utuh, tidak sobek, dan tidak hancur, status WAJIB "sesuai" (LULUS / HIJAU). Debu dan jejak ban kendaraan adalah wajar.
+   - Hanya beri "tidak_sesuai" jika karet speed bump robek, pecah/hancur berantakan, terlepas dari lajur, atau kotor ekstrem tertimbun lumpur/sampah tebal.
+   - Contoh alasan sesuai: "Karet speed bump terpasang utuh dan rata di lajur gate."
+   - Contoh alasan tidak sesuai: "Karet speed bump robek dan fisik karet pecah."
+
+10. ATURAN KHUSUS DEBU CPU & PASTA PROCESSOR (SERVER & KASIR):
+   - Fokus HANYA pada kebersihan bagian dalam casing CPU (kipas pendingin, motherboard, dan heatsink bebas dari gumpalan debu tebal).
+   - JIKA bagian dalam casing CPU terlihat terbuka, kipas dan motherboard bersih dari debu, status WAJIB "sesuai" (LULUS / HIJAU).
+   - DILARANG menuntut atau mempermasalahkan pasta processor harus terlihat langsung! Melepas heatsink processor setiap maintenance rutin tidak diwajibkan karena berisiko merusak pin/heatsink di lapangan.
+   - Hanya beri "tidak_sesuai" jika kipas CPU, motherboard, atau kisi heatsink tertutup tumpukan debu tebal/kotor berkerak.
+   - Contoh alasan sesuai: "Bagian dalam CPU bersih dan kipas bebas debu."
+   - Contoh alasan tidak sesuai: "Kipas CPU dan motherboard kotor dengan tumpukan debu tebal."
+
+11. ATURAN KHUSUS MATIKAN UPDATE, ANTIVIRUS & FIREWALL (SERVER & KASIR):
+   - Toleransi resolusi layar monitor kasir/server: teknisi memfoto layar monitor yang menampilkan jendela pengaturan keamanan.
+   - JIKA foto menampilkan minimal 1-2 indikator utama nonaktif (misal Windows Security Real-time Protection status OFF/silang merah, atau Firewall OFF/inactive, atau di Linux terminal `ufw status: inactive` / firewalld dead), status WAJIB "sesuai" (LULUS / HIJAU).
+   - DILARANG memberi status "tidak_sesuai" hanya karena ketiga jendela tidak muat berjajar di satu layar monitor kecil! Cukup ada bukti proteksi/firewall nonaktif.
+   - Hanya beri "tidak_sesuai" jika indikator proteksi jelas aktif (misal Real-time protection ON centang hijau, atau Firewall aktif memblokir jaringan pos).
+   - Contoh alasan sesuai: "Proteksi antivirus dan firewall dalam status nonaktif."
+   - Contoh alasan tidak sesuai: "Windows Defender Real-time Protection masih aktif."
+
+12. ATURAN KHUSUS STORAGE DRIVE C & FILE TEMP (SERVER & KASIR):
+   - Toleransi moire/garis layar monitor dan tata letak jendela:
+   - JIKA foto menampilkan File Explorer / "This PC" dengan bar kapasitas Drive C: berwarna BIRU (indikator sisa kapasitas aman >15-20 GB) ATAU di Linux terminal menampilkan perintah `df -h` dengan Use% partisi root <80%, status WAJIB "sesuai" (LULUS / HIJAU).
+   - DILARANG menolak atau memberi status tidak sesuai hanya karena jendela folder temp tidak terlihat di foto (folder temp biasanya sudah dihapus/dibersihkan sebelum jendela ditutup).
+   - Hanya beri "tidak_sesuai" jika bar kapasitas Drive C: berwarna MERAH (kritis hampir penuh) atau sisa free space <10 GB.
+   - Contoh alasan sesuai: "Kapasitas Drive C aman indikator biru dan storage lega."
+   - Contoh alasan tidak sesuai: "Kapasitas Drive C kritis indikator merah dan sisa storage menipis."
+
+13. ATURAN KHUSUS KABEL BELAKANG CPU & PORT USB (SERVER & KASIR):
+   - Di bagian belakang PC kasir dan server terdapat banyak kabel perangkat (kabel power, LAN, VGA/HDMI, USB scanner, tap reader, printer).
+   - JIKA kabel belakang CPU terikat (menggunakan cable tie, spiral organizer, atau terikat berkelompok) dan port USB terpasang kencang, status WAJIB "sesuai" (LULUS / HIJAU).
+   - DILARANG memberi status "tidak_sesuai" hanya karena jumlah kabel banyak atau ada debu wajar pada ventilasi belakang casing!
+   - Hanya beri "tidak_sesuai" jika kabel menjuntai lepas ke lantai tanpa ikatan sama sekali, kabel terkelupas bahaya, atau konektor USB/LAN kendur hampir lepas.
+   - Contoh alasan sesuai: "Kabel belakang CPU terikat rapi dan colokan port USB kencang."
+   - Contoh alasan tidak sesuai: "Kabel belakang CPU menjuntai semrawut tanpa ikatan pengikat."
+
+14. ATURAN KHUSUS KEYBOARD, MOUSE & PING JARINGAN (SERVER & KASIR):
+   - Uji Keyboard & Mouse: Segala bentuk tampilan tes ketikan pada jendela Notepad / Terminal Console (misal deretan huruf/angka) atau tuts aktif pada browser KeyTest.com adalah bukti sah keyboard & mouse merespon normal -> status WAJIB "sesuai" (LULUS / HIJAU).
+   - Koneksi Jaringan: Tampilan layar Command Prompt (CMD) atau terminal Linux dengan hasil ping lancar (terdapat baris `Reply from ...` dengan time <10ms dan `0% loss` / tanpa RTO) adalah bukti sah koneksi jaringan lancar -> status WAJIB "sesuai" (LULUS / HIJAU).
+   - Contoh alasan sesuai: "Keyboard merespon normal dan teks tes terketik jelas."
+   - Contoh alasan sesuai (ping): "Hasil ping stabil 0% loss koneksi bebas RTO."
+   - Hanya beri "tidak_sesuai" jika layar CMD penuh pesan "Request timed out" (RTO) atau Packet Loss tinggi.
+
 OUTPUT STRICT JSON ONLY:
 {"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
 ''';

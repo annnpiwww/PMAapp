@@ -40,7 +40,13 @@ class PhotoPreviewDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final exists = kIsWeb || (imagePath.isNotEmpty && File(imagePath).existsSync());
+    final isRemoteOrData = imagePath.startsWith('http://') ||
+        imagePath.startsWith('https://') ||
+        imagePath.startsWith('data:image') ||
+        imagePath.startsWith('blob:');
+    final exists = kIsWeb ||
+        isRemoteOrData ||
+        (imagePath.isNotEmpty && File(imagePath).existsSync());
 
     final isSesuai = pointResult?.status == PointStatus.sesuai;
     final isTidakSesuai = pointResult?.status == PointStatus.tidakSesuai;

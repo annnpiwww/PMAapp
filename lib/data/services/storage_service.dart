@@ -219,6 +219,8 @@ class StorageService {
   // --- GENERIC KEY VALUE HELPERS ---
   static String? getString(String key) => _prefs?.getString(key);
   static Future<bool>? setString(String key, String val) => _prefs?.setString(key, val);
+  static List<String>? getStringList(String key) => _prefs?.getStringList(key);
+  static Future<bool>? setStringList(String key, List<String> val) => _prefs?.setStringList(key, val);
   static bool? getBool(String key) => _prefs?.getBool(key);
   static Future<bool>? setBool(String key, bool val) => _prefs?.setBool(key, val);
   static Future<bool>? remove(String key) => _prefs?.remove(key);

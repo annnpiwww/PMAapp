@@ -15,64 +15,74 @@ class AuthRepository extends ChangeNotifier {
   UserModel? get currentUser => _currentUser;
   bool get isLoggedIn => _currentUser != null;
 
-  /// Login resmi via PocketBase Backend (Online dengan offline session fallback)
+  /// Login resmi via Supabase Backend (Online dengan offline session fallback)
   Future<bool> loginWithPassword({
     required String identity,
     required String password,
   }) async {
     final cleanIdentity = identity.trim().toLowerCase();
-    // 1. Coba koneksi ke backend PocketBase
+    // 1. Coba koneksi ke backend Supabase (table public.app_users)
     try {
-      final uri = Uri.parse('${DailyTaskService.baseUrl}/api/collections/users/auth-with-password');
-      final res = await http.post(
+      final uri = Uri.parse('${DailyTaskService.baseUrl}/rest/v1/app_users').replace(
+        queryParameters: {
+          'or': '(username.ilike.$cleanIdentity,email.ilike.$cleanIdentity)',
+          'select': '*',
+          'limit': '1',
+        },
+      );
+      final res = await http.get(
         uri,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'identity': cleanIdentity,
-          'password': password,
-        }),
+        headers: DailyTaskService.getHeaders,
       ).timeout(const Duration(seconds: 8));
 
       if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final token = data['token'] as String?;
-        final record = data['record'] as Map<String, dynamic>;
+        final decoded = jsonDecode(res.body);
+        final List items = decoded is List ? decoded : [];
+        if (items.isNotEmpty) {
+          final record = items.first as Map<String, dynamic>;
+          final dbPassword = (record['password'] as String? ?? '').trim();
 
-        DailyTaskService.setAuthToken(token);
+          if (dbPassword.toLowerCase() == password.trim().toLowerCase()) {
+            final roleStr = (record['role'] as String? ?? 'teknisi').toLowerCase();
+            final role = roleStr == 'spv' ? UserRole.supervisor : UserRole.petugas;
+            final name = record['nama'] as String? ?? record['name'] as String? ?? cleanIdentity;
+            final email = record['email'] as String? ?? cleanIdentity;
+            final cabangStr = record['cabang'] as String? ?? record['cabang_name'] as String?;
+            final branch = BranchService.determineBranch(
+              cabang: cabangStr,
+              email: email,
+              username: cleanIdentity,
+              name: name,
+              fallback: BranchService.instance.currentBranch,
+            );
 
-        final roleStr = (record['role'] as String? ?? 'teknisi').toLowerCase();
-        final role = roleStr == 'spv' ? UserRole.supervisor : UserRole.petugas;
-        final name = record['name'] as String? ?? record['nama_lengkap'] as String? ?? cleanIdentity;
-        final email = record['email'] as String? ?? cleanIdentity;
-        final cabangStr = record['cabang'] as String? ?? record['cabang_name'] as String?;
-        final branch = BranchService.determineBranch(
-          cabang: cabangStr,
-          email: email,
-          username: cleanIdentity,
-          name: name,
-          fallback: BranchService.instance.currentBranch,
-        );
+            await BranchService.instance.setBranch(branch);
 
-        await BranchService.instance.setBranch(branch);
+            final user = UserModel(
+              id: record['id'] as String? ?? 'usr_sb',
+              nama: name,
+              npp: role == UserRole.supervisor
+                  ? (branch == AppBranch.bali ? 'BSS-SPV-DPS-01' : 'BSS-SPV-01')
+                  : (branch == AppBranch.bali ? 'BSS-TEK-DPS-01' : 'BSS-TEK-01'),
+              email: email,
+              role: role,
+              posId: branch == AppBranch.bali ? 'POS-DPS-01' : 'POS-01',
+              posName: branch == AppBranch.bali ? 'PBKD' : 'Pos Gate Utama',
+              cabangName: branch.name,
+            );
 
-        final user = UserModel(
-          id: record['id'] as String? ?? 'usr_pb',
-          nama: name,
-          npp: role == UserRole.supervisor
-              ? (branch == AppBranch.bali ? 'BSS-SPV-DPS-01' : 'BSS-SPV-01')
-              : (branch == AppBranch.bali ? 'BSS-TEK-DPS-01' : 'BSS-TEK-01'),
-          email: email,
-          role: role,
-          posId: branch == AppBranch.bali ? 'POS-DPS-01' : 'POS-01',
-          posName: branch == AppBranch.bali ? 'PBKD' : 'Pos Gate Utama',
-          cabangName: branch.name,
-        );
-
-        _currentUser = user;
-        await StorageService.saveUser(user);
-        await StorageService.saveLastTechnicianName(name);
-        notifyListeners();
-        return true;
+            DailyTaskService.setAuthToken('sb_token_${user.id}');
+            _currentUser = user;
+            await StorageService.saveUser(user);
+            await StorageService.saveLastTechnicianName(name);
+            notifyListeners();
+            return true;
+          } else {
+            debugPrint('[AuthRepository] Password mismatch untuk user: $cleanIdentity');
+          }
+        }
+      } else {
+        debugPrint('[AuthRepository] Supabase login query status: ${res.statusCode}');
       }
     } catch (e) {
       debugPrint('[AuthRepository] Online login error, checking fallback: $e');
@@ -219,12 +229,15 @@ class AuthRepository extends ChangeNotifier {
   ];
 
   Future<void> init() async {
-    final authToken = StorageService.getString('pb_auth_token');
+    final authToken = StorageService.getString('sb_auth_token') ?? StorageService.getString('pb_auth_token');
     final savedUser = StorageService.getUser();
 
-    // Hanya anggap login jika token session auth aktif ada dan user valid tersimpan
-    if (authToken != null && authToken.isNotEmpty && savedUser != null) {
+    // Pertahankan session jika user valid tersimpan di local storage
+    if (savedUser != null) {
       _currentUser = savedUser;
+      if (authToken != null && authToken.isNotEmpty) {
+        DailyTaskService.setAuthToken(authToken);
+      }
     } else {
       _currentUser = null;
     }

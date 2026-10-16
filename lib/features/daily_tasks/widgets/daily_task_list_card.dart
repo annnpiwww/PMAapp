@@ -3,6 +3,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../data/models/daily_task_model.dart';
 import '../../../data/services/daily_task_service.dart';
 import '../../../data/repositories/auth_repository.dart';
+import 'completed_daily_task_modal.dart';
 
 class DailyTaskListCard extends StatefulWidget {
   final VoidCallback? onTaskCompleted;
@@ -250,9 +251,28 @@ class _DailyTaskListCardState extends State<DailyTaskListCard> {
                           );
                         })
                       else
-                        const Text(
-                          'Selesai ✅',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.success),
+                        InkWell(
+                          onTap: () => CompletedDailyTaskModal.show(context, task),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppColors.success.withValues(alpha: 0.35)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.photo_library_outlined, size: 12, color: AppColors.success),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Bukti Selesai',
+                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.success),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                     ],
                   ),

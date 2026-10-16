@@ -699,34 +699,42 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     setState(() => _isLoading = true);
     final targetDateKey = _formatDateToKey(_targetDispatchDate);
 
-    // 1. Task Gate Out 1-6 PBM
-    final res1 = await DailyTaskService.createTask(
-      tanggal: targetDateKey,
-      teknisiNama: selectedTech,
-      posName: 'PBM',
-      posTag: 'PBM',
-      judul: 'Pengecekan Sistem Gate out 1-6 PBM (bukti dokumentasi layar aplikasi kasir)',
-      deskripsi: 'Pengecekan operasional sistem gate out 1-6 pos PBM. Wajib lampirkan bukti foto dokumentasi layar aplikasi kasir aktif.',
-      kategori: 'khusus',
-    );
+    DailyTaskModel? res1;
+    DailyTaskModel? res2;
+    try {
+      // 1. Task Gate Out 1-6 PBM
+      res1 = await DailyTaskService.createTask(
+        tanggal: targetDateKey,
+        teknisiNama: selectedTech,
+        posName: 'PBM',
+        posTag: 'PBM',
+        judul: 'Pengecekan Sistem Gate out 1-6 PBM (bukti dokumentasi layar aplikasi kasir)',
+        deskripsi: 'Pengecekan operasional sistem gate out 1-6 pos PBM. Wajib lampirkan bukti foto dokumentasi layar aplikasi kasir aktif.',
+        kategori: 'khusus',
+      );
 
-    // 2. Task Gate Ojek
-    final res2 = await DailyTaskService.createTask(
-      tanggal: targetDateKey,
-      teknisiNama: selectedTech,
-      posName: 'PBM',
-      posTag: 'PBM',
-      judul: 'Pengecekan Sistem Gate ojek',
-      deskripsi: 'Pengecekan fungsionalitas barrier gate ojek, tap card reader, dan sensor kendaraan.',
-      kategori: 'khusus',
-    );
+      // 2. Task Gate Ojek
+      res2 = await DailyTaskService.createTask(
+        tanggal: targetDateKey,
+        teknisiNama: selectedTech,
+        posName: 'PBM',
+        posTag: 'PBM',
+        judul: 'Pengecekan Sistem Gate ojek',
+        deskripsi: 'Pengecekan fungsionalitas barrier gate ojek, tap card reader, dan sensor kendaraan.',
+        kategori: 'khusus',
+      );
+    } catch (e) {
+      debugPrint('[SpvTaskDispatcherScreen] _dispatchShift1RoutineTasks error: $e');
+    }
 
     if (mounted) {
       setState(() => _isLoading = false);
       if (res1 != null && res2 != null) {
+        final isOffline = res1.id.startsWith('local_') || res2.id.startsWith('local_');
+        final suffix = isOffline ? ' (Tersimpan di Perangkat / Mode Offline)' : '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('2 Tugas Rutin Shift 1 berhasil dikirim ke $selectedTech untuk ${_formatDateDisplay(_targetDispatchDate)}'),
+            content: Text('2 Tugas Rutin Shift 1 berhasil dibuat$suffix untuk $selectedTech (${_formatDateDisplay(_targetDispatchDate)})'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -771,25 +779,32 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
 
     setState(() => _isLoading = true);
 
-    final res = await DailyTaskService.createTask(
-      tanggal: _formatDateToKey(_targetDispatchDate),
-      teknisiNama: _selectedTech,
-      posName: lokasi,
-      posTag: lokasi,
-      judul: pekerjaan,
-      deskripsi: _catatanCtrl.text.trim(),
-      kategori: _taskCategory,
-      templateId: _taskCategory == 'maintenance' ? _selectedTemplateId : null,
-    );
+    DailyTaskModel? res;
+    try {
+      res = await DailyTaskService.createTask(
+        tanggal: _formatDateToKey(_targetDispatchDate),
+        teknisiNama: _selectedTech,
+        posName: lokasi,
+        posTag: lokasi,
+        judul: pekerjaan,
+        deskripsi: _catatanCtrl.text.trim(),
+        kategori: _taskCategory,
+        templateId: _taskCategory == 'maintenance' ? _selectedTemplateId : null,
+      );
+    } catch (e) {
+      debugPrint('[SpvTaskDispatcherScreen] _submitTask error: $e');
+    }
 
     if (mounted) {
       setState(() => _isLoading = false);
       if (res != null) {
         _pekerjaanCtrl.clear();
         _catatanCtrl.clear();
+        final isOffline = res.id.startsWith('local_');
+        final suffix = isOffline ? ' (Tersimpan di Perangkat / Mode Offline)' : '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Tugas berhasil dikirim ke $_selectedTech untuk ${_formatDateDisplay(_targetDispatchDate)}'),
+            content: Text('Tugas berhasil dibuat$suffix untuk $_selectedTech (${_formatDateDisplay(_targetDispatchDate)})'),
             backgroundColor: AppColors.success,
           ),
         );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../data/models/daily_task_model.dart';
+import 'completed_daily_task_modal.dart';
 
 /// Card widget for a single daily task item in supervisor dispatcher view
 class SpvTaskCard extends StatelessWidget {
@@ -62,7 +63,6 @@ class SpvTaskCard extends StatelessWidget {
     final subTextColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return Container(
-      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(12),
@@ -74,9 +74,17 @@ class SpvTaskCard extends StatelessWidget {
           BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 1)),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: isDone ? () => CompletedDailyTaskModal.show(context, task) : null,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -210,6 +218,36 @@ class SpvTaskCard extends StatelessWidget {
                           ),
                         ],
                         const Spacer(),
+                        if (isDone) ...[
+                          InkWell(
+                            onTap: () => CompletedDailyTaskModal.show(context, task),
+                            borderRadius: BorderRadius.circular(4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.success.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: AppColors.success.withValues(alpha: 0.35), width: 0.8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.photo_library_outlined, size: 10, color: AppColors.success),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    task.fotoBuktiUrls.isNotEmpty ? 'Bukti (${task.fotoBuktiUrls.length})' : 'Lihat Bukti',
+                                    style: const TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.success,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (hasNotes) const SizedBox(width: 6),
+                        ],
                         if (hasNotes)
                           InkWell(
                             onTap: onToggleExpand,
@@ -291,6 +329,9 @@ class SpvTaskCard extends StatelessWidget {
           ],
         ],
       ),
-    );
+    ),
+  ),
+),
+);
   }
 }

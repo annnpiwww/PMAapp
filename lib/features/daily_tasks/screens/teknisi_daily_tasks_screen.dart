@@ -11,6 +11,7 @@ import '../../../data/services/location_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../../maintenance/widgets/maintenance_setup_dialog.dart';
 import '../../maintenance/screens/maintenance_checklist_screen.dart';
+import '../widgets/completed_daily_task_modal.dart';
 import 'custom_task_execution_screen.dart';
 
 class TeknisiDailyTasksScreen extends StatefulWidget {
@@ -378,7 +379,6 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: bgCard,
                               borderRadius: BorderRadius.circular(12),
@@ -386,9 +386,17 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                 color: isDone ? AppColors.success.withValues(alpha: 0.3) : borderCard,
                               ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                            child: Material(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: isDone ? () => CompletedDailyTaskModal.show(context, task) : null,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
                                 // Top row: Kategori & Status
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -566,29 +574,32 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                         ),
                                       )
                                     else
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.success.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(6),
+                                      OutlinedButton.icon(
+                                        onPressed: () => CompletedDailyTaskModal.show(context, task),
+                                        icon: const Icon(Icons.photo_library_outlined, size: 14),
+                                        label: Text(
+                                          task.jamSelesai != null && task.jamSelesai!.isNotEmpty
+                                              ? 'Lihat Bukti (${task.jamSelesai})'
+                                              : 'Lihat Bukti',
+                                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
                                         ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(Icons.check_circle_rounded, size: 14, color: AppColors.success),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Selesai (${task.jamSelesai ?? ""})',
-                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.success),
-                                            ),
-                                          ],
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: AppColors.success,
+                                          side: BorderSide(color: AppColors.success.withValues(alpha: 0.45)),
+                                          backgroundColor: AppColors.success.withValues(alpha: 0.08),
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          minimumSize: const Size(110, 38),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                         ),
                                       ),
                                   ],
                                 ),
                               ],
                             ),
-                          );
+                          ),
+                        ),
+                      ),
+                    );
                         }),
                       ],
                     ),

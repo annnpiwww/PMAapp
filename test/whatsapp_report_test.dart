@@ -545,7 +545,246 @@ void main() {
       // Zero generic "✅ sesuai"
       expect(text.contains('✅ sesuai'), isFalse);
     });
+
+    test('Option A Smart Consolidated: Barrier Gate 4 Units all Sesuai collapses to Gate 1 - 4', () {
+      final points = <MaintenancePointResult>[];
+      for (int g = 1; g <= 4; g++) {
+        points.add(MaintenancePointResult(
+          pointId: 'bar_${g}_02',
+          label: 'Barrier Gate $g - Fisik Palang Tertutup Lurus',
+          status: PointStatus.sesuai,
+          alasan: 'Palang terpasang lurus dan baut pengikat kencang',
+        ));
+      }
+      final submission = MaintenanceSubmission(
+        id: 'test_smart_bg4',
+        templateId: 'tpl_maint_barrier',
+        templateName: 'Maintenance: Barrier Gate',
+        userId: 'usr_1',
+        userName: 'Raldy Sangkop',
+        userNpp: 'BSS-001',
+        posId: 'pos_1',
+        posName: 'Pasar Bersehati Manado',
+        cabangName: 'PBM',
+        points: points,
+        createdAt: DateTime(2026, 10, 15, 12, 0),
+        updatedAt: DateTime(2026, 10, 15, 12, 30),
+      );
+
+      final report = WhatsAppReportService.generateReportText(
+        submission: submission,
+        category: TemplateCategory.maintBarrier,
+        unitCount: 4,
+      );
+
+      expect(report, contains('Gate : 4 Unit (Gate 1 - Gate 4)'));
+      expect(report, contains('2. *fisik palang tertutup lurus* :'));
+      expect(report, contains('✅ Gate 1 - 4: Palang terpasang lurus dan baut pengikat kencang'));
+      // Pastikan tidak ada 4 baris repetitif
+      expect(report.contains('✅ Barrier Gate 1:'), isFalse);
+      expect(report.contains('✅ Barrier Gate 2:'), isFalse);
+    });
+
+    test('Option A Smart Consolidated: Barrier Gate mixed merges contiguous OK gates', () {
+      // Gate 1 & Gate 2 OK, Gate 3 Issue, Gate 4 OK
+      final points = [
+        const MaintenancePointResult(
+          pointId: 'bar_1_07',
+          label: 'Barrier Gate 1 - Stiker Receiver Barrier Gate',
+          status: PointStatus.sesuai,
+          alasan: 'Stiker receiver kuning terlihat jelas, utuh, dan tidak rusak',
+        ),
+        const MaintenancePointResult(
+          pointId: 'bar_2_07',
+          label: 'Barrier Gate 2 - Stiker Receiver Barrier Gate',
+          status: PointStatus.sesuai,
+          alasan: 'Stiker receiver kuning terlihat jelas, utuh, dan tidak rusak',
+        ),
+        const MaintenancePointResult(
+          pointId: 'bar_3_07',
+          label: 'Barrier Gate 3 - Stiker Receiver Barrier Gate',
+          status: PointStatus.tidakSesuai,
+          alasan: 'Stiker robek di bagian sudut bawah',
+        ),
+        const MaintenancePointResult(
+          pointId: 'bar_4_07',
+          label: 'Barrier Gate 4 - Stiker Receiver Barrier Gate',
+          status: PointStatus.sesuai,
+          alasan: 'Stiker receiver kuning bersih utuh',
+        ),
+      ];
+
+      final submission = MaintenanceSubmission(
+        id: 'test_smart_mixed',
+        templateId: 'tpl_maint_barrier',
+        templateName: 'Maintenance: Barrier Gate',
+        userId: 'usr_1',
+        userName: 'Raldy Sangkop',
+        userNpp: 'BSS-001',
+        posId: 'pos_1',
+        posName: 'Pasar Bersehati Manado',
+        cabangName: 'PBM',
+        points: points,
+        createdAt: DateTime(2026, 10, 15, 12, 0),
+        updatedAt: DateTime(2026, 10, 15, 12, 30),
+      );
+
+      final report = WhatsAppReportService.generateReportText(
+        submission: submission,
+        category: TemplateCategory.maintBarrier,
+        unitCount: 4,
+      );
+
+      expect(report, contains('7. *stiker receiver barrier gate* :'));
+      // Gate 1 & 2 digabung
+      expect(report, contains('✅ Gate 1 - 2: Stiker receiver kuning terlihat jelas, utuh, dan tidak rusak'));
+      // Gate 3 dicetak per-unit
+      expect(report, contains('⚠️ Barrier Gate 3: Stiker robek di bagian sudut bawah'));
+      // Gate 4 dicetak per-unit karena single
+      expect(report, contains('✅ Barrier Gate 4: Stiker receiver kuning bersih utuh'));
+    });
+
+    test('Option A Smart Consolidated: Pos Parkir 2 Units all Sesuai collapses to Pos 1 - 2', () {
+      final points = [
+        const MaintenancePointResult(
+          pointId: 'pos_1_01',
+          label: 'Pos 1 - Pembersihan total printer pos',
+          status: PointStatus.sesuai,
+          alasan: 'Printer bersih bebas debu kertas',
+        ),
+        const MaintenancePointResult(
+          pointId: 'pos_2_01',
+          label: 'Pos 2 - Pembersihan total printer pos',
+          status: PointStatus.sesuai,
+          alasan: 'Printer bersih bebas debu kertas',
+        ),
+      ];
+      final submission = MaintenanceSubmission(
+        id: 'test_smart_pos',
+        templateId: 'tpl_maint_pos',
+        templateName: 'Maintenance: Pos Parkir',
+        userId: 'usr_1',
+        userName: 'Ryan Lumasuge',
+        userNpp: 'BSS-002',
+        posId: 'pos_1',
+        posName: 'Mega Mall',
+        cabangName: 'Manado',
+        points: points,
+        createdAt: DateTime(2026, 10, 15, 12, 0),
+        updatedAt: DateTime(2026, 10, 15, 12, 30),
+      );
+
+      final report = WhatsAppReportService.generateReportText(
+        submission: submission,
+        category: TemplateCategory.maintPos,
+        unitCount: 2,
+      );
+
+      expect(report, contains('Gate Out : 2 (Pos 1 - Pos 2)'));
+      expect(report, contains('1. *Pembersihan total printer pos* :'));
+      expect(report, contains('✅ Pos 1 - 2: Printer bersih bebas debu kertas'));
+      expect(report.contains('✅ Pos 1:'), isFalse);
+      expect(report.contains('✅ Pos 2:'), isFalse);
+    });
+
+    test('Option A Smart Consolidated: Manless 3 Units with 1 issue merges Manless 1 - 2', () {
+      final points = [
+        const MaintenancePointResult(
+          pointId: 'mnl_1_01',
+          label: 'Manless 1 - Pembersihan total printer tiket',
+          status: PointStatus.sesuai,
+          alasan: 'Thermal head dan roller printer bersih tuntas',
+        ),
+        const MaintenancePointResult(
+          pointId: 'mnl_2_01',
+          label: 'Manless 2 - Pembersihan total printer tiket',
+          status: PointStatus.sesuai,
+          alasan: 'Thermal head dan roller printer bersih tuntas',
+        ),
+        const MaintenancePointResult(
+          pointId: 'mnl_3_01',
+          label: 'Manless 3 - Pembersihan total printer tiket',
+          status: PointStatus.tidakSesuai,
+          alasan: 'Roller berdebu dan sisa sobekan kertas macet',
+        ),
+      ];
+      final submission = MaintenanceSubmission(
+        id: 'test_smart_mnl',
+        templateId: 'tpl_maint_manless',
+        templateName: 'Maintenance: Manless Dispenser',
+        userId: 'usr_1',
+        userName: 'Farhan Lakoro',
+        userNpp: 'BSS-003',
+        posId: 'pos_1',
+        posName: 'MTC Manado',
+        cabangName: 'Manado',
+        points: points,
+        createdAt: DateTime(2026, 10, 15, 12, 0),
+        updatedAt: DateTime(2026, 10, 15, 12, 30),
+      );
+
+      final report = WhatsAppReportService.generateReportText(
+        submission: submission,
+        category: TemplateCategory.maintManless,
+        unitCount: 3,
+      );
+
+      expect(report, contains('Gate In : 3 Unit'));
+      expect(report, contains('1. *Pembersihan total printer tiket* :'));
+      expect(report, contains('✅ Manless 1 - 2: Thermal head dan roller printer bersih tuntas'));
+      expect(report, contains('⚠️ Manless 3: Roller berdebu dan sisa sobekan kertas macet'));
+    });
+
+    test('Option A Smart Consolidated: Server & Kasir collapses 3 Kasir to Kasir 1 - 3 while keeping Server separate', () {
+      final points = [
+        const MaintenancePointResult(
+          pointId: 'srv_1_01',
+          label: 'Server Utama - Pembersihan storage & file temp',
+          status: PointStatus.sesuai,
+          alasan: 'Drive C lega >50GB dan file temp bersih',
+        ),
+        const MaintenancePointResult(
+          pointId: 'srv_2_01',
+          label: 'PC Kasir 1 - Pembersihan storage & file temp',
+          status: PointStatus.sesuai,
+          alasan: 'Drive C aman dan file temp bersih',
+        ),
+        const MaintenancePointResult(
+          pointId: 'srv_3_01',
+          label: 'PC Kasir 2 - Pembersihan storage & file temp',
+          status: PointStatus.sesuai,
+          alasan: 'Drive C aman dan file temp bersih',
+        ),
+        const MaintenancePointResult(
+          pointId: 'srv_4_01',
+          label: 'PC Kasir 3 - Pembersihan storage & file temp',
+          status: PointStatus.sesuai,
+          alasan: 'Drive C aman dan file temp bersih',
+        ),
+      ];
+      final submission = MaintenanceSubmission(
+        id: 'test_smart_srv',
+        templateId: 'tpl_maint_server',
+        templateName: 'Maintenance: Server & Kasir',
+        userId: 'usr_1',
+        userName: 'Farhan Lakoro',
+        userNpp: 'BSS-003',
+        posId: 'pos_1',
+        posName: 'Pasar Bersehati Manado',
+        cabangName: 'PBM',
+        points: points,
+        createdAt: DateTime(2026, 10, 15, 12, 0),
+        updatedAt: DateTime(2026, 10, 15, 12, 30),
+      );
+
+      final report = WhatsAppReportService.generateReportText(
+        submission: submission,
+        category: TemplateCategory.maintServer,
+      );
+
+      expect(report, contains('1. *Pembersihan storage & file temp* :'));
+      expect(report, contains('✅ Server Utama: Drive C lega >50GB dan file temp bersih'));
+      expect(report, contains('✅ Kasir 1 - 3: Drive C aman dan file temp bersih'));
+    });
   });
 }
-
-// This append is for manual check, will be removed

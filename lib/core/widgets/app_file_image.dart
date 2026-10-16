@@ -84,8 +84,8 @@ class AppFileImage extends StatelessWidget {
       }
     }
 
-    // 3. Platform Web (Network / Blob URL)
-    if (kIsWeb) {
+    // 3. Network or Blob URL (Web & Native Mobile)
+    if (p.startsWith('http://') || p.startsWith('https://') || p.startsWith('blob:') || kIsWeb) {
       return Image.network(
         p,
         fit: fit,

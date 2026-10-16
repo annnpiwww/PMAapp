@@ -153,15 +153,15 @@ void main() {
       await tester.tap(firstItem);
       await tester.pumpAndSettle();
 
-      // Verify Status badge appears in bottom sheet
-      expect(find.text('Status: Sesuai'), findsOneWidget);
+      // Verify Status badge appears in bottom sheet (Konsep A Tactical HUD Verdict)
+      expect(find.text('SESUAI STANDAR SOP'), findsOneWidget);
 
-      // Verify checkpoint guidelines are also present
-      expect(find.text('CHECKPOINT WAJIB DIPERIKSA:'), findsOneWidget);
+      // Verify checkpoint guidelines are also present (Accordion)
+      expect(find.textContaining('Checkpoint Standar SOP'), findsOneWidget);
 
       // Verify vertical positioning: Status badge must be higher on screen than Checkpoints header
-      final statusTop = tester.getTopLeft(find.text('Status: Sesuai')).dy;
-      final checkpointsTop = tester.getTopLeft(find.text('CHECKPOINT WAJIB DIPERIKSA:')).dy;
+      final statusTop = tester.getTopLeft(find.text('SESUAI STANDAR SOP')).dy;
+      final checkpointsTop = tester.getTopLeft(find.textContaining('Checkpoint Standar SOP')).dy;
       expect(statusTop, lessThan(checkpointsTop));
     });
   });
