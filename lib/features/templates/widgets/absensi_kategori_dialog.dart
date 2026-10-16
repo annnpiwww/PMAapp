@@ -55,6 +55,12 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
       'period': 'Pagi • 8 Jam',
     },
     {
+      'title': 'Shift 1.1',
+      'full': 'Shift 1.1 (06:00 - 14:00)',
+      'hours': '06:00 - 14:00 WITA',
+      'period': 'Pagi • 8 Jam',
+    },
+    {
       'title': 'Shift 2',
       'full': 'Shift 2 (10:00 - 18:00)',
       'hours': '10:00 - 18:00 WITA',

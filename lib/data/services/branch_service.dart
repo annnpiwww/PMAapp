@@ -171,6 +171,7 @@ class BranchService extends ChangeNotifier {
       case AppBranch.manado:
         return const [
           'Shift 1 (03:00 - 11:00)',
+          'Shift 1.1 (06:00 - 14:00)',
           'Shift 2.2 (10:00 - 14:00)',
           'Shift 2 (10:00 - 18:00)',
           'Shift 3 (14:00 - 22:00)',

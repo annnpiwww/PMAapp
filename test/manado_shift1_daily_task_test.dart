@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bssparking_timemark/data/models/daily_task_model.dart';
 import 'package:bssparking_timemark/data/repositories/auth_repository.dart';
+import 'package:bssparking_timemark/data/services/absensi_setup_service.dart';
 import 'package:bssparking_timemark/data/services/branch_service.dart';
 import 'package:bssparking_timemark/data/services/daily_task_service.dart';
 import 'package:bssparking_timemark/data/services/storage_service.dart';
@@ -62,6 +64,46 @@ void main() {
       expect(find.text('Hari Ini'), findsOneWidget);
       expect(find.text('Besok'), findsOneWidget);
       expect(find.text('Pilih Lain'), findsOneWidget);
+    });
+  });
+
+  group('Shift 1.1 KC Manado (06:00 - 14:00)', () {
+    const shift11 = 'Shift 1.1 (06:00 - 14:00)';
+
+    test('Shift 1.1 hanya ada di cabang Manado, bukan Bali', () async {
+      expect(BranchService.instance.getShifts(branch: AppBranch.manado), contains(shift11));
+      expect(BranchService.instance.getShifts(branch: AppBranch.bali), isNot(contains(shift11)));
+    });
+
+    test('Shift 1.1 dihitung shift penuh dengan jam pulang 14:00', () {
+      expect(
+        AbsensiSetupService.getMinimumWorkDuration(shift11),
+        const Duration(hours: 8),
+      );
+      expect(AbsensiSetupService.autoDetectJamPulang(shift: shift11), '14:00');
+    });
+
+    test('Format briefing tim menampilkan grup Shift 1.1', () {
+      final tasks = [
+        DailyTaskModel(
+          id: 't1',
+          tanggal: '2026-10-17',
+          teknisiId: 'ryan',
+          teknisiNama: 'Ryan Lumasuge',
+          posName: 'PBM',
+          posTag: 'PBM',
+          judul: 'Pengecekan gate in/out PBM',
+        ),
+      ];
+
+      final briefing = DailyTaskService.formatMorningDispatchReport(
+        tasks: tasks,
+        techShiftMap: const {'Ryan Lumasuge': shift11},
+        branch: AppBranch.manado,
+      );
+
+      expect(briefing, contains('$shift11 : Ryan Lumasuge'));
+      expect(briefing, contains('1. Pengecekan gate in/out PBM'));
     });
   });
 }

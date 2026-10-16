@@ -45,6 +45,7 @@ Setiap kali menerima tugas / instruksi baru (fitur, bugfix, refactor, audit, ata
    - **Arsitektur Makro, Relasi Lintas Modul & Komunitas**: Gunakan `graphify query "<question>"`, `graphify path "<A>" "<B>"`, `graphify explain "<concept>"`, atau navigasi `graphify-out/GRAPH_REPORT.md`.
    - **Grep/Find**: HANYA jika file berada di luar index atau kedua tool sama sekali tidak tersedia.
 3. **Peta Arsitektur**:
+   - **PRIORITAS 0 — Baca dulu**: `Memory/Codegraphs/BssparkingTimeMark-Context-Capsule.md` (capsule konteks: snapshot versi, peta modul, alur bisnis, invariants, backend, cara navigasi). Ini pengganti scan ulang/grep seluruh kode.
    - Peta relasi dan indeks kode tersimpan di `Memory/Codegraphs/BssparkingTimeMark-Architecture-Map.md` dan visualizer di `graphify-out/graph.html`.
 
 ---
