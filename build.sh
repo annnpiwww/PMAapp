@@ -28,7 +28,6 @@ DART_DEFINES=(
   "--dart-define=BSS_AI_API_KEY=${BSS_AI_API_KEY:-}"
   "--dart-define=BSS_GSHEET_TOKEN=${BSS_GSHEET_TOKEN:-}"
   "--dart-define=BSS_GSHEET_SCRIPT_URL=${BSS_GSHEET_SCRIPT_URL:-}"
-  "--dart-define=BSS_GSHEET_SPREADSHEET_URL=${BSS_GSHEET_SPREADSHEET_URL:-}"
 )
 
 if [[ "${1:-build}" == "run" ]]; then

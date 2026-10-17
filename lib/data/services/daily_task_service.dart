@@ -32,7 +32,6 @@ class DailyTaskService {
   static final Set<String> _knownPendingTaskIds = <String>{};
 
   @visibleForTesting
-  static Set<String> get knownPendingTaskIds => _knownPendingTaskIds;
 
   @visibleForTesting
   static void resetKnownPendingTaskIdsForTesting() {
@@ -274,7 +273,8 @@ class DailyTaskService {
         return task.copyWith(
           status: TaskStatus.completed,
           jamSelesai: task.jamSelesai ?? timeStr,
-          catatanTeknisi: task.catatanTeknisi ?? 'SOP Maintenance ${matchSub.templateName} selesai (${matchSub.sesuaiCount}/${matchSub.totalPoints} poin sesuai)',
+          catatanTeknisi: task.catatanTeknisi ??
+              'SOP Maintenance ${matchSub.templateName} selesai (${matchSub.sesuaiCount}/${matchSub.totalPoints} poin sesuai${matchSub.tidakTerpasangCount > 0 ? ", ${matchSub.tidakTerpasangCount} tidak terpasang" : ""})',
           fotoBuktiUrls: task.fotoBuktiUrls.isNotEmpty ? task.fotoBuktiUrls : sopPhotos,
         );
       }
@@ -363,7 +363,8 @@ class DailyTaskService {
         return task.copyWith(
           status: TaskStatus.completed,
           jamSelesai: task.jamSelesai ?? timeStr,
-          catatanTeknisi: task.catatanTeknisi ?? 'SOP Maintenance ${matchSub.templateName} selesai (${matchSub.sesuaiCount}/${matchSub.totalPoints} poin sesuai)',
+          catatanTeknisi: task.catatanTeknisi ??
+              'SOP Maintenance ${matchSub.templateName} selesai (${matchSub.sesuaiCount}/${matchSub.totalPoints} poin sesuai${matchSub.tidakTerpasangCount > 0 ? ", ${matchSub.tidakTerpasangCount} tidak terpasang" : ""})',
           fotoBuktiUrls: task.fotoBuktiUrls.isNotEmpty ? task.fotoBuktiUrls : sopPhotos,
         );
       }
@@ -483,6 +484,54 @@ class DailyTaskService {
     return null;
   }
 
+  /// Kunci unik tugas: satu tugas identik (tanggal + teknisi + judul + pos) cukup satu baris.
+  static DailyTaskModel? _findCachedDuplicate({
+    required String tanggal,
+    required String teknisiNama,
+    required String judul,
+    required String posTag,
+  }) {
+    for (final t in getCachedTasksLocally()) {
+      if (t.tanggal == tanggal &&
+          t.teknisiNama == teknisiNama &&
+          t.judul == judul &&
+          t.posTag == posTag) {
+        return t;
+      }
+    }
+    return null;
+  }
+
+  /// Cek duplikat di server (jaring kedua saat cache lokal belum sinkron / beda device).
+  static Future<DailyTaskModel?> _findServerDuplicate({
+    required String tanggal,
+    required String teknisiNama,
+    required String judul,
+    required String posTag,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/rest/v1/daily_tasks').replace(
+        queryParameters: {
+          'tanggal': 'eq.$tanggal',
+          'teknisi_nama': 'eq.$teknisiNama',
+          'judul': 'eq.$judul',
+          'pos_tag': 'eq.$posTag',
+          'order': 'created_at.desc',
+          'limit': '1',
+        },
+      );
+      final res = await http.get(uri, headers: _getHeaders).timeout(const Duration(seconds: 7));
+      if (res.statusCode != 200) return null;
+      final decoded = jsonDecode(res.body);
+      if (decoded is List && decoded.isNotEmpty) {
+        return DailyTaskModel.fromJson(decoded.first as Map<String, dynamic>);
+      }
+    } catch (e) {
+      debugPrint('[DailyTaskService] _findServerDuplicate error: $e');
+    }
+    return null;
+  }
+
   /// SPV: Buat tugas baru untuk teknisi (Online dengan Offline & Local Cache Fallback)
   static Future<DailyTaskModel?> createTask({
     required String tanggal,
@@ -494,6 +543,20 @@ class DailyTaskService {
     String kategori = 'khusus',
     String? templateId,
   }) async {
+    // shortcut: dedupe per (tanggal, teknisi, judul, pos) supaya klik dobel /
+    // request timeout tidak melahirkan tugas kembar. Perlu penugasan ulang di
+    // hari yang sama? Upgrade ke kunci yang menyertakan jam/urutan dispatch.
+    final cachedDuplicate = _findCachedDuplicate(
+      tanggal: tanggal,
+      teknisiNama: teknisiNama,
+      judul: judul,
+      posTag: posTag,
+    );
+    if (cachedDuplicate != null) {
+      debugPrint('[DailyTaskService] Tugas identik sudah ada (${cachedDuplicate.id}), tidak membuat dobel.');
+      return cachedDuplicate;
+    }
+
     final localId = 'local_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(9000) + 1000}';
     final serverId = 'task_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(9000) + 1000}';
     final payload = {
@@ -510,6 +573,7 @@ class DailyTaskService {
     };
 
     DailyTaskModel? resultTask;
+    bool rejectedAsDuplicate = false;
 
     try {
       final uri = Uri.parse('$baseUrl/rest/v1/daily_tasks');
@@ -530,11 +594,28 @@ class DailyTaskService {
             : (decoded as Map<String, dynamic>);
         resultTask = DailyTaskModel.fromJson(map);
         debugPrint('[DailyTaskService] Task sukses dibuat di Supabase: ${resultTask.id}');
+      } else if (res.statusCode == 409) {
+        // Unique index server menolak duplikat: pakai task yang sudah ada.
+        rejectedAsDuplicate = true;
+        resultTask = await _findServerDuplicate(
+          tanggal: tanggal,
+          teknisiNama: teknisiNama,
+          judul: judul,
+          posTag: posTag,
+        );
+        debugPrint('[DailyTaskService] Duplikat ditolak server (409). Pakai task lama: ${resultTask?.id}');
       } else {
         debugPrint('[DailyTaskService] Supabase HTTP status ${res.statusCode}. Menjalankan fallback offline.');
       }
     } catch (e) {
       debugPrint('[DailyTaskService] createTask error / timeout: $e. Menjalankan fallback offline.');
+    }
+
+    if (resultTask == null && rejectedAsDuplicate) {
+      // Server sudah punya tugas ini, hanya gagal dibaca ulang. Jangan bikin
+      // salinan lokal, karena justru melahirkan tampilan kembar.
+      debugPrint('[DailyTaskService] Duplikat terdeteksi tapi gagal dibaca ulang. Tidak membuat salinan lokal.');
+      return null;
     }
 
     if (resultTask == null) {
@@ -1036,30 +1117,6 @@ class DailyTaskService {
     return sb.toString();
   }
 
-  /// Format ringkas laporan lama untuk backward compatibility
-  static String formatShortReport({
-    required String teknisiNama,
-    required String tanggal,
-    required String lokasi,
-    String? posTag,
-    required String pekerjaan,
-    required String jamSelesai,
-    String? catatan,
-  }) {
-    final tglIndo = _formatTanggalIndo(tanggal);
-    final tagLokasi = _resolveTag(lokasi, posTag);
-    final note = (catatan != null && catatan.trim().isNotEmpty) ? catatan.trim() : '-';
-
-    return '''Laporan Daily Hari ini
-Teknisi : $teknisiNama
-Tanggal : $tglIndo
-Lokasi : $tagLokasi
-Pekerjaan : $pekerjaan
-Status : Selesai ($jamSelesai)
------
-Catatan :
-$note''';
-  }
 
   // --- Local Cache Management (Untuk Sinyal Basement) ---
   static const String _localTasksKey = 'cached_daily_tasks';
@@ -1208,6 +1265,26 @@ $note''';
           final localId = item['localId'] as String;
           final payload = item['payload'] as Map<String, dynamic>;
 
+          // Kasus paling rawan: insert pertama sudah masuk server tapi responsnya
+          // putus (timeout), lalu item ini diantre ulang. Cek dulu sebelum kirim.
+          final dupeKeys = (
+            tanggal: payload['tanggal'] as String? ?? '',
+            teknisiNama: payload['teknisi_nama'] as String? ?? '',
+            judul: payload['judul'] as String? ?? '',
+            posTag: payload['pos_tag'] as String? ?? '',
+          );
+          final serverDuplicate = await _findServerDuplicate(
+            tanggal: dupeKeys.tanggal,
+            teknisiNama: dupeKeys.teknisiNama,
+            judul: dupeKeys.judul,
+            posTag: dupeKeys.posTag,
+          );
+          if (serverDuplicate != null) {
+            flushed++;
+            await _replaceLocalTaskId(localId: localId, newServerTask: serverDuplicate);
+            continue;
+          }
+
           final res = await http.post(
             uri,
             headers: {
@@ -1225,6 +1302,19 @@ $note''';
                 : (decoded as Map<String, dynamic>);
             final serverTask = DailyTaskModel.fromJson(map);
             await _replaceLocalTaskId(localId: localId, newServerTask: serverTask);
+          } else if (res.statusCode == 409) {
+            final existing = await _findServerDuplicate(
+              tanggal: dupeKeys.tanggal,
+              teknisiNama: dupeKeys.teknisiNama,
+              judul: dupeKeys.judul,
+              posTag: dupeKeys.posTag,
+            );
+            if (existing != null) {
+              flushed++;
+              await _replaceLocalTaskId(localId: localId, newServerTask: existing);
+            } else {
+              remaining.add(itemStr);
+            }
           } else if (res.statusCode >= 400 && res.statusCode < 500) {
             debugPrint('[DailyTaskService] Drop invalid pending task: ${res.statusCode}');
           } else {

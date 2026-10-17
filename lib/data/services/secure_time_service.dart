@@ -43,7 +43,6 @@ class SecureTimeService {
   static bool get isTimeSkewDetected => _isTimeSkewDetected;
   static bool get isTampered => _isTampered || _isManipulated || _isTimeSkewDetected;
   static String? get warningTag => isTampered ? '[JAM DIUBAH MANUAL]' : null;
-  static String? get tamperedReason => _tamperedReason;
 
   /// Sinkronisasi waktu internet (World Time API / Google Date Header)
   static Future<void> syncNetworkTime() async {

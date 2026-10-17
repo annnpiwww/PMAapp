@@ -7,20 +7,6 @@ import '../models/submission_model.dart';
 import '../models/template_model.dart';
 import 'storage_service.dart';
 
-class AiConnectionTestResult {
-  final bool isSuccess;
-  final String message;
-  final int? latencyMs;
-  final String? modelUsed;
-
-  AiConnectionTestResult({
-    required this.isSuccess,
-    required this.message,
-    this.latencyMs,
-    this.modelUsed,
-  });
-}
-
 class AiVerificationResult {
   final VerificationStatus status;
   final String alasan;
@@ -70,8 +56,6 @@ class AiVerificationResult {
 
   bool get isApproved => status == VerificationStatus.sesuai;
   bool get isSesuai => status == VerificationStatus.sesuai;
-  bool get isRejected => status == VerificationStatus.tidakSesuai;
-  bool get isManualReview => status == VerificationStatus.perluCekManual;
 
   String get statusDisplay {
     switch (status) {
@@ -151,7 +135,7 @@ class SopCriteriaHelper {
     } else if (lower.contains('debu') || lower.contains('kotor')) {
       return 'Perangkat tampak kotor atau berdebu';
     } else if (lower.contains('karat') || lower.contains('korosi')) {
-      return 'Terdapat karat atau korosi pada perangkat';
+      return 'Ada karat di perangkat';
     } else if (lower.contains('stiker')) {
       return 'Stiker tampak kusam, terkelupas, atau rusak';
     } else if (lower.contains('printer')) {
@@ -190,10 +174,10 @@ class AiVisionService {
     text = text.replaceAll(RegExp(r'parameter tidak terpenuhi', caseSensitive: false), 'tidak sesuai');
     text = text.replaceAll(RegExp(r'kondisi secara keseluruhan', caseSensitive: false), 'kondisi');
     text = text.replaceAll(RegExp(r'secara signifikan\s*', caseSensitive: false), '');
-    text = text.replaceAll(RegExp(r'dalam kondisi optimal', caseSensitive: false), 'kondisi baik dan normal');
-    text = text.replaceAll(RegExp(r'memiliki integritas struktural', caseSensitive: false), 'terpasang dengan kokoh');
+    text = text.replaceAll(RegExp(r'dalam kondisi optimal', caseSensitive: false), 'kondisi masih bagus');
+    text = text.replaceAll(RegExp(r'memiliki integritas struktural', caseSensitive: false), 'terpasang kencang');
     text = text.replaceAll(RegExp(r'permukaan mengalami degradasi', caseSensitive: false), 'permukaan mulai rusak');
-    text = text.replaceAll(RegExp(r'sesuai standar operasional', caseSensitive: false), 'berfungsi normal');
+    text = text.replaceAll(RegExp(r'sesuai standar operasional', caseSensitive: false), 'normal');
     text = text.replaceAll(RegExp(r'\bsemrawut\b', caseSensitive: false), 'kurang rapi');
     text = text.replaceAll(RegExp(r'beton pulau gate', caseSensitive: false), 'lantai pulau gate');
 
@@ -239,11 +223,6 @@ class AiVisionService {
     return _cachedConfig!;
   }
 
-  static Future<void> updateConfig(AiVisionConfig config) async {
-    _cachedConfig = config;
-    await StorageService.saveAiVisionConfig(config);
-  }
-
   static List<String> filterCriteriaByConfig(
       List<String> criteria, AiVisionConfig config) {
     return criteria.where((c) {
@@ -272,72 +251,6 @@ class AiVisionService {
       }
       return true;
     }).toList();
-  }
-
-  static Future<AiConnectionTestResult> testConnection(
-      AiVisionConfig config) async {
-    final effectiveApiKey = config.apiKey.trim().isNotEmpty
-        ? config.apiKey.trim()
-        : AiVisionConfig.defaultApiKey.trim();
-
-    if (effectiveApiKey.isEmpty) {
-      return AiConnectionTestResult(
-        isSuccess: false,
-        message: 'API Key AI belum dikonfigurasi. Masukkan API Key di Pengaturan.',
-      );
-    }
-
-    final stopwatch = Stopwatch()..start();
-    try {
-      final uri = Uri.parse('${config.effectiveBaseUrl}/chat/completions');
-      final testPayload = <String, dynamic>{
-        'model': config.effectiveModelName,
-        'messages': [
-          {'role': 'user', 'content': 'ping'}
-        ],
-        'max_tokens': 5,
-      };
-      if (config.effectiveModelName.contains('3.1') ||
-          config.effectiveModelName.contains('reasoning') ||
-          config.effectiveModelName.contains('thinking')) {
-        testPayload['reasoning_effort'] = 'none';
-      }
-
-      final response = await http
-          .post(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $effectiveApiKey',
-            },
-            body: jsonEncode(testPayload),
-          )
-          .timeout(const Duration(seconds: AiVisionConfig.perModelTimeoutSeconds));
-
-      stopwatch.stop();
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return AiConnectionTestResult(
-          isSuccess: true,
-          message:
-              'Koneksi berhasil (${stopwatch.elapsedMilliseconds}ms) menggunakan model ${config.effectiveModelName}',
-          latencyMs: stopwatch.elapsedMilliseconds,
-          modelUsed: config.effectiveModelName,
-        );
-      } else {
-        return AiConnectionTestResult(
-          isSuccess: false,
-          message: 'Gagal HTTP ${response.statusCode}: ${response.body}',
-          latencyMs: stopwatch.elapsedMilliseconds,
-        );
-      }
-    } catch (e) {
-      stopwatch.stop();
-      return AiConnectionTestResult(
-        isSuccess: false,
-        message: 'Koneksi error: $e',
-        latencyMs: stopwatch.elapsedMilliseconds,
-      );
-    }
   }
 
   static Future<AiVerificationResult> verifyPhoto({
@@ -490,31 +403,6 @@ class AiVisionService {
     );
   }
 
-  /// Briefing dengan counting: AI hitung jumlah orang dan klasifikasi kecil/besar.
-  static Future<AiVerificationResult> verifyBriefing({
-    required TemplateModel template,
-    required String? imageBase64,
-    AiVisionConfig? customConfig,
-  }) async {
-    final config = customConfig ?? getConfig();
-    final criteria = filterCriteriaByConfig(template.sopCriteria, config);
-    if (imageBase64 == null || imageBase64.isEmpty) {
-      return AiVerificationResult(
-        status: VerificationStatus.tidakSesuai,
-        alasan: 'Foto briefing kosong',
-        poinGagal: ['Foto tidak ada'],
-        poinLolos: [],
-        confidenceScore: 1.0,
-        providerName: 'Google Gemini (${config.effectiveModelName})',
-      );
-    }
-    return _runCustomEndpointVerification(
-      imageBase64: imageBase64,
-      criteria: criteria,
-      config: config,
-      isBriefingCountMode: true,
-    );
-  }
 
   static Future<AiVerificationResult> _runCustomEndpointVerification({
     required String imageBase64,
@@ -596,11 +484,11 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
 2. KOSAKATA NATURAL YANG WAJIB DIPRIORITASKAN:
    - "tampak kotor", "tampak berdebu", "terdapat tumpukan debu"
    - "kabel kurang rapi", "kabel perlu dirapikan dengan cable tie", "kabel belum tertata rapi"
-   - "terdapat korosi", "terdapat karat", "plat besi berkarat", "terdapat kerusakan fisik"
+   - "ada karat", "plat besi berkarat", "ada kerusakan fisik"
    - "stiker tampak kusam", "stiker terkelupas", "stiker rusak"
    - "cat tampak pudar", "lantai pulau gate berdebu", "permukaan pulau gate kotor"
    - "terdapat sisa material", "terdapat bekas stiker"
-   - "terpasang dengan kokoh", "berfungsi normal", "tercetak dengan baik", "bersih dan bebas debu"
+   - "terpasang kencang", "normal dipakai", "tulisan tercetak jelas", "bersih dan bebas debu"
 
 3. KATA/ISTILAH YANG DILARANG KERAS (TERLALU FORMAL / GAYA AI KAKU):
    - DILARANG SALAM & BASA-BASI: Jangan pernah menyertakan salam ("Halo", "Selamat Pagi/Siang", "Terima kasih", "Berdasarkan analisis...").
@@ -615,15 +503,15 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
      * Contoh: "Area printer bersih dan bebas debu."
      * Contoh: "Tombol tiket normal dan struk tercetak jelas."
      * Contoh: "Bodi manless bersih dan stiker panduan utuh."
-     * Contoh: "Palang terpasang lurus dan baut pengikat kencang."
-     * Contoh: "Per spring dan bearing terlumasi grease baru."
+     * Contoh: "Bodi mesin barrier bersih dan penutup mesinnya rapat."
+     * Contoh: "Per spring dan bearing masih terlumasi dan tidak kering."
      * Contoh: "Kapasitas Drive C aman (>20GB) dan folder temp bersih."
    - TIDAK_SESUAI (Temuan/Merah): Langsung sebut objek dan masalah fisiknya, to the point tanpa basa-basi (6-14 kata).
      * Format: [Objek] + [kondisi: kotor / berkarat / pudar / rusak / retak / kendor] + [lokasi].
      * JANGAN: "Baut dynabolt terpasang kokoh, namun area dudukan kotor" (SALAH: bertele-tele).
      * GUNAKAN: "Area dudukan mesin kotor dan banyak tumpukan debu." (BENAR: langsung to the point).
      * Contoh Kotor: "Head printer kotor dan ada sisa robekan kertas di dalam printer."
-     * Contoh Berkarat: "Baut dynabolt berkarat dan plat dudukan mesin mulai korosi."
+     * Contoh Berkarat: "Baut dynabolt berkarat dan plat dudukan mesin mulai keropos."
      * Contoh Pudar/Kusam: "Cat bodi manless pudar dan stiker panduan kusam."
      * Contoh Rusak/Baut Lepas: "Karet speed bump kotor dan baut dynabolt tidak terpasang."
      * Contoh Kabel Kurang Rapi: "Kabel di dalam manless belum terikat rapi dan adaptor kendur."
@@ -638,7 +526,7 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
    - Kabel sensor loop detector SELALU ditanam DI BAWAH permukaan jalan (bisa di bawah susunan paving block atau di bawah garis potongan aspal/beton yang di-sealant).
    - JIKA foto menampilkan permukaan susunan paving block yang rata/rapi ATAU garis coran aspal/beton yang rata tanpa ada kabel mencuat/terkelupas ke atas, status WAJIB "sesuai" (LULUS / HIJAU).
    - DILARANG memberi status "tidak_sesuai" atau "perlu_cek_manual" hanya karena kabel fisik tidak terlihat di atas paving/lantai! Kabel memang wajib tertanam di bawah permukaan.
-   - Contoh alasan sesuai: "Jalur kabel sensor tertanam rapi di bawah paving block dan permukaan rata." ATAU "Jalur coran kabel sensor tertutup rapi dan tidak ada kabel mencuat."
+   - Contoh alasan sesuai: "Jalur kabel sensor tertanam rapi di bawah paving dan permukaannya rata." ATAU "Jalur coran kabel sensor tertutup rapi dan tidak ada kabel mencuat."
    - Hanya beri "tidak_sesuai" jika paving/aspal amblas parah, bongkaran rusak, atau ada kabel fisik yang terkelupas/mencuat keluar ke permukaan.
 
 6. ATURAN KHUSUS STANDARISASI ITEM DALAM POS (POS KASIR):
@@ -650,25 +538,25 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
    - Hanya beri "tidak_sesuai" jika item utama tidak ada sama sekali atau pos kosong.
 
 7. ATURAN KHUSUS DUDUKAN MESIN & BAUT DYNABOLT (BARRIER GATE):
-   - Fokus HANYA pada baut dynabolt dan plat baseplate dudukan mesin: apakah baseplate terpasang kokoh ke lantai/beton.
+   - Fokus HANYA pada baut dynabolt dan plat dudukan mesin: apakah plat dudukannya terpasang kencang ke lantai/beton.
    - Debu semen, pasir, noda oli jalanan, atau noda cuaca pada lantai pulau parkir adalah kondisi wajar -> status WAJIB "sesuai" (LULUS / HIJAU).
    - DILARANG memberi status "tidak_sesuai" hanya karena area lantai berdebu atau kotor wajar!
-   - Hanya beri "tidak_sesuai" jika baut dynabolt hilang/lepas, drat kendur, atau plat baseplate retak/patah.
-   - Contoh alasan sesuai: "Baut dynabolt baseplate terpasang kokoh pada dudukan mesin."
-   - Contoh alasan tidak sesuai: "Baut dynabolt tidak terpasang lengkap pada baseplate dudukan mesin."
+   - Hanya beri "tidak_sesuai" jika baut dynabolt hilang/lepas, drat kendur, atau plat dudukan retak/patah.
+   - Contoh alasan sesuai: "Baut dynabolt terpasang kencang di plat dudukan mesin."
+   - Contoh alasan tidak sesuai: "Baut dynabolt ada yang lepas dan tidak lengkap di plat dudukan."
 
 8. ATURAN KHUSUS PELUMAS SPRING / BEARING (BARRIER GATE):
    - JIKA foto menampilkan bagian dalam mesin barrier gate dengan per spring (pegas) atau bearing/as terlihat di dalam frame, status WAJIB "sesuai" (LULUS / HIJAU).
-   - Toleransi kondisi grease dan pencahayaan dalam mesin: jangan mempermasalahkan warna gemuk gelap, grease lama, atau sedikit karat wajar. Yang penting per spring / mekanik barrier terdokumentasi jelas di dalam mesin.
-   - Contoh alasan sesuai: "Per spring dan bearing mekanik barrier gate terdokumentasi terpasang baik."
+   - Toleransi kondisi grease dan pencahayaan dalam mesin: jangan mempermasalahkan warna gemuk gelap, grease lama, atau sedikit karat wajar. Yang penting per spring / mekanik barrier kelihatan jelas di dalam mesin.
+   - Contoh alasan sesuai: "Per spring dan bearing di dalam mesin kelihatan terpasang dan masih bagus."
    - Hanya beri "tidak_sesuai" jika per spring patah/terlepas atau bagian dalam mesin kosong tanpa komponen mekanik.
 
 9. ATURAN KHUSUS SPEEDBUMP GATE (BARRIER GATE):
-   - Fokus HANYA pada kondisi fisik karet speed bump di lajur jalan.
+   - Fokus HANYA pada kondisi fisik karet speed bump di jalan.
    - DILARANG mengecek, menghitung, atau mempermasalahkan baut dynabolt kecil di aspal jalan (abaikan baut)!
-   - JIKA karet speed bump terpasang di lajur, fisik utuh, tidak sobek, dan tidak hancur, status WAJIB "sesuai" (LULUS / HIJAU). Debu dan jejak ban kendaraan adalah wajar.
-   - Hanya beri "tidak_sesuai" jika karet speed bump robek, pecah/hancur berantakan, terlepas dari lajur, atau kotor ekstrem tertimbun lumpur/sampah tebal.
-   - Contoh alasan sesuai: "Karet speed bump terpasang utuh dan rata di lajur gate."
+   - JIKA karet speed bump terpasang di jalan, fisik utuh, tidak sobek, dan tidak hancur, status WAJIB "sesuai" (LULUS / HIJAU). Debu dan jejak ban kendaraan adalah wajar.
+   - Hanya beri "tidak_sesuai" jika karet speed bump robek, pecah/hancur berantakan, terlepas dari jalan, atau kotor ekstrem tertimbun lumpur/sampah tebal.
+   - Contoh alasan sesuai: "Karet speed bump terpasang utuh dan rata di jalan gate."
    - Contoh alasan tidak sesuai: "Karet speed bump robek dan fisik karet pecah."
 
 10. ATURAN KHUSUS DEBU CPU & PASTA PROCESSOR (SERVER & KASIR):
@@ -684,7 +572,7 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
    - JIKA foto menampilkan minimal 1-2 indikator utama nonaktif (misal Windows Security Real-time Protection status OFF/silang merah, atau Firewall OFF/inactive, atau di Linux terminal `ufw status: inactive` / firewalld dead), status WAJIB "sesuai" (LULUS / HIJAU).
    - DILARANG memberi status "tidak_sesuai" hanya karena ketiga jendela tidak muat berjajar di satu layar monitor kecil! Cukup ada bukti proteksi/firewall nonaktif.
    - Hanya beri "tidak_sesuai" jika indikator proteksi jelas aktif (misal Real-time protection ON centang hijau, atau Firewall aktif memblokir jaringan pos).
-   - Contoh alasan sesuai: "Proteksi antivirus dan firewall dalam status nonaktif."
+   - Contoh alasan sesuai: "Antivirus dan firewall sudah dimatikan (OFF)."
    - Contoh alasan tidak sesuai: "Windows Defender Real-time Protection masih aktif."
 
 12. ATURAN KHUSUS STORAGE DRIVE C & FILE TEMP (SERVER & KASIR):
@@ -706,9 +594,19 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
 14. ATURAN KHUSUS KEYBOARD, MOUSE & PING JARINGAN (SERVER & KASIR):
    - Uji Keyboard & Mouse: Segala bentuk tampilan tes ketikan pada jendela Notepad / Terminal Console (misal deretan huruf/angka) atau tuts aktif pada browser KeyTest.com adalah bukti sah keyboard & mouse merespon normal -> status WAJIB "sesuai" (LULUS / HIJAU).
    - Koneksi Jaringan: Tampilan layar Command Prompt (CMD) atau terminal Linux dengan hasil ping lancar (terdapat baris `Reply from ...` dengan time <10ms dan `0% loss` / tanpa RTO) adalah bukti sah koneksi jaringan lancar -> status WAJIB "sesuai" (LULUS / HIJAU).
-   - Contoh alasan sesuai: "Keyboard merespon normal dan teks tes terketik jelas."
+   - Contoh alasan sesuai: "Keyboard dan mouse normal, hasil tes ketikan kelihatan jelas."
    - Contoh alasan sesuai (ping): "Hasil ping stabil 0% loss koneksi bebas RTO."
    - Hanya beri "tidak_sesuai" jika layar CMD penuh pesan "Request timed out" (RTO) atau Packet Loss tinggi.
+
+15. ATURAN KHUSUS FISIK PALANG TERTUTUP vs TERBUKA (BARRIER GATE):
+   - Ini DUA checkpoint berbeda dan kalimat alasannya WAJIB BEDA. Dilarang memakai kalimat yang sama untuk keduanya.
+   - Checkpoint "Fisik Palang Tertutup Lurus" = palang TURUN menutup jalan (posisi mendatar / 0°).
+     * Contoh sesuai: "Palang turun rata menutup jalan dan bautnya kencang."
+     * Contoh tidak sesuai: "Palang tertutup tidak rata, ujungnya miring ke kanan dan bautnya kendor."
+   - Checkpoint "Fisik Palang Terbuka" = palang NAIK/terbuka penuh (tegak / 90°, lancar tanpa macet).
+     * Contoh sesuai: "Palang naik tegak waktu dibuka dan gerakannya lancar."
+     * Contoh tidak sesuai: "Palang terbuka tidak sampai tegak dan macet di tengah."
+   - WAJIB sebut arah palangnya (turun/menutup atau naik/terbuka) supaya supervisor tidak tertukar antara gate IN dan gate OUT.
 
 OUTPUT STRICT JSON ONLY:
 {"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}

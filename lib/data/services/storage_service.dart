@@ -20,7 +20,6 @@ class StorageService {
   static const String _keySubmissions = 'bss_submissions';
   static const String _keyAiVisionConfig = 'bss_ai_vision_config';
   static const String _keyCustomLocations = 'bss_custom_locations';
-  static const String _keyCardTemplates = 'bss_card_templates';
   static const String _keyWatermarkConfig = 'bss_watermark_config';
   static const String _keyMaintenanceSubmissions = 'bss_maintenance_submissions';
   static const String _keyAttendanceRecords = 'bss_attendance_records_v1';
@@ -31,7 +30,6 @@ class StorageService {
   static const String _keyLastTechnicianName = 'bss_last_technician_name_v1';
   static const String _keyLastCheckInTime = 'bss_last_check_in_time_v1';
   static const String _keyHasSeenTutorial = 'bss_has_seen_tutorial_v1';
-  static const String _keyDemoBypassMode = 'bss_demo_bypass_mode_v1';
   static const String _keySpvQaBypassMode = 'bss_spv_qa_bypass_mode_v1';
   static const String _keyCameraTimerSeconds = 'bss_camera_timer_seconds_v1';
   static const String _keyThemeMode = 'bss_theme_mode_v1';
@@ -54,10 +52,6 @@ class StorageService {
     return isEnv || isSpvQaBypassActive();
   }
 
-  static Future<void> setDemoBypassMode(bool enabled) async {
-    await init();
-    await _prefs?.setBool(_keyDemoBypassMode, enabled);
-  }
 
   /// Hasil verifikasi PIN teknisi (anti brute-force).
   static const int pinMaxAttempts = 5;
@@ -358,10 +352,6 @@ class StorageService {
     await _prefs?.setString(_keyLastDailyReportDate, today);
   }
 
-  static Future<void> clearDailyReportStatus() async {
-    await init();
-    await _prefs?.remove(_keyLastDailyReportDate);
-  }
 
   // --- USER SESSION ---
   static Future<void> saveUser(UserModel user) async {
@@ -627,9 +617,6 @@ class StorageService {
     await saveMaintenanceSubmissions(list);
   }
 
-  static Future<void> clearMaintenanceSubmissions() async {
-    await saveMaintenanceSubmissions([]);
-  }
 
   static Future<void> deleteSubmission(String id) async {
     final list = getSubmissions() ?? [];
@@ -638,21 +625,7 @@ class StorageService {
   }
 
   // --- CUSTOM CARD TEMPLATES ---
-  static Future<void> saveCardTemplates(List<Map<String, dynamic>> templates) async {
-    await init();
-    await _prefs?.setString(_keyCardTemplates, jsonEncode(templates));
-  }
 
-  static List<Map<String, dynamic>>? getCardTemplates() {
-    final str = _prefs?.getString(_keyCardTemplates);
-    if (str == null) return null;
-    try {
-      final decoded = jsonDecode(str) as List<dynamic>;
-      return decoded.map((e) => e as Map<String, dynamic>).toList();
-    } catch (_) {
-      return null;
-    }
-  }
 
   // --- ATTENDANCE RECORDS ---
   static List<AttendanceRecord> getAttendanceRecords() {

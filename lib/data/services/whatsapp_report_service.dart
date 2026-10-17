@@ -124,7 +124,7 @@ class WhatsAppReportService {
       return 'Palang tertutup lurus normal';
     }
     if (lower.contains('fisik palang terbuka')) {
-      return 'Palang terbuka tegak 90° lancar';
+      return 'Palang terbuka tegak lancar';
     }
     if (lower.contains('pelumasan mekanikal')) {
       return 'Pelumasan mekanikal spring/bearing';
@@ -173,7 +173,9 @@ class WhatsAppReportService {
     if (lower.contains('jarak pos')) {
       return 'Jarak pos dan ujung pulau';
     }
-    if (lower.contains('kondisi pulau parkir') || lower.contains('kondisi fisik pulau') || lower.contains('beton pulau')) {
+    if (lower.contains('kondisi pulau parkir') ||
+        lower.contains('kondisi fisik pulau') ||
+        lower.contains('beton pulau')) {
       return 'Kondisi pulau parkir';
     }
 
@@ -230,6 +232,39 @@ class WhatsAppReportService {
     return label;
   }
 
+  /// Kata yang tidak perlu diulang di laporan (kata sambung & nama unit umum).
+  static const _kataNetral = {
+    'dan',
+    'atau',
+    'di',
+    'ke',
+    'dari',
+    'untuk',
+    'yang',
+    'dengan',
+    'pada',
+    'pos',
+    'gate',
+    'unit',
+    'area',
+  };
+
+  static List<String> _pisahKata(String s) =>
+      s.split(RegExp(r'[^A-Za-z0-9]+')).where((e) => e.isNotEmpty).toList();
+
+  /// Sisa nama item setelah kata yang sudah ada di judul tema dibuang.
+  /// Dipakai supaya baris "tidak terpasang" tidak dobel dengan judulnya.
+  static String _sisaNamaItem(String item, String theme) {
+    final kataTema = _pisahKata(theme).map((e) => e.toLowerCase()).toSet();
+    final sisa = <String>[];
+    for (final kata in _pisahKata(item)) {
+      final k = kata.toLowerCase();
+      if (_kataNetral.contains(k) || kataTema.contains(k)) continue;
+      sisa.add(kata);
+    }
+    return sisa.join(' ').trim();
+  }
+
   static bool _isMeaningfulAlasan(String alasan) {
     if (alasan.trim().isEmpty) return false;
     final l = alasan.toLowerCase().trim();
@@ -248,29 +283,95 @@ class WhatsAppReportService {
     text = text.replaceAll(RegExp(r'[\r\n]+'), ' ').trim();
 
     // Normalisasi kata-kata formal / kaku ala AI ke Natural Technician Language
-    text = text.replaceAll(RegExp(r'berdasarkan hasil observasi[,:\s]*', caseSensitive: false), '');
-    text = text.replaceAll(RegExp(r'ditemukan adanya ketidaksesuaian\s*(pada)?', caseSensitive: false), 'terdapat temuan');
-    text = text.replaceAll(RegExp(r'tidak terorganisir dengan rapi', caseSensitive: false), 'tidak tertata rapi');
-    text = text.replaceAll(RegExp(r'degradasi fisik', caseSensitive: false), 'kerusakan fisik');
-    text = text.replaceAll(RegExp(r'mengalami deteriorasi', caseSensitive: false), 'mulai rusak');
-    text = text.replaceAll(RegExp(r'parameter tidak terpenuhi', caseSensitive: false), 'tidak sesuai');
-    text = text.replaceAll(RegExp(r'kondisi secara keseluruhan', caseSensitive: false), 'kondisi');
-    text = text.replaceAll(RegExp(r'secara signifikan\s*', caseSensitive: false), '');
-    text = text.replaceAll(RegExp(r'dalam kondisi optimal', caseSensitive: false), 'kondisi baik dan normal');
-    text = text.replaceAll(RegExp(r'memiliki integritas struktural', caseSensitive: false), 'terpasang dengan kokoh');
-    text = text.replaceAll(RegExp(r'permukaan mengalami degradasi', caseSensitive: false), 'permukaan mulai rusak');
-    text = text.replaceAll(RegExp(r'sesuai standar operasional', caseSensitive: false), 'berfungsi normal');
-    text = text.replaceAll(RegExp(r'\bsemrawut\b', caseSensitive: false), 'kurang rapi');
-    text = text.replaceAll(RegExp(r'beton pulau gate', caseSensitive: false), 'lantai pulau gate');
+    text = text.replaceAll(
+      RegExp(r'berdasarkan hasil observasi[,:\s]*', caseSensitive: false),
+      '',
+    );
+    text = text.replaceAll(
+      RegExp(
+        r'ditemukan adanya ketidaksesuaian\s*(pada)?',
+        caseSensitive: false,
+      ),
+      'terdapat temuan',
+    );
+    text = text.replaceAll(
+      RegExp(r'tidak terorganisir dengan rapi', caseSensitive: false),
+      'tidak tertata rapi',
+    );
+    text = text.replaceAll(
+      RegExp(r'degradasi fisik', caseSensitive: false),
+      'kerusakan fisik',
+    );
+    text = text.replaceAll(
+      RegExp(r'mengalami deteriorasi', caseSensitive: false),
+      'mulai rusak',
+    );
+    text = text.replaceAll(
+      RegExp(r'parameter tidak terpenuhi', caseSensitive: false),
+      'tidak sesuai',
+    );
+    text = text.replaceAll(
+      RegExp(r'kondisi secara keseluruhan', caseSensitive: false),
+      'kondisi',
+    );
+    text = text.replaceAll(
+      RegExp(r'secara signifikan\s*', caseSensitive: false),
+      '',
+    );
+    text = text.replaceAll(
+      RegExp(r'dalam kondisi optimal', caseSensitive: false),
+      'kondisi baik dan normal',
+    );
+    text = text.replaceAll(
+      RegExp(r'memiliki integritas struktural', caseSensitive: false),
+      'terpasang kencang',
+    );
+    text = text.replaceAll(
+      RegExp(r'permukaan mengalami degradasi', caseSensitive: false),
+      'permukaan mulai rusak',
+    );
+    text = text.replaceAll(
+      RegExp(r'sesuai standar operasional', caseSensitive: false),
+      'normal',
+    );
+    text = text.replaceAll(
+      RegExp(r'\bsemrawut\b', caseSensitive: false),
+      'kurang rapi',
+    );
+    text = text.replaceAll(
+      RegExp(r'beton pulau gate', caseSensitive: false),
+      'lantai pulau gate',
+    );
 
     // Potong basa-basi pujian palsu pada kalimat merah/warning ("terpasang kokoh, namun area...")
-    text = text.replaceAll(RegExp(r'^[^\.,;]+(terpasang dengan kokoh|terpasang kokoh|berfungsi baik|kondisi baik)[,\s]+(namun|tetapi)\s+', caseSensitive: false), '');
-    text = text.replaceAll(RegExp(r'^[^\.,;]+,\s*namun\s+', caseSensitive: false), '');
+    text = text.replaceAll(
+      RegExp(
+        r'^[^\.,;]+(terpasang dengan kokoh|terpasang kokoh|terpasang kencang|berfungsi baik|kondisi baik)[,\s]+(namun|tetapi)\s+',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    text = text.replaceAll(
+      RegExp(r'^[^\.,;]+,\s*namun\s+', caseSensitive: false),
+      '',
+    );
 
     // Hindari redundansi umum
-    text = text.replaceAll(RegExp(r'semrawut dan tidak terorganisir.*', caseSensitive: false), 'kurang rapi dan perlu penataan kabel');
-    text = text.replaceAll(RegExp(r'semrawut dan tidak tertata rapi.*', caseSensitive: false), 'kurang rapi dan perlu penataan kabel');
-    text = text.replaceAll(RegExp(r'kotor,?\s*berkarat,?\s*dan mengalami degradasi fisik.*', caseSensitive: false), 'kotor dan berkarat, dengan permukaan logam mulai rusak');
+    text = text.replaceAll(
+      RegExp(r'semrawut dan tidak terorganisir.*', caseSensitive: false),
+      'kurang rapi dan perlu penataan kabel',
+    );
+    text = text.replaceAll(
+      RegExp(r'semrawut dan tidak tertata rapi.*', caseSensitive: false),
+      'kurang rapi dan perlu penataan kabel',
+    );
+    text = text.replaceAll(
+      RegExp(
+        r'kotor,?\s*berkarat,?\s*dan mengalami degradasi fisik.*',
+        caseSensitive: false,
+      ),
+      'kotor dan berkarat, dengan permukaan logam mulai rusak',
+    );
 
     // Normalisasi jika tidak dapat diverifikasi secara visual
     if (text.toLowerCase().contains('tidak dapat diverifikasi secara visual') ||
@@ -312,7 +413,8 @@ class WhatsAppReportService {
 
   static bool _hasIssue(MaintenancePointResult p) {
     if (p.status == PointStatus.tidakSesuai) return true;
-    if (p.status == PointStatus.perluCekManual && _isMeaningfulAlasan(p.alasan)) {
+    if (p.status == PointStatus.perluCekManual &&
+        _isMeaningfulAlasan(p.alasan)) {
       return true;
     }
     return false;
@@ -324,6 +426,11 @@ class WhatsAppReportService {
     }
     return rawLabel;
   }
+
+  /// Nama unit versi pendek buat laporan: "Barrier Gate 2" -> "Gate 2",
+  /// supaya sebutan per unit sama dengan sebutan gabungan ("Gate 1 - 2").
+  static String _unitDisplay(String unit) =>
+      unit.replaceFirst(RegExp(r'^Barrier\s+', caseSensitive: false), '');
 
   /// Ekstrak nomor unit numerik dari string nama unit (contoh: "Barrier Gate 2" -> 2, "Pos 3" -> 3)
   static int _extractUnitNumberFromString(String unitStr) {
@@ -363,7 +470,10 @@ class WhatsAppReportService {
   }
 
   /// Pembanding untuk sorting terstruktur: Unit 1..N lalu Point SOP 1..9
-  static int _comparePoints(MaintenancePointResult a, MaintenancePointResult b) {
+  static int _comparePoints(
+    MaintenancePointResult a,
+    MaintenancePointResult b,
+  ) {
     final unitA = _extractUnitNumberFromPoint(a);
     final unitB = _extractUnitNumberFromPoint(b);
     if (unitA != unitB) {
@@ -400,7 +510,15 @@ class WhatsAppReportService {
   /// ['Barrier Gate 1'] -> "Barrier Gate 1"
   static String _formatUnitList(List<String> units) {
     if (units.isEmpty) return '';
-    if (units.length == 1) return units.first;
+    if (units.length == 1) return _unitDisplay(units.first);
+
+    // Gate yang ditandai arah (IN/OUT) disebut satu-satu, karena rentang
+    // "Gate 1 - 2" bikin arahnya hilang dan manager nggak tahu mana yang bermasalah.
+    if (units.any(
+      (u) => RegExp(r'\((IN|OUT)\)', caseSensitive: false).hasMatch(u),
+    )) {
+      return units.map(_unitDisplay).join(', ');
+    }
 
     final firstType = _detectUnitType(units.first);
     final allSameType = units.every((u) => _detectUnitType(u) == firstType);
@@ -511,7 +629,8 @@ class WhatsAppReportService {
       if (savedUser.isNotEmpty && savedUser.toLowerCase() != 'teknisi bss') {
         return savedUser;
       }
-      if (submission.userName.isNotEmpty && submission.userName.toLowerCase() != 'teknisi bss') {
+      if (submission.userName.isNotEmpty &&
+          submission.userName.toLowerCase() != 'teknisi bss') {
         return submission.userName;
       }
       return 'Farhan Lakoro';
@@ -520,9 +639,16 @@ class WhatsAppReportService {
     final buffer = StringBuffer();
 
     void appendHasilCekSummary(StringBuffer buf) {
-      final sesuaiCount = submission.points.where((p) => p.status == PointStatus.sesuai).length;
-      final perluCekCount = submission.points.where((p) => p.status == PointStatus.perluCekManual).length;
-      final tidakSesuaiCount = submission.points.where((p) => p.status == PointStatus.tidakSesuai).length;
+      final sesuaiCount = submission.points
+          .where((p) => p.status == PointStatus.sesuai)
+          .length;
+      final perluCekCount = submission.points
+          .where((p) => p.status == PointStatus.perluCekManual)
+          .length;
+      final tidakSesuaiCount = submission.points
+          .where((p) => p.status == PointStatus.tidakSesuai)
+          .length;
+      final tidakTerpasangCount = submission.tidakTerpasangCount;
       final totalPoints = submission.points.length;
 
       buf.writeln('HASIL MAINTENANCE :');
@@ -533,7 +659,15 @@ class WhatsAppReportService {
         buf.writeln('⚠️ Perlu Dicek: $perluCekCount');
       }
       if (tidakSesuaiCount > 0) {
-        buf.writeln('⚠️ Tidak Sesuai: $tidakSesuaiCount');
+        buf.writeln('⚠️ Ada Masalah: $tidakSesuaiCount');
+      }
+      if (tidakTerpasangCount > 0) {
+        buf.writeln('⛔ Tidak Terpasang: $tidakTerpasangCount');
+      }
+      if (submission.hasUrgent) {
+        buf.writeln(
+          '🚨 ${TingkatUrgensi.urgent.label}: ${submission.urgentCount} poin',
+        );
       }
       buf.writeln('Total Point: $totalPoints');
       buf.writeln('');
@@ -552,16 +686,31 @@ class WhatsAppReportService {
         String autoRangeNote = '';
         if (submission.points.isNotEmpty) {
           final set = <int>{};
+          final roles = <int, String>{};
           for (final p in submission.points) {
             final parts = p.pointId.split('_');
             if (parts.length >= 3) {
               final idx = int.tryParse(parts[1]);
               if (idx != null) set.add(idx);
             }
+            final role = RegExp(
+              r'\((IN|OUT)\)',
+              caseSensitive: false,
+            ).firstMatch(_gateName(p.label))?.group(1);
+            if (role != null) {
+              roles[_extractUnitNumberFromPoint(p)] = role.toUpperCase();
+            }
           }
           if (set.isNotEmpty) {
             final sorted = set.toList()..sort();
-            if (sorted.length > 1) {
+            if (roles.isNotEmpty) {
+              // Arah tiap gate ditulis biar manager tahu mana IN mana OUT.
+              autoRangeNote = sorted
+                  .map(
+                    (n) => 'Gate $n${roles[n] != null ? ' ${roles[n]}' : ''}',
+                  )
+                  .join(' - ');
+            } else if (sorted.length > 1) {
               autoRangeNote = 'Gate ${sorted.first} - Gate ${sorted.last}';
             } else {
               autoRangeNote = 'Gate ${sorted.first}';
@@ -617,8 +766,10 @@ class WhatsAppReportService {
         final effectiveNotes = (gateOutNotes != null && gateOutNotes.isNotEmpty)
             ? gateOutNotes
             : (autoRangeNote.isNotEmpty
-                ? autoRangeNote
-                : (unitCount != null && unitCount > 1 ? '1 - $outCount' : ''));
+                  ? autoRangeNote
+                  : (unitCount != null && unitCount > 1
+                        ? '1 - $outCount'
+                        : ''));
         final outNotes = effectiveNotes.isNotEmpty ? ' ($effectiveNotes)' : '';
         buffer.writeln('Gate Out : $outCount$outNotes');
         buffer.writeln('Tanggal : $dateStr');
@@ -684,9 +835,17 @@ class WhatsAppReportService {
           final u = _gateName(p.label);
           if (u.isNotEmpty) serverUnits.add(u);
         }
-        final hasServer = serverUnits.any((u) => u.toLowerCase().contains('server'));
-        final isAllInOne = serverUnits.any((u) => u.toLowerCase().contains('gabung') || u.toLowerCase() == 'server & kasir');
-        final kasirCount = serverUnits.where((u) => u.toLowerCase().contains('kasir')).length;
+        final hasServer = serverUnits.any(
+          (u) => u.toLowerCase().contains('server'),
+        );
+        final isAllInOne = serverUnits.any(
+          (u) =>
+              u.toLowerCase().contains('gabung') ||
+              u.toLowerCase() == 'server & kasir',
+        );
+        final kasirCount = serverUnits
+            .where((u) => u.toLowerCase().contains('kasir'))
+            .length;
 
         if (!hasServer) {
           buffer.writeln('Izin melaporkan hasil maintenance Komputer Kasir');
@@ -735,7 +894,7 @@ class WhatsAppReportService {
         _appendCleanNotes(
           buffer,
           submission.points,
-          defaultNotes: ['semua item diperiksa berfungsi normal'],
+          defaultNotes: ['semua item diperiksa dan normal'],
         );
         if (additionalNotes != null && additionalNotes.trim().isNotEmpty) {
           buffer.writeln('');
@@ -753,51 +912,74 @@ class WhatsAppReportService {
     final l = themeLabel.toLowerCase();
     // Server & Kasir
     if (l.contains('storage') || l.contains('file temp')) {
-      return 'kapasitas storage/partisi aman & folder temp/log bersih';
+      return 'ruang penyimpanan masih lega & folder temp/log bersih';
     }
-    if (l.contains('antivirus') || l.contains('firewall') || l.contains('update')) {
-      return 'firewall & auto-update dalam status nonaktif (OFF)';
+    if (l.contains('antivirus') ||
+        l.contains('firewall') ||
+        l.contains('update')) {
+      return 'firewall & auto-update sudah dimatikan (OFF)';
     }
-    if (l.contains('keyboard') || l.contains('mouse') || l.contains('notepad') || l.contains('console') || l.contains('input test')) {
-      return 'input keyboard & navigasi merespons lancar (pengujian teks OK)';
+    if (l.contains('keyboard') ||
+        l.contains('mouse') ||
+        l.contains('notepad') ||
+        l.contains('console') ||
+        l.contains('input test')) {
+      return 'keyboard & mouse lancar dipakai (tes ketikan OK)';
     }
-    if (l.contains('debu cpu') || l.contains('pasta') || l.contains('thermal')) {
-      return 'motherboard CPU bersih & pasta processor baru teroles';
+    if (l.contains('debu cpu') ||
+        l.contains('pasta') ||
+        l.contains('thermal')) {
+      return 'bagian dalam CPU bersih & pasta processor baru dioles';
     }
     if (l.contains('port usb') || l.contains('kabel belakang')) {
-      return 'kabel rapi terikat & port USB terhubung kencang';
+      return 'kabel rapi terikat & colokan USB kencang';
     }
-    if (l.contains('koneksi jaringan') || l.contains('bebas rto') || l.contains('server online')) {
+    if (l.contains('koneksi jaringan') ||
+        l.contains('bebas rto') ||
+        l.contains('server online')) {
       return 'koneksi ke jaringan stabil tidak RTO';
     }
 
     // Barrier Gate
-    if (l.contains('dudukan mesin') || l.contains('dynabolt') || l.contains('dinabolt')) {
+    if (l.contains('dudukan mesin') ||
+        l.contains('dynabolt') ||
+        l.contains('dinabolt')) {
       return 'dudukan mesin kokoh & baut dynabolt kencang';
     }
     if (l.contains('palang tertutup')) {
-      return 'palang posisi tertutup 0° lurus & baut pengikat kencang';
+      return 'palang turun rata menutup jalan & bautnya kencang';
     }
     if (l.contains('palang terbuka')) {
-      return 'palang terbuka tegak 90° bergerak lancar';
+      return 'palang naik tegak waktu dibuka & gerakannya lancar';
     }
-    if (l.contains('pelumas') || l.contains('bearing') || l.contains('spring')) {
-      return 'per spring & bearing terlumasi grease baru';
+    if (l.contains('pelumas') ||
+        l.contains('bearing') ||
+        l.contains('spring')) {
+      return 'per spring & bearing masih terlumasi, tidak kering';
     }
     if (l.contains('sensor loop') || l.contains('led detect')) {
-      return 'sensor loop aktif mendeteksi kendaraan (LED Detect aktif)';
+      return 'sensor loop hidup mendeteksi kendaraan (LED Detect nyala)';
     }
-    if (l.contains('jalur kabel') || l.contains('coran aspal') || l.contains('paving')) {
+    // 'stopkontak' = poin Pos Kasir, bukan jalur kabel sensor barrier.
+    if ((l.contains('jalur kabel') ||
+            l.contains('coran aspal') ||
+            l.contains('paving')) &&
+        !l.contains('stopkontak')) {
       return 'jalur kabel sensor tertanam rapi di bawah aspal/paving';
     }
-    if (l.contains('stiker receiver') || l.contains('stiker barrier') || (l.contains('stiker') && !l.contains('bss') && !l.contains('parkways') && !l.contains('manless'))) {
-      return 'stiker receiver kuning utuh rapi bebas retak/buram';
+    if (l.contains('stiker receiver') ||
+        l.contains('stiker barrier') ||
+        (l.contains('stiker') &&
+            !l.contains('bss') &&
+            !l.contains('parkways') &&
+            !l.contains('manless'))) {
+      return 'stiker receiver kuning utuh, tidak retak dan tidak pudar';
     }
     if (l.contains('tiang cctv') || l.contains('housing')) {
       return 'tiang CCTV kokoh & housing kamera bersih bening';
     }
     if (l.contains('speedbump') || l.contains('speed bump')) {
-      return 'karet speed bump kokoh terpasang kuat dengan dynabolt';
+      return 'karet speed bump terpasang kuat dan tidak lepas';
     }
 
     // Pos Kasir
@@ -807,16 +989,22 @@ class WhatsAppReportService {
     if (l.contains('jalur kabel') || l.contains('stopkontak')) {
       return 'jalur kabel rapi terikat & stopkontak aman';
     }
-    if (l.contains('standarisasi item') || l.contains('meja pos') || l.contains('kelengkapan meja')) {
+    if (l.contains('standarisasi item') ||
+        l.contains('meja pos') ||
+        l.contains('kelengkapan meja')) {
       return 'item dalam pos lengkap (monitor, keyboard, scanner, printer & kipas angin)';
     }
-    if (l.contains('aplikasi kasir') || l.contains('fungsi sistem') || l.contains('layar kasir')) {
+    if (l.contains('aplikasi kasir') ||
+        l.contains('fungsi sistem') ||
+        l.contains('layar kasir')) {
       return 'aplikasi kasir online siap melayani';
     }
     if (l.contains('kunci pintu') || l.contains('grendel')) {
-      return 'kunci pintu & grendel pos berfungsi normal';
+      return 'kunci pintu & grendel pos normal dipakai';
     }
-    if (l.contains('stiker bss') || l.contains('parkways') || l.contains('stiker')) {
+    if (l.contains('stiker bss') ||
+        l.contains('parkways') ||
+        l.contains('stiker')) {
       return 'stiker BSS Parking & Parkways rapi utuh';
     }
     if (l.contains('pulau parkir') || l.contains('kondisi pulau')) {
@@ -830,26 +1018,32 @@ class WhatsAppReportService {
     if (l.contains('dalam manless')) {
       return 'ruang dalam manless bersih dan kabel tertata rapi';
     }
-    if (l.contains('tombol') || l.contains('struk') || l.contains('tiket keluar')) {
-      return 'tombol tiket berfungsi normal dan struk tercetak dengan baik';
+    if (l.contains('tombol') ||
+        l.contains('struk') ||
+        l.contains('tiket keluar')) {
+      return 'tombol tiket normal dan struk tercetak jelas';
     }
-    if (l.contains('layar/led') || l.contains('layar lcd') || l.contains('sensor loop kendaraan')) {
-      return 'sensor loop aktif dan layar dispenser berfungsi normal';
+    if (l.contains('layar/led') ||
+        l.contains('layar lcd') ||
+        l.contains('sensor loop kendaraan')) {
+      return 'sensor loop hidup dan layar dispenser normal';
     }
     if (l.contains('luar manless')) {
-      return 'body manless bersih dan stiker panduan masih utuh';
+      return 'bodi manless bersih dan stiker panduan masih utuh';
     }
     if (l.contains('dudukan bawah')) {
       return 'dudukan bawah manless kokoh dan baut dynabolt kencang';
     }
-    if (l.contains('lantai dan beton') || l.contains('beton pulau gate') || l.contains('fisik beton')) {
+    if (l.contains('lantai dan beton') ||
+        l.contains('beton pulau gate') ||
+        l.contains('fisik beton')) {
       return 'beton pulau gate bersih dan permukaan lantai rapi';
     }
     if (l.contains('kunci manless') || l.contains('gembok')) {
       return 'kunci manless bersih, tidak berkarat, dan terpasang kokoh';
     }
 
-    return 'kondisi bersih prima, terpasang kokoh, dan berfungsi normal';
+    return 'kondisi masih bersih dan terpasang kencang';
   }
 
   /// Format alasan hijau (sesuai):
@@ -908,10 +1102,39 @@ class WhatsAppReportService {
     final okPoints = done
         .where((p) => p.status == PointStatus.sesuai && !_hasIssue(p))
         .toList();
+    // Poin yang barangnya tidak ada di lokasi: bukan temuan, tapi TIDAK BOLEH
+    // dilaporkan sebagai "sesuai/terpasang".
+    final naPoints = done.where((p) => p.isTidakTerpasang).toList();
 
     buffer.writeln('$no. *${themeLabel.trim()}* :');
 
     final defaultOk = _defaultObservationForTheme(themeLabel);
+
+    String urgensiTag(MaintenancePointResult p) =>
+        p.urgensi == TingkatUrgensi.normal
+        ? ''
+        : ' *(${p.urgensi.label.toLowerCase()})*';
+
+    void printNaLines(
+      List<MaintenancePointResult> na, {
+      bool withUnit = false,
+    }) {
+      for (final p in na) {
+        final item = cleanItemLabel(p.label).trim();
+        final unit = _gateName(p.label);
+        final prefix = withUnit && unit != item
+            ? '${_unitDisplay(unit)}: '
+            : '';
+        // Judul tema sudah menyebut nama barangnya, jadi jangan diulang lagi:
+        // cukup "Tidak terpasang" (+ sisa nama yang memang beda, mis. "Sisi Kanan").
+        final sisa = _sisaNamaItem(item, themeLabel);
+        final kata = _pisahKata(sisa);
+        final nama = kata.length >= 2 ? '$sisa ' : '';
+        buffer.writeln(
+          '   ⛔ $prefix${nama.isEmpty ? 'Tidak terpasang' : '${nama}tidak terpasang'}',
+        );
+      }
+    }
 
     // Kelompokkan poin yang sudah selesai per unit
     final unitPointsMap = <String, List<MaintenancePointResult>>{};
@@ -933,35 +1156,64 @@ class WhatsAppReportService {
     // 1. Jika SEMUA unit sesuai (tidak ada issue sama sekali)
     if (issues.isEmpty) {
       if (done.length < relevant.length) {
-        buffer.writeln('   ⚠️ baru ${done.length}/${relevant.length} unit diperiksa (semua aman)');
+        buffer.writeln(
+          '   ⚠️ baru ${done.length}/${relevant.length} unit diperiksa (semua aman)',
+        );
       } else if (isSingleUnit) {
-        final okAlasan = _findBestOkAlasan(okPoints, fallback: defaultOk);
-        buffer.writeln('   ✅ $okAlasan');
+        if (okPoints.isNotEmpty) {
+          final okAlasan = _findBestOkAlasan(okPoints, fallback: defaultOk);
+          buffer.writeln('   ✅ $okAlasan');
+        }
       } else {
         // Multi-unit Smart Consolidated: Rangkum menjadi 1 baris ringkas per tipe unit!
-        final unitTypes = sortedUnits.map(_detectUnitType).toSet();
-        if (unitTypes.length == 1) {
+        // Unit yang seluruh poinnya tidak terpasang tidak dihitung "aman".
+        final okUnits = sortedUnits
+            .where(
+              (u) => unitPointsMap[u]!.any(
+                (p) => p.status == PointStatus.sesuai && !_hasIssue(p),
+              ),
+            )
+            .toList();
+        final unitTypes = okUnits.map(_detectUnitType).toSet();
+        if (okUnits.length == 1) {
+          final okAlasan = _findBestOkAlasan(
+            unitPointsMap[okUnits.first]!,
+            fallback: defaultOk,
+          );
+          buffer.writeln('   ✅ ${_unitDisplay(okUnits.first)}: $okAlasan');
+        } else if (unitTypes.length == 1) {
           final okAlasan = _findBestOkAlasan(okPoints, fallback: defaultOk);
-          buffer.writeln('   ✅ ${_formatUnitList(sortedUnits)}: $okAlasan');
+          buffer.writeln('   ✅ ${_formatUnitList(okUnits)}: $okAlasan');
         } else {
           // Berbeda tipe (misal Server Utama dan Kasir 1-3)
           final typeToUnits = <String, List<String>>{};
-          for (final u in sortedUnits) {
+          for (final u in okUnits) {
             final t = _detectUnitType(u);
             typeToUnits.putIfAbsent(t, () => []).add(u);
           }
           for (final entry in typeToUnits.entries) {
             final groupUnits = entry.value;
-            final groupPoints = groupUnits.expand((u) => unitPointsMap[u]!).toList();
-            final groupOkAlasan = _findBestOkAlasan(groupPoints, fallback: defaultOk);
+            final groupOkPoints = groupUnits
+                .expand((u) => unitPointsMap[u]!)
+                .where((p) => p.status == PointStatus.sesuai && !_hasIssue(p))
+                .toList();
+            final groupOkAlasan = _findBestOkAlasan(
+              groupOkPoints,
+              fallback: defaultOk,
+            );
             if (groupUnits.length == 1) {
-              buffer.writeln('   ✅ ${groupUnits.first}: $groupOkAlasan');
+              buffer.writeln(
+                '   ✅ ${_unitDisplay(groupUnits.first)}: $groupOkAlasan',
+              );
             } else {
-              buffer.writeln('   ✅ ${_formatUnitList(groupUnits)}: $groupOkAlasan');
+              buffer.writeln(
+                '   ✅ ${_formatUnitList(groupUnits)}: $groupOkAlasan',
+              );
             }
           }
         }
       }
+      printNaLines(naPoints, withUnit: !isSingleUnit);
       return;
     }
 
@@ -975,11 +1227,12 @@ class WhatsAppReportService {
         final alasan = _isMeaningfulAlasan(iss.alasan)
             ? cleanAlasanText(iss.alasan)
             : 'perlu perbaikan';
-        buffer.writeln('   ⚠️ $alasan');
+        buffer.writeln('   ⚠️ $alasan${urgensiTag(iss)}');
         if (iss.kendalaFisik != null && iss.kendalaFisik!.trim().isNotEmpty) {
           buffer.writeln('      👉 KENDALA: ${iss.kendalaFisik!.trim()}');
         }
       }
+      printNaLines(naPoints);
       return;
     }
 
@@ -990,18 +1243,24 @@ class WhatsAppReportService {
     while (i < sortedUnits.length) {
       final u = sortedUnits[i];
       final uPoints = unitPointsMap[u]!;
-      final uIssues = uPoints.where((p) => p.status == PointStatus.tidakSesuai || _hasIssue(p)).toList();
+      final uIssues = uPoints
+          .where((p) => p.status == PointStatus.tidakSesuai || _hasIssue(p))
+          .toList();
 
       if (uIssues.isNotEmpty) {
         for (final iss in uIssues) {
           final alasan = _isMeaningfulAlasan(iss.alasan)
               ? cleanAlasanText(iss.alasan)
               : 'perlu perbaikan';
-          buffer.writeln('   ⚠️ $u: $alasan');
+          buffer.writeln('   ⚠️ ${_unitDisplay(u)}: $alasan${urgensiTag(iss)}');
           if (iss.kendalaFisik != null && iss.kendalaFisik!.trim().isNotEmpty) {
             buffer.writeln('      👉 KENDALA: ${iss.kendalaFisik!.trim()}');
           }
         }
+        printNaLines(
+          uPoints.where((p) => p.isTidakTerpasang).toList(),
+          withUnit: true,
+        );
         i++;
       } else {
         // Unit u adalah OK. Cari unit berikutnya yang bertetangga, juga OK, dan bertipe sama.
@@ -1016,7 +1275,9 @@ class WhatsAppReportService {
           if (nextType != uType) break;
 
           final nextPoints = unitPointsMap[nextU]!;
-          final nextIssues = nextPoints.where((p) => p.status == PointStatus.tidakSesuai || _hasIssue(p)).toList();
+          final nextIssues = nextPoints
+              .where((p) => p.status == PointStatus.tidakSesuai || _hasIssue(p))
+              .toList();
           if (nextIssues.isNotEmpty) break;
 
           okChunkUnits.add(nextU);
@@ -1024,11 +1285,22 @@ class WhatsAppReportService {
           j++;
         }
 
-        final alasan = _findBestOkAlasan(okChunkPoints, fallback: defaultOk);
-        if (okChunkUnits.length == 1) {
-          buffer.writeln('   ✅ $u: $alasan');
-        } else {
-          buffer.writeln('   ✅ ${_formatUnitList(okChunkUnits)}: $alasan');
+        final chunkOkPoints = okChunkPoints
+            .where((p) => p.status == PointStatus.sesuai && !_hasIssue(p))
+            .toList();
+        if (chunkOkPoints.isNotEmpty) {
+          final alasan = _findBestOkAlasan(chunkOkPoints, fallback: defaultOk);
+          if (okChunkUnits.length == 1) {
+            buffer.writeln('   ✅ ${_unitDisplay(u)}: $alasan');
+          } else {
+            buffer.writeln('   ✅ ${_formatUnitList(okChunkUnits)}: $alasan');
+          }
+        }
+        for (final cu in okChunkUnits) {
+          printNaLines(
+            unitPointsMap[cu]!.where((p) => p.isTidakTerpasang).toList(),
+            withUnit: true,
+          );
         }
         i = j;
       }
@@ -1069,7 +1341,7 @@ class WhatsAppReportService {
     _appendThematicModel1Line(
       buffer: buffer,
       no: 1,
-      themeLabel: 'dudukan mesin & Baut dynabolt',
+      themeLabel: 'dudukan mesin & baut dynabolt',
       relevant: filterByKeywords(['dudukan mesin', 'dynabolt', 'dinabolt']),
     );
     _appendThematicModel1Line(
@@ -1088,30 +1360,50 @@ class WhatsAppReportService {
       buffer: buffer,
       no: 4,
       themeLabel: 'pelumas (spring/bearing)',
-      relevant: filterByKeywords(['pelumas', 'pelumasan', 'spring/bearing', 'bearing']),
+      relevant: filterByKeywords([
+        'pelumas',
+        'pelumasan',
+        'spring/bearing',
+        'bearing',
+      ]),
     );
     _appendThematicModel1Line(
       buffer: buffer,
       no: 5,
       themeLabel: 'sensor loop detector',
-      relevant: filterByKeywords(['sensor loop', 'loop detector', 'led detect', 'modul loop']),
+      relevant: filterByKeywords([
+        'sensor loop',
+        'loop detector',
+        'led detect',
+        'modul loop',
+      ]),
     );
     _appendThematicModel1Line(
       buffer: buffer,
       no: 6,
       themeLabel: 'jalur kabel sensor',
-      relevant: filterByKeywords(['jalur kabel sensor', 'kabel sensor', 'coran aspal', 'garis coran']),
+      relevant: filterByKeywords([
+        'jalur kabel sensor',
+        'kabel sensor',
+        'coran aspal',
+        'garis coran',
+      ]),
     );
     _appendThematicModel1Line(
       buffer: buffer,
       no: 7,
       themeLabel: 'stiker receiver barrier gate',
-      relevant: filterByKeywords(['stiker receiver', 'stiker barrier', 'receiver', 'stiker']),
+      relevant: filterByKeywords([
+        'stiker receiver',
+        'stiker barrier',
+        'receiver',
+        'stiker',
+      ]),
     );
     _appendThematicModel1Line(
       buffer: buffer,
       no: 8,
-      themeLabel: 'tiang cctv & Housing',
+      themeLabel: 'tiang cctv & housing',
       relevant: filterByKeywords(['tiang cctv', 'housing']),
     );
     _appendThematicModel1Line(
@@ -1161,19 +1453,33 @@ class WhatsAppReportService {
       buffer: buffer,
       no: 2,
       themeLabel: 'Kerapian jalur kabel & stopkontak',
-      relevant: filterByKeywords(['kerapian jalur kabel', 'jalur kabel', 'stopkontak']),
+      relevant: filterByKeywords([
+        'kerapian jalur kabel',
+        'jalur kabel',
+        'stopkontak',
+      ]),
     );
     _appendThematicModel1Line(
       buffer: buffer,
       no: 3,
       themeLabel: 'Standarisasi item dalam pos',
-      relevant: filterByKeywords(['standarisasi item', 'standarisasi meja', 'kelengkapan meja', 'meja pos', 'kipas angin']),
+      relevant: filterByKeywords([
+        'standarisasi item',
+        'standarisasi meja',
+        'kelengkapan meja',
+        'meja pos',
+        'kipas angin',
+      ]),
     );
     _appendThematicModel1Line(
       buffer: buffer,
       no: 4,
       themeLabel: 'Fungsi sistem aplikasi kasir',
-      relevant: filterByKeywords(['fungsi sistem', 'layar kasir', 'aplikasi kasir']),
+      relevant: filterByKeywords([
+        'fungsi sistem',
+        'layar kasir',
+        'aplikasi kasir',
+      ]),
     );
     _appendThematicModel1Line(
       buffer: buffer,
@@ -1191,7 +1497,11 @@ class WhatsAppReportService {
       buffer: buffer,
       no: 7,
       themeLabel: 'Kondisi pulau parkir',
-      relevant: filterByKeywords(['kondisi pulau', 'pulau parkir', 'ujung pulau']),
+      relevant: filterByKeywords([
+        'kondisi pulau',
+        'pulau parkir',
+        'ujung pulau',
+      ]),
     );
   }
 
@@ -1229,19 +1539,31 @@ class WhatsAppReportService {
       buffer: buffer,
       no: 1,
       themeLabel: 'Pembersihan total printer tiket',
-      relevant: filterByKeywords(['printer tiket', 'pembersihan printer', 'pembersihan total printer']),
+      relevant: filterByKeywords([
+        'printer tiket',
+        'pembersihan printer',
+        'pembersihan total printer',
+      ]),
     );
     _appendThematicModel1Line(
       buffer: buffer,
       no: 2,
       themeLabel: 'Kebersihan dalam manless & kerapihan kabel',
-      relevant: filterByKeywords(['kabel dalam manless', 'kebersihan dalam manless', 'kebersihan & kerapihan kabel']),
+      relevant: filterByKeywords([
+        'kabel dalam manless',
+        'kebersihan dalam manless',
+        'kebersihan & kerapihan kabel',
+      ]),
     );
     _appendThematicModel1Line(
       buffer: buffer,
       no: 3,
       themeLabel: 'Fungsi tombol struk & tiket keluar',
-      relevant: filterByKeywords(['tombol struk', 'tiket keluar', 'tombol tiket']),
+      relevant: filterByKeywords([
+        'tombol struk',
+        'tiket keluar',
+        'tombol tiket',
+      ]),
     );
     _appendThematicModel1Line(
       buffer: buffer,
@@ -1253,7 +1575,11 @@ class WhatsAppReportService {
       buffer: buffer,
       no: 5,
       themeLabel: 'Kebersihan luar manless & stiker panduan',
-      relevant: filterByKeywords(['luar manless', 'stiker panduan', 'stiker dan tampilan']),
+      relevant: filterByKeywords([
+        'luar manless',
+        'stiker panduan',
+        'stiker dan tampilan',
+      ]),
     );
     _appendThematicModel1Line(
       buffer: buffer,
@@ -1271,7 +1597,11 @@ class WhatsAppReportService {
       buffer: buffer,
       no: 8,
       themeLabel: 'Kunci manless & gembok',
-      relevant: filterByKeywords(['kunci manless', 'kunci pintu manless', 'gembok']),
+      relevant: filterByKeywords([
+        'kunci manless',
+        'kunci pintu manless',
+        'gembok',
+      ]),
     );
   }
 
@@ -1325,15 +1655,26 @@ class WhatsAppReportService {
       buffer: buffer,
       no: 4,
       themeLabel: 'Pembersihan debu CPU & pasta processor',
-      relevant: filterByKeywords(['debu cpu', 'pasta processor', 'thermal pasta', 'motherboard cpu']),
+      relevant: filterByKeywords([
+        'debu cpu',
+        'pasta processor',
+        'thermal pasta',
+        'motherboard cpu',
+      ]),
     );
     _appendThematicModel1Line(
       buffer: buffer,
       no: 5,
       themeLabel: 'Port USB & kerapian kabel belakang CPU',
-      relevant: filterByKeywords(['port usb', 'kerapian kabel', 'kabel belakang']),
+      relevant: filterByKeywords([
+        'port usb',
+        'kerapian kabel',
+        'kabel belakang',
+      ]),
     );
-    final hasServer = points.any((p) => p.label.toLowerCase().contains('server'));
+    final hasServer = points.any(
+      (p) => p.label.toLowerCase().contains('server'),
+    );
     _appendThematicModel1Line(
       buffer: buffer,
       no: 6,
@@ -1381,15 +1722,20 @@ class WhatsAppReportService {
         } else {
           buffer.writeln('   ✅ ${_defaultObservationForTheme(cleanLabel)}');
         }
+      } else if (p.status == PointStatus.tidakTerpasang) {
+        buffer.writeln('   ⛔ Tidak terpasang');
       } else {
         // tidakSesuai / perluCekManual -> warning
         final rawAlasan = _isMeaningfulAlasan(p.alasan)
             ? cleanAlasanText(p.alasan)
             : '';
+        final urgensiTag = p.urgensi == TingkatUrgensi.normal
+            ? ''
+            : ' *(${p.urgensi.label.toLowerCase()})*';
         if (rawAlasan.isNotEmpty) {
-          buffer.writeln('   ⚠️ $rawAlasan');
+          buffer.writeln('   ⚠️ $rawAlasan$urgensiTag');
         } else {
-          buffer.writeln('   ⚠️ perlu perbaikan');
+          buffer.writeln('   ⚠️ perlu perbaikan$urgensiTag');
         }
       }
       idx++;
@@ -1434,7 +1780,9 @@ class WhatsAppReportService {
       for (int i = 0; i < validPoints.length; i++) {
         final pt = validPoints[i];
         final srcFile = File(pt.imagePath!);
-        final ext = srcFile.path.contains('.') ? srcFile.path.split('.').last : 'jpg';
+        final ext = srcFile.path.contains('.')
+            ? srcFile.path.split('.').last
+            : 'jpg';
         final seq = (i + 1).toString().padLeft(2, '0');
 
         // Bersihkan nama label agar aman sebagai nama file

@@ -147,7 +147,6 @@ class TemplateModel {
   final DateTime updatedAt;
 
   bool get isPerPoint => aiMode == AiMode.perPoint || jenis.isMaintenance;
-  bool get requiresTechnician => requiredRole == TemplateRole.teknisi;
 
   TemplateModel({
     required this.id,

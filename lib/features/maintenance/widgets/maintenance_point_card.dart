@@ -67,6 +67,13 @@ class MaintenancePointCard extends StatelessWidget {
         badgeIcon = Icons.camera_alt_rounded;
         badgeLabel = 'BELUM FOTO';
         break;
+      case PointStatus.tidakTerpasang:
+        badgeColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+        badgeBg = isDark ? const Color(0xFF334155).withValues(alpha: 0.35) : const Color(0xFFF1F5F9);
+        badgeBorder = isDark ? const Color(0xFF64748B).withValues(alpha: 0.5) : const Color(0xFFCBD5E1);
+        badgeIcon = Icons.do_not_disturb_alt_rounded;
+        badgeLabel = 'TIDAK TERPASANG';
+        break;
     }
 
     final cardBorder = isDark ? AppColors.darkBorderMuted : AppColors.cardBorder;
@@ -313,6 +320,48 @@ class MaintenancePointCard extends StatelessWidget {
                                     fontWeight: FontWeight.w700,
                                     color: textMeta,
                                   ),
+                                ),
+                              ),
+                            if (result.urgensi != TingkatUrgensi.normal)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: result.urgensi == TingkatUrgensi.urgent
+                                      ? (isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFEE2E2))
+                                      : (isDark ? const Color(0xFF78350F) : const Color(0xFFFFEDD5)),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: result.urgensi == TingkatUrgensi.urgent
+                                        ? (isDark ? const Color(0xFFEF4444).withValues(alpha: 0.6) : const Color(0xFFFCA5A5))
+                                        : (isDark ? const Color(0xFFEA580C).withValues(alpha: 0.6) : const Color(0xFFFDBA74)),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      result.urgensi == TingkatUrgensi.urgent
+                                          ? Icons.priority_high_rounded
+                                          : Icons.schedule_rounded,
+                                      size: 11,
+                                      color: result.urgensi == TingkatUrgensi.urgent
+                                          ? (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626))
+                                          : (isDark ? const Color(0xFFFB923C) : const Color(0xFFC2410C)),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      result.urgensi.label.toUpperCase(),
+                                      style: TextStyle(
+                                        fontFamily: 'PlusJakartaSans',
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.3,
+                                        color: result.urgensi == TingkatUrgensi.urgent
+                                            ? (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626))
+                                            : (isDark ? const Color(0xFFFB923C) : const Color(0xFFC2410C)),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             if (isDone)

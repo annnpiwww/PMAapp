@@ -444,7 +444,6 @@ class LocationService {
   static DateTime? _lastLocationFetchTime;
 
   static bool get isLastLocationMocked => _cachedLocationResult?.isMockLocation ?? false;
-  static bool get isLastLocationDefaultFallback => _cachedLocationResult?.isDefaultFallback ?? false;
   static LocationResult? get lastLocationResult => _cachedLocationResult;
 
   @visibleForTesting

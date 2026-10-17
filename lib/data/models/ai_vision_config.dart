@@ -121,11 +121,6 @@ class AiVisionConfig {
 
   /// Primary gemini-flash-lite (super cepat <2s via reasoning_effort: none).
   static const String defaultCustomModel = 'gemini-3.1-flash-lite';
-  /// Model Vision Google AI Studio yang terbukti stabil & kompatibel
-  static const List<String> availableModels = [
-    'gemini-3.1-flash-lite',
-    'gemini-flash-lite-latest',
-  ];
 
   /// Timeout per-request: 8 detik untuk respons instan (normal <2-3 detik)
   static const int perModelTimeoutSeconds = 8;

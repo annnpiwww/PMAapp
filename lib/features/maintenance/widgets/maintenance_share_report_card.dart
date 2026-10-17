@@ -55,7 +55,9 @@ class MaintenanceShareReportCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                'Bagikan Laporan (${submission.doneCount} Foto Selesai)',
+                submission.tidakTerpasangCount > 0
+                    ? 'Bagikan Laporan (${submission.doneCount - submission.tidakTerpasangCount} Foto • ${submission.tidakTerpasangCount} Tidak Ada)'
+                    : 'Bagikan Laporan (${submission.doneCount} Foto Selesai)',
                 style: const TextStyle(
                   fontFamily: 'PlusJakartaSans',
                   fontWeight: FontWeight.w700,
@@ -71,7 +73,7 @@ class MaintenanceShareReportCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  '${submission.doneCount}/${submission.totalPoints} Foto Lengkap',
+                  '${submission.doneCount}/${submission.totalPoints} Poin Lengkap',
                   style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.success),
                 ),
               ),

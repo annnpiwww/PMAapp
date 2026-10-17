@@ -631,6 +631,11 @@ class _MaintenanceDetailModal extends StatelessWidget {
                 final p = submission.points[i];
                 final hasImage = p.imagePath != null && (kIsWeb || File(p.imagePath!).existsSync());
                 final isSesuai = p.status == PointStatus.sesuai;
+                final isTidakTerpasang = p.isTidakTerpasang;
+                final isOk = isSesuai || isTidakTerpasang;
+                final statusClr = isSesuai
+                    ? AppColors.success
+                    : (isTidakTerpasang ? const Color(0xFF64748B) : AppColors.danger);
 
                 return Container(
                   padding: const EdgeInsets.all(10),
@@ -688,13 +693,30 @@ class _MaintenanceDetailModal extends StatelessWidget {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              p.alasan.isNotEmpty ? p.alasan : (isSesuai ? 'Sesuai standar' : 'Perlu pemeriksaan'),
+                              p.alasan.isNotEmpty
+                                  ? p.alasan
+                                  : (isSesuai
+                                      ? 'Sesuai standar'
+                                      : (isTidakTerpasang ? 'Barang tidak terpasang' : 'Perlu pemeriksaan')),
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isSesuai ? AppColors.success : AppColors.warning,
+                                color: isOk ? statusClr : AppColors.warning,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
+                            if (p.urgensi != TingkatUrgensi.normal) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Tingkat: ${p.urgensi.label}',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: p.urgensi == TingkatUrgensi.urgent
+                                      ? AppColors.danger
+                                      : AppColors.warning,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -703,17 +725,17 @@ class _MaintenanceDetailModal extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
                         decoration: BoxDecoration(
-                          color: isSesuai
-                              ? AppColors.success.withValues(alpha: 0.12)
-                              : AppColors.danger.withValues(alpha: 0.12),
+                          color: statusClr.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          isSesuai ? '✓ Sesuai' : '⚠️ Cek',
+                          isSesuai
+                              ? '✓ Sesuai'
+                              : (isTidakTerpasang ? '⛔ Tidak Ada' : '⚠️ Cek'),
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
-                            color: isSesuai ? AppColors.success : AppColors.danger,
+                            color: isOk ? statusClr : AppColors.danger,
                           ),
                         ),
                       ),

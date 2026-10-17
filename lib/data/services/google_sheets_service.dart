@@ -11,15 +11,9 @@ import 'secure_time_service.dart';
 
 class GoogleSheetsService {
   static const String _kAppsScriptUrl = 'bss_google_sheets_script_url_v1';
-  static const String _kSpreadsheetUrl = 'bss_google_spreadsheet_url_v1';
   static const String _kPendingQueue = 'bss_pending_gsheet_queue_v1';
   static const String _kSecretToken = 'bss_google_sheets_secret_token_v1';
 
-  /// Wajib inject via --dart-define=BSS_GSHEET_SPREADSHEET_URL=...
-  /// TIDAK ADA URL hardcoded di source — mencegah endpoint leak via APK reverse-engineering.
-  static const String defaultSpreadsheetUrl = String.fromEnvironment(
-    'BSS_GSHEET_SPREADSHEET_URL',
-  );
 
   /// Wajib inject via --dart-define=BSS_GSHEET_SCRIPT_URL=...
   static const String defaultAppsScriptUrl = String.fromEnvironment(
@@ -64,21 +58,7 @@ class GoogleSheetsService {
     } catch (_) {}
   }
 
-  static Future<String> getSpreadsheetUrl() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_kSpreadsheetUrl) ?? defaultSpreadsheetUrl;
-    } catch (_) {
-      return defaultSpreadsheetUrl;
-    }
-  }
 
-  static Future<void> saveSpreadsheetUrl(String url) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_kSpreadsheetUrl, url.trim());
-    } catch (_) {}
-  }
 
   /// Sinkronisasi otomatis data maintenance ke Google Sheets (Database SPV)
   /// Mengirimkan data terstruktur: tanggal, lokasi, teknisi, perangkat,
@@ -100,7 +80,22 @@ class GoogleSheetsService {
           .where((p) =>
               p.status == PointStatus.tidakSesuai ||
               p.status == PointStatus.perluCekManual)
-          .map((p) => '⚠️ ${p.label}: ${p.alasan.isNotEmpty ? p.alasan : "Perlu perbaikan"}')
+          .map((p) {
+            final urgensiTag = p.urgensi == TingkatUrgensi.normal ? '' : ' [${p.urgensi.label.toUpperCase()}]';
+            return '⚠️ ${p.label}: ${p.alasan.isNotEmpty ? p.alasan : "Perlu perbaikan"}$urgensiTag';
+          })
+          .toList();
+
+      // Poin yang memang tidak terpasang / tidak ada di lokasi (bukan temuan)
+      final poinTidakTerpasang = submission.points
+          .where((p) => p.isTidakTerpasang)
+          .map((p) => '⛔ ${p.label}')
+          .toList();
+
+      // Poin bertingkat URGENT — dipakai supervisor untuk prioritas perbaikan
+      final poinUrgent = submission.points
+          .where((p) => p.urgensi == TingkatUrgensi.urgent)
+          .map((p) => '🚨 ${p.label}')
           .toList();
 
       // Kumpulkan daftar poin yang lolos / approve
@@ -147,6 +142,10 @@ class GoogleSheetsService {
         'totalPoin': submission.totalPoints,
         'poinLolosCount': submission.sesuaiCount,
         'poinMasalahCount': issues.length,
+        'poinTidakTerpasang': poinTidakTerpasang.isNotEmpty ? poinTidakTerpasang.join('\n') : '-',
+        'poinTidakTerpasangCount': poinTidakTerpasang.length,
+        'daftarUrgent': poinUrgent.isNotEmpty ? poinUrgent.join('\n') : '-',
+        'urgentCount': submission.urgentCount,
         'isTimeTampered': isTimeTampered,
         'timeWarning': timeWarning,
         'timestamp': DateTime.now().toIso8601String(),

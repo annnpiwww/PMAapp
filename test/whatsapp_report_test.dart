@@ -48,7 +48,7 @@ void main() {
       expect(text.contains('Note'), isTrue);
       expect(text.contains('Terima kasih 🙏'), isTrue);
       // Grouped format: should contain 9 points 1:1 with ✅/⚠️
-      expect(text.contains('dudukan mesin & Baut dynabolt'), isTrue);
+      expect(text.contains('dudukan mesin & baut dynabolt'), isTrue);
       expect(text.contains('fisik palang tertutup lurus'), isTrue);
       expect(text.contains('sensor loop detector'), isTrue);
     });
@@ -95,9 +95,9 @@ void main() {
       final noteLines = text.split('\n').where((l) => RegExp(r'^\d+\.').hasMatch(l.trim())).toList();
       expect(noteLines.length, 9);
       // Should contain 2-line format: label then icon on next line
-      expect(text.contains('*dudukan mesin & Baut dynabolt* :'), isTrue);
+      expect(text.contains('*dudukan mesin & baut dynabolt* :'), isTrue);
       expect(text.contains('*fisik palang tertutup lurus* :'), isTrue);
-      expect(text.contains('tiang cctv & Housing'), isTrue);
+      expect(text.contains('tiang cctv & housing'), isTrue);
       expect(text.contains('sensor loop detector'), isTrue);
       expect(text.contains('Terima kasih 🙏'), isTrue);
     });
@@ -204,10 +204,42 @@ void main() {
       // HASIL MAINTENANCE summary check
       expect(text.contains('HASIL MAINTENANCE :'), isTrue);
       expect(text.contains('✅ Sesuai: 4'), isTrue);
-      expect(text.contains('⚠️ Tidak Sesuai: 1'), isTrue);
+      expect(text.contains('⚠️ Ada Masalah: 1'), isTrue);
       // 'Perlu Dicek' is 0, so it MUST NOT be displayed!
       expect(text.contains('Perlu Dicek'), isFalse);
       expect(text.contains('Total Point: 5'), isTrue);
+    });
+
+    test('Poin jalur kabel Pos Kasir pakai kalimat cadangan Pos, bukan barrier', () {
+      final submission = MaintenanceSubmission(
+        id: 'test_pos_jalur_kabel',
+        templateId: 'tpl_maint_pos',
+        templateName: 'Maintenance: Pos Parkir',
+        userId: 'user_1',
+        userName: 'Farhan Lakoro',
+        userNpp: '12345',
+        posId: 'pos_pbm',
+        posName: 'Pasar Bersehati Manado (PBM)',
+        cabangName: 'Manado',
+        points: [
+          const MaintenancePointResult(
+            pointId: 'pos_1_02',
+            label: 'Pos Kasir 1 - Kerapian Jalur Kabel & Stopkontak',
+            status: PointStatus.sesuai,
+            alasan: '',
+          ),
+        ],
+        createdAt: DateTime(2026, 10, 18, 10, 0),
+        updatedAt: DateTime(2026, 10, 18, 10, 0),
+      );
+
+      final text = WhatsAppReportService.generateReportText(
+        submission: submission,
+        category: TemplateCategory.maintPos,
+      );
+
+      expect(text.contains('jalur kabel rapi terikat & stopkontak aman'), isTrue);
+      expect(text.contains('di bawah aspal/paving'), isFalse);
     });
 
     test('Teknisi auto shift & greeting logic tests based on hour & return time', () {
@@ -581,8 +613,8 @@ void main() {
       expect(report, contains('2. *fisik palang tertutup lurus* :'));
       expect(report, contains('✅ Gate 1 - 4: Palang terpasang lurus dan baut pengikat kencang'));
       // Pastikan tidak ada 4 baris repetitif
-      expect(report.contains('✅ Barrier Gate 1:'), isFalse);
-      expect(report.contains('✅ Barrier Gate 2:'), isFalse);
+      expect(report.contains('✅ Gate 1:'), isFalse);
+      expect(report.contains('✅ Gate 2:'), isFalse);
     });
 
     test('Option A Smart Consolidated: Barrier Gate mixed merges contiguous OK gates', () {
@@ -639,9 +671,9 @@ void main() {
       // Gate 1 & 2 digabung
       expect(report, contains('✅ Gate 1 - 2: Stiker receiver kuning terlihat jelas, utuh, dan tidak rusak'));
       // Gate 3 dicetak per-unit
-      expect(report, contains('⚠️ Barrier Gate 3: Stiker robek di bagian sudut bawah'));
+      expect(report, contains('⚠️ Gate 3: Stiker robek di bagian sudut bawah'));
       // Gate 4 dicetak per-unit karena single
-      expect(report, contains('✅ Barrier Gate 4: Stiker receiver kuning bersih utuh'));
+      expect(report, contains('✅ Gate 4: Stiker receiver kuning bersih utuh'));
     });
 
     test('Option A Smart Consolidated: Pos Parkir 2 Units all Sesuai collapses to Pos 1 - 2', () {

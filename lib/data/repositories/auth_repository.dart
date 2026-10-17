@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import '../services/storage_service.dart';
-import '../services/location_service.dart';
 import '../services/daily_task_service.dart';
 import '../services/branch_service.dart';
 
@@ -305,31 +304,5 @@ class AuthRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateProfile({
-    required String nama,
-    required String npp,
-    required String email,
-  }) async {
-    if (_currentUser == null) return;
-    _currentUser = _currentUser!.copyWith(
-      nama: nama,
-      npp: npp,
-      email: email,
-    );
-    await StorageService.saveUser(_currentUser!);
-    await StorageService.saveLastTechnicianName(nama);
-    notifyListeners();
-  }
 
-  Future<void> switchPos(PosLocation pos) async {
-    if (_currentUser == null) return;
-    _currentUser = _currentUser!.copyWith(
-      posId: pos.posId,
-      posName: pos.posName,
-      cabangName: pos.cabangName,
-    );
-    LocationService.currentPos = pos;
-    await StorageService.saveUser(_currentUser!);
-    notifyListeners();
-  }
 }

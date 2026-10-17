@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bssparking_timemark/data/models/ai_vision_config.dart';
@@ -6,7 +5,6 @@ import 'package:bssparking_timemark/data/models/template_model.dart';
 import 'package:bssparking_timemark/data/models/submission_model.dart';
 import 'package:bssparking_timemark/data/services/ai_vision_service.dart';
 import 'package:bssparking_timemark/data/services/storage_service.dart';
-import 'package:bssparking_timemark/features/settings/screens/ai_vision_settings_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -71,19 +69,23 @@ void main() {
 
   group('AiVisionService Tests', () {
     test('Config persistence in StorageService', () async {
+      SharedPreferences.setMockInitialValues({});
+      await StorageService.init();
+
       const newConfig = AiVisionConfig(
         provider: AiProviderType.customEndpoint,
-        apiKey: 'sk-test-bss-proxmox',
+        apiKey: 'AQ.test-bss-persist-999',
         baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
         modelName: 'gemini-3.1-flash-lite',
         confidenceThreshold: 0.88,
       );
 
-      await AiVisionService.updateConfig(newConfig);
+      await StorageService.saveAiVisionConfig(newConfig);
+      AiVisionService.clearConfigCache();
       final retrieved = AiVisionService.getConfig();
 
       expect(retrieved.confidenceThreshold, equals(0.88));
-      expect(retrieved.apiKey, equals('sk-test-bss-proxmox'));
+      expect(retrieved.apiKey, equals('AQ.test-bss-persist-999'));
       expect(retrieved.modelName, equals('gemini-3.1-flash-lite'));
       expect(retrieved.baseUrl,
           equals('https://generativelanguage.googleapis.com/v1beta/openai'));
@@ -312,26 +314,6 @@ The officer is standing upright in proper posture.''';
       // Ambiguous + no unverifiable keyword + no positive match -> fallback
       expect(parsed!.status, equals(VerificationStatus.perluCekManual));
       expect(parsed.isFallback, isTrue);
-    });
-  });
-
-  group('AiVisionSettingsScreen Widget Tests', () {
-    testWidgets('Renders all sections correctly', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: AiVisionSettingsScreen(),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Pengaturan AI Vision'), findsOneWidget);
-      expect(find.text('Provider & Endpoint AI Vision'), findsOneWidget);
-      expect(find.text('Uji Latensi & Konektivitas'), findsOneWidget);
-      expect(find.text('Fitur Pemeriksaan SOP AI'), findsOneWidget);
-      expect(find.text('Deteksi Kerapian Seragam & Grooming'), findsOneWidget);
-      expect(find.text('Deteksi ID Card / Name Tag'), findsOneWidget);
-      expect(find.text('Uji Koneksi AI'), findsOneWidget);
-      expect(find.text('Gemini 3.1 Flash Lite'), findsOneWidget);
     });
   });
 }

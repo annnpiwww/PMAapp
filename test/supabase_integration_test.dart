@@ -8,6 +8,14 @@ import 'package:bssparking_timemark/data/models/user_model.dart';
 
 class _RealHttpOverrides extends HttpOverrides {}
 
+/// Test tulis ini nembak Supabase produksi (bikin row nyata di daily_tasks),
+/// jadi default-nya dilewati agar `flutter test` tidak menumpuk task sampah.
+const bool _allowLiveWrite = bool.fromEnvironment('ALLOW_LIVE_WRITE');
+
+const String _liveWriteSkipReason =
+    'Test ini menulis task nyata ke Supabase produksi. Jalankan dengan '
+    '--dart-define=ALLOW_LIVE_WRITE=true bila memang perlu.';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = _RealHttpOverrides();
@@ -113,6 +121,6 @@ void main() {
         catatan: 'Verifikasi sukses 100%',
       );
       expect(completed, isTrue);
-    });
+    }, skip: _allowLiveWrite ? false : _liveWriteSkipReason);
   });
 }

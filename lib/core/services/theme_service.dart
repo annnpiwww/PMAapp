@@ -36,11 +36,4 @@ class ThemeService {
     await StorageService.saveThemeMode(currentlyDark ? 'light' : 'dark');
   }
 
-  static Future<void> setThemeMode(ThemeMode mode) async {
-    themeModeNotifier.value = mode;
-    String modeStr = 'system';
-    if (mode == ThemeMode.light) modeStr = 'light';
-    if (mode == ThemeMode.dark) modeStr = 'dark';
-    await StorageService.saveThemeMode(modeStr);
-  }
 }

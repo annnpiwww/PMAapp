@@ -1109,6 +1109,36 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
     );
   }
 
+  /// Teknisi menandai poin ini memang tidak ada/tidak terpasang di lokasi.
+  /// Tidak perlu foto, poin langsung dianggap selesai (hemat waktu).
+  Future<void> _confirmTidakTerpasang() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Barang tidak terpasang?'),
+        content: Text(
+            '"${widget.point.label}" akan ditandai TIDAK TERPASANG / tidak ada di lokasi, tanpa perlu foto.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ya, Tidak Terpasang')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    Navigator.pop(
+      context,
+      MaintenancePointResult(
+        pointId: widget.point.id,
+        label: widget.point.label,
+        timestamp: DateTime.now(),
+        status: PointStatus.tidakTerpasang,
+        alasan: 'Ditandai teknisi: barang tidak terpasang di lokasi.',
+        confidence: 1.0,
+        providerName: 'Teknisi (Tanpa Foto)',
+      ),
+    );
+  }
+
   Widget _buildBottomControls() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
@@ -1211,6 +1241,15 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                 ),
               ),
             ],
+          ),
+          // Jalan pintas: barang memang tidak ada di lokasi, tidak perlu foto
+          TextButton.icon(
+            onPressed: _isCapturing || _isCountingDown ? null : _confirmTidakTerpasang,
+            icon: const Icon(Icons.do_not_disturb_alt_rounded, size: 15, color: Colors.white70),
+            label: const Text(
+              'Barang tidak terpasang di lokasi?',
+              style: TextStyle(fontSize: 11.5, color: Colors.white70, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),

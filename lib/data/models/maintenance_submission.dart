@@ -4,7 +4,8 @@ enum PointStatus {
   belumFoto,
   sesuai,
   tidakSesuai,
-  perluCekManual;
+  perluCekManual,
+  tidakTerpasang;
 
   String get label {
     switch (this) {
@@ -16,6 +17,8 @@ enum PointStatus {
         return 'Tidak Sesuai';
       case PointStatus.perluCekManual:
         return 'Perlu Cek Manual';
+      case PointStatus.tidakTerpasang:
+        return 'Tidak Terpasang';
     }
   }
 
@@ -31,6 +34,15 @@ enum PointStatus {
       case 'perlu_cek_manual':
       case 'perlu cek manual':
         return PointStatus.perluCekManual;
+      case 'tidakterpasang':
+      case 'tidak_terpasang':
+      case 'tidak terpasang':
+      case 'tidakada':
+      case 'tidak_ada':
+      case 'tidak ada':
+      case 'n/a':
+      case 'na':
+        return PointStatus.tidakTerpasang;
       case 'belumfoto':
       case 'belum_foto':
       case 'belum foto':
@@ -39,17 +51,49 @@ enum PointStatus {
     }
   }
 
-  VerificationStatus toVerification() {
+}
+
+/// Tingkat keparahan temuan pada satu poin maintenance.
+/// Teknisi yang mengisi, supervisor memakai ini untuk memprioritaskan perbaikan.
+enum TingkatUrgensi {
+  normal,
+  ringan,
+  sedang,
+  urgent;
+
+  String get label {
     switch (this) {
-      case PointStatus.sesuai:
-        return VerificationStatus.sesuai;
-      case PointStatus.tidakSesuai:
-        return VerificationStatus.tidakSesuai;
+      case TingkatUrgensi.normal:
+        return 'Belum ditandai';
+      case TingkatUrgensi.ringan:
+        return 'Masih aman';
+      case TingkatUrgensi.sedang:
+        return 'Sudah mulai rusak';
+      case TingkatUrgensi.urgent:
+        return 'Harus diganti';
+    }
+  }
+
+  static TingkatUrgensi fromString(String? s) {
+    switch ((s ?? '').toLowerCase().trim()) {
+      case 'ringan':
+      case 'masih aman':
+      case 'masih bisa dipakai':
+        return TingkatUrgensi.ringan;
+      case 'sedang':
+      case 'sudah mulai rusak':
+        return TingkatUrgensi.sedang;
+      case 'urgent':
+      case 'urgen':
+      case 'kritis':
+      case 'harus diganti':
+        return TingkatUrgensi.urgent;
       default:
-        return VerificationStatus.perluCekManual;
+        return TingkatUrgensi.normal;
     }
   }
 }
+
 
 class MaintenancePointResult {
   final String pointId;
@@ -64,6 +108,7 @@ class MaintenancePointResult {
   final double confidence;
   final String providerName;
   final String? kendalaFisik;
+  final TingkatUrgensi urgensi;
 
   const MaintenancePointResult({
     required this.pointId,
@@ -78,10 +123,14 @@ class MaintenancePointResult {
     this.confidence = 0,
     this.providerName = '',
     this.kendalaFisik,
+    this.urgensi = TingkatUrgensi.normal,
   });
 
   bool get isDone => status != PointStatus.belumFoto;
   bool get isSesuai => status == PointStatus.sesuai;
+
+  /// Poin ini sengaja dilewati karena barangnya tidak ada/tidak terpasang.
+  bool get isTidakTerpasang => status == PointStatus.tidakTerpasang;
 
   Map<String, dynamic> toJson() => {
         'pointId': pointId,
@@ -97,6 +146,7 @@ class MaintenancePointResult {
         'providerName': providerName,
         'kendalaFisik': kendalaFisik,
         'kendala_fisik': kendalaFisik,
+        'urgensi': urgensi.name,
       };
 
   factory MaintenancePointResult.fromJson(Map<String, dynamic> j) =>
@@ -113,6 +163,7 @@ class MaintenancePointResult {
         confidence: (j['confidence'] as num?)?.toDouble() ?? 0,
         providerName: j['providerName'] as String? ?? '',
         kendalaFisik: (j['kendalaFisik'] ?? j['kendala_fisik']) as String?,
+        urgensi: TingkatUrgensi.fromString(j['urgensi'] as String?),
       );
 
   MaintenancePointResult copyWith({
@@ -126,6 +177,7 @@ class MaintenancePointResult {
     double? confidence,
     String? providerName,
     String? kendalaFisik,
+    TingkatUrgensi? urgensi,
   }) {
     return MaintenancePointResult(
       pointId: pointId,
@@ -140,6 +192,7 @@ class MaintenancePointResult {
       confidence: confidence ?? this.confidence,
       providerName: providerName ?? this.providerName,
       kendalaFisik: kendalaFisik ?? this.kendalaFisik,
+      urgensi: urgensi ?? this.urgensi,
     );
   }
 }
@@ -179,9 +232,18 @@ class MaintenanceSubmission {
   int get totalPoints => points.length;
   int get doneCount => points.where((p) => p.isDone).length;
   int get sesuaiCount => points.where((p) => p.status == PointStatus.sesuai).length;
+  int get tidakTerpasangCount => points.where((p) => p.isTidakTerpasang).length;
+  int get urgentCount => points.where((p) => p.urgensi == TingkatUrgensi.urgent).length;
+  bool get hasUrgent => urgentCount > 0;
+  int get bermasalahCount =>
+      points.where((p) => p.status == PointStatus.tidakSesuai || p.status == PointStatus.perluCekManual).length;
   double get progress => totalPoints == 0 ? 0 : doneCount / totalPoints;
   bool get isComplete => doneCount == totalPoints;
-  bool get isAllSesuai => points.every((p) => p.status == PointStatus.sesuai);
+
+  /// "Sesuai" berarti tidak ada temuan. Poin yang memang tidak terpasang
+  /// dianggap netral, bukan temuan.
+  bool get isAllSesuai =>
+      points.every((p) => p.status == PointStatus.sesuai || p.status == PointStatus.tidakTerpasang);
   VerificationStatus get overallStatus {
     if (!isComplete) return VerificationStatus.perluCekManual;
     if (isAllSesuai) return VerificationStatus.sesuai;

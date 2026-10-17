@@ -52,13 +52,6 @@ class AbsensiSetupService extends ChangeNotifier {
   String pekerjaanSelesai = '';
   String pekerjaanBelum = '';
   String handoverDate = '';
-  static List<String> get currentShiftOptions => BranchService.instance.getShifts();
-  static const List<String> shiftOptions = [
-    'Shift 1 (03:00 - 11:00)',
-    'Shift 2.2 (10:00 - 14:00)',
-    'Shift 2 (10:00 - 18:00)',
-    'Shift 3 (14:00 - 22:00)',
-  ];
 
   /// Mendeteksi nama shift otomatis sesuai jam saat ini (atau waktu foto):
   /// - KC Bali:
@@ -267,7 +260,6 @@ class AbsensiSetupService extends ChangeNotifier {
     }
   }
 
-  bool get isTeknisiReady => true;
 
   Future<void> _load() async {
     try {
