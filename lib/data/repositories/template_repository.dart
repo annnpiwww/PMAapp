@@ -19,6 +19,7 @@ class TemplateRepository extends ChangeNotifier {
       wajibLokasi: true,
       sopCriteria: [
         'Seragam resmi BSS Parking bersih, rapi, terkancing & dimasukkan dalam celana',
+        'Tanpa jaket / hoodie / sweater atau baju luar di atas seragam (kemeja rapi & baju polo sah)',
         'ID Card / Name Tag terpasang jelas di saku kiri (tali lanyard / yoyo lanyard sah)',
         'Wajah terlihat jelas tanpa masker / kacamata',
         'Sepatu Hitam bersih',
@@ -28,6 +29,7 @@ class TemplateRepository extends ChangeNotifier {
       contohFotoDescriptions: [
         'Foto full body tegap menghadap kamera',
         'Seragam resmi BSS Parking rapi',
+        'Foto jelas, tidak blur dan tidak miring',
       ],
       createdBy: 'HO BSS Parking Pusat',
       updatedAt: DateTime.now(),

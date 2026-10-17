@@ -248,7 +248,7 @@ void main() {
       expect(parsed.poinLolos.length, equals(1));
     });
 
-    test('Free-text fallback: motion-blur -> perlu_cek_manual', () {
+    test('Free-text fallback: motion-blur -> tidak_sesuai (merah)', () {
       // Simulates a model that ignored response_format: json_object and
       // returned a free-text description instead of JSON.
       const freeText = '''
@@ -269,12 +269,11 @@ equipment, or readable text.''';
       );
 
       expect(parsed, isNotNull);
-      expect(parsed!.status, equals(VerificationStatus.perluCekManual));
+      expect(parsed!.status, equals(VerificationStatus.tidakSesuai));
       expect(parsed.isFallback, isTrue);
-      expect(parsed.poinGagal, isEmpty);
-      expect(parsed.poinLolos, isEmpty);
-      // Reason should include the original text
-      expect(parsed.alasan, contains('tidak dapat diverifikasi'));
+      expect(parsed.poinGagal, isNotEmpty);
+      expect(parsed.poinGagal.first, contains('blur'));
+      expect(parsed.alasan, contains('foto ulang'));
     });
 
     test('Free-text fallback: full body + uniform detected -> sesuai', () {

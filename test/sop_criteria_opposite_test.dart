@@ -27,6 +27,19 @@ void main() {
       expect(neg5, contains('kotor atau ada tumpukan barang'));
     });
 
+    test('Jaket/hoodie & foto blur/miring jadi temuan merah dengan kalimat jelas', () {
+      expect(
+        SopCriteriaHelper.toNegativeStatement(
+          'Tanpa jaket / hoodie / sweater atau baju luar di atas seragam',
+        ),
+        equals('Memakai jaket/hoodie di atas seragam, wajib dilepas'),
+      );
+      expect(
+        SopCriteriaHelper.toNegativeStatement('Foto jelas, tidak blur dan tidak miring'),
+        equals('Foto blur, miring, atau tidak fokus, wajib foto ulang'),
+      );
+    });
+
     test('Verification with forced failure returns opposite statement in poinGagal', () async {
       final template = TemplateModel(
         id: 'test_tpl',

@@ -116,6 +116,17 @@ class AiVerificationResult {
 class SopCriteriaHelper {
   static String toNegativeStatement(String criterion) {
     final lower = criterion.toLowerCase();
+    if (lower.contains('jaket') ||
+        lower.contains('hoodie') ||
+        lower.contains('sweater')) {
+      return 'Memakai jaket/hoodie di atas seragam, wajib dilepas';
+    }
+    if (lower.contains('blur') ||
+        lower.contains('miring') ||
+        lower.contains('tidak fokus') ||
+        lower.contains('goyang')) {
+      return 'Foto blur, miring, atau tidak fokus, wajib foto ulang';
+    }
     if (lower.contains('seragam') && lower.contains('dimasukkan')) {
       return 'Seragam tidak dimasukkan dalam celana / diluar dan tidak rapi';
     } else if (lower.contains('seragam')) {
@@ -621,15 +632,19 @@ You are BSS-Vision. Evaluasi kerapian teknisi untuk absen pulang ($hari).
 ATURAN ABSEN PULANG:
 1. Foto setengah badan sah dan lulus. Tidak perlu cek sepatu.
 2. ID Card atau tali lanyard terpasang di leher/dada. Jika tali lanyard terlihat, status LULUS (sesuai).
-3. Mengenakan seragam teknisi resmi atau seragam dinas hari $hari.
-4. Gaya bahasa alasan: Singkat, natural, to the point (5-10 kata).
+3. Yang LULUS (HIJAU) hanya: seragam teknisi resmi BSS, seragam dinas hari $hari, kemeja rapi berkerah, atau baju polo.
+4. JAKET / HOODIE / SWEATER / ROMPI DILARANG: baju luar apa pun yang menutupi seragam atau kaos (jaket kulit, jeans, bomber, hoodie, sweater) WAJIB "tidak_sesuai" (MERAH). Berlaku juga di hari "Bebas rapi" / olahraga: yang sah hanya kemeja rapi atau baju polo.
+5. KUALITAS FOTO: foto blur/goyang, miring (badan atau garis horizon tidak tegak/rata), atau terlalu gelap sehingga atribut tidak terbaca WAJIB "tidak_sesuai" (MERAH) supaya teknisi foto ulang.
+6. Gaya bahasa alasan: Singkat, natural, to the point (5-10 kata).
    - Contoh sesuai: "Seragam teknisi rapi dan tali lanyard terpasang."
    - Contoh tidak sesuai: "Tidak memakai seragam resmi dan tanpa ID Card."
+   - Contoh tidak sesuai: "Memakai hoodie di atas seragam, wajib dilepas."
+   - Contoh tidak sesuai: "Foto blur dan miring, ulangi foto dengan posisi tegak."
 
 STATUS:
-- sesuai: Seragam rapi dan ID Card/lanyard terpasang.
-- tidak_sesuai: Pakaian non-resmi (kaos oblong/bebas) atau tanpa ID Card/lanyard.
-- perlu_cek_manual: Foto sangat blur sehingga seragam tidak terbaca.
+- sesuai: Seragam, kemeja rapi, atau baju polo rapi, ID Card/lanyard terpasang, foto jelas dan tegak.
+- tidak_sesuai: Pakaian non-resmi (kaos oblong/bebas, jaket, hoodie, sweater), tanpa ID Card/lanyard, atau foto blur/goyang/miring/tidak rata/gelap.
+- perlu_cek_manual: Hanya kalau atribut benar-benar tidak bisa dinilai (mis. badan terpotong parah).
 
 OUTPUT STRICT JSON ONLY:
 {"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
@@ -646,21 +661,26 @@ JADWAL SERAGAM:
 - Jumat: Batik / Seragam Teknisi
 - Sabtu: Olahraga biru-kuning / Seragam Teknisi
 - Minggu: Bebas rapi / Seragam Teknisi
-* Catatan: Seragam Teknisi resmi BSS selalu sah di semua hari (Senin-Minggu).
+* Catatan: Seragam Teknisi resmi BSS selalu sah di semua hari (Senin-Minggu). Jaket, hoodie, dan sweater tetap DILARANG di hari mana pun (termasuk hari Bebas rapi).
 
 KRITERIA:
 1. Seragam: Seragam Teknisi resmi atau sesuai jadwal hari $hari, dipakai rapi.
 2. ID Card / tali lanyard terpasang di dada/leher.
 3. Celana panjang dan sepatu tertutup (tidak boleh sandal).
-4. Gaya bahasa alasan: Singkat, natural, to the point (5-10 kata).
+4. Yang LULUS (HIJAU) hanya: seragam resmi BSS Parking, seragam dinas hari $hari, kemeja rapi berkerah, atau baju polo.
+5. JAKET / HOODIE / SWEATER / ROMPI DILARANG: baju luar apa pun yang menutupi seragam atau kaos (jaket kulit, jeans, bomber, hoodie, sweater) WAJIB "tidak_sesuai" (MERAH), begitu juga kaos oblong/kaos sablon bebas. Hari "Bebas rapi" / olahraga tetap hanya kemeja rapi atau baju polo.
+6. KUALITAS FOTO: foto blur/goyang, miring (badan atau garis horizon tidak tegak/rata), atau terlalu gelap WAJIB "tidak_sesuai" (MERAH) supaya teknisi foto ulang.
+7. Gaya bahasa alasan: Singkat, natural, to the point (5-10 kata).
    - Contoh sesuai: "Seragam teknisi rapi, ID Card dan sepatu terpasang lengkap."
    - Contoh tidak sesuai: "ID Card tidak terpasang di dada."
    - Contoh tidak sesuai: "Memakai sandal, wajib sepatu kerja tertutup."
+   - Contoh tidak sesuai: "Memakai jaket di atas seragam, wajib dilepas."
+   - Contoh tidak sesuai: "Foto blur dan miring, ulangi foto dengan posisi tegak."
 
 STATUS:
-- sesuai: Seragam rapi, ID Card/lanyard ada, sepatu tertutup.
-- tidak_sesuai: Tanpa ID Card, pakai sandal, atau kaos oblong non-resmi.
-- perlu_cek_manual: Foto setengah badan (sepatu terpotong) atau foto blur.
+- sesuai: Seragam, kemeja rapi, atau baju polo rapi, ID Card/lanyard ada, sepatu tertutup, foto jelas dan tegak.
+- tidak_sesuai: Tanpa ID Card, pakai sandal, kaos oblong/kaos bebas, jaket/hoodie/sweater, foto blur/goyang/miring/tidak rata/gelap, atau badan terpotong (sepatu tidak terlihat).
+- perlu_cek_manual: Hanya kalau atribut benar-benar tidak bisa dinilai (mis. badan tertutup objek).
 
 OUTPUT STRICT JSON ONLY:
 {"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
@@ -935,14 +955,41 @@ OUTPUT STRICT JSON ONLY:
       reason = '${reason.substring(0, 200).trim()}...';
     }
 
-    final unverifiableKeywords = [
+    // Kualitas foto jelek (blur/goyang/miring/gelap) = temuan MERAH, wajib foto ulang.
+    final qualityKeywords = [
       'motion-blurred',
       'motion blurred',
       'motion blur',
       'blurred',
+      'too blurry',
+      'blurry',
       'out of focus',
       'out-of-focus',
       'unfocused',
+      'indistinct',
+      'tilted',
+      'crooked',
+      'slanted',
+      'not level',
+      'too dark',
+      'incomplete image',
+    ];
+
+    if (qualityKeywords.any((kw) => text.contains(kw))) {
+      return AiVerificationResult(
+        status: VerificationStatus.tidakSesuai,
+        alasan: 'Foto blur atau miring, wajib foto ulang',
+        poinGagal: const [
+          'Foto blur, miring, atau tidak fokus, wajib foto ulang',
+        ],
+        poinLolos: const [],
+        confidenceScore: 0.6,
+        providerName: 'Google Gemini (${config.effectiveModelName})',
+        isFallback: true,
+      );
+    }
+
+    final unverifiableKeywords = [
       'obscure',
       'no details',
       'no detail',
@@ -952,14 +999,10 @@ OUTPUT STRICT JSON ONLY:
       'no text',
       'cannot read',
       "can't read",
-      'too dark',
       'too small',
-      'too blurry',
       'cannot identify',
       "can't identify",
       'unable to',
-      'indistinct',
-      'incomplete image',
       'no facial',
       'no badge',
       'no uniform',
