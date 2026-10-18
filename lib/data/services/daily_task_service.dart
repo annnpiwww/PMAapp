@@ -8,7 +8,6 @@ import '../models/daily_task_model.dart';
 import '../models/maintenance_submission.dart';
 import '../services/storage_service.dart';
 import '../services/location_service.dart';
-import '../services/absensi_setup_service.dart';
 import 'branch_service.dart';
 import 'notification_service.dart';
 
@@ -779,28 +778,20 @@ class DailyTaskService {
 
   /// Tugas yang diserahkan tanpa penerus (daftar terbuka) di cabang aktif.
   /// [excludeTeknisi] dipakai supaya tugas yang sudah jadi milik teknisi ini tidak muncul lagi.
-  /// Tugas pending dianggap terbuka untuk shift berikutnya kalau:
-  /// - teknisi sudah melepasnya lewat `Belum Selesai`, atau
-  /// - jam pulang shift hari itu sudah lewat (ditinggal pulang), atau
-  /// - masih pending dari tanggal sebelumnya (lupa diserahkan).
-  /// Pemilik tetap bisa menyelesaikannya sendiri; ini cuma menambah jalan masuk.
+  /// Tugas pending dianggap terbuka untuk teknisi lain kalau:
+  /// - teknisi sudah melepasnya lewat `Belum Selesai` (penerus kosong), atau
+  /// - masih pending dan tanggalnya kemarin (ditinggal pulang tanpa diserahkan).
+  /// Tugas pending hari ini yang masih dipegang teknisinya TIDAK dibuka, supaya
+  /// tugas yang sudah dikhususkan ke orang lain tidak muncul di layar semua orang.
   static bool isTerbukaUntukShiftLain(DailyTaskModel task, {DateTime? sekarang}) {
     if (task.isCompleted) return false;
     if (task.isOpenHandover) return true;
 
     final now = sekarang ?? DateTime.now();
-    final today =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    if (task.tanggal.compareTo(today) < 0) return true;
-    if (task.tanggal != today) return false;
-
-    final jamPulang = AbsensiSetupService.instance.effectiveJamPulang.split(':');
-    if (jamPulang.length < 2) return false;
-    final jam = int.tryParse(jamPulang[0]);
-    final menit = int.tryParse(jamPulang[1]);
-    if (jam == null || menit == null) return false;
-    final batas = DateTime(now.year, now.month, now.day, jam, menit);
-    return !now.isBefore(batas);
+    final kemarin = now.subtract(const Duration(days: 1));
+    final kemarinStr =
+        '${kemarin.year}-${kemarin.month.toString().padLeft(2, '0')}-${kemarin.day.toString().padLeft(2, '0')}';
+    return task.tanggal == kemarinStr;
   }
 
   static Future<List<DailyTaskModel>> getOpenHandoverTasks({

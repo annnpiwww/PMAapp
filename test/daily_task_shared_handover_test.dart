@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bssparking_timemark/data/models/daily_task_model.dart';
-import 'package:bssparking_timemark/data/services/absensi_setup_service.dart';
 import 'package:bssparking_timemark/data/services/branch_service.dart';
 import 'package:bssparking_timemark/data/services/daily_task_service.dart';
 import 'package:bssparking_timemark/data/services/storage_service.dart';
@@ -260,25 +259,23 @@ void main() {
   });
 
   group('Tugas terbuka untuk shift berikutnya', () {
-    setUp(() => AbsensiSetupService.instance.jamPulang = '17:00');
-    tearDown(() => AbsensiSetupService.instance.jamPulang = '');
-
     final jam5Sore = DateTime(2026, 10, 18, 16, 30);
     final jam9Malam = DateTime(2026, 10, 18, 21, 10);
 
-    test('pending sebelum jam pulang masih milik pemiliknya', () {
+    test('tugas hari ini tetap milik teknisinya, tidak muncul di orang lain', () {
       final task = taskContoh(tanggal: '2026-10-18');
       expect(DailyTaskService.isTerbukaUntukShiftLain(task, sekarang: jam5Sore), isFalse);
+      expect(DailyTaskService.isTerbukaUntukShiftLain(task, sekarang: jam9Malam), isFalse);
     });
 
-    test('pending setelah jam pulang otomatis terbuka', () {
-      final task = taskContoh(tanggal: '2026-10-18');
-      expect(DailyTaskService.isTerbukaUntukShiftLain(task, sekarang: jam9Malam), isTrue);
-    });
-
-    test('pending dari hari sebelumnya otomatis terbuka', () {
+    test('pending kemarin otomatis terbuka', () {
       final task = taskContoh(tanggal: '2026-10-17');
       expect(DailyTaskService.isTerbukaUntukShiftLain(task, sekarang: jam5Sore), isTrue);
+    });
+
+    test('pending lebih dari sehari tidak menumpuk di daftar terbuka', () {
+      final task = taskContoh(tanggal: '2026-10-16');
+      expect(DailyTaskService.isTerbukaUntukShiftLain(task, sekarang: jam5Sore), isFalse);
     });
 
     test('tugas yang dilepas manual langsung terbuka', () {
