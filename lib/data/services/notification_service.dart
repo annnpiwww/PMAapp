@@ -176,14 +176,11 @@ class NotificationService {
     if (kIsWeb) return;
     await init();
     try {
-      final scheduledPulang = AbsensiSetupService.getScheduledPulangTime(
+      // Notifikasi berbunyi tepat saat absen pulang sudah boleh dilakukan
+      final targetTime = AbsensiSetupService.pulangAllowedFrom(
         shift: shift,
         checkInTime: checkInTime,
       );
-      final minDuration = AbsensiSetupService.getMinimumWorkDuration(shift);
-      final durationTime = checkInTime.add(minDuration);
-      // Notifikasi berbunyi saat jadwal shift berakhir atau durasi minimal terpenuhi (mana yang lebih awal)
-      final targetTime = scheduledPulang.isBefore(durationTime) ? scheduledPulang : durationTime;
 
       final now = DateTime.now();
       if (!targetTime.isAfter(now)) {

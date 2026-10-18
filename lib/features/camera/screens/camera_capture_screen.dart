@@ -970,20 +970,17 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   checkInTime: lastCheckIn,
                 ));
 
-        // 1. Cek Kelayakan Pulang (Shift Berakhir ATAU Durasi Kerja Terpenuhi)
+        // 1. Cek Kelayakan Pulang (jam akhir shift sudah lewat)
         if (!isEligible) {
           _isProcessingAI = false;
           _captureStep = 0;
-          final refTime = lastCheckIn ?? DateTime.now();
-          final jamPulangStr = AbsensiSetupService.autoDetectJamPulang(
+          final nowVerified = SecureTimeService.getVerifiedTime().accurateTime.toLocal();
+          final refTime = lastCheckIn ?? nowVerified;
+          final gate = AbsensiSetupService.pulangAllowedFrom(
             shift: setup.effectiveJadwalShift,
-            time: refTime,
+            checkInTime: refTime,
           );
-          final worked = DateTime.now().difference(refTime);
-          final remaining = AbsensiSetupService.getRemainingWorkTime(
-            shift: setup.effectiveJadwalShift,
-            checkInTime: lastCheckIn,
-          );
+          final worked = nowVerified.difference(refTime);
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
@@ -997,10 +994,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               ),
               content: Text(
                 'Absen pulang belum bisa dilakukan karena shift belum selesai.\n\n'
-                '• Jadwal Akhir Shift: Jam $jamPulangStr\n'
+                '• Jam Sekarang (waktu terverifikasi): ${TimemarkFormatter.formatClockTime(nowVerified)}\n'
                 '• Durasi Berjalan: ${worked.inHours}j ${worked.inMinutes.remainder(60)}m\n'
-                '${remaining != null && remaining > Duration.zero ? '• Sisa Waktu Shift: ${remaining.inHours}j ${remaining.inMinutes.remainder(60)}m lagi\n\n' : '\n'}'
-                'Absen pulang bisa dilakukan setelah jam $jamPulangStr atau setelah durasi shift selesai.',
+                '• Boleh Absen Pulang Mulai: Jam ${TimemarkFormatter.formatClockTime(gate)}\n\n'
+                'Jam di foto memakai waktu terverifikasi ini, bukan jam HP.',
                 style: const TextStyle(fontSize: 13, height: 1.45),
               ),
               actions: [
@@ -1058,7 +1055,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             // Masih dalam durasi shift aktif -> BLOKIR JEPET MASUK AGAR TIDAK DUPLIKAT!
             _isProcessingAI = false;
             _captureStep = 0;
-            final worked = DateTime.now().difference(lastCheckIn);
+            final worked = SecureTimeService.getVerifiedTime().accurateTime.toLocal().difference(lastCheckIn);
             final remaining = AbsensiSetupService.getRemainingWorkTime(
               shift: setup.effectiveJadwalShift,
               checkInTime: lastCheckIn,
@@ -2361,7 +2358,8 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
     final absSetup = AbsensiSetupService.instance;
     final isCheckedInActive = StorageService.hasCheckedInTodayWithoutCheckOut();
     final lastCheckIn = StorageService.getLastCheckInTime();
-    final now = DateTime.now();
+    // honey: pakai waktu terverifikasi supaya pill tidak membuka mode Pulang lebih awal dari gate absen
+    final now = SecureTimeService.getVerifiedTime().accurateTime.toLocal();
     final shift = absSetup.effectiveJadwalShift;
     final shiftShort = shift.split('(').first.trim();
 

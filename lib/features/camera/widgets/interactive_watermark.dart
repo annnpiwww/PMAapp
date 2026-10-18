@@ -7,6 +7,7 @@ import '../../../data/models/template_model.dart';
 import '../../../data/models/watermark_config.dart';
 import '../../../data/services/branch_service.dart';
 import '../../../data/services/location_service.dart';
+import '../../../data/services/secure_time_service.dart';
 import '../../../data/services/storage_service.dart';
 import 'watermark_edit_modal.dart';
 
@@ -59,7 +60,7 @@ class _InteractiveWatermarkState extends State<InteractiveWatermark> {
   @override
   void initState() {
     super.initState();
-    _now = DateTime.now();
+    _now = _verifiedNow();
     _positionX = widget.config.positionX;
     _positionY = widget.config.positionY;
     _scale = widget.config.scale;
@@ -67,9 +68,14 @@ class _InteractiveWatermarkState extends State<InteractiveWatermark> {
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       if (_ticker?.isActive != true) return;
-      setState(() => _now = DateTime.now());
+      setState(() => _now = _verifiedNow());
     });
   }
+
+  /// Jam yang tampil di overlay = jam terverifikasi yang sama dengan yang dibakar ke
+  /// foto. Kalau pakai DateTime.now(), jam HP yang beda dengan server bikin teknisi
+  /// lihat waktu lain dari hasil watermark & riwayat absensi.
+  DateTime _verifiedNow() => SecureTimeService.getVerifiedTime().accurateTime.toLocal();
 
   @override
   void didUpdateWidget(covariant InteractiveWatermark oldWidget) {

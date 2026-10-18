@@ -60,9 +60,9 @@ void main() {
       expect(AbsensiSetupService.getMinimumWorkDuration('Shift 3 (14:00 - 22:00)'), const Duration(hours: 8));
     });
 
-    test('getRemainingWorkTime returns correct remaining time and zero when met', () {
+    test('getRemainingWorkTime ikut jam akhir shift, bukan 8 jam sejak masuk', () {
       final now = DateTime(2026, 9, 13, 18, 0); // 18:00
-      final checkIn9MinsAgo = DateTime(2026, 9, 13, 17, 51); // 9 menit lalu
+      final checkIn9MinsAgo = DateTime(2026, 9, 13, 17, 51); // masuk telat di shift 3
 
       final remaining = AbsensiSetupService.getRemainingWorkTime(
         shift: 'Shift 3 (14:00 - 22:00)',
@@ -70,8 +70,8 @@ void main() {
         currentTime: now,
       );
       expect(remaining, isNotNull);
-      expect(remaining!.inHours, 7);
-      expect(remaining.inMinutes.remainder(60), 51);
+      expect(remaining!.inHours, 4);
+      expect(remaining.inMinutes.remainder(60), 0);
 
       final checkIn8HoursAgo = DateTime(2026, 9, 13, 10, 0);
       final remainingDone = AbsensiSetupService.getRemainingWorkTime(

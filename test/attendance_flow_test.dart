@@ -36,7 +36,7 @@ void main() {
     expect(AbsensiSetupService.autoDetectShift(atShift1Night), contains('Shift 1'));
   });
 
-  test('Auto-pulang eligibility requires jam pulang passed AND min work duration', () {
+  test('Auto-pulang menunggu jam akhir shift, durasi kerja tidak buka pulang lebih awal', () {
     const shift2 = 'Shift 2 (10:00 - 18:00)';
     final checkInShift2 = DateTime(2026, 9, 14, 10, 0);
 
@@ -158,11 +158,22 @@ void main() {
       isFalse,
     );
 
-    // At 14:00 (4h completed & 14:00 reached) -> true!
+    // Regresi: Shift 1.1 (06:00 - 14:00), teknisi masuk 05:56.
+    // 8 jam sejak masuk jatuh 13:56, dulu itu dipakai buat izinkan pulang padahal shift belum berakhir.
+    const shift1_1 = 'Shift 1.1 (06:00 - 14:00)';
+    final checkInShift1_1 = DateTime(2026, 9, 14, 5, 56);
     expect(
       AbsensiSetupService.isEligibleForAutoPulang(
-        shift: shift2_2,
-        checkInTime: checkIn2_2,
+        shift: shift1_1,
+        checkInTime: checkInShift1_1,
+        currentTime: DateTime(2026, 9, 14, 13, 56),
+      ),
+      isFalse,
+    );
+    expect(
+      AbsensiSetupService.isEligibleForAutoPulang(
+        shift: shift1_1,
+        checkInTime: checkInShift1_1,
         currentTime: DateTime(2026, 9, 14, 14, 0),
       ),
       isTrue,

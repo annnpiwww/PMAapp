@@ -102,8 +102,36 @@ class AbsensiSetupService extends ChangeNotifier {
     return isShiftPartTime ? const Duration(hours: 4) : const Duration(hours: 8);
   }
 
-  /// Menghitung sisa waktu kerja sebelum boleh absensi pulang.
-  /// Mengembalikan Duration.zero jika sudah memenuhi syarat, atau sisa durasi jika belum.
+  /// Batas paling awal teknisi boleh absen pulang.
+  ///
+  /// Patokan utama = jam akhir shift (Shift 1.1 ➔ 14:00, Shift 2 ➔ 18:00), bukan
+  /// "8 jam sejak jam masuk". Contoh kasus: masuk 05:56 di Shift 1.1 (06:00 - 14:00),
+  /// hitungan 8 jam jatuh 13:56 sehingga teknisi pulang sebelum shift berakhir.
+  /// Kalau teknisi masuk SETELAH jam akhir shiftnya (telat masuk / shift malam yang
+  /// berakhir besok pagi), patokannya durasi kerja minimal supaya pos tetap
+  /// diserahterimakan dan teknisi tidak terkunci sampai besok.
+  static DateTime pulangAllowedFrom({
+    required String shift,
+    required DateTime checkInTime,
+  }) {
+    final parts = autoDetectJamPulang(shift: shift, time: checkInTime).split(':');
+    final endH = parts.length == 2 ? (int.tryParse(parts[0]) ?? 18) : 18;
+    final endM = parts.length == 2 ? (int.tryParse(parts[1]) ?? 0) : 0;
+    final shiftEnd = DateTime(
+      checkInTime.year,
+      checkInTime.month,
+      checkInTime.day,
+      endH,
+      endM,
+    );
+    if (shiftEnd.isBefore(checkInTime)) {
+      return checkInTime.add(getMinimumWorkDuration(shift));
+    }
+    return shiftEnd;
+  }
+
+  /// Menghitung sisa waktu sebelum boleh absensi pulang.
+  /// Mengembalikan Duration.zero jika sudah boleh pulang, atau sisa waktu jika belum.
   static Duration? getRemainingWorkTime({
     required String shift,
     required DateTime? checkInTime,
@@ -113,47 +141,18 @@ class AbsensiSetupService extends ChangeNotifier {
     if (StorageService.isDemoBypassActive()) return Duration.zero;
     // honey: waktu terverifikasi mencegah manipulasi jam device; fallback ke currentTime untuk unit test
     final now = currentTime ?? SecureTimeService.getVerifiedTime().accurateTime;
-    final minDuration = getMinimumWorkDuration(shift);
-    final worked = now.isAfter(checkInTime) ? now.difference(checkInTime) : Duration.zero;
-    if (worked >= minDuration) return Duration.zero;
-    return minDuration - worked;
-  }
-
-  /// Menghitung DateTime akhir jadwal shift berdasarkan checkInTime.
-  /// Contoh: Shift 1 (03:00 - 11:00) ➔ 11:00 hari tersebut.
-  /// Jika jam akhir shift sebelum jam checkIn (misal shift malam melintasi tengah malam),
-  /// waktu akhir shift ditambahkan 1 hari.
-  static DateTime getScheduledPulangTime({
-    required String shift,
-    required DateTime checkInTime,
-  }) {
-    final jamPulangStr = autoDetectJamPulang(shift: shift, time: checkInTime);
-    final parts = jamPulangStr.split(':');
-    final targetH = parts.length == 2 ? (int.tryParse(parts[0]) ?? 18) : 18;
-    final targetM = parts.length == 2 ? (int.tryParse(parts[1]) ?? 0) : 0;
-
-    var scheduledPulang = DateTime(
-      checkInTime.year,
-      checkInTime.month,
-      checkInTime.day,
-      targetH,
-      targetM,
-    );
-    if (scheduledPulang.isBefore(checkInTime)) {
-      scheduledPulang = scheduledPulang.add(const Duration(days: 1));
-    }
-    return scheduledPulang;
+    final gate = pulangAllowedFrom(shift: shift, checkInTime: checkInTime);
+    if (!now.isBefore(gate)) return Duration.zero;
+    return gate.difference(now);
   }
 
   /// Memeriksa apakah syarat absensi kepulangan sudah terpenuhi:
-  /// Sesuai SOP Operasional Shift Parkir (Opsi 1):
-  /// 1. Jam akhir jadwal shift sudah tiba / selesai (misal Shift 1 >= 11:00, Shift 2.2 >= 14:00, Shift 2 >= 18:00, Shift 3 >= 22:00).
-  ///    Teknisi yang terlambat tetap diizinkan pulang saat jam pergantian shift agar pos dapat diserahterimakan ke shift berikutnya.
-  /// 2. ATAU durasi kerja minimal sudah terpenuhi (>= 8 jam untuk Shift 1, 2, 3, dan >= 4 jam untuk Shift 2.2).
-  /// 3. Jika Mode Demo / SPV Bypass aktif: Selalu true.
-  ///
-  /// Proteksi Pulang Cepat: Jika jam sekarang belum mencapai jam akhir shift DAN durasi kerja belum terpenuhi,
-  /// fungsi mengembalikan false.
+  /// Absen pulang baru boleh SETELAH jam akhir shift (Shift 1.1 >= 14:00,
+  /// Shift 2.2 >= 14:00, Shift 2 >= 18:00, Shift 3 >= 22:00).
+  /// Durasi kerja minimal tidak lagi jadi jalan pintas pulang lebih awal, karena
+  /// jam masuk yang maju beberapa menit membuat 8 jam jatuh sebelum shift berakhir.
+  /// Teknisi yang telat masuk tetap diizinkan pulang saat jam pergantian shift.
+  /// Mode Demo / SPV Bypass aktif: selalu true.
   static bool isEligibleForAutoPulang({
     required String shift,
     required DateTime checkInTime,
@@ -165,20 +164,7 @@ class AbsensiSetupService extends ChangeNotifier {
 
     // honey: waktu terverifikasi mencegah bypass pulang cepat via ubah jam device
     final now = currentTime ?? SecureTimeService.getVerifiedTime().accurateTime;
-
-    // Syarat 1: Jam akhir jadwal shift sudah tiba / lewat
-    final scheduledPulang = getScheduledPulangTime(
-      shift: shift,
-      checkInTime: checkInTime,
-    );
-    final isShiftEnded = !now.isBefore(scheduledPulang);
-
-    // Syarat 2: Durasi kerja minimal sudah terpenuhi (misal dinas fleksibel / lembur penuh)
-    final minDuration = getMinimumWorkDuration(shift);
-    final worked = now.isAfter(checkInTime) ? now.difference(checkInTime) : Duration.zero;
-    final isMinDurationMet = worked >= minDuration;
-
-    return isShiftEnded || isMinDurationMet;
+    return !now.isBefore(pulangAllowedFrom(shift: shift, checkInTime: checkInTime));
   }
 
   /// Mendeteksi jam akhir shift untuk laporan pulang:
