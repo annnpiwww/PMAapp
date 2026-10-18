@@ -257,6 +257,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
     final reportText = DailyTaskService.formatPerTaskReport(
       judul: widget.task.judul,
       notes: catatan,
+      partners: widget.task.pesertaList,
     );
 
     final isDark = ThemeService.isDarkMode(context);

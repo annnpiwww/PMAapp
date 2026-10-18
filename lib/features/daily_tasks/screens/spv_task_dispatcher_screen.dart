@@ -10,6 +10,7 @@ import '../../../data/services/daily_task_service.dart';
 import '../../../data/services/branch_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../widgets/spv_task_card.dart';
+import '../widgets/task_handover_dialog.dart';
 
 class SpvTaskDispatcherScreen extends StatefulWidget {
   const SpvTaskDispatcherScreen({super.key});
@@ -38,6 +39,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   final _catatanCtrl = TextEditingController();
   String _taskCategory = 'khusus'; // 'khusus' atau 'maintenance'
   String? _selectedTemplateId = 'tpl_maint_pos';
+  final Set<String> _pesertaTerpilih = {}; // pelaksana tambahan (tugas bareng)
 
   final List<Map<String, String>> _templates = [
     {'id': 'tpl_maint_pos', 'nama': 'Maintenance Pos Kasir'},
@@ -132,6 +134,43 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
         _isLoading = false;
       });
     }
+  }
+
+  /// SPV memindahkan tugas yang belum selesai ke teknisi shift berikutnya.
+  Future<void> _alihkanTugas(DailyTaskModel task) async {
+    final spv = AuthRepository.instance.currentUser;
+    final hasil = await TaskHandoverDialog.show(
+      context,
+      judul: task.judul,
+      lokasi: task.posName,
+      judulDialog: 'Alihkan Tugas ke Shift Berikutnya',
+      teknisiOptions: _technicians
+          .where((t) => !DailyTaskService.isAssignedTo(task, t))
+          .toList(),
+    );
+    if (hasil == null) return;
+
+    final ok = await DailyTaskService.transferTask(
+      task: task,
+      keTeknisi: hasil.penerus,
+      alasan: hasil.alasan,
+      olehSiapa: spv?.nama ?? 'SPV',
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? (hasil.penerus.isEmpty
+                  ? 'Tugas dilepas ke daftar terbuka.'
+                  : 'Tugas dialihkan ke ${hasil.penerus}.')
+              : 'Gagal mengalihkan tugas, coba lagi saat sinyal stabil.',
+        ),
+        backgroundColor: ok ? AppColors.success : AppColors.danger,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    if (ok) await _loadTasks();
   }
 
   Future<void> _pickCustomDate() async {
@@ -790,6 +829,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
         deskripsi: _catatanCtrl.text.trim(),
         kategori: _taskCategory,
         templateId: _taskCategory == 'maintenance' ? _selectedTemplateId : null,
+        peserta: _pesertaTerpilih.join(', '),
       );
     } catch (e) {
       debugPrint('[SpvTaskDispatcherScreen] _submitTask error: $e');
@@ -800,6 +840,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
       if (res != null) {
         _pekerjaanCtrl.clear();
         _catatanCtrl.clear();
+        setState(() => _pesertaTerpilih.clear());
         final isOffline = res.id.startsWith('local_');
         final suffix = isOffline ? ' (Tersimpan di Perangkat / Mode Offline)' : '';
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1312,10 +1353,56 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                 style: TextStyle(color: textColor, fontSize: 13),
                 items: _technicians.map((t) => DropdownMenuItem(value: t, child: Text(t, style: TextStyle(color: textColor)))).toList(),
                 onChanged: (val) {
-                  if (val != null) setState(() => _selectedTech = val);
+                  if (val != null) {
+                    setState(() {
+                      _selectedTech = val;
+                      // Pemilik tidak boleh jadi pelaksana tambahan dirinya sendiri.
+                      _pesertaTerpilih.remove(val);
+                    });
+                  }
                 },
               ),
             ),
+          ),
+          const SizedBox(height: 16),
+
+          // Pelaksana tambahan: tugas dikerjakan bareng (1 tugas, 1 bukti)
+          Text(
+            'Pelaksana Tambahan (opsional)',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: _technicians
+                .where((t) => t != _selectedTech)
+                .map((t) => FilterChip(
+                      label: Text(t, style: const TextStyle(fontSize: 11)),
+                      selected: _pesertaTerpilih.contains(t),
+                      onSelected: (val) => setState(() {
+                        if (val) {
+                          _pesertaTerpilih.add(t);
+                        } else {
+                          _pesertaTerpilih.remove(t);
+                        }
+                      }),
+                      backgroundColor: inputBg,
+                      selectedColor: AppColors.accent.withValues(alpha: 0.2),
+                      side: BorderSide(
+                        color: _pesertaTerpilih.contains(t) ? AppColors.accent : inputBorder,
+                      ),
+                      labelStyle: TextStyle(
+                        color: _pesertaTerpilih.contains(t) ? AppColors.accent : textColor,
+                        fontWeight: _pesertaTerpilih.contains(t) ? FontWeight.bold : FontWeight.w500,
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Pilih lebih dari satu kalau tugasnya dikerjakan bareng. $_selectedTech yang unggah bukti, lainnya otomatis selesai bareng.',
+            style: TextStyle(fontSize: 10.5, color: hintColor, height: 1.3),
           ),
           const SizedBox(height: 16),
 
@@ -2415,6 +2502,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
           task: t,
           isDark: isDark,
           isExpanded: _expandedTaskIds.contains(t.id),
+          onHandover: t.isCompleted ? null : () => _alihkanTugas(t),
           onToggleExpand: () {
             setState(() {
               if (_expandedTaskIds.contains(t.id)) {

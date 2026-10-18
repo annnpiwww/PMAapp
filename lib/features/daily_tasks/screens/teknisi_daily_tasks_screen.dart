@@ -9,9 +9,11 @@ import '../../../data/services/daily_task_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/notification_service.dart';
+import '../../../data/services/branch_service.dart';
 import '../../maintenance/widgets/maintenance_setup_dialog.dart';
 import '../../maintenance/screens/maintenance_checklist_screen.dart';
 import '../widgets/completed_daily_task_modal.dart';
+import '../widgets/task_handover_dialog.dart';
 import 'custom_task_execution_screen.dart';
 
 class TeknisiDailyTasksScreen extends StatefulWidget {
@@ -23,6 +25,7 @@ class TeknisiDailyTasksScreen extends StatefulWidget {
 
 class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
   List<DailyTaskModel> _tasks = [];
+  List<DailyTaskModel> _openTasks = []; // tugas serah terima tanpa penerus
   bool _isLoading = true;
 
   @override
@@ -65,6 +68,8 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
       teknisiNama: user.nama,
     );
 
+    final openTasks = await DailyTaskService.getOpenHandoverTasks(excludeTeknisi: user.nama);
+
     final pendingCount = tasks.where((t) => !t.isCompleted).length;
     DailyTaskService.updatePendingCount(pendingCount);
     NotificationService.instance.showDailyTasksNotification(tasks: tasks);
@@ -72,9 +77,74 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
     if (mounted) {
       setState(() {
         _tasks = tasks;
+        _openTasks = openTasks;
         _isLoading = false;
       });
     }
+  }
+
+  void _snack(String pesan, {bool sukses = true}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              sukses ? Icons.check_circle_rounded : Icons.error_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text(pesan)),
+          ],
+        ),
+        backgroundColor: sukses ? AppColors.success : AppColors.danger,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// Teknisi menyerahkan tugas yang belum selesai ke shift berikutnya.
+  Future<void> _serahkanTugas(DailyTaskModel task) async {
+    final user = AuthRepository.instance.currentUser;
+    final hasil = await TaskHandoverDialog.show(
+      context,
+      judul: task.judul,
+      lokasi: task.posName,
+      teknisiOptions: BranchService.instance
+          .getTechnicians()
+          .where((t) => !DailyTaskService.isAssignedTo(task, t))
+          .toList(),
+    );
+    if (hasil == null) return;
+
+    final ok = await DailyTaskService.transferTask(
+      task: task,
+      keTeknisi: hasil.penerus,
+      alasan: hasil.alasan,
+      olehSiapa: user?.nama ?? task.teknisiNama,
+    );
+    _snack(
+      ok
+          ? (hasil.penerus.isEmpty
+              ? 'Tugas dilepas ke daftar terbuka untuk shift berikutnya.'
+              : 'Tugas diserahkan ke ${hasil.penerus}.')
+          : 'Gagal menyimpan serah terima, coba lagi saat sinyal stabil.',
+      sukses: ok,
+    );
+    if (ok) await _loadTasks();
+  }
+
+  /// Teknisi shift berikutnya mengambil tugas dari daftar terbuka.
+  Future<void> _ambilTugas(DailyTaskModel task) async {
+    final user = AuthRepository.instance.currentUser;
+    if (user == null) return;
+    final ok = await DailyTaskService.claimTask(task: task, olehSiapa: user.nama);
+    _snack(
+      ok ? 'Tugas diambil alih. Kerjakan sampai selesai ya.' : 'Gagal mengambil tugas, coba lagi.',
+      sukses: ok,
+    );
+    if (ok) await _loadTasks();
   }
 
   void _startTask(DailyTaskModel task) async {
@@ -503,6 +573,21 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                   style: TextStyle(fontSize: 12, color: textSub, fontWeight: FontWeight.w500),
                                 ),
 
+                                if (task.isShared || task.isHandover) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    [
+                                      if (task.isShared) '👥 Bersama ${task.pesertaList.join(', ')}',
+                                      if (task.isHandover) '↪ Lanjutan dari ${task.handoverDari ?? '-'}',
+                                    ].join('  •  '),
+                                    style: const TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF0EA5E9),
+                                    ),
+                                  ),
+                                ],
+
                                 if (task.deskripsi.isNotEmpty) ...[
                                   const SizedBox(height: 6),
                                   Text(
@@ -553,7 +638,24 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
-                                    if (!isDone)
+                                    if (!isDone) ...[
+                                      OutlinedButton.icon(
+                                        onPressed: () => _serahkanTugas(task),
+                                        icon: const Icon(Icons.assignment_late_outlined, size: 15),
+                                        label: const Text(
+                                          'Belum Selesai',
+                                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                        ),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: AppColors.danger,
+                                          side: BorderSide(color: AppColors.danger.withValues(alpha: 0.45)),
+                                          backgroundColor: AppColors.danger.withValues(alpha: 0.06),
+                                          minimumSize: const Size(0, 38),
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
                                       ElevatedButton.icon(
                                         onPressed: () => _startTask(task),
                                         icon: Icon(
@@ -572,8 +674,8 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                           elevation: 0,
                                         ),
-                                      )
-                                    else
+                                      ),
+                                    ] else
                                       OutlinedButton.icon(
                                         onPressed: () => CompletedDailyTaskModal.show(context, task),
                                         icon: const Icon(Icons.photo_library_outlined, size: 14),
@@ -601,6 +703,84 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                       ),
                     );
                         }),
+
+                        // Tugas terbuka: serah terima shift sebelumnya tanpa penerus
+                        if (_openTasks.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0EA5E9).withValues(alpha: isDark ? 0.15 : 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFF0EA5E9).withValues(alpha: 0.35)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.group_add_outlined, size: 16, color: Color(0xFF0EA5E9)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Tugas belum selesai dari shift sebelumnya (${_openTasks.length}). Siapa pun boleh ambil kalau sanggup lanjutkan.',
+                                    style: TextStyle(fontSize: 11, color: textSub, height: 1.3),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          ..._openTasks.map((task) {
+                            final lastLog = task.handoverList.isNotEmpty ? task.handoverList.last : null;
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: bgCard,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFF0EA5E9).withValues(alpha: 0.35)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    task.judul,
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textHead),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Lokasi: ${task.posName}',
+                                    style: TextStyle(fontSize: 11.5, color: textSub),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Dilepas oleh ${task.handoverDari ?? '-'}'
+                                    '${lastLog != null && lastLog.alasan.isNotEmpty ? ' — ${lastLog.alasan}' : ''}',
+                                    style: TextStyle(fontSize: 11, color: textSub, fontStyle: FontStyle.italic),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: ElevatedButton.icon(
+                                      onPressed: () => _ambilTugas(task),
+                                      icon: const Icon(Icons.pan_tool_alt_outlined, size: 15),
+                                      label: const Text(
+                                        'Ambil & Kerjakan',
+                                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF0EA5E9),
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size(0, 38),
+                                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        elevation: 0,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
                       ],
                     ),
             ),

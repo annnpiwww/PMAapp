@@ -9,6 +9,7 @@ class SpvTaskCard extends StatelessWidget {
   final bool isDark;
   final bool isExpanded;
   final VoidCallback onToggleExpand;
+  final VoidCallback? onHandover;
 
   const SpvTaskCard({
     super.key,
@@ -16,6 +17,7 @@ class SpvTaskCard extends StatelessWidget {
     required this.isDark,
     required this.isExpanded,
     required this.onToggleExpand,
+    this.onHandover,
   });
 
   String _getInitial(String name) {
@@ -125,7 +127,7 @@ class SpvTaskCard extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            task.teknisiNama,
+                            task.labelPelaksana,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -217,7 +219,54 @@ class SpvTaskCard extends StatelessWidget {
                             ),
                           ),
                         ],
+                        if (task.isHandover) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0EA5E9).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: const Text(
+                              'LANJUTAN',
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0EA5E9),
+                              ),
+                            ),
+                          ),
+                        ],
                         const Spacer(),
+                        if (!isDone && onHandover != null) ...[
+                          InkWell(
+                            onTap: onHandover,
+                            borderRadius: BorderRadius.circular(4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.accent.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: AppColors.accent.withValues(alpha: 0.35), width: 0.8),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.swap_horiz_rounded, size: 10, color: AppColors.accent),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'Alihkan',
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.accent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                         if (isDone) ...[
                           InkWell(
                             onTap: () => CompletedDailyTaskModal.show(context, task),

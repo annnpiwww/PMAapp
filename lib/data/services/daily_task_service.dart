@@ -189,6 +189,15 @@ class DailyTaskService {
     return false;
   }
 
+  /// Tugas ini milik/ikut dikerjakan [nama]? Pemilik ATAU pelaksana tambahan.
+  static bool isAssignedTo(DailyTaskModel task, String nama) {
+    if (_matchesTechnician(task.teknisiNama, nama)) return true;
+    for (final p in task.pesertaList) {
+      if (_matchesTechnician(p, nama)) return true;
+    }
+    return false;
+  }
+
   /// Ambil daftar tugas harian untuk teknisi tertentu (semua tugas pending + tugas hari ini)
   static Future<List<DailyTaskModel>> getTasksForTeknisi({
     required String tanggal,
@@ -223,7 +232,7 @@ class DailyTaskService {
     if (!serverSuccess) {
       // Offline fallback: filter dari cache lokal berdasarkan nama teknisi
       final offlineFiltered = localCached.where((t) {
-        if (!_matchesTechnician(t.teknisiNama, teknisiNama)) return false;
+        if (!isAssignedTo(t, teknisiNama)) return false;
         return !t.isCompleted || t.tanggal == tanggal;
       }).toList();
       offlineFiltered.sort((a, b) => b.id.compareTo(a.id));
@@ -231,12 +240,12 @@ class DailyTaskService {
       return offlineFiltered;
     }
 
-    final serverFiltered = allTasks.where((t) => _matchesTechnician(t.teknisiNama, teknisiNama)).toList();
+    final serverFiltered = allTasks.where((t) => isAssignedTo(t, teknisiNama)).toList();
     final serverIds = serverFiltered.map((t) => t.id).toSet();
     final pendingLocal = localCached.where((t) {
       if (!t.id.startsWith('local_')) return false;
       if (serverIds.contains(t.id)) return false;
-      if (!_matchesTechnician(t.teknisiNama, teknisiNama)) return false;
+      if (!isAssignedTo(t, teknisiNama)) return false;
       return !t.isCompleted || t.tanggal == tanggal;
     }).toList();
 
@@ -284,7 +293,7 @@ class DailyTaskService {
     syncedList.sort((a, b) => b.id.compareTo(a.id));
 
     // Cache ke local storage untuk offline access di basement
-    final otherTasks = localCached.where((t) => !_matchesTechnician(t.teknisiNama, teknisiNama)).toList();
+    final otherTasks = localCached.where((t) => !isAssignedTo(t, teknisiNama)).toList();
     await _cacheTasksLocally([...syncedList, ...otherTasks]);
     debugPrint('[DailyTaskService] getTasksForTeknisi: loaded ${syncedList.length}/${allTasks.length} tasks for "$teknisiNama"');
 
@@ -292,17 +301,21 @@ class DailyTaskService {
     return syncedList;
   }
 
-  /// SPV: Ambil semua tugas hari ini dari seluruh teknisi (Online dengan Offline Cache Fallback)
+  /// SPV: Ambil semua tugas hari ini dari seluruh teknisi (Online dengan Offline Cache Fallback).
+  /// Termasuk tugas pending beberapa hari terakhir supaya pekerjaan yang diserahkan
+  /// shift sebelumnya (serah terima) tetap terlihat di layar SPV.
   static Future<List<DailyTaskModel>> getAllTasksToday(String tanggal) async {
     List<DailyTaskModel> serverTasks = [];
     bool serverSuccess = false;
 
+    final batasLanjutan = _tanggalBatasLanjutan(tanggal);
+
     try {
       final uri = Uri.parse('$baseUrl/rest/v1/daily_tasks').replace(
         queryParameters: {
-          'tanggal': 'eq.$tanggal',
+          'or': '(tanggal.eq.$tanggal,and(status.eq.pending,tanggal.gte.$batasLanjutan))',
           'order': 'created_at.desc',
-          'limit': '100',
+          'limit': '200',
         },
       );
       final res = await http.get(uri, headers: _getHeaders).timeout(const Duration(seconds: 8));
@@ -319,7 +332,9 @@ class DailyTaskService {
     }
 
     final localCached = getCachedTasksLocally();
-    final localForDate = localCached.where((t) => t.tanggal == tanggal).toList();
+    final localForDate = localCached
+        .where((t) => t.tanggal == tanggal || !t.isCompleted)
+        .toList();
 
     if (!serverSuccess) {
       debugPrint('[DailyTaskService] getAllTasksToday fallback offline: ${localForDate.length} tugas di cache lokal');
@@ -373,12 +388,25 @@ class DailyTaskService {
 
     syncedList.sort((a, b) => b.id.compareTo(a.id));
 
-    // Simpan ke local cache (gabungkan dengan tanggal lainnya)
-    final otherDateTasks = localCached.where((t) => t.tanggal != tanggal).toList();
+    // Simpan ke local cache (gabungkan dengan tanggal lainnya, tanpa id kembar)
+    final keptIds = syncedList.map((t) => t.id).toSet();
+    final otherDateTasks = localCached
+        .where((t) => t.tanggal != tanggal && !keptIds.contains(t.id))
+        .toList();
     await _cacheTasksLocally([...syncedList, ...otherDateTasks]);
 
     unawaited(flushPendingTaskCreationQueue());
     return syncedList;
+  }
+
+  /// Batas tanggal untuk menarik tugas pending lama (serah terima antar shift).
+  static String _tanggalBatasLanjutan(String tanggal) {
+    try {
+      final d = DateTime.parse(tanggal).subtract(const Duration(days: 7));
+      return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return tanggal;
+    }
   }
 
   /// Cari submission maintenance yang sedang berjalan (draft / in-progress) untuk sebuah DailyTask
@@ -533,6 +561,7 @@ class DailyTaskService {
   }
 
   /// SPV: Buat tugas baru untuk teknisi (Online dengan Offline & Local Cache Fallback)
+  /// [peserta] diisi kalau tugas dikerjakan bareng (nama tambahan, dipisah koma).
   static Future<DailyTaskModel?> createTask({
     required String tanggal,
     required String teknisiNama,
@@ -542,7 +571,9 @@ class DailyTaskService {
     String deskripsi = '',
     String kategori = 'khusus',
     String? templateId,
+    String peserta = '',
   }) async {
+    final pesertaClean = peserta.trim();
     // shortcut: dedupe per (tanggal, teknisi, judul, pos) supaya klik dobel /
     // request timeout tidak melahirkan tugas kembar. Perlu penugasan ulang di
     // hari yang sama? Upgrade ke kunci yang menyertakan jam/urutan dispatch.
@@ -570,6 +601,8 @@ class DailyTaskService {
       'kategori': kategori,
       'template_id': templateId,
       'status': 'pending',
+      // Hanya dikirim kalau ada, supaya instalasi lama (kolom belum ada) tetap jalan.
+      if (pesertaClean.isNotEmpty) 'peserta': pesertaClean,
     };
 
     DailyTaskModel? resultTask;
@@ -635,6 +668,7 @@ class DailyTaskService {
         jamSelesai: null,
         fotoBuktiUrls: const [],
         catatanTeknisi: null,
+        peserta: pesertaClean,
       );
       // Simpan ke antrean sinkronisasi offline (menggunakan localId)
       final offlinePayload = Map<String, dynamic>.from(payload)..['id'] = localId;
@@ -660,6 +694,130 @@ class DailyTaskService {
     } catch (_) {}
 
     return resultTask;
+  }
+
+  static String _stampSekarang() {
+    final n = DateTime.now();
+    const bulan = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    return '${n.day.toString().padLeft(2, '0')} ${bulan[n.month - 1]} '
+        '${n.hour.toString().padLeft(2, '0')}:${n.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Serah terima tugas yang belum selesai ke shift berikutnya.
+  /// [keTeknisi] kosong = dilepas ke daftar terbuka (siapa pun boleh ambil).
+  static Future<bool> transferTask({
+    required DailyTaskModel task,
+    required String keTeknisi,
+    required String alasan,
+    required String olehSiapa,
+  }) async {
+    final tujuan = keTeknisi.trim();
+    final entry = TaskHandover(
+      dari: olehSiapa.trim().isEmpty ? task.teknisiNama : olehSiapa.trim(),
+      ke: tujuan,
+      alasan: alasan.trim().replaceAll('|', '/').replaceAll('\n', ' '),
+      waktu: _stampSekarang(),
+    );
+    final logBaru = task.handoverList.map((e) => e.toLine()).toList()..add(entry.toLine());
+
+    final updated = task.copyWith(
+      teknisiNama: tujuan.isNotEmpty ? tujuan : task.teknisiNama,
+      // Penerus mulai dari nol; kalau dilepas terbuka, pelaksana lama tetap tercatat.
+      peserta: tujuan.isNotEmpty ? '' : task.peserta,
+      serahTerima: logBaru.join('\n'),
+      status: TaskStatus.pending,
+    );
+
+    if (task.id.startsWith('local_')) {
+      await _upsertTaskToLocalCache(updated);
+      return true;
+    }
+
+    try {
+      final uri = Uri.parse('$baseUrl/rest/v1/daily_tasks').replace(
+        queryParameters: {'id': 'eq.${task.id}'},
+      );
+      final res = await http.patch(
+        uri,
+        headers: {..._headers, 'Prefer': 'return=representation'},
+        body: jsonEncode({
+          'teknisi_nama': updated.teknisiNama,
+          'peserta': updated.peserta,
+          'serah_terima': updated.serahTerima,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        await _upsertTaskToLocalCache(updated);
+        return true;
+      }
+      debugPrint('[DailyTaskService] transferTask gagal: ${res.statusCode} ${res.body}');
+      return false;
+    } catch (e) {
+      debugPrint('[DailyTaskService] transferTask error: $e');
+      return false;
+    }
+  }
+
+  /// Teknisi shift berikutnya mengambil tugas yang dilepas ke daftar terbuka.
+  static Future<bool> claimTask({
+    required DailyTaskModel task,
+    required String olehSiapa,
+  }) {
+    return transferTask(
+      task: task,
+      keTeknisi: olehSiapa,
+      alasan: 'Ambil tugas terbuka',
+      olehSiapa: task.handoverDari ?? task.teknisiNama,
+    );
+  }
+
+  /// Tugas yang diserahkan tanpa penerus (daftar terbuka) di cabang aktif.
+  /// [excludeTeknisi] dipakai supaya tugas yang sudah jadi milik teknisi ini tidak muncul lagi.
+  static Future<List<DailyTaskModel>> getOpenHandoverTasks({
+    String? excludeTeknisi,
+  }) async {
+    List<DailyTaskModel> kandidat = [];
+
+    try {
+      final uri = Uri.parse('$baseUrl/rest/v1/daily_tasks').replace(
+        queryParameters: {
+          'status': 'eq.pending',
+          'serah_terima': 'not.is.null',
+          'order': 'created_at.desc',
+          'limit': '50',
+        },
+      );
+      final res = await http.get(uri, headers: _getHeaders).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final List items = decoded is List
+            ? decoded
+            : ((decoded as Map<String, dynamic>)['items'] as List? ?? []);
+        kandidat = items.map((e) => DailyTaskModel.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      debugPrint('[DailyTaskService] getOpenHandoverTasks error: $e');
+    }
+
+    if (kandidat.isEmpty) {
+      kandidat = getCachedTasksLocally();
+    }
+
+    final posCabang = LocationService.getLocationsByBranch(BranchService.instance.currentBranch);
+    return kandidat.where((t) {
+      if (!t.isOpenHandover) return false;
+      if (excludeTeknisi != null && excludeTeknisi.isNotEmpty && isAssignedTo(t, excludeTeknisi)) {
+        return false;
+      }
+      return posCabang.any((p) =>
+          p.locationTag.toUpperCase() == t.posTag.toUpperCase() ||
+          p.posName.toLowerCase() == t.posName.toLowerCase());
+    }).toList();
   }
 
   /// Format pesan Telegram notifikasi penugasan baru dari SPV
@@ -928,15 +1086,22 @@ class DailyTaskService {
   }
 
   /// Format mikro pelaporan per-task: Pure caption catatan teknisi (tanpa judul & tanpa prefiks)
+  /// [partners] diisi kalau tugas dikerjakan bareng, mis. `['Budi']`.
   static String formatPerTaskReport({
     String? judul,
     required String notes,
+    List<String> partners = const [],
   }) {
     final cleanNotes = notes.trim();
-    if (cleanNotes.isNotEmpty && cleanNotes != '-') {
-      return cleanNotes;
-    }
-    return (judul != null && judul.trim().isNotEmpty) ? judul.trim() : '';
+    final dasar = cleanNotes.isNotEmpty && cleanNotes != '-'
+        ? cleanNotes
+        : ((judul != null && judul.trim().isNotEmpty) ? judul.trim() : '');
+    if (dasar.isEmpty) return '';
+    if (partners.isEmpty) return dasar;
+
+    final bersih = partners.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (bersih.isEmpty) return dasar;
+    return '$dasar\nDikerjakan bersama ${bersih.join(', ')}';
   }
 
   /// Format makro pelaporan rekapitulasi harian (hanya teks ringkasan)
@@ -1042,7 +1207,13 @@ class DailyTaskService {
 
         sb.writeln('$shift : $tech');
         for (int i = 0; i < techTasks.length; i++) {
-          sb.writeln('${i + 1}. ${techTasks[i].judul.trim()}');
+          final t = techTasks[i];
+          final tags = <String>[
+            if (t.isShared) 'bersama ${t.pesertaList.join(', ')}',
+            if (t.isHandover) 'lanjutan${t.handoverDari != null ? ' dari ${t.handoverDari}' : ''}',
+          ];
+          final suffix = tags.isEmpty ? '' : ' (${tags.join(', ')})';
+          sb.writeln('${i + 1}. ${t.judul.trim()}$suffix');
         }
         sb.writeln();
       }
@@ -1063,8 +1234,12 @@ class DailyTaskService {
     final tglIndo = _formatTanggalIndo(tanggal);
     final completed = tasks.where((t) => t.isCompleted).toList();
     final pending = tasks.where((t) => !t.isCompleted).toList();
-    final total = tasks.length;
-    final percent = total > 0 ? ((completed.length / total) * 100).toInt() : 0;
+    // Progres dihitung dari tugas bertanggal hari itu saja. Tugas yang diserahkan
+    // ke shift berikutnya tetap terhitung "belum selesai" di rekap hari asalnya.
+    final tugasHariIni = tasks.where((t) => t.tanggal == tanggal).toList();
+    final completedHariIni = tugasHariIni.where((t) => t.isCompleted).length;
+    final total = tugasHariIni.length;
+    final percent = total > 0 ? ((completedHariIni / total) * 100).toInt() : 0;
 
     final activeBranch = branch ??
         (cabangName != null && cabangName.isNotEmpty
@@ -1079,12 +1254,15 @@ class DailyTaskService {
     final spvFormatted = activeBranch == AppBranch.bali ? spvStr : spvStr.toUpperCase();
     sb.writeln('SPV : $spvFormatted');
     sb.writeln('Tanggal : $tglIndo');
-    sb.writeln('Proggress : ${completed.length}/$total ($percent%)');
+    sb.writeln('Proggress : $completedHariIni/$total ($percent%)');
 
-    // Status Daily Teknisi
+    // Status Daily Teknisi (tugas bareng ikut terhitung untuk semua pelaksananya)
     final techMap = <String, List<DailyTaskModel>>{};
     for (final t in tasks) {
-      techMap.putIfAbsent(t.teknisiNama, () => []).add(t);
+      for (final nama in {t.teknisiNama, ...t.pesertaList}) {
+        if (nama.trim().isEmpty) continue;
+        techMap.putIfAbsent(nama, () => []).add(t);
+      }
     }
     if (techMap.isNotEmpty) {
       sb.writeln('\nStatus Daily Teknisi :');
@@ -1096,12 +1274,15 @@ class DailyTaskService {
       }
     }
 
+    String lanjutanMark(DailyTaskModel t) =>
+        t.isHandover ? ' [lanjutan dari ${t.handoverDari}]' : '';
+
     if (completed.isNotEmpty) {
       sb.writeln('\nSelesai (${completed.length}):');
       for (int i = 0; i < completed.length; i++) {
         final t = completed[i];
         final timeStr = (t.jamSelesai != null && t.jamSelesai!.isNotEmpty) ? ' [${t.jamSelesai}]' : '';
-        sb.writeln('${i + 1}. ${t.teknisiNama} - ${t.judul} (${t.posName})$timeStr');
+        sb.writeln('${i + 1}. ${t.labelPelaksana} - ${t.judul} (${t.posName})$timeStr${lanjutanMark(t)}');
       }
     }
 
@@ -1109,7 +1290,18 @@ class DailyTaskService {
       sb.writeln('\nBelum Selesai (${pending.length}):');
       for (int i = 0; i < pending.length; i++) {
         final t = pending[i];
-        sb.writeln('${i + 1}. ${t.teknisiNama} - ${t.judul} (${t.posName})');
+        sb.writeln('${i + 1}. ${t.labelPelaksana} - ${t.judul} (${t.posName})${lanjutanMark(t)}');
+      }
+    }
+
+    final serahTerima = pending.where((t) => t.isHandover).toList();
+    if (serahTerima.isNotEmpty) {
+      sb.writeln('\nSerah Terima (belum selesai):');
+      for (final t in serahTerima) {
+        final e = t.handoverList.last;
+        final tujuan = e.isOpen ? 'terbuka, siapa pun boleh ambil' : e.ke;
+        final alasan = e.alasan.isEmpty ? '' : ', ${e.alasan}';
+        sb.writeln('- ${t.judul} (${t.posName}) — ${e.dari} → $tujuan$alasan');
       }
     }
 

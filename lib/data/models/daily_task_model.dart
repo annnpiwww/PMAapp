@@ -35,6 +35,38 @@ enum TaskStatus {
   }
 }
 
+/// Satu baris log serah terima tugas antar shift.
+/// Disimpan di kolom `serah_terima` dengan pemisah `|`, antar entri dipisah newline.
+class TaskHandover {
+  final String dari; // teknisi yang menyerahkan
+  final String ke; // '' = terbuka untuk siapa pun
+  final String alasan;
+  final String waktu; // '18 Okt 21:10'
+
+  const TaskHandover({
+    required this.dari,
+    required this.ke,
+    required this.alasan,
+    required this.waktu,
+  });
+
+  bool get isOpen => ke.trim().isEmpty;
+
+  /// Alasan tidak boleh memuat '|' atau newline, karena itu pemisah baris log.
+  String toLine() => '$dari|$ke|$alasan|$waktu';
+
+  static TaskHandover? tryParse(String line) {
+    final parts = line.split('|');
+    if (parts.length < 4) return null;
+    return TaskHandover(
+      dari: parts[0].trim(),
+      ke: parts[1].trim(),
+      alasan: parts[2].trim(),
+      waktu: parts.sublist(3).join('|').trim(),
+    );
+  }
+}
+
 class DailyTaskModel {
   final String id;
   final String tanggal; // YYYY-MM-DD
@@ -51,6 +83,12 @@ class DailyTaskModel {
   final List<String> fotoBuktiUrls;
   final String? catatanTeknisi;
 
+  /// Pelaksana tambahan (tugas dikerjakan bareng), dipisah koma.
+  final String peserta;
+
+  /// Log serah terima antar shift (baris-baris `TaskHandover`).
+  final String serahTerima;
+
   DailyTaskModel({
     required this.id,
     required this.tanggal,
@@ -66,10 +104,46 @@ class DailyTaskModel {
     this.jamSelesai,
     this.fotoBuktiUrls = const [],
     this.catatanTeknisi,
+    this.peserta = '',
+    this.serahTerima = '',
   });
 
   bool get isCompleted => status == TaskStatus.completed;
   bool get isMaintenance => kategori == 'maintenance';
+
+  /// Nama pelaksana tambahan (tanpa pemilik).
+  List<String> get pesertaList => peserta
+      .split(',')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toList();
+
+  /// Tugas dikerjakan lebih dari satu orang.
+  bool get isShared => pesertaList.isNotEmpty;
+
+  /// Tugas hasil serah terima shift sebelumnya.
+  bool get isHandover => handoverList.isNotEmpty;
+
+  /// Serah terima yang belum ada penerusnya: siapa pun boleh ambil.
+  bool get isOpenHandover =>
+      !isCompleted && handoverList.isNotEmpty && handoverList.last.isOpen;
+
+  List<TaskHandover> get handoverList => serahTerima
+      .split('\n')
+      .map((l) => TaskHandover.tryParse(l))
+      .whereType<TaskHandover>()
+      .toList();
+
+  /// Teknisi yang menyerahkan tugas ini (untuk badge "Lanjutan dari X").
+  String? get handoverDari {
+    final list = handoverList;
+    return list.isEmpty ? null : list.last.dari;
+  }
+
+  /// Label pelaksana untuk laporan, mis. `Andi + Budi`.
+  String get labelPelaksana => isShared
+      ? '$teknisiNama + ${pesertaList.join(' + ')}'
+      : teknisiNama;
 
   DailyTaskModel copyWith({
     String? id,
@@ -86,6 +160,8 @@ class DailyTaskModel {
     String? jamSelesai,
     List<String>? fotoBuktiUrls,
     String? catatanTeknisi,
+    String? peserta,
+    String? serahTerima,
   }) {
     return DailyTaskModel(
       id: id ?? this.id,
@@ -102,6 +178,8 @@ class DailyTaskModel {
       jamSelesai: jamSelesai ?? this.jamSelesai,
       fotoBuktiUrls: fotoBuktiUrls ?? this.fotoBuktiUrls,
       catatanTeknisi: catatanTeknisi ?? this.catatanTeknisi,
+      peserta: peserta ?? this.peserta,
+      serahTerima: serahTerima ?? this.serahTerima,
     );
   }
 
@@ -120,6 +198,8 @@ class DailyTaskModel {
     'jam_selesai': jamSelesai,
     'foto_bukti': fotoBuktiUrls,
     'catatan_teknisi': catatanTeknisi,
+    'peserta': peserta,
+    'serah_terima': serahTerima,
   };
 
   factory DailyTaskModel.fromJson(Map<String, dynamic> json) {
@@ -147,6 +227,8 @@ class DailyTaskModel {
       jamSelesai: json['jam_selesai'] as String?,
       fotoBuktiUrls: photos,
       catatanTeknisi: json['catatan_teknisi'] as String?,
+      peserta: json['peserta'] as String? ?? '',
+      serahTerima: json['serah_terima'] as String? ?? '',
     );
   }
 }
