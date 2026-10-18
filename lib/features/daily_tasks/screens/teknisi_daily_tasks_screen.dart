@@ -48,12 +48,12 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
         final now = DateTime.now();
         final tomorrow = now.add(const Duration(days: 1));
         if (taskDate.year == tomorrow.year && taskDate.month == tomorrow.month && taskDate.day == tomorrow.day) {
-          return '📅 Besok';
+          return 'Besok';
         }
-        return '📅 ${parts[2]}/${parts[1]}';
+        return '${parts[2]}/${parts[1]}';
       }
     } catch (_) {}
-    return '📅 $tanggal';
+    return tanggal;
   }
 
   Future<void> _loadTasks() async {
@@ -290,18 +290,17 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
     final done = _tasks.where((t) => t.isCompleted).length;
     final isDark = ThemeService.isDarkMode(context);
 
-    final bgScaffold = isDark ? const Color(0xFF0B1120) : const Color(0xFFFAF8F5);
-    final bgAppBar = isDark ? const Color(0xFF111827) : AppColors.primary;
-    final bgCard = isDark ? const Color(0xFF111827) : Colors.white;
-    final borderCard = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
-    final textHead = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSub = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final bg = isDark ? const Color(0xFF0B1120) : const Color(0xFFFAF8F5);
+    final line = isDark ? const Color(0xFF1E293B) : const Color(0xFFE5E1D8);
+    final textHead = isDark ? Colors.white : const Color(0xFF111827);
+    final textSub = isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280);
 
     return Scaffold(
-      backgroundColor: bgScaffold,
+      backgroundColor: bg,
       appBar: AppBar(
-        backgroundColor: bgAppBar,
+        backgroundColor: isDark ? const Color(0xFF111827) : AppColors.primary,
         elevation: 0,
+        titleSpacing: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -309,17 +308,18 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
               'Daily Task',
               style: TextStyle(
                 fontFamily: 'PlusJakartaSans',
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),
             ),
+            const SizedBox(height: 1),
             Text(
               user?.nama ?? 'IT Support KC BSG',
               style: TextStyle(
                 fontFamily: 'PlusJakartaSans',
-                fontSize: 11,
-                color: isDark ? const Color(0xFF94A3B8) : Colors.white70,
+                fontSize: 11.5,
+                color: Colors.white.withValues(alpha: 0.72),
               ),
             ),
           ],
@@ -332,491 +332,489 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
           ),
         ],
       ),
-      floatingActionButton: _isLoading
+      bottomNavigationBar: _isLoading
           ? null
-          : FloatingActionButton.extended(
-              onPressed: _catatKerjaan,
-              backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Catat Kerjaan'),
+          : SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+                decoration: BoxDecoration(
+                  color: bg,
+                  border: Border(top: BorderSide(color: line)),
+                ),
+                child: SizedBox(
+                  height: 46,
+                  child: FilledButton.icon(
+                    onPressed: _catatKerjaan,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text(
+                      'Catat Kerjaan',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ),
             ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
           : RefreshIndicator(
               onRefresh: _loadTasks,
               color: AppColors.accent,
-              child: _tasks.isEmpty
-                  ? ListView(
-                      padding: const EdgeInsets.all(24),
-                      children: [
-                        const SizedBox(height: 60),
-                        Icon(Icons.assignment_turned_in_outlined, size: 56, color: isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8)),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Belum Ada Tugas Hari Ini',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: textHead,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Belum ada tugas dari SPV hari ini.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontSize: 12,
-                            color: textSub,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Center(
-                          child: OutlinedButton.icon(
-                            onPressed: _loadTasks,
-                            icon: const Icon(Icons.refresh_rounded, size: 16),
-                            label: const Text('Cek Ulang'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: textHead,
-                              side: BorderSide(color: borderCard),
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-                      children: [
-                        // Status Card Ringkas
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: bgCard,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: borderCard),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Status Pengerjaan',
-                                    style: TextStyle(fontSize: 11, color: textSub),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '$done dari $total Selesai',
-                                    style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      color: textHead,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: (done == total ? AppColors.success : AppColors.accent).withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: done == total ? AppColors.success : AppColors.accent),
-                                ),
-                                child: Text(
-                                  done == total ? 'Semua Selesai' : '${total - done} Belum',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: done == total ? AppColors.success : AppColors.accent,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                children: [
+                  _progressBlock(done: done, total: total, textHead: textHead, textSub: textSub, line: line),
+                  _infoLaporanPulang(textSub: textSub, line: line),
+                  _sectionHeader(
+                    'Tugas Hari Ini',
+                    _tasks.isEmpty ? null : '$total tugas',
+                    textHead: textHead,
+                    textSub: textSub,
+                  ),
+                  if (_tasks.isEmpty)
+                    _emptyToday(textSub)
+                  else
+                    ..._tasks.map(
+                      (task) => _taskRow(
+                        task,
+                        isDark: isDark,
+                        line: line,
+                        textHead: textHead,
+                        textSub: textSub,
+                      ),
+                    ),
+                  if (_openTasks.isNotEmpty) ...[
+                    _sectionHeader(
+                      'Tugas Shift Sebelumnya',
+                      '${_openTasks.length} belum selesai',
+                      textHead: textHead,
+                      textSub: textSub,
+                    ),
+                    ..._openTasks.map(
+                      (task) => _openTaskRow(
+                        task,
+                        line: line,
+                        textHead: textHead,
+                        textSub: textSub,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+    );
+  }
 
-                        // Info Integrasi Laporan Pulang
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.2),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Tugas yang selesai otomatis masuk ke Laporan Pulang saat absen pulang.',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isDark ? const Color(0xFFE2E8F0) : AppColors.textPrimary,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 14),
+  Widget _progressBlock({
+    required int done,
+    required int total,
+    required Color textHead,
+    required Color textSub,
+    required Color line,
+  }) {
+    final semua = total > 0 && done == total;
+    final value = total == 0 ? 0.0 : done / total;
+    final accent = semua ? AppColors.success : AppColors.primary;
 
-                        // List Tugas
-                        ..._tasks.map((task) {
-                          final isDone = task.isCompleted ||
-                              (DailyTaskService.getCachedTasksLocally().any((ct) => ct.id == task.id && ct.isCompleted));
-                          final isKhusus = task.kategori == 'khusus' || task.templateId == null || task.templateId!.isEmpty;
-                          final ongoingMaint = !isDone ? DailyTaskService.getOngoingMaintenance(task) : null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 18, bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'STATUS PENGERJAAN',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        letterSpacing: 1.1,
+                        fontWeight: FontWeight.w600,
+                        color: textSub,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '$done dari $total selesai',
+                      style: TextStyle(
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                        height: 1.1,
+                        color: textHead,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    semua ? Icons.check_circle_rounded : Icons.schedule_rounded,
+                    size: 15,
+                    color: accent,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    semua ? 'Semua selesai' : 'Sisa ${(total - done).clamp(0, total)}',
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: accent),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: value.clamp(0.0, 1.0),
+              minHeight: 4,
+              backgroundColor: line,
+              valueColor: AlwaysStoppedAnimation<Color>(accent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            decoration: BoxDecoration(
-                              color: bgCard,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isDone ? AppColors.success.withValues(alpha: 0.3) : borderCard,
-                              ),
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: isDone ? () => CompletedDailyTaskModal.show(context, task) : null,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(14),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                // Top row: Kategori & Status
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: isKhusus
-                                                ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
-                                                : const Color(0xFF3B82F6).withValues(alpha: 0.15),
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(
-                                              color: isKhusus
-                                                  ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
-                                                  : const Color(0xFF3B82F6).withValues(alpha: 0.35),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            isKhusus ? 'Tugas Khusus' : 'Maintenance',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w700,
-                                              color: isKhusus ? const Color(0xFFFBBF24) : const Color(0xFF60A5FA),
-                                            ),
-                                          ),
-                                        ),
-                                        if (task.tanggal != _todayStr()) ...[
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.accent.withValues(alpha: 0.15),
-                                              borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
-                                            ),
-                                            child: Text(
-                                              _formatTaskDateBadge(task.tanggal),
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.accent,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: isDone
-                                            ? AppColors.success.withValues(alpha: 0.15)
-                                            : (ongoingMaint != null
-                                                ? AppColors.accent.withValues(alpha: 0.15)
-                                                : const Color(0xFFF59E0B).withValues(alpha: 0.15)),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(
-                                          color: isDone
-                                              ? AppColors.success
-                                              : (ongoingMaint != null
-                                                  ? AppColors.accent
-                                                  : const Color(0xFFF59E0B).withValues(alpha: 0.35)),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        isDone
-                                            ? 'Selesai'
-                                            : (ongoingMaint != null
-                                                ? 'Proses (${ongoingMaint.doneCount}/${ongoingMaint.totalPoints})'
-                                                : 'Baru'),
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: isDone
-                                              ? AppColors.success
-                                              : (ongoingMaint != null ? AppColors.accent : const Color(0xFFFBBF24)),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
+  Widget _infoLaporanPulang({required Color textSub, required Color line}) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline_rounded, size: 15, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Tugas yang selesai otomatis masuk ke Laporan Pulang saat absen pulang.',
+                  style: TextStyle(fontSize: 11.5, height: 1.35, color: textSub),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Divider(height: 1, thickness: 1, color: line),
+      ],
+    );
+  }
 
-                                // Judul Pekerjaan (Tercoret jelas bila status selesai)
-                                Text(
-                                  task.judul,
-                                  style: TextStyle(
-                                    fontFamily: 'PlusJakartaSans',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDone ? textSub : textHead,
-                                    decoration: isDone ? TextDecoration.lineThrough : null,
-                                    decorationColor: isDone ? (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)) : null,
-                                    decorationThickness: isDone ? 2.2 : null,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
+  Widget _sectionHeader(String title, String? trailing, {required Color textHead, required Color textSub}) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 22, bottom: 2),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.1,
+              color: textHead,
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(trailing, style: TextStyle(fontSize: 11, color: textSub)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
-                                // Lokasi
-                                Text(
-                                  'Lokasi: ${task.posName}',
-                                  style: TextStyle(fontSize: 12, color: textSub, fontWeight: FontWeight.w500),
-                                ),
+  Widget _emptyToday(Color textSub) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Belum ada tugas dari SPV hari ini.',
+              style: TextStyle(fontSize: 12, color: textSub),
+            ),
+          ),
+          TextButton(
+            onPressed: _loadTasks,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 36),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text('Cek Ulang', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
 
-                                if (task.isShared || task.isHandover) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    [
-                                      if (task.isShared) '👥 Bersama ${task.pesertaList.join(', ')}',
-                                      if (task.isHandover) '↪ Lanjutan dari ${task.handoverDari ?? '-'}',
-                                    ].join('  •  '),
-                                    style: const TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF0EA5E9),
-                                    ),
-                                  ),
-                                ],
+  Widget _taskRow(
+    DailyTaskModel task, {
+    required bool isDark,
+    required Color line,
+    required Color textHead,
+    required Color textSub,
+  }) {
+    final isDone = task.isCompleted ||
+        DailyTaskService.getCachedTasksLocally().any((ct) => ct.id == task.id && ct.isCompleted);
+    final isKhusus = task.kategori == 'khusus' || task.templateId == null || task.templateId!.isEmpty;
+    final ongoing = !isDone ? DailyTaskService.getOngoingMaintenance(task) : null;
+    final statusColor = isDone ? AppColors.success : (ongoing != null ? AppColors.accent : textSub);
+    final statusText = isDone
+        ? 'Selesai'
+        : (ongoing != null ? 'Proses ${ongoing.doneCount}/${ongoing.totalPoints}' : 'Belum dikerjakan');
+    final jamSelesai = (task.jamSelesai ?? '').trim();
 
-                                if (task.deskripsi.isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    task.deskripsi,
-                                    style: TextStyle(fontSize: 11, color: textSub),
-                                  ),
-                                ],
-
-                                if (ongoingMaint != null) ...[
-                                  const SizedBox(height: 10),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            'Progres Maintenance',
-                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textSub),
-                                          ),
-                                          Text(
-                                            '${ongoingMaint.doneCount}/${ongoingMaint.totalPoints} Foto (${(ongoingMaint.progress * 100).toInt()}%)',
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.accent,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 5),
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: LinearProgressIndicator(
-                                          value: ongoingMaint.progress,
-                                          backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
-                                          minHeight: 6,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-
-                                const SizedBox(height: 12),
-
-                                // Action Row: Tombol Kerjakan di Kanan Bawah
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    if (!isDone) ...[
-                                      OutlinedButton.icon(
-                                        onPressed: () => _serahkanTugas(task),
-                                        icon: const Icon(Icons.assignment_late_outlined, size: 15),
-                                        label: const Text(
-                                          'Belum Selesai',
-                                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                                        ),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: AppColors.danger,
-                                          side: BorderSide(color: AppColors.danger.withValues(alpha: 0.45)),
-                                          backgroundColor: AppColors.danger.withValues(alpha: 0.06),
-                                          minimumSize: const Size(0, 38),
-                                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      ElevatedButton.icon(
-                                        onPressed: () => _startTask(task),
-                                        icon: Icon(
-                                          ongoingMaint != null ? Icons.play_arrow_rounded : Icons.camera_alt_outlined,
-                                          size: 16,
-                                        ),
-                                        label: Text(
-                                          ongoingMaint != null ? 'Lanjutkan' : 'Kerjakan',
-                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: ongoingMaint != null ? AppColors.primary : AppColors.accent,
-                                          foregroundColor: Colors.white,
-                                          minimumSize: const Size(110, 44),
-                                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                          elevation: 0,
-                                        ),
-                                      ),
-                                    ] else
-                                      OutlinedButton.icon(
-                                        onPressed: () => CompletedDailyTaskModal.show(context, task),
-                                        icon: const Icon(Icons.photo_library_outlined, size: 14),
-                                        label: Text(
-                                          task.jamSelesai != null && task.jamSelesai!.isNotEmpty
-                                              ? 'Lihat Bukti (${task.jamSelesai})'
-                                              : 'Lihat Bukti',
-                                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                                        ),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: AppColors.success,
-                                          side: BorderSide(color: AppColors.success.withValues(alpha: 0.45)),
-                                          backgroundColor: AppColors.success.withValues(alpha: 0.08),
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          minimumSize: const Size(110, 38),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: isDone ? () => CompletedDailyTaskModal.show(context, task) : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        task.judul,
+                        style: TextStyle(
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 14.5,
+                          height: 1.35,
+                          fontWeight: FontWeight.w700,
+                          color: isDone ? textSub : textHead,
+                          decoration: isDone ? TextDecoration.lineThrough : null,
+                          decorationColor: textSub,
+                          decorationThickness: 1.6,
                         ),
                       ),
-                    );
-                        }),
-
-                        // Tugas terbuka: serah terima shift sebelumnya tanpa penerus
-                        if (_openTasks.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0EA5E9).withValues(alpha: isDark ? 0.15 : 0.08),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFF0EA5E9).withValues(alpha: 0.35)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.group_add_outlined, size: 16, color: Color(0xFF0EA5E9)),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Ada ${_openTasks.length} tugas belum selesai dari shift sebelumnya. Ambil kalau kamu bisa lanjutkan.',
-                                    style: TextStyle(fontSize: 11, color: textSub, height: 1.3),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          ..._openTasks.map((task) {
-                            final lastLog = task.handoverList.isNotEmpty ? task.handoverList.last : null;
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: bgCard,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFF0EA5E9).withValues(alpha: 0.35)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    task.judul,
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textHead),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Lokasi: ${task.posName}',
-                                    style: TextStyle(fontSize: 11.5, color: textSub),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    lastLog != null
-                                        ? 'Dilepas oleh ${task.handoverDari ?? '-'}'
-                                            '${lastLog.alasan.isNotEmpty ? ', ${lastLog.alasan}' : ''}'
-                                        : 'Belum selesai dari shift sebelumnya',
-                                    style: TextStyle(fontSize: 11, color: textSub, fontStyle: FontStyle.italic),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: ElevatedButton.icon(
-                                      onPressed: () => _ambilTugas(task),
-                                      icon: const Icon(Icons.pan_tool_alt_outlined, size: 15),
-                                      label: const Text(
-                                        'Ambil & Kerjakan',
-                                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF0EA5E9),
-                                        foregroundColor: Colors.white,
-                                        minimumSize: const Size(0, 38),
-                                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                        elevation: 0,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                        ],
+                    ),
+                    const SizedBox(width: 10),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isDone
+                              ? Icons.check_circle_rounded
+                              : (ongoing != null ? Icons.autorenew_rounded : Icons.circle_outlined),
+                          size: 13,
+                          color: statusColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          statusText,
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: statusColor),
+                        ),
                       ],
                     ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  [
+                    task.posName,
+                    isKhusus ? 'Tugas Khusus' : 'Maintenance',
+                    if (task.tanggal != _todayStr()) _formatTaskDateBadge(task.tanggal),
+                  ].where((e) => e.trim().isNotEmpty).join(' · '),
+                  style: TextStyle(fontSize: 11.5, color: textSub),
+                ),
+                if (task.isShared || task.isHandover) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    [
+                      if (task.isShared) 'Bersama ${task.pesertaList.join(', ')}',
+                      if (task.isHandover) 'Lanjutan dari ${task.handoverDari ?? '-'}',
+                    ].join(' · '),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? const Color(0xFF7DD3FC) : const Color(0xFF0369A1),
+                    ),
+                  ),
+                ],
+                if (task.deskripsi.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    task.deskripsi,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11.5, height: 1.4, color: textSub),
+                  ),
+                ],
+                if (ongoing != null) ...[
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: ongoing.progress,
+                      minHeight: 3,
+                      backgroundColor: line,
+                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                if (isDone)
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => CompletedDailyTaskModal.show(context, task),
+                        icon: const Icon(Icons.photo_library_outlined, size: 15, color: AppColors.success),
+                        label: Text(
+                          jamSelesai.isNotEmpty ? 'Lihat Bukti ($jamSelesai)' : 'Lihat Bukti',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.success,
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
+                          minimumSize: const Size(0, 36),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (jamSelesai.isNotEmpty) ...[
+                        Icon(Icons.schedule_rounded, size: 13, color: textSub),
+                        const SizedBox(width: 4),
+                        Text(jamSelesai, style: TextStyle(fontSize: 11, color: textSub)),
+                      ],
+                    ],
+                  )
+                else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => _serahkanTugas(task),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.danger,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(0, 40),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          'Belum Selesai',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      FilledButton.icon(
+                        onPressed: () => _startTask(task),
+                        icon: Icon(
+                          ongoing != null ? Icons.play_arrow_rounded : Icons.camera_alt_outlined,
+                          size: 16,
+                        ),
+                        label: Text(
+                          ongoing != null ? 'Lanjutkan' : 'Kerjakan',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.accent,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          minimumSize: const Size(0, 40),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
             ),
+          ),
+        ),
+        Divider(height: 1, thickness: 1, color: line),
+      ],
+    );
+  }
+
+  Widget _openTaskRow(
+    DailyTaskModel task, {
+    required Color line,
+    required Color textHead,
+    required Color textSub,
+  }) {
+    final lastLog = task.handoverList.isNotEmpty ? task.handoverList.last : null;
+    final asal = lastLog != null
+        ? 'Dilepas ${task.handoverDari ?? '-'}${lastLog.alasan.isNotEmpty ? ' · ${lastLog.alasan}' : ''}'
+        : 'Dari shift sebelumnya';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                task.judul,
+                style: TextStyle(
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 13.5,
+                  height: 1.35,
+                  fontWeight: FontWeight.w700,
+                  color: textHead,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                '${task.posName} · $asal',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11.5, height: 1.35, color: textSub),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Text(
+                    'Belum selesai',
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.danger),
+                  ),
+                  const Spacer(),
+                  FilledButton.icon(
+                    onPressed: () => _ambilTugas(task),
+                    icon: const Icon(Icons.pan_tool_alt_outlined, size: 15),
+                    label: const Text(
+                      'Ambil & Kerjakan',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      minimumSize: const Size(0, 40),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Divider(height: 1, thickness: 1, color: line),
+      ],
     );
   }
 }
