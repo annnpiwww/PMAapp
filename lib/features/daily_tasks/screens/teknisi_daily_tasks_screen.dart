@@ -783,8 +783,10 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Dilepas oleh ${task.handoverDari ?? '-'}'
-                                    '${lastLog != null && lastLog.alasan.isNotEmpty ? ', ${lastLog.alasan}' : ''}',
+                                    lastLog != null
+                                        ? 'Dilepas oleh ${task.handoverDari ?? '-'}'
+                                            '${lastLog.alasan.isNotEmpty ? ', ${lastLog.alasan}' : ''}'
+                                        : 'Belum selesai dari shift sebelumnya',
                                     style: TextStyle(fontSize: 11, color: textSub, fontStyle: FontStyle.italic),
                                   ),
                                   const SizedBox(height: 10),

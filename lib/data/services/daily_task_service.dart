@@ -8,6 +8,7 @@ import '../models/daily_task_model.dart';
 import '../models/maintenance_submission.dart';
 import '../services/storage_service.dart';
 import '../services/location_service.dart';
+import '../services/absensi_setup_service.dart';
 import 'branch_service.dart';
 import 'notification_service.dart';
 
@@ -778,6 +779,30 @@ class DailyTaskService {
 
   /// Tugas yang diserahkan tanpa penerus (daftar terbuka) di cabang aktif.
   /// [excludeTeknisi] dipakai supaya tugas yang sudah jadi milik teknisi ini tidak muncul lagi.
+  /// Tugas pending dianggap terbuka untuk shift berikutnya kalau:
+  /// - teknisi sudah melepasnya lewat `Belum Selesai`, atau
+  /// - jam pulang shift hari itu sudah lewat (ditinggal pulang), atau
+  /// - masih pending dari tanggal sebelumnya (lupa diserahkan).
+  /// Pemilik tetap bisa menyelesaikannya sendiri; ini cuma menambah jalan masuk.
+  static bool isTerbukaUntukShiftLain(DailyTaskModel task, {DateTime? sekarang}) {
+    if (task.isCompleted) return false;
+    if (task.isOpenHandover) return true;
+
+    final now = sekarang ?? DateTime.now();
+    final today =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    if (task.tanggal.compareTo(today) < 0) return true;
+    if (task.tanggal != today) return false;
+
+    final jamPulang = AbsensiSetupService.instance.effectiveJamPulang.split(':');
+    if (jamPulang.length < 2) return false;
+    final jam = int.tryParse(jamPulang[0]);
+    final menit = int.tryParse(jamPulang[1]);
+    if (jam == null || menit == null) return false;
+    final batas = DateTime(now.year, now.month, now.day, jam, menit);
+    return !now.isBefore(batas);
+  }
+
   static Future<List<DailyTaskModel>> getOpenHandoverTasks({
     String? excludeTeknisi,
   }) async {
@@ -787,9 +812,8 @@ class DailyTaskService {
       final uri = Uri.parse('$baseUrl/rest/v1/daily_tasks').replace(
         queryParameters: {
           'status': 'eq.pending',
-          'serah_terima': 'not.is.null',
           'order': 'created_at.desc',
-          'limit': '50',
+          'limit': '100',
         },
       );
       final res = await http.get(uri, headers: _getHeaders).timeout(const Duration(seconds: 8));
@@ -810,7 +834,7 @@ class DailyTaskService {
 
     final posCabang = LocationService.getLocationsByBranch(BranchService.instance.currentBranch);
     return kandidat.where((t) {
-      if (!t.isOpenHandover) return false;
+      if (!isTerbukaUntukShiftLain(t)) return false;
       if (excludeTeknisi != null && excludeTeknisi.isNotEmpty && isAssignedTo(t, excludeTeknisi)) {
         return false;
       }

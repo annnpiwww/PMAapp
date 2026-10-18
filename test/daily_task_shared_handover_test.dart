@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bssparking_timemark/data/models/daily_task_model.dart';
+import 'package:bssparking_timemark/data/services/absensi_setup_service.dart';
 import 'package:bssparking_timemark/data/services/branch_service.dart';
 import 'package:bssparking_timemark/data/services/daily_task_service.dart';
 import 'package:bssparking_timemark/data/services/storage_service.dart';
@@ -255,6 +256,54 @@ void main() {
       expect(recap, contains('Andi : 1/1 selesai'));
       expect(recap, contains('Budi : 1/2 selesai'));
       expect(recap, contains('Candra : 0/1 selesai'));
+    });
+  });
+
+  group('Tugas terbuka untuk shift berikutnya', () {
+    setUp(() => AbsensiSetupService.instance.jamPulang = '17:00');
+    tearDown(() => AbsensiSetupService.instance.jamPulang = '');
+
+    final jam5Sore = DateTime(2026, 10, 18, 16, 30);
+    final jam9Malam = DateTime(2026, 10, 18, 21, 10);
+
+    test('pending sebelum jam pulang masih milik pemiliknya', () {
+      final task = taskContoh(tanggal: '2026-10-18');
+      expect(DailyTaskService.isTerbukaUntukShiftLain(task, sekarang: jam5Sore), isFalse);
+    });
+
+    test('pending setelah jam pulang otomatis terbuka', () {
+      final task = taskContoh(tanggal: '2026-10-18');
+      expect(DailyTaskService.isTerbukaUntukShiftLain(task, sekarang: jam9Malam), isTrue);
+    });
+
+    test('pending dari hari sebelumnya otomatis terbuka', () {
+      final task = taskContoh(tanggal: '2026-10-17');
+      expect(DailyTaskService.isTerbukaUntukShiftLain(task, sekarang: jam5Sore), isTrue);
+    });
+
+    test('tugas yang dilepas manual langsung terbuka', () {
+      final task = taskContoh(
+        tanggal: '2026-10-18',
+        serahTerima: 'Andi||Waktu habis|18 Okt 16:00',
+      );
+      expect(DailyTaskService.isTerbukaUntukShiftLain(task, sekarang: jam5Sore), isTrue);
+    });
+
+    test('tugas selesai dan jadwal besok tidak ikut terbuka', () {
+      expect(
+        DailyTaskService.isTerbukaUntukShiftLain(
+          taskContoh(tanggal: '2026-10-18', status: TaskStatus.completed),
+          sekarang: jam9Malam,
+        ),
+        isFalse,
+      );
+      expect(
+        DailyTaskService.isTerbukaUntukShiftLain(
+          taskContoh(tanggal: '2026-10-19'),
+          sekarang: jam9Malam,
+        ),
+        isFalse,
+      );
     });
   });
 }
