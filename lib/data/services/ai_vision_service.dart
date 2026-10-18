@@ -917,9 +917,16 @@ OUTPUT STRICT JSON ONLY:
       final rawPoinGagal = jsonMap['poinGagal'] as List<dynamic>? ??
           jsonMap['poin_gagal'] as List<dynamic>? ??
           [];
-      final poinGagal = rawPoinGagal
-          .map((e) => SopCriteriaHelper.toNegativeStatement(e.toString()))
-          .toList();
+      // Beberapa temuan AI yang beda (blur, miring, tidak fokus) bisa jatuh ke
+      // kalimat SOP yang sama. Disaring dulu supaya kartu "Yang Perlu Diperbaiki"
+      // tidak menampilkan kalimat kembar.
+      final poinGagal = <String>[];
+      final poinGagalUnik = <String>{};
+      for (final e in rawPoinGagal) {
+        final kalimat = SopCriteriaHelper.toNegativeStatement(e.toString()).trim();
+        if (kalimat.isEmpty) continue;
+        if (poinGagalUnik.add(kalimat.toLowerCase())) poinGagal.add(kalimat);
+      }
 
       final rawPoinLolos = jsonMap['poinLolos'] as List<dynamic>? ??
           jsonMap['poin_lolos'] as List<dynamic>? ??
