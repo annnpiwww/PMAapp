@@ -139,5 +139,16 @@ void main() {
       key,
       'docs/screenshots/maintenance_lengkap_checklist.png',
     );
+
+    // Capture kondisi difilter per area (contoh: PC Server).
+    await tester.drag(find.text('Manless (8)'), const Offset(-400, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('PC Server (6)'));
+    await tester.pumpAndSettle();
+    await _save(
+      tester,
+      key,
+      'docs/screenshots/maintenance_lengkap_filter_server.png',
+    );
   });
 }

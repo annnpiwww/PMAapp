@@ -163,6 +163,66 @@ void main() {
       expect(find.textContaining('Target: 49 Foto'), findsOneWidget);
     });
 
+    testWidgets('filter per area: chip Barrier/Manless/Pos/Server menyaring checklist', (
+      tester,
+    ) async {
+      final lengkap = TemplateRepository.defaultTemplates.firstWhere(
+        (t) => t.id == 'tpl_maint_lengkap',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MaintenanceChecklistScreen(
+            template: lengkap,
+            unitNumbers: const [1, 2],
+            unitRoles: const {1: 'IN', 2: 'OUT'},
+            manlessUnits: const [2],
+            posUnits: const [1],
+            includeServer: true,
+            serverOs: 'linux',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 2 gate x 9 + 1 manless x 8 + 1 pos x 9 + 1 server x 6 = 41 foto
+      expect(find.text('Semua Area (41)'), findsOneWidget);
+      expect(find.text('Barrier Gate (18)'), findsOneWidget);
+      expect(find.text('Manless (8)'), findsOneWidget);
+      expect(find.text('Pos Kasir (9)'), findsOneWidget);
+
+      // Chip Server ada di ujung baris chip, geser dulu biar kelihatan.
+      await tester.drag(find.text('Manless (8)'), const Offset(-400, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('PC Server (6)'), findsOneWidget);
+
+      // Tekan chip PC Server: header ikut area itu dan poin gate hilang dari daftar.
+      await tester.tap(find.text('PC Server (6)'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('PC Server • 0/6 foto selesai'), findsOneWidget);
+      expect(
+        find.textContaining('Barrier Gate 1 (IN) - Dudukan Mesin & Baut Dynabolt'),
+        findsNothing,
+      );
+      expect(
+        find.textContaining('PC Server - Pembersihan Storage & File Temp'),
+        findsOneWidget,
+      );
+
+      // Balik ke Semua Area.
+      await tester.drag(find.text('PC Server (6)'), const Offset(400, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Semua Area (41)'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining(
+          'Semua area: Barrier Gate + Manless + Pos Kasir + PC Server',
+        ),
+        findsOneWidget,
+      );
+    });
+
     test('laporan lengkap 1 header + seksi per area yang sudah ada', () {
       SharedPreferences.setMockInitialValues({});
       return StorageService.init().then((_) {

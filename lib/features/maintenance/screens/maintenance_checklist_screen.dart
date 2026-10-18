@@ -67,8 +67,17 @@ class _MaintenanceChecklistScreenState
   late MaintenanceSubmission _submission;
   late final List<SopPoint> _cachedSopPoints;
   late final List<int> _effectiveUnits;
-  String _selectedUnitFilter = 'ALL'; // 'ALL', 'UNIT_1', 'UNIT_2', dst.
+  String _selectedUnitFilter = 'ALL'; // 'ALL', 'UNIT_1', 'UNIT_2', 'AREA_bar', dst.
   String _selectedStatusFilter = 'ALL'; // 'ALL', 'BELUM', 'SESUAI', 'CEK'
+
+  /// Chip filter per area khusus Maintenance Lengkap, urut sesuai alur kerja.
+  /// Kunci = awalan id poin (bar_1_01, man_1_01, pos_1_01, srv_1_01).
+  static const Map<String, String> _lengkapAreaLabels = {
+    'bar': 'Barrier Gate',
+    'man': 'Manless',
+    'pos': 'Pos Kasir',
+    'srv': 'PC Server',
+  };
 
   PosLocation get _effectiveLocation {
     if (widget.location != null) return widget.location!;
@@ -2446,7 +2455,11 @@ class _MaintenanceChecklistScreenState
 
     // Filter points based on selected unit tab and status filter
     final filteredResults = _submission.points.where((p) {
-      if (_selectedUnitFilter != 'ALL') {
+      if (_selectedUnitFilter.startsWith('AREA_')) {
+        // Maintenance Lengkap: saring per area pakai awalan id poin.
+        final area = _selectedUnitFilter.replaceAll('AREA_', '');
+        if (p.pointId.split('_').first != area) return false;
+      } else if (_selectedUnitFilter != 'ALL') {
         final unitIdx = _selectedUnitFilter.replaceAll('UNIT_', '');
         if (!p.pointId.contains('_${unitIdx}_')) return false;
       }
@@ -2456,6 +2469,17 @@ class _MaintenanceChecklistScreenState
       if (_selectedStatusFilter == 'TIDAK_ADA') return p.status == PointStatus.tidakTerpasang;
       return true;
     }).toList();
+
+    // Kalau teknisi sedang menyaring per area (khusus Maintenance Lengkap),
+    // header ikut menampilkan progres area itu biar tidak bingung.
+    final areaFilterKey = _selectedUnitFilter.startsWith('AREA_')
+        ? _selectedUnitFilter.replaceAll('AREA_', '')
+        : null;
+    final areaFilterPoints = areaFilterKey == null
+        ? const <MaintenancePointResult>[]
+        : _submission.points
+              .where((p) => p.pointId.split('_').first == areaFilterKey)
+              .toList();
 
     final isDark = ThemeService.isDarkMode(context);
     final bgScaffold = isDark
@@ -2565,6 +2589,16 @@ class _MaintenanceChecklistScreenState
                         builder: (_) {
                           if (widget.template.jenis ==
                               TemplateCategory.maintLengkap) {
+                            if (areaFilterKey != null) {
+                              return Text(
+                                '${_lengkapAreaLabels[areaFilterKey]} • ${areaFilterPoints.where((p) => p.isDone).length}/${areaFilterPoints.length} foto selesai',
+                                style: TextStyle(
+                                  fontFamily: 'PlusJakartaSans',
+                                  fontSize: 11,
+                                  color: textSub,
+                                ),
+                              );
+                            }
                             return Text(
                               'Semua area: Barrier Gate + Manless + Pos Kasir${widget.includeServer ? ' + PC Server' : ''} • $done/$total foto selesai (${(progress * 100).toInt()}%)',
                               style: TextStyle(
@@ -2755,8 +2789,24 @@ class _MaintenanceChecklistScreenState
                               .length,
                         ),
                     ],
-                  ] else if (widget.template.jenis !=
+                  ] else if (widget.template.jenis ==
                       TemplateCategory.maintLengkap) ...[
+                    // Maintenance Lengkap: arah kerja per area, bukan per nomor unit
+                    // (nomor unit tidak lagi mewakili satu perangkat di tugas gabungan).
+                    for (final entry in _lengkapAreaLabels.entries)
+                      if (_submission.points.any(
+                        (p) => p.pointId.startsWith('${entry.key}_'),
+                      ))
+                        _buildFilterUnitChip(
+                          'AREA_${entry.key}',
+                          entry.value,
+                          _submission.points
+                              .where(
+                                (p) => p.pointId.startsWith('${entry.key}_'),
+                              )
+                              .length,
+                        ),
+                  ] else ...[
                     for (final i in _effectiveUnits)
                       Builder(
                         builder: (_) {
