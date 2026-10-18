@@ -13,6 +13,7 @@ import '../../../data/services/branch_service.dart';
 import '../../maintenance/widgets/maintenance_setup_dialog.dart';
 import '../../maintenance/screens/maintenance_checklist_screen.dart';
 import '../widgets/completed_daily_task_modal.dart';
+import '../widgets/ad_hoc_task_dialog.dart';
 import '../widgets/task_handover_dialog.dart';
 import 'custom_task_execution_screen.dart';
 
@@ -102,6 +103,27 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  /// Teknisi mencatat kerjaan dadakan (bukan tugas SPV) supaya masuk daftar hari itu.
+  Future<void> _catatKerjaan() async {
+    final user = AuthRepository.instance.currentUser;
+    if (user == null) return;
+    final tersimpan = await AdHocTaskDialog.show(
+      context,
+      teknisiNama: user.nama,
+      tanggal: _todayStr(),
+      lokasiOptions: LocationService.availablePosList,
+      lokasiAwal: LocationService.currentPos,
+    );
+    if (tersimpan == null) return;
+    _snack(
+      tersimpan
+          ? 'Kerjaan dicatat. Kerjakan seperti tugas biasa ya.'
+          : 'Gagal mencatat kerjaan, coba lagi saat sinyal stabil.',
+      sukses: tersimpan,
+    );
+    if (tersimpan) await _loadTasks();
   }
 
   /// Teknisi menyerahkan tugas yang belum selesai ke shift berikutnya.
@@ -310,6 +332,15 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
           ),
         ],
       ),
+      floatingActionButton: _isLoading
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _catatKerjaan,
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Catat Kerjaan'),
+            ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
           : RefreshIndicator(
@@ -358,7 +389,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                       ],
                     )
                   : ListView(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                       children: [
                         // Status Card Ringkas
                         Container(
