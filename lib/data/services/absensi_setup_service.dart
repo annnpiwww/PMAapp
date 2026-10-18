@@ -44,7 +44,8 @@ class AbsensiSetupService extends ChangeNotifier {
   static const _kHandoverDate = 'absensi_handover_date_v1';
 
   AbsensiKategori selectedKategori = AbsensiKategori.teknisi;
-  String lokasiStandby = 'PBM';
+  // Default mengikuti cabang aktif, bukan dipaku PBM.
+  String lokasiStandby = BranchService.instance.currentBranch.defaultLocationTag;
   String jadwalShift = '';
   String tipeLaporan = 'Masuk';
   String jamPulang = '';
@@ -210,14 +211,12 @@ class AbsensiSetupService extends ChangeNotifier {
     return clean;
   }
 
-  /// Lokasi standby efektif: pastikan selalu valid untuk cabang aktif
+  /// Lokasi standby efektif: pakai isian teknisi apa adanya (teknisi Bali bisa isi
+  /// manual pos lain). Hanya kalau kosong baru jatuh ke pos default cabang.
   String get effectiveLokasiStandby {
-    final branch = BranchService.instance.currentBranch;
-    final validTags = BranchService.instance.getLocationTags(branch: branch);
-    if (lokasiStandby.trim().isNotEmpty && validTags.contains(lokasiStandby.trim().toUpperCase())) {
-      return lokasiStandby.trim().toUpperCase();
-    }
-    return branch.defaultLocationTag;
+    final clean = lokasiStandby.trim();
+    if (clean.isNotEmpty) return clean.toUpperCase();
+    return BranchService.instance.currentBranch.defaultLocationTag;
   }
 
   /// Jam pulang efektif: jika kosong, ambil jam akhir shift
@@ -254,9 +253,16 @@ class AbsensiSetupService extends ChangeNotifier {
       if (cat != null) selectedKategori = AbsensiKategori.fromString(cat);
 
       final branch = BranchService.instance.currentBranch;
-      final rawLokasi = prefs.getString(_kLokasiKey(branch)) ?? prefs.getString(_kLokasi);
-      final validTags = BranchService.instance.getLocationTags(branch: branch);
-      if (rawLokasi != null && rawLokasi.trim().isNotEmpty && validTags.contains(rawLokasi.trim().toUpperCase())) {
+      // Nilai global lama (sebelum kunci per cabang) hanya dipakai kalau tag-nya
+      // memang milik cabang aktif, biar tidak bocor lintas cabang.
+      final legacyLokasi = prefs.getString(_kLokasi);
+      final legacyValid = legacyLokasi != null &&
+          BranchService.instance
+              .getLocationTags(branch: branch)
+              .contains(legacyLokasi.trim().toUpperCase());
+      final rawLokasi = prefs.getString(_kLokasiKey(branch)) ?? (legacyValid ? legacyLokasi : null);
+      // Isian manual teknisi dipakai apa adanya, termasuk pos di luar daftar default.
+      if (rawLokasi != null && rawLokasi.trim().isNotEmpty) {
         lokasiStandby = rawLokasi.trim().toUpperCase();
         _branchLocations[branch] = lokasiStandby;
       } else {
@@ -328,7 +334,7 @@ class AbsensiSetupService extends ChangeNotifier {
   void updateKategori(AbsensiKategori k) {
     selectedKategori = k;
     final branch = BranchService.instance.currentBranch;
-    if (lokasiStandby.trim().isEmpty || !BranchService.instance.getLocationTags().contains(lokasiStandby)) {
+    if (lokasiStandby.trim().isEmpty) {
       lokasiStandby = branch.defaultLocationTag;
     }
     final otherBranch = branch == AppBranch.manado ? AppBranch.bali : AppBranch.manado;
@@ -343,8 +349,7 @@ class AbsensiSetupService extends ChangeNotifier {
   void updateLokasi(String v) {
     final clean = v.trim().toUpperCase();
     final branch = BranchService.instance.currentBranch;
-    final validTags = BranchService.instance.getLocationTags(branch: branch);
-    lokasiStandby = (clean.isNotEmpty && validTags.contains(clean)) ? clean : branch.defaultLocationTag;
+    lokasiStandby = clean.isNotEmpty ? clean : branch.defaultLocationTag;
     _branchLocations[branch] = lokasiStandby;
     _save();
     notifyListeners();

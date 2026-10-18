@@ -921,7 +921,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     if (_selectedTemplate.jenis == TemplateCategory.absensi) {
       final setup = AbsensiSetupService.instance;
       final activeBranch = BranchService.instance.currentBranch;
-      if (setup.lokasiStandby.trim().isEmpty || !BranchService.instance.getLocationTags().contains(setup.lokasiStandby)) {
+      if (setup.lokasiStandby.trim().isEmpty) {
         setup.updateLokasi(activeBranch.defaultLocationTag);
       }
       if (setup.jadwalShift.trim().isEmpty || !BranchService.instance.getShifts().contains(setup.jadwalShift)) {

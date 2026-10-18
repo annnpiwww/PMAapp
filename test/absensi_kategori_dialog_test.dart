@@ -54,9 +54,13 @@ void main() {
     expect(find.text('Junifer Manua'), findsOneWidget);
 
     // 3. Section 2: Fixed Location PBM (Non-interactive, no dropdown / quick-switch buttons)
+    expect(find.text('Jadwal shift & Lokasi standby'), findsOneWidget);
+    expect(find.text('Jadwal shift teknisi'), findsOneWidget);
     expect(find.text('LOKASI STANDBY'), findsOneWidget);
     expect(find.text('Pasar Bersehati Manado'), findsOneWidget);
     expect(find.text('PBM'), findsOneWidget);
+    // Manado tetap terkunci: tidak ada kolom isian manual
+    expect(find.byKey(const Key('lokasi_standby_field')), findsNothing);
     // Verifikasi tombol quick-switch lama sudah terhapus
     expect(find.text('PKM'), findsNothing);
     expect(find.text('NBM'), findsNothing);
@@ -133,12 +137,13 @@ void main() {
     await tester.tap(customCtrlFinder);
     await tester.pumpAndSettle();
 
-    // Should display input text field for custom shift
-    expect(find.widgetWithText(TextField, 'Shift Khusus'), findsOneWidget);
+    // Harus muncul dua kolom isian manual: nama shift dan jamnya
+    expect(find.byKey(const Key('custom_shift_nama')), findsOneWidget);
+    expect(find.byKey(const Key('custom_shift_jam')), findsOneWidget);
 
-    // Enter custom shift name
-    final customField = find.widgetWithText(TextField, 'Shift Khusus');
-    await tester.enterText(customField, 'Shift Lembur (08:00 - 17:00)');
+    // Isi nama shift & jam kerja
+    await tester.enterText(find.byKey(const Key('custom_shift_nama')), 'Shift Lembur');
+    await tester.enterText(find.byKey(const Key('custom_shift_jam')), '08:00 - 17:00');
     await tester.pumpAndSettle();
 
     // Scroll to and tap Simpan Shift

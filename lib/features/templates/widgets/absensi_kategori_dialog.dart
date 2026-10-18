@@ -31,10 +31,15 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
   final setup = AbsensiSetupService.instance;
   late TextEditingController _teknisiCtrl;
   late TextEditingController _customShiftCtrl;
+  late TextEditingController _customShiftJamCtrl;
   bool _isCustomShift = false;
   late String _selectedShift;
   late String _tipeLaporan;
   late String _jamPulang;
+
+  // Lokasi standby manual (Bali bisa isi sendiri, tidak dikunci ke PBKD)
+  late TextEditingController _lokasiCtrl;
+  late String _lokasiStandby;
 
   // Toggle & input state untuk Laporan Pulang
   bool _adaShiftSelanjutnya = false;
@@ -140,7 +145,11 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
 
     final isPredefined = _shiftCards.any((s) => s['full'] == _selectedShift);
     _isCustomShift = !isPredefined;
-    _customShiftCtrl = TextEditingController(text: _isCustomShift ? _selectedShift : '');
+    _customShiftCtrl = TextEditingController();
+    _customShiftJamCtrl = TextEditingController();
+    _lokasiStandby = setup.effectiveLokasiStandby.toUpperCase();
+    _lokasiCtrl = TextEditingController(text: _lokasiStandby);
+    if (_isCustomShift) _prefillCustomShift();
 
     _tipeLaporan = setup.tipeLaporan;
     final lastCheck = StorageService.getLastCheckInTime();
@@ -179,6 +188,8 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
   void dispose() {
     _teknisiCtrl.dispose();
     _customShiftCtrl.dispose();
+    _customShiftJamCtrl.dispose();
+    _lokasiCtrl.dispose();
     _petugasNextShiftCtrl.dispose();
     _pekerjaanSelesaiCtrl.dispose();
     _pekerjaanBelumCtrl.dispose();
@@ -193,30 +204,57 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     });
   }
 
+  /// Pola jam rentang di dalam nama shift, mis. "08:00 - 17:00".
+  static final RegExp _jamRangePattern =
+      RegExp(r'(\d{1,2}[:.]\d{2}\s*[-–]\s*\d{1,2}[:.]\d{2})');
+
+  /// Gabungkan nama + jam jadi satu nama shift, mis. "Shift Khusus (08:00 - 17:00)".
+  void _syncCustomShift() {
+    final nama = _customShiftCtrl.text.trim();
+    final jam = _customShiftJamCtrl.text.trim();
+    if (nama.isEmpty && jam.isEmpty) {
+      _selectedShift = 'Shift Khusus';
+      _jamPulang = '18:00';
+      return;
+    }
+    final namaShift = nama.isEmpty ? 'Shift Khusus' : nama;
+    _selectedShift = jam.isEmpty ? namaShift : '$namaShift ($jam)';
+    _jamPulang = AbsensiSetupService.autoDetectJamPulang(shift: _selectedShift);
+  }
+
+  /// Isi ulang kolom nama & jam dari shift yang tersimpan (mis. dialog dibuka lagi).
+  void _prefillCustomShift() {
+    final match = _jamRangePattern.firstMatch(_selectedShift);
+    if (match == null) {
+      _customShiftCtrl.text = _selectedShift == 'Shift Khusus' ? '' : _selectedShift;
+      _customShiftJamCtrl.text = '';
+    } else {
+      _customShiftJamCtrl.text = match.group(1)!;
+      _customShiftCtrl.text = _selectedShift
+          .replaceRange(match.start, match.end, '')
+          .replaceAll(RegExp(r'[()]+'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+    }
+    _syncCustomShift();
+  }
+
   void _onCustomShiftToggled() {
     setState(() {
       _isCustomShift = !_isCustomShift;
       if (_isCustomShift) {
-        if (_customShiftCtrl.text.trim().isNotEmpty) {
-          _selectedShift = _customShiftCtrl.text.trim();
-          _jamPulang = AbsensiSetupService.autoDetectJamPulang(shift: _selectedShift);
-        } else {
-          _selectedShift = 'Shift Khusus';
-          _customShiftCtrl.text = 'Shift Khusus';
-          _jamPulang = '18:00';
-        }
+        _prefillCustomShift();
       } else {
+        _customShiftCtrl.text = '';
+        _customShiftJamCtrl.text = '';
         _selectedShift = _shiftCards[0]['full']!;
         _jamPulang = AbsensiSetupService.autoDetectJamPulang(shift: _selectedShift);
       }
     });
   }
 
-  void _onCustomShiftChanged(String val) {
-    setState(() {
-      _selectedShift = val.trim().isNotEmpty ? val.trim() : 'Shift Khusus';
-      _jamPulang = AbsensiSetupService.autoDetectJamPulang(shift: _selectedShift);
-    });
+  void _onCustomShiftChanged() {
+    setState(_syncCustomShift);
   }
 
   void _onTipeChanged(String tipe) {
@@ -308,19 +346,22 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     StorageService.saveLastTechnicianName(tech);
     AuthRepository.instance.syncTechnicianName(tech);
 
-    // KUNCI LOKASI STANDBY PERMANEN KE POS DEFAULT BRANCH (PBM untuk Manado, PBKD untuk Bali)
+    // Lokasi standby: pakai isian teknisi (Bali bisa isi manual). Kosong baru pakai default cabang.
     final branch = BranchService.instance.currentBranch;
-    final fixedPosTag = branch.defaultLocationTag;
-    setup.updateLokasi(fixedPosTag);
+    final lokasiStandby = _lokasiStandby.trim().isEmpty
+        ? branch.defaultLocationTag
+        : _lokasiStandby.trim().toUpperCase();
+    _lokasiStandby = lokasiStandby;
+    _lokasiCtrl.text = lokasiStandby;
+    setup.updateLokasi(lokasiStandby);
 
-    // Sinkronkan ke LocationService menggunakan data resmi branch
-    final matchedPos = LocationService.findPosByTagOrName(fixedPosTag) ??
-        LocationService.availablePosList.firstWhere(
-          (p) => p.locationTag.toUpperCase() == fixedPosTag,
-          orElse: () => LocationService.availablePosList.first,
-        );
-    LocationService.setCurrentPos(matchedPos);
-    LocationService.clearLocationCache();
+    // Sinkronkan pos ke LocationService kalau tag-nya dikenali (geo tetap akurat).
+    final matchedPos = LocationService.findPosByTagOrName(lokasiStandby) ??
+        LocationService.findPosByTagOrName(branch.defaultLocationTag);
+    if (matchedPos != null) {
+      LocationService.setCurrentPos(matchedPos);
+      LocationService.clearLocationCache();
+    }
 
     setup.updateShift(_selectedShift);
 
@@ -434,7 +475,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Jadwal kerja & status dinas teknisi',
+                          'Jadwal shift & Lokasi standby',
                           style: TextStyle(
                             fontSize: 11.5,
                             color: textSub,
@@ -510,8 +551,8 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
 
                     const SizedBox(height: 16),
 
-                    // SECTION 2: LOKASI STANDBY POS (PERMANEN PBM)
-                    _buildFixedLocationCard(),
+                    // SECTION 2: LOKASI STANDBY POS (Bali bisa diisi manual)
+                    _buildLocationStandbyCard(),
 
                     const SizedBox(height: 16),
 
@@ -519,7 +560,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                     _buildSectionHeader(
                       icon: Icons.calendar_month_rounded,
                       title: 'PILIH JADWAL SHIFT',
-                      subtitle: 'Jadwal operasional BSS',
+                      subtitle: 'Jadwal shift teknisi',
                     ),
                     const SizedBox(height: 8),
 
@@ -727,6 +768,148 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Kartu lokasi standby: Manado tetap terkunci di pos default, Bali bisa diisi manual
+  /// (tidak lagi dipaku ke PBKD) karena teknisi Bali sering standby di pos lain.
+  Widget _buildLocationStandbyCard() {
+    if (BranchService.instance.currentBranch != AppBranch.bali) {
+      return _buildFixedLocationCard();
+    }
+
+    final isDark = ThemeService.isDarkMode(context);
+    final inputBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final inputBorderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: inputBorderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.storefront_outlined, size: 18, color: isDark ? const Color(0xFF38BDF8) : AppColors.primary),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'LOKASI STANDBY',
+                  style: TextStyle(
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                    color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
+                  ),
+                ),
+              ),
+              Text(
+                'Isi manual',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('lokasi_standby_field'),
+            controller: _lokasiCtrl,
+            textCapitalization: TextCapitalization.characters,
+            onChanged: (val) => setState(() => _lokasiStandby = val.trim().toUpperCase()),
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: 'Tag pos standby (mis. PBKD, PCD, PGA)',
+              filled: true,
+              fillColor: inputBg,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: inputBorderColor),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: inputBorderColor),
+              ),
+              focusedBorder: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(10)),
+                borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Tap cepat tag pos cabang Bali; kolom tetap bisa diketik bebas.
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final tag in BranchService.instance.getLocationTags())
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: _buildLokasiChip(tag, isDark),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLokasiChip(String tag, bool isDark) {
+    final isSelected = _lokasiStandby.trim().toUpperCase() == tag.toUpperCase();
+    return InkWell(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        _lokasiCtrl.text = tag;
+        setState(() => _lokasiStandby = tag);
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: isDark ? 0.3 : 0.1)
+              : (isDark ? const Color(0xFF0F172A) : Colors.white),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Text(
+          tag,
+          style: TextStyle(
+            fontFamily: 'PlusJakartaSans',
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.3,
+            color: isSelected
+                ? (isDark ? const Color(0xFF93C5FD) : AppColors.primary)
+                : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
+          ),
+        ),
+      ),
     );
   }
 
@@ -983,9 +1166,59 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
         ),
         if (_isCustomShift) ...[
           const SizedBox(height: 8),
-          TextField(
+          // Dua kolom isian manual: nama shift dan jamnya.
+          _buildCustomShiftField(
+            label: 'Shift :',
+            fieldKey: const Key('custom_shift_nama'),
             controller: _customShiftCtrl,
-            onChanged: _onCustomShiftChanged,
+            hint: 'Nama shift (mis. Shift Khusus)',
+            isDark: isDark,
+            inputBg: inputBg,
+            inputBorder: inputBorder,
+          ),
+          const SizedBox(height: 6),
+          _buildCustomShiftField(
+            label: 'Jam :',
+            fieldKey: const Key('custom_shift_jam'),
+            controller: _customShiftJamCtrl,
+            hint: 'Jam kerja (mis. 08:00 - 17:00)',
+            isDark: isDark,
+            inputBg: inputBg,
+            inputBorder: inputBorder,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCustomShiftField({
+    required String label,
+    required Key fieldKey,
+    required TextEditingController controller,
+    required String hint,
+    required bool isDark,
+    required Color inputBg,
+    required Color inputBorder,
+  }) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 52,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary,
+            ),
+          ),
+        ),
+        Expanded(
+          child: TextField(
+            key: fieldKey,
+            controller: controller,
+            onChanged: (_) => _onCustomShiftChanged(),
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
@@ -993,8 +1226,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
             ),
             decoration: InputDecoration(
               isDense: true,
-              hintText: 'Tulis nama shift & jam (contoh: Shift Khusus 08:00 - 17:00)',
-              prefixIcon: const Icon(Icons.edit_calendar_rounded, size: 18, color: Color(0xFFF59E0B)),
+              hintText: hint,
               filled: true,
               fillColor: inputBg,
               border: OutlineInputBorder(
@@ -1012,7 +1244,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
           ),
-        ],
+        ),
       ],
     );
   }
