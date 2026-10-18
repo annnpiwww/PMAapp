@@ -129,32 +129,31 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
   /// Teknisi menyerahkan tugas yang belum selesai ke shift berikutnya.
   Future<void> _serahkanTugas(DailyTaskModel task) async {
     final user = AuthRepository.instance.currentUser;
-    final hasil = await TaskHandoverDialog.show(
+    await TaskHandoverDialog.show(
       context,
       judul: task.judul,
       lokasi: task.posName,
-      teknisiOptions: BranchService.instance
-          .getTechnicians()
-          .where((t) => !DailyTaskService.isAssignedTo(task, t))
-          .toList(),
+      pemilik: task.teknisiNama,
+      teknisiOptions: BranchService.instance.getTechnicians().where((t) => !DailyTaskService.isAssignedTo(task, t)).toList(),
+      onSubmit: (alasan, penerus) async {
+        final ok = await DailyTaskService.transferTask(
+          task: task,
+          keTeknisi: penerus,
+          alasan: alasan,
+          olehSiapa: user?.nama ?? task.teknisiNama,
+        );
+        _snack(
+          ok
+              ? (penerus.isEmpty
+                  ? 'Tugas dilepas ke daftar terbuka untuk shift berikutnya.'
+                  : 'Tugas diserahkan ke $penerus.')
+              : 'Gagal menyimpan serah terima, coba lagi saat sinyal stabil.',
+          sukses: ok,
+        );
+        if (ok) await _loadTasks();
+        return ok;
+      },
     );
-    if (hasil == null) return;
-
-    final ok = await DailyTaskService.transferTask(
-      task: task,
-      keTeknisi: hasil.penerus,
-      alasan: hasil.alasan,
-      olehSiapa: user?.nama ?? task.teknisiNama,
-    );
-    _snack(
-      ok
-          ? (hasil.penerus.isEmpty
-              ? 'Tugas dilepas ke daftar terbuka untuk shift berikutnya.'
-              : 'Tugas diserahkan ke ${hasil.penerus}.')
-          : 'Gagal menyimpan serah terima, coba lagi saat sinyal stabil.',
-      sukses: ok,
-    );
-    if (ok) await _loadTasks();
   }
 
   /// Teknisi shift berikutnya mengambil tugas dari daftar terbuka.

@@ -49,7 +49,7 @@ void main() {
 
       // Check header and 2 routine tasks
       expect(find.text('Rutin Shift 1 KC Manado'), findsOneWidget);
-      expect(find.text('2 Tugas Permanen Pagi (03:00 - 11:00 WITA)'), findsOneWidget);
+      expect(find.text('2 tugas permanen pagi (03:00 - 11:00 WITA)'), findsOneWidget);
       expect(
         find.textContaining('Pengecekan Sistem Gate out 1-6 PBM (bukti dokumentasi layar aplikasi kasir)'),
         findsOneWidget,
@@ -60,10 +60,9 @@ void main() {
       );
       expect(find.text('Kirim 2 Tugas'), findsOneWidget);
 
-      // Check target date toggle pills
-      expect(find.text('Hari Ini'), findsOneWidget);
-      expect(find.text('Besok'), findsOneWidget);
-      expect(find.text('Pilih Lain'), findsOneWidget);
+      // Target tanggal sekarang berupa baris field, tap untuk ganti tanggal
+      expect(find.text('TARGET TANGGAL PENUGASAN'), findsOneWidget);
+      expect(find.textContaining('Hari Ini ('), findsWidgets);
     });
   });
 

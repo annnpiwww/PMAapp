@@ -40,6 +40,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   String _taskCategory = 'khusus'; // 'khusus' atau 'maintenance'
   String? _selectedTemplateId = 'tpl_maint_pos';
   final Set<String> _pesertaTerpilih = {}; // pelaksana tambahan (tugas bareng)
+  bool _pesertaTerbuka = true; // daftar pelaksana tambahan terbuka/tertutup
 
   final List<Map<String, String>> _templates = [
     {'id': 'tpl_maint_pos', 'nama': 'Maintenance Pos Kasir'},
@@ -139,38 +140,39 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   /// SPV memindahkan tugas yang belum selesai ke teknisi shift berikutnya.
   Future<void> _alihkanTugas(DailyTaskModel task) async {
     final spv = AuthRepository.instance.currentUser;
-    final hasil = await TaskHandoverDialog.show(
+    await TaskHandoverDialog.show(
       context,
       judul: task.judul,
       lokasi: task.posName,
-      judulDialog: 'Alihkan Tugas ke Shift Berikutnya',
-      teknisiOptions: _technicians
-          .where((t) => !DailyTaskService.isAssignedTo(task, t))
-          .toList(),
+      pemilik: task.teknisiNama,
+      judulDialog: 'Alihkan Tugas',
+      tujuanLabel: 'Alihkan Ke',
+      tombolLabel: 'Alihkan Sekarang',
+      teknisiOptions: _technicians.where((t) => !DailyTaskService.isAssignedTo(task, t)).toList(),
+      onSubmit: (alasan, penerus) async {
+        final ok = await DailyTaskService.transferTask(
+          task: task,
+          keTeknisi: penerus,
+          alasan: alasan,
+          olehSiapa: spv?.nama ?? 'SPV',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                ok
+                    ? (penerus.isEmpty ? 'Tugas dilepas ke daftar terbuka.' : 'Tugas dialihkan ke $penerus.')
+                    : 'Gagal mengalihkan tugas, coba lagi saat sinyal stabil.',
+              ),
+              backgroundColor: ok ? AppColors.success : AppColors.danger,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        if (ok) await _loadTasks();
+        return ok;
+      },
     );
-    if (hasil == null) return;
-
-    final ok = await DailyTaskService.transferTask(
-      task: task,
-      keTeknisi: hasil.penerus,
-      alasan: hasil.alasan,
-      olehSiapa: spv?.nama ?? 'SPV',
-    );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? (hasil.penerus.isEmpty
-                  ? 'Tugas dilepas ke daftar terbuka.'
-                  : 'Tugas dialihkan ke ${hasil.penerus}.')
-              : 'Gagal mengalihkan tugas, coba lagi saat sinyal stabil.',
-        ),
-        backgroundColor: ok ? AppColors.success : AppColors.danger,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    if (ok) await _loadTasks();
   }
 
   Future<void> _pickCustomDate() async {
@@ -937,612 +939,607 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     );
   }
 
-  Widget _buildFormTugaskan(bool isDark) {
-    final labelColor = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155);
-    final inputBg = isDark ? const Color(0xFF111827) : Colors.white;
-    final inputBorder = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
-    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
-    final hintColor = isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8);
+  Widget _formLabel(String text, Color color) => Text(
+        text.toUpperCase(),
+        style: TextStyle(fontSize: 9.5, letterSpacing: 1.1, fontWeight: FontWeight.w600, color: color),
+      );
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // QUICK DISPATCH: RUTIN SHIFT 1 MANADO (2 TUGAS PERMANEN)
-          if (BranchService.instance.currentBranch == AppBranch.manado) ...[
-            Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark
-                      ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
-                      : [const Color(0xFFEFF6FF), Colors.white],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+  Widget _formHelper(String text, Color color) => Text(
+        text,
+        style: TextStyle(fontSize: 10.5, color: color, height: 1.35),
+      );
+
+  Widget _underline({required Widget child, required Color color, double bottom = 9}) => Container(
+        padding: EdgeInsets.only(bottom: bottom),
+        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: color, width: 1))),
+        child: child,
+      );
+
+  InputDecoration _bareInput(String hint, Color hintColor, Color textColor) => InputDecoration(
+        isDense: true,
+        filled: false,
+        fillColor: Colors.transparent,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        errorBorder: InputBorder.none,
+        disabledBorder: InputBorder.none,
+        contentPadding: EdgeInsets.zero,
+        hintText: hint,
+        hintStyle: TextStyle(fontSize: 13, color: hintColor),
+      );
+
+  /// Tab kategori bergaya garis bawah tegas (Rutin/Maintenance digantikan
+  /// kategori asli aplikasi: Maintenance SOP dan Tugas Khusus).
+  Widget _kategoriTab({
+    required String label,
+    required String ket,
+    required bool active,
+    required VoidCallback onTap,
+    required Color line,
+    required Color sub,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 13,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                  color: active ? AppColors.primary : sub,
                 ),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: AppColors.accent.withValues(alpha: isDark ? 0.35 : 0.45),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.accent.withValues(alpha: 0.08),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+              const SizedBox(height: 2),
+              Text(ket, style: TextStyle(fontSize: 10, color: sub, height: 1.2)),
+              const SizedBox(height: 9),
+              SizedBox(
+                height: 3,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(height: active ? 3 : 1.5, color: active ? AppColors.primary : line),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pesertaRow(String nama, {required Color line, required Color head, required Color sub, required bool isDark}) {
+    final selected = _pesertaTerpilih.contains(nama);
+    return Column(
+      children: [
+        InkWell(
+          onTap: () => setState(() {
+            if (selected) {
+              _pesertaTerpilih.remove(nama);
+            } else {
+              _pesertaTerpilih.add(nama);
+            }
+          }),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 11),
+            child: Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected ? AppColors.primary : (isDark ? const Color(0xFF1E293B) : Colors.white),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: selected ? AppColors.primary : line),
+                  ),
+                  child: Text(
+                    nama.characters.first.toUpperCase(),
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: selected ? Colors.white : sub),
+                  ),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Text(
+                    nama,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                      color: head,
+                    ),
+                  ),
+                ),
+                Icon(
+                  selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                  size: 19,
+                  color: selected ? AppColors.success : (isDark ? const Color(0xFF334155) : const Color(0xFFCFCABF)),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Divider(height: 1, thickness: 1, color: line),
+      ],
+    );
+  }
+
+  Widget _buildTombolBeriTugas(Color bg, Color line) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        decoration: BoxDecoration(color: bg, border: Border(top: BorderSide(color: line))),
+        child: SizedBox(
+          height: 48,
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _isLoading ? null : _submitTask,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.55),
+              disabledForegroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: _isLoading
+                ? const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.bolt_rounded, color: AppColors.accent, size: 20),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                      SizedBox(width: 10),
+                      Text('Mengirim tugas...', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                    ],
+                  )
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.send_rounded, size: 17),
+                      SizedBox(width: 8),
+                      Text('Beri Tugas Sekarang', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormTugaskan(bool isDark) {
+    final labelColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280);
+    final inputBg = isDark ? const Color(0xFF111827) : Colors.white;
+    final line = isDark ? const Color(0xFF1E293B) : const Color(0xFFE5E1D8);
+    final textColor = isDark ? Colors.white : const Color(0xFF111827);
+    final hintColor = isDark ? const Color(0xFF64748B) : const Color(0xFF9CA3AF);
+    final panelBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF6F4EE);
+    final bgScaffold = isDark ? const Color(0xFF0B1120) : const Color(0xFFFAF8F5);
+
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // QUICK DISPATCH: RUTIN SHIFT 1 MANADO (2 TUGAS PERMANEN)
+                if (BranchService.instance.currentBranch == AppBranch.manado) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
+                    decoration: BoxDecoration(
+                      color: panelBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
                           children: [
-                            Text(
-                              'Rutin Shift 1 KC Manado',
-                              style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w800,
-                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            const Icon(Icons.bolt_rounded, color: AppColors.accent, size: 18),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Rutin Shift 1 KC Manado',
+                                    style: TextStyle(
+                                      fontFamily: 'PlusJakartaSans',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: textColor,
+                                    ),
+                                  ),
+                                  Text(
+                                    '2 tugas permanen pagi (03:00 - 11:00 WITA)',
+                                    style: TextStyle(fontSize: 10.5, color: labelColor),
+                                  ),
+                                ],
                               ),
                             ),
-                            Text(
-                              '2 Tugas Permanen Pagi (03:00 - 11:00 WITA)',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: AppColors.accent.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'PBM',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accent),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'PBM',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w900,
-                            color: AppColors.accent,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // List 2 tugas permanen
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF111827).withValues(alpha: 0.5) : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildRoutineTaskItem(
-                          num: '1',
-                          title: 'Pengecekan Sistem Gate out 1-6 PBM (bukti dokumentasi layar aplikasi kasir)',
-                          isDark: isDark,
-                        ),
-                        const SizedBox(height: 8),
-                        _buildRoutineTaskItem(
-                          num: '2',
-                          title: 'Pengecekan Sistem Gate ojek',
-                          isDark: isDark,
+                        const SizedBox(height: 10),
+                        for (final (i, judul) in const [
+                          'Pengecekan Sistem Gate out 1-6 PBM (bukti dokumentasi layar aplikasi kasir)',
+                          'Pengecekan Sistem Gate ojek',
+                        ].indexed) ...[
+                          if (i > 0) Divider(height: 1, thickness: 1, color: line),
+                          _buildRoutineTaskItem(num: '${i + 1}', title: judul, isDark: isDark),
+                        ],
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: _underline(
+                                bottom: 6,
+                                color: line,
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _shift1ManadoTech ?? (_technicians.isNotEmpty ? _technicians.first : null),
+                                    isExpanded: true,
+                                    isDense: true,
+                                    dropdownColor: inputBg,
+                                    icon: Icon(Icons.expand_more_rounded, size: 18, color: labelColor),
+                                    style: TextStyle(
+                                      fontFamily: 'PlusJakartaSans',
+                                      color: textColor,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    items: _technicians
+                                        .map((t) => DropdownMenuItem(value: t, child: Text(t, overflow: TextOverflow.ellipsis)))
+                                        .toList(),
+                                    onChanged: (val) {
+                                      if (val != null) setState(() => _shift1ManadoTech = val);
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 6,
+                              child: SizedBox(
+                                height: 42,
+                                child: FilledButton.icon(
+                                  onPressed: _isLoading ? null : () => _dispatchShift1ManadoRoutine(_shift1ManadoTech ?? _selectedTech),
+                                  icon: const Icon(Icons.send_rounded, size: 15),
+                                  label: const Text('Kirim 2 Tugas', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: AppColors.accent,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: EdgeInsets.zero,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  // Row teknisi dan tombol kirim
-                  Row(
+                ],
+
+                // TARGET TANGGAL
+                _formLabel('Target Tanggal Penugasan', labelColor),
+                const SizedBox(height: 7),
+                InkWell(
+                  onTap: _pickTargetDispatchDate,
+                  child: _underline(
+                    color: line,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _formatDateDisplay(_targetDispatchDate),
+                            style: TextStyle(fontSize: 13.5, color: textColor, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.accent),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _formHelper('Tap untuk ganti tanggal, default hari ini.', labelColor),
+                const SizedBox(height: 26),
+
+                // JENIS TUGAS
+                _formLabel('Jenis Tugas', labelColor),
+                Row(
+                  children: [
+                    _kategoriTab(
+                      label: 'Maintenance SOP',
+                      ket: 'Checklist point pos',
+                      active: _taskCategory == 'maintenance',
+                      onTap: () => setState(() => _taskCategory = 'maintenance'),
+                      line: line,
+                      sub: labelColor,
+                    ),
+                    const SizedBox(width: 20),
+                    _kategoriTab(
+                      label: 'Tugas Khusus',
+                      ket: 'Kerjaan bebas / dadakan',
+                      active: _taskCategory == 'khusus',
+                      onTap: () => setState(() => _taskCategory = 'khusus'),
+                      line: line,
+                      sub: labelColor,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 26),
+
+                // PEMILIK TUGAS
+                _formLabel('Pemilik Tugas', labelColor),
+                const SizedBox(height: 7),
+                _underline(
+                  color: line,
+                  bottom: 6,
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedTech,
+                      isExpanded: true,
+                      isDense: true,
+                      dropdownColor: inputBg,
+                      icon: Icon(Icons.expand_more_rounded, size: 18, color: labelColor),
+                      style: TextStyle(
+                        fontFamily: 'PlusJakartaSans',
+                        color: textColor,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      items: _technicians.map((t) => DropdownMenuItem(value: t, child: Text(t, overflow: TextOverflow.ellipsis))).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _selectedTech = val;
+                            // Pemilik tidak boleh jadi pelaksana tambahan dirinya sendiri.
+                            _pesertaTerpilih.remove(val);
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _formHelper('Yang pegang dokumentasi dan upload bukti.', labelColor),
+                const SizedBox(height: 26),
+
+                // TEMPLATE SOP
+                if (_taskCategory == 'maintenance') ...[
+                  _formLabel('Template SOP', labelColor),
+                  const SizedBox(height: 7),
+                  _underline(
+                    color: line,
+                    bottom: 6,
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedTemplateId,
+                        isExpanded: true,
+                        isDense: true,
+                        dropdownColor: inputBg,
+                        icon: Icon(Icons.expand_more_rounded, size: 18, color: labelColor),
+                        style: TextStyle(
+                          fontFamily: 'PlusJakartaSans',
+                          color: textColor,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        items: _templates.map((tpl) => DropdownMenuItem(value: tpl['id'], child: Text(tpl['nama']!, overflow: TextOverflow.ellipsis))).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _selectedTemplateId = val;
+                              final found = _templates.firstWhere((e) => e['id'] == val);
+                              _pekerjaanCtrl.text = '${found['nama']} - ${_lokasiCtrl.text.trim()}';
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 26),
+                ],
+
+                // DETAIL PEKERJAAN
+                _formLabel('Detail Pekerjaan', labelColor),
+                const SizedBox(height: 7),
+                _underline(
+                  color: line,
+                  child: TextField(
+                    controller: _pekerjaanCtrl,
+                    maxLines: 2,
+                    style: TextStyle(color: textColor, fontSize: 13.5, height: 1.4),
+                    decoration: _bareInput('Contoh: Pengecatan markah panah lokasi TBM', hintColor, textColor),
+                  ),
+                ),
+                const SizedBox(height: 26),
+
+                // LOKASI
+                Row(
+                  children: [
+                    _formLabel('Lokasi', labelColor),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withValues(alpha: isDark ? 0.15 : 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        BranchService.instance.currentBranch.name,
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.accent),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 7),
+                _underline(
+                  color: line,
+                  child: TextField(
+                    controller: _lokasiCtrl,
+                    style: TextStyle(color: textColor, fontSize: 13.5),
+                    decoration: _bareInput(
+                      BranchService.instance.currentBranch == AppBranch.bali ? 'Contoh: PBKD, PCD, PKRD' : 'Contoh: PBM, TBM, PKM',
+                      hintColor,
+                      textColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _formHelper('Ketik tag lokasi, contoh PBM, TBM, PKM.', labelColor),
+                const SizedBox(height: 26),
+
+                // CATATAN
+                _formLabel('Catatan untuk Teknisi (opsional)', labelColor),
+                const SizedBox(height: 7),
+                _underline(
+                  color: line,
+                  child: TextField(
+                    controller: _catatanCtrl,
+                    maxLines: 3,
+                    style: TextStyle(color: textColor, fontSize: 13.5, height: 1.4),
+                    decoration: _bareInput('Instruksi singkat kalau ada', hintColor, textColor),
+                  ),
+                ),
+                const SizedBox(height: 26),
+
+                // PELAKSANA TAMBAHAN
+                Container(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
+                  decoration: BoxDecoration(
+                    color: panelBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: line),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        flex: 5,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: BoxDecoration(
-                            color: inputBg,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: inputBorder),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _shift1ManadoTech ?? (_technicians.isNotEmpty ? _technicians.first : null),
-                              isExpanded: true,
-                              dropdownColor: inputBg,
-                              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
-                              items: _technicians.map((t) => DropdownMenuItem(
-                                value: t,
-                                child: Text(t, overflow: TextOverflow.ellipsis),
-                              )).toList(),
-                              onChanged: (val) {
-                                if (val != null) setState(() => _shift1ManadoTech = val);
-                              },
+                      InkWell(
+                        onTap: () => setState(() => _pesertaTerbuka = !_pesertaTerbuka),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.groups_2_outlined, size: 18, color: AppColors.primary),
+                            const SizedBox(width: 9),
+                            Expanded(
+                              child: Text(
+                                'Pelaksana Tambahan',
+                                style: TextStyle(
+                                  fontFamily: 'PlusJakartaSans',
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: textColor,
+                                ),
+                              ),
                             ),
-                          ),
+                            if (_pesertaTerpilih.isNotEmpty) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: line),
+                                ),
+                                child: Text(
+                                  '${_pesertaTerpilih.length} dipilih',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: textColor),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                            Icon(
+                              _pesertaTerbuka ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                              size: 20,
+                              color: labelColor,
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 6,
-                        child: ElevatedButton.icon(
-                          onPressed: _isLoading
-                              ? null
-                              : () => _dispatchShift1ManadoRoutine(_shift1ManadoTech ?? _selectedTech),
-                          icon: const Icon(Icons.send_rounded, size: 14),
-                          label: const Text(
-                            'Kirim 2 Tugas',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.accent,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 11),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            elevation: 0,
-                          ),
-                        ),
-                      ),
+                      if (_pesertaTerbuka) ...[
+                        const SizedBox(height: 6),
+                        _formHelper('Dikerjakan bareng. Bukti 1 dari pemilik tugas, yang lain ikut selesai.', labelColor),
+                        const SizedBox(height: 4),
+                        for (final tech in _technicians.where((t) => t != _selectedTech))
+                          _pesertaRow(tech, line: line, head: textColor, sub: labelColor, isDark: isDark),
+                      ] else
+                        const SizedBox(height: 12),
                     ],
+                  ),
+                ),
+                if (_pesertaTerpilih.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.success.withValues(alpha: 0.12) : AppColors.successLight,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: isDark ? AppColors.success.withValues(alpha: 0.35) : AppColors.successBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.groups_2_outlined, size: 15, color: AppColors.success),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Bareng: ${_pesertaTerpilih.join(', ')}',
+                                style: TextStyle(fontSize: 11.5, color: textColor, height: 1.4),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.description_outlined, size: 15, color: AppColors.success),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Bukti dari: $_selectedTech',
+                                style: TextStyle(fontSize: 11.5, color: textColor, height: 1.4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-              ),
-            ),
-          ],
-
-          // PILIH TARGET TANGGAL PENUGASAN
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Target Tanggal Penugasan *',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor),
-              ),
-              InkWell(
-                onTap: _pickTargetDispatchDate,
-                borderRadius: BorderRadius.circular(6),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.calendar_month_rounded, size: 14, color: AppColors.accent),
-                      const SizedBox(width: 4),
-                      Text(
-                        _formatDateDisplay(_targetDispatchDate),
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.accent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.all(3.5),
-            decoration: BoxDecoration(
-              color: inputBg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: inputBorder, width: 1.0),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => setState(() => _targetDispatchDate = DateTime.now()),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _isSameDay(_targetDispatchDate, DateTime.now()) ? AppColors.accent : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        'Hari Ini',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: _isSameDay(_targetDispatchDate, DateTime.now()) ? Colors.white : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => setState(() => _targetDispatchDate = DateTime.now().add(const Duration(days: 1))),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _isSameDay(_targetDispatchDate, DateTime.now().add(const Duration(days: 1))) ? AppColors.accent : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        'Besok',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: _isSameDay(_targetDispatchDate, DateTime.now().add(const Duration(days: 1))) ? Colors.white : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: InkWell(
-                    onTap: _pickTargetDispatchDate,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: (!_isSameDay(_targetDispatchDate, DateTime.now()) && !_isSameDay(_targetDispatchDate, DateTime.now().add(const Duration(days: 1))))
-                            ? AppColors.accent
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.event_rounded,
-                            size: 14,
-                            color: (!_isSameDay(_targetDispatchDate, DateTime.now()) && !_isSameDay(_targetDispatchDate, DateTime.now().add(const Duration(days: 1))))
-                                ? Colors.white
-                                : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Pilih Lain',
-                            style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: (!_isSameDay(_targetDispatchDate, DateTime.now()) && !_isSameDay(_targetDispatchDate, DateTime.now().add(const Duration(days: 1))))
-                                  ? Colors.white
-                                  : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-
-          // Segment Jenis Tugas
-          Text(
-            'Jenis Tugas *',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor),
-          ),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.all(3.5),
-            decoration: BoxDecoration(
-              color: inputBg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: inputBorder, width: 1.0),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => setState(() => _taskCategory = 'khusus'),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _taskCategory == 'khusus' ? AppColors.accent : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: _taskCategory == 'khusus'
-                            ? [
-                                BoxShadow(
-                                  color: AppColors.accent.withValues(alpha: 0.3),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Text(
-                        'Tugas Khusus',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.1,
-                          color: _taskCategory == 'khusus' ? Colors.white : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => setState(() => _taskCategory = 'maintenance'),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _taskCategory == 'maintenance' ? AppColors.accent : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: _taskCategory == 'maintenance'
-                            ? [
-                                BoxShadow(
-                                  color: AppColors.accent.withValues(alpha: 0.3),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Text(
-                        'Maintenance SOP',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.1,
-                          color: _taskCategory == 'maintenance' ? Colors.white : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Dropdown Teknisi
-          Text(
-            'Pilih Teknisi *',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor),
-          ),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: inputBg,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: inputBorder),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedTech,
-                isExpanded: true,
-                dropdownColor: inputBg,
-                style: TextStyle(color: textColor, fontSize: 13),
-                items: _technicians.map((t) => DropdownMenuItem(value: t, child: Text(t, style: TextStyle(color: textColor)))).toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _selectedTech = val;
-                      // Pemilik tidak boleh jadi pelaksana tambahan dirinya sendiri.
-                      _pesertaTerpilih.remove(val);
-                    });
-                  }
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Pelaksana tambahan: tugas dikerjakan bareng (1 tugas, 1 bukti)
-          Text(
-            'Pelaksana Tambahan (opsional)',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor),
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: _technicians
-                .where((t) => t != _selectedTech)
-                .map((t) => FilterChip(
-                      label: Text(t, style: const TextStyle(fontSize: 11)),
-                      selected: _pesertaTerpilih.contains(t),
-                      onSelected: (val) => setState(() {
-                        if (val) {
-                          _pesertaTerpilih.add(t);
-                        } else {
-                          _pesertaTerpilih.remove(t);
-                        }
-                      }),
-                      backgroundColor: inputBg,
-                      selectedColor: AppColors.accent.withValues(alpha: 0.2),
-                      side: BorderSide(
-                        color: _pesertaTerpilih.contains(t) ? AppColors.accent : inputBorder,
-                      ),
-                      labelStyle: TextStyle(
-                        color: _pesertaTerpilih.contains(t) ? AppColors.accent : textColor,
-                        fontWeight: _pesertaTerpilih.contains(t) ? FontWeight.bold : FontWeight.w500,
-                      ),
-                    ))
-                .toList(),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Pilih lebih dari satu kalau dikerjakan bareng. Bukti diunggah $_selectedTech, yang lain ikut selesai.',
-            style: TextStyle(fontSize: 10.5, color: hintColor, height: 1.3),
-          ),
-          const SizedBox(height: 16),
-
-          // Template jika Maintenance SOP
-          if (_taskCategory == 'maintenance') ...[
-            Text(
-              'Template SOP *',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: inputBg,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: inputBorder),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _selectedTemplateId,
-                  isExpanded: true,
-                  dropdownColor: inputBg,
-                  style: TextStyle(color: textColor, fontSize: 13),
-                  items: _templates.map((tpl) => DropdownMenuItem(value: tpl['id'], child: Text(tpl['nama']!, style: TextStyle(color: textColor)))).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _selectedTemplateId = val;
-                        final found = _templates.firstWhere((e) => e['id'] == val);
-                        _pekerjaanCtrl.text = '${found['nama']} - ${_lokasiCtrl.text.trim()}';
-                      });
-                    }
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          // Lokasi Manual Murni & Quick Selection
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Lokasi *',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: isDark ? 0.15 : 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  BranchService.instance.currentBranch.name,
-                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.accent),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            controller: _lokasiCtrl,
-            style: TextStyle(color: textColor, fontSize: 13),
-            decoration: InputDecoration(
-              hintText: BranchService.instance.currentBranch == AppBranch.bali
-                  ? 'Contoh: PBKD, PCD, PKRD'
-                  : 'Contoh: PBM, TBM, PKM',
-              hintStyle: TextStyle(color: hintColor, fontSize: 13),
-              filled: true,
-              fillColor: inputBg,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: inputBorder)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: inputBorder)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.accent, width: 1.5)),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Detail Pekerjaan
-          Text(
-            'Detail Pekerjaan *',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor),
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            controller: _pekerjaanCtrl,
-            style: TextStyle(color: textColor, fontSize: 13),
-            decoration: InputDecoration(
-              hintText: 'Contoh: Pengecatan markah panah lokasi TBM',
-              hintStyle: TextStyle(color: hintColor, fontSize: 13),
-              filled: true,
-              fillColor: inputBg,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: inputBorder)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: inputBorder)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.accent, width: 1.5)),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Catatan Tambahan
-          Text(
-            'Catatan (Opsional)',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor),
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            controller: _catatanCtrl,
-            maxLines: 2,
-            style: TextStyle(color: textColor, fontSize: 13),
-            decoration: InputDecoration(
-              hintText: 'Instruksi atau catatan khusus jika ada',
-              hintStyle: TextStyle(color: hintColor, fontSize: 13),
-              filled: true,
-              fillColor: inputBg,
-              contentPadding: const EdgeInsets.all(12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: inputBorder)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: inputBorder)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.accent, width: 1.5)),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Tombol Kirim Tugas (Min height 46px)
-          ElevatedButton(
-            onPressed: _isLoading ? null : _submitTask,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 46),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: _isLoading
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Kirim Tugas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          ),
-        ],
-      ),
+        ),
+        _buildTombolBeriTugas(bgScaffold, line),
+      ],
     );
   }
 
