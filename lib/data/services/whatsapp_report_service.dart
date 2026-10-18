@@ -420,6 +420,26 @@ class WhatsAppReportService {
     return false;
   }
 
+  /// Tingkat urgensi temuan yang ditandai teknisi, mis. " (harus diganti)".
+  /// Kosong kalau teknisi belum menandai (normal).
+  static String _urgensiTag(MaintenancePointResult p) =>
+      p.urgensi == TingkatUrgensi.normal
+      ? ''
+      : ' *(${p.urgensi.label.toLowerCase()})*';
+
+  /// Unit gate yang arahnya ditandai teknisi di setup, mis. "Barrier Gate 2 (OUT)".
+  static bool _hasGateDirection(String unitName) =>
+      RegExp(r'\((IN|OUT)\)$', caseSensitive: false).hasMatch(unitName.trim());
+
+  /// Arah gate ("IN"/"OUT") dari nama unit. Kosong kalau tidak ditandai.
+  static String _gateDirection(String unitName) {
+    final match = RegExp(
+      r'\((IN|OUT)\)$',
+      caseSensitive: false,
+    ).firstMatch(unitName.trim());
+    return match == null ? '' : match.group(1)!.toUpperCase();
+  }
+
   static String _gateName(String rawLabel) {
     if (rawLabel.contains(' - ')) {
       return rawLabel.split(' - ').first.trim();
@@ -1110,32 +1130,6 @@ class WhatsAppReportService {
 
     final defaultOk = _defaultObservationForTheme(themeLabel);
 
-    String urgensiTag(MaintenancePointResult p) =>
-        p.urgensi == TingkatUrgensi.normal
-        ? ''
-        : ' *(${p.urgensi.label.toLowerCase()})*';
-
-    void printNaLines(
-      List<MaintenancePointResult> na, {
-      bool withUnit = false,
-    }) {
-      for (final p in na) {
-        final item = cleanItemLabel(p.label).trim();
-        final unit = _gateName(p.label);
-        final prefix = withUnit && unit != item
-            ? '${_unitDisplay(unit)}: '
-            : '';
-        // Judul tema sudah menyebut nama barangnya, jadi jangan diulang lagi:
-        // cukup "Tidak terpasang" (+ sisa nama yang memang beda, mis. "Sisi Kanan").
-        final sisa = _sisaNamaItem(item, themeLabel);
-        final kata = _pisahKata(sisa);
-        final nama = kata.length >= 2 ? '$sisa ' : '';
-        buffer.writeln(
-          '   ⛔ $prefix${nama.isEmpty ? 'Tidak terpasang' : '${nama}tidak terpasang'}',
-        );
-      }
-    }
-
     // Kelompokkan poin yang sudah selesai per unit
     final unitPointsMap = <String, List<MaintenancePointResult>>{};
     for (final p in done) {
@@ -1153,6 +1147,55 @@ class WhatsAppReportService {
 
     final isSingleUnit = sortedUnits.length <= 1;
 
+    // Barrier gate yang arahnya ditandai teknisi (mis. "Barrier Gate 2 (OUT)")
+    // dikelompokkan jadi Gate IN dan Gate OUT, karena manager membaca laporan
+    // per sisi. Tanda (IN)/(OUT) tidak diulang di tiap baris, header kelompok
+    // yang membawa arahnya.
+    final groupByDirection = !isSingleUnit && sortedUnits.any(_hasGateDirection);
+
+    String unitLabel(String unit) {
+      final label = _unitDisplay(unit);
+      if (!groupByDirection) return label;
+      return label.replaceAll(
+        RegExp(r'\s*\((IN|OUT)\)$', caseSensitive: false),
+        '',
+      );
+    }
+
+    String listLabel(List<String> units) {
+      if (units.length == 1) return unitLabel(units.first);
+      if (groupByDirection) return units.map(unitLabel).join(', ');
+      return _formatUnitList(units);
+    }
+
+    void printNaLines(
+      List<MaintenancePointResult> na, {
+      bool withUnit = false,
+    }) {
+      for (final p in na) {
+        final item = cleanItemLabel(p.label).trim();
+        final unit = _gateName(p.label);
+        final prefix = withUnit && unit != item ? '${unitLabel(unit)}: ' : '';
+        // Judul tema sudah menyebut nama barangnya, jadi jangan diulang lagi:
+        // cukup "Tidak terpasang" (+ sisa nama yang memang beda, mis. "Sisi Kanan").
+        final sisa = _sisaNamaItem(item, themeLabel);
+        final kata = _pisahKata(sisa);
+        final nama = kata.length >= 2 ? '$sisa ' : '';
+        buffer.writeln(
+          '   ⛔ $prefix${nama.isEmpty ? 'Tidak terpasang' : '${nama}tidak terpasang'}',
+        );
+      }
+    }
+
+    // Urutan unit: per arah kalau teknisi menandai arah gate, kalau tidak tetap
+    // satu blok berurutan nomor gate seperti sebelumnya.
+    final unitGroups = groupByDirection
+        ? <List<String>>[
+            sortedUnits.where((u) => _gateDirection(u) == 'IN').toList(),
+            sortedUnits.where((u) => _gateDirection(u) == 'OUT').toList(),
+          ].where((g) => g.isNotEmpty).toList()
+        : <List<String>>[sortedUnits];
+
     // 1. Jika SEMUA unit sesuai (tidak ada issue sama sekali)
     if (issues.isEmpty) {
       if (done.length < relevant.length) {
@@ -1163,6 +1206,26 @@ class WhatsAppReportService {
         if (okPoints.isNotEmpty) {
           final okAlasan = _findBestOkAlasan(okPoints, fallback: defaultOk);
           buffer.writeln('   ✅ $okAlasan');
+        }
+      } else if (groupByDirection) {
+        // Barrier gate: satu baris aman per arah, biar sebutan Gate IN dan
+        // Gate OUT tetap terbaca walau semua poin temanya aman.
+        for (final groupUnits in unitGroups) {
+          final okUnits = groupUnits
+              .where(
+                (u) => unitPointsMap[u]!.any(
+                  (p) => p.status == PointStatus.sesuai && !_hasIssue(p),
+                ),
+              )
+              .toList();
+          if (okUnits.isEmpty) continue;
+          buffer.writeln('   *Gate ${_gateDirection(okUnits.first)}*');
+          final groupOkPoints = okUnits
+              .expand((u) => unitPointsMap[u]!)
+              .where((p) => p.status == PointStatus.sesuai && !_hasIssue(p))
+              .toList();
+          final okAlasan = _findBestOkAlasan(groupOkPoints, fallback: defaultOk);
+          buffer.writeln('   ✅ ${listLabel(okUnits)}: $okAlasan');
         }
       } else {
         // Multi-unit Smart Consolidated: Rangkum menjadi 1 baris ringkas per tipe unit!
@@ -1180,7 +1243,7 @@ class WhatsAppReportService {
             unitPointsMap[okUnits.first]!,
             fallback: defaultOk,
           );
-          buffer.writeln('   ✅ ${_unitDisplay(okUnits.first)}: $okAlasan');
+          buffer.writeln('   ✅ ${unitLabel(okUnits.first)}: $okAlasan');
         } else if (unitTypes.length == 1) {
           final okAlasan = _findBestOkAlasan(okPoints, fallback: defaultOk);
           buffer.writeln('   ✅ ${_formatUnitList(okUnits)}: $okAlasan');
@@ -1203,7 +1266,7 @@ class WhatsAppReportService {
             );
             if (groupUnits.length == 1) {
               buffer.writeln(
-                '   ✅ ${_unitDisplay(groupUnits.first)}: $groupOkAlasan',
+                '   ✅ ${unitLabel(groupUnits.first)}: $groupOkAlasan',
               );
             } else {
               buffer.writeln(
@@ -1227,7 +1290,7 @@ class WhatsAppReportService {
         final alasan = _isMeaningfulAlasan(iss.alasan)
             ? cleanAlasanText(iss.alasan)
             : 'perlu perbaikan';
-        buffer.writeln('   ⚠️ $alasan${urgensiTag(iss)}');
+        buffer.writeln('   ⚠️ $alasan${_urgensiTag(iss)}');
         if (iss.kendalaFisik != null && iss.kendalaFisik!.trim().isNotEmpty) {
           buffer.writeln('      👉 KENDALA: ${iss.kendalaFisik!.trim()}');
         }
@@ -1239,9 +1302,38 @@ class WhatsAppReportService {
     // 3. Multi-unit Smart Consolidated (ada issue & ada ok):
     // Urutkan unit secara berurutan numerik. Gabungkan blok bertetangga yang sama-sama OK.
     // Unit yang bermasalah dicetak spesifik per unit.
+    for (final groupUnits in unitGroups) {
+      if (groupByDirection) {
+        buffer.writeln('   *Gate ${_gateDirection(groupUnits.first)}*');
+      }
+      _printMultiUnitBlocks(
+        buffer: buffer,
+        units: groupUnits,
+        unitPointsMap: unitPointsMap,
+        defaultOk: defaultOk,
+        unitLabel: unitLabel,
+        listLabel: listLabel,
+        printNaLines: printNaLines,
+      );
+    }
+  }
+
+  /// Cetak blok unit jalur multi-unit: unit bermasalah tampil per unit, deretan
+  /// unit aman digabung jadi satu baris. Dipakai jalur konsolidasi biasa dan
+  /// jalur barrier gate yang dikelompokkan per arah.
+  static void _printMultiUnitBlocks({
+    required StringBuffer buffer,
+    required List<String> units,
+    required Map<String, List<MaintenancePointResult>> unitPointsMap,
+    required String defaultOk,
+    required String Function(String unit) unitLabel,
+    required String Function(List<String> units) listLabel,
+    required void Function(List<MaintenancePointResult> na, {bool withUnit})
+    printNaLines,
+  }) {
     int i = 0;
-    while (i < sortedUnits.length) {
-      final u = sortedUnits[i];
+    while (i < units.length) {
+      final u = units[i];
       final uPoints = unitPointsMap[u]!;
       final uIssues = uPoints
           .where((p) => p.status == PointStatus.tidakSesuai || _hasIssue(p))
@@ -1252,7 +1344,7 @@ class WhatsAppReportService {
           final alasan = _isMeaningfulAlasan(iss.alasan)
               ? cleanAlasanText(iss.alasan)
               : 'perlu perbaikan';
-          buffer.writeln('   ⚠️ ${_unitDisplay(u)}: $alasan${urgensiTag(iss)}');
+          buffer.writeln('   ⚠️ ${unitLabel(u)}: $alasan${_urgensiTag(iss)}');
           if (iss.kendalaFisik != null && iss.kendalaFisik!.trim().isNotEmpty) {
             buffer.writeln('      👉 KENDALA: ${iss.kendalaFisik!.trim()}');
           }
@@ -1269,8 +1361,8 @@ class WhatsAppReportService {
         final uType = _detectUnitType(u);
 
         int j = i + 1;
-        while (j < sortedUnits.length) {
-          final nextU = sortedUnits[j];
+        while (j < units.length) {
+          final nextU = units[j];
           final nextType = _detectUnitType(nextU);
           if (nextType != uType) break;
 
@@ -1290,11 +1382,7 @@ class WhatsAppReportService {
             .toList();
         if (chunkOkPoints.isNotEmpty) {
           final alasan = _findBestOkAlasan(chunkOkPoints, fallback: defaultOk);
-          if (okChunkUnits.length == 1) {
-            buffer.writeln('   ✅ ${_unitDisplay(u)}: $alasan');
-          } else {
-            buffer.writeln('   ✅ ${_formatUnitList(okChunkUnits)}: $alasan');
-          }
+          buffer.writeln('   ✅ ${listLabel(okChunkUnits)}: $alasan');
         }
         for (final cu in okChunkUnits) {
           printNaLines(

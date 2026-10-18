@@ -183,6 +183,127 @@ void main() {
       expect(report, contains('⚠️ Gate 2: Baut kendor perlu dikencangkan'));
     });
 
+    test('arah gate ditandai teknisi: temuan dikelompokkan per Gate IN dan Gate OUT', () {
+      final now = DateTime.now();
+      final points = [
+        // Gate 1 (IN): stiker receiver rusak
+        const MaintenancePointResult(
+          pointId: 'bar_1_07',
+          label: 'Barrier Gate 1 (IN) - Stiker Receiver Barrier Gate',
+          status: PointStatus.tidakSesuai,
+          alasan: 'stiker receiver rusak dan tidak terpasang dengan benar',
+        ),
+        // Gate 2 (OUT): stiker receiver rusak
+        const MaintenancePointResult(
+          pointId: 'bar_2_07',
+          label: 'Barrier Gate 2 (OUT) - Stiker Receiver Barrier Gate',
+          status: PointStatus.tidakSesuai,
+          alasan: 'stiker receiver kuning terkelupas dari permukaan',
+        ),
+        // Gate 3 (IN): stiker receiver masih terbaca
+        const MaintenancePointResult(
+          pointId: 'bar_3_07',
+          label: 'Barrier Gate 3 (IN) - Stiker Receiver Barrier Gate',
+          status: PointStatus.sesuai,
+          alasan: 'stiker receiver menempel rapi dan masih terbaca',
+        ),
+        // Gate 4 (OUT): stiker receiver aman
+        const MaintenancePointResult(
+          pointId: 'bar_4_07',
+          label: 'Barrier Gate 4 (OUT) - Stiker Receiver Barrier Gate',
+          status: PointStatus.sesuai,
+          alasan: 'stiker receiver utuh dan warnanya masih jelas',
+        ),
+      ];
+
+      final sub = MaintenanceSubmission(
+        id: 'sub_barrier_arah',
+        templateId: 'tpl_maint_barrier',
+        templateName: 'Maintenance: Barrier Gate',
+        userId: 'usr_1',
+        userName: 'Farhan Lakoro',
+        userNpp: 'BSS-001',
+        posId: 'pos_1',
+        posName: 'Pasar Pinasungkulan Manado',
+        cabangName: 'PBM',
+        points: points,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      final report = WhatsAppReportService.generateReportText(
+        submission: sub,
+        category: TemplateCategory.maintBarrier,
+        unitCount: 4,
+      );
+
+      // Header arah muncul, Gate IN dulu baru Gate OUT.
+      expect(report, contains('   *Gate IN*'));
+      expect(report, contains('   *Gate OUT*'));
+      expect(
+        report.indexOf('*Gate IN*'),
+        lessThan(report.indexOf('*Gate OUT*')),
+      );
+
+      // Di dalam kelompok, tanda (IN)/(OUT) tidak diulang di tiap baris.
+      expect(report, contains('⚠️ Gate 1: stiker receiver rusak'));
+      expect(report, contains('⚠️ Gate 2: stiker receiver kuning terkelupas'));
+      expect(report, contains('✅ Gate 3: stiker receiver menempel rapi'));
+      expect(report, contains('✅ Gate 4: stiker receiver utuh'));
+      expect(report.contains('Gate 1 (IN):'), isFalse);
+      expect(report.contains('Gate 2 (OUT):'), isFalse);
+
+      // Gate IN harus muncul sebelum gate OUT di dalam blok yang sama.
+      expect(
+        report.indexOf('Gate 1: stiker receiver rusak'),
+        lessThan(report.indexOf('Gate 2: stiker receiver kuning')),
+      );
+    });
+
+    test('tanpa tanda arah, laporan tetap satu blok seperti sebelumnya', () {
+      final now = DateTime.now();
+      final points = [
+        const MaintenancePointResult(
+          pointId: 'bar_1_07',
+          label: 'Barrier Gate 1 - Stiker Receiver Barrier Gate',
+          status: PointStatus.tidakSesuai,
+          alasan: 'stiker receiver rusak di sisi kiri tiang',
+        ),
+        const MaintenancePointResult(
+          pointId: 'bar_2_07',
+          label: 'Barrier Gate 2 - Stiker Receiver Barrier Gate',
+          status: PointStatus.sesuai,
+          alasan: 'stiker receiver masih menempel rapi',
+        ),
+      ];
+
+      final sub = MaintenanceSubmission(
+        id: 'sub_barrier_tanpa_arah',
+        templateId: 'tpl_maint_barrier',
+        templateName: 'Maintenance: Barrier Gate',
+        userId: 'usr_1',
+        userName: 'Farhan Lakoro',
+        userNpp: 'BSS-001',
+        posId: 'pos_1',
+        posName: 'Pasar Pinasungkulan Manado',
+        cabangName: 'PBM',
+        points: points,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      final report = WhatsAppReportService.generateReportText(
+        submission: sub,
+        category: TemplateCategory.maintBarrier,
+        unitCount: 2,
+      );
+
+      expect(report.contains('*Gate IN*'), isFalse);
+      expect(report.contains('*Gate OUT*'), isFalse);
+      expect(report, contains('⚠️ Gate 1: stiker receiver rusak di sisi kiri tiang'));
+      expect(report, contains('✅ Gate 2: stiker receiver masih menempel rapi'));
+    });
+
     test(
       'generateReportText maintains sequential Gate 1..4 order in mixed status (no gate jumping)',
       () {
@@ -562,27 +683,36 @@ void main() {
         unitCount: 2,
       );
 
+      // Temuan dan poin aman dikelompokkan per arah, tanda (IN)/(OUT) tidak
+      // diulang di tiap baris karena header kelompok sudah menyebut arahnya.
       expect(
         report,
         contains(
-          '⚠️ Gate 2 (OUT): Palang terbuka tidak sampai 90° dan macet di tengah *(harus diganti)*',
+          '   *Gate OUT*\n'
+          '   ⚠️ Gate 2: Palang terbuka tidak sampai 90° dan macet di tengah *(harus diganti)*',
         ),
       );
       expect(
         report,
         contains(
-          '✅ Gate 1 (IN): Palang naik terbuka penuh tegak 90° dan gerakan lancar',
+          '   *Gate IN*\n'
+          '   ✅ Gate 1: Palang naik terbuka penuh tegak 90° dan gerakan lancar',
         ),
       );
       expect(report, contains('Gate : 2 Unit (Gate 1 IN - Gate 2 OUT)'));
-      // Dua gate aman dengan arah beda tidak boleh diringkas jadi "Gate 1 - 2".
+      // Poin aman dicetak per arah, bukan diringkas jadi "Gate 1 - 2".
       expect(
         report,
         contains(
-          '✅ Gate 1 (IN), Gate 2 (OUT): Stiker receiver kuning terpasang utuh',
+          '   *Gate IN*\n'
+          '   ✅ Gate 1: Stiker receiver kuning terpasang utuh\n'
+          '   *Gate OUT*\n'
+          '   ✅ Gate 2: Stiker receiver kuning terpasang utuh',
         ),
       );
       expect(report, isNot(contains('Gate 1 - 2')));
+      expect(report, isNot(contains('Gate 1 (IN):')));
+      expect(report, isNot(contains('Gate 2 (OUT):')));
     });
 
     testWidgets('Label gate di checklist pakai penanda arah dari setup', (
