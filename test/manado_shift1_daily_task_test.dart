@@ -47,9 +47,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Check header and 2 routine tasks
-      expect(find.text('Rutin Shift 1 KC Manado'), findsOneWidget);
-      expect(find.text('2 tugas permanen pagi (03:00 - 11:00 WITA)'), findsOneWidget);
+      // Tab kategori paling atas: Rutin / Maintenance / Khusus
+      expect(find.text('Rutin'), findsOneWidget);
+      expect(find.text('Maintenance'), findsOneWidget);
+      expect(find.text('Khusus'), findsOneWidget);
+
+      // Buka tab Rutin, isinya 2 tugas rutin shift 1
+      await tester.tap(find.text('Rutin'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TUGAS RUTIN SHIFT 1 KC MANADO'), findsOneWidget);
       expect(
         find.textContaining('Pengecekan Sistem Gate out 1-6 PBM (bukti dokumentasi layar aplikasi kasir)'),
         findsOneWidget,
@@ -58,10 +65,10 @@ void main() {
         find.textContaining('Pengecekan Sistem Gate ojek'),
         findsOneWidget,
       );
-      expect(find.text('Kirim 2 Tugas'), findsOneWidget);
+      expect(find.text('Kirim 2 Tugas Rutin'), findsOneWidget);
 
-      // Target tanggal sekarang berupa baris field, tap untuk ganti tanggal
-      expect(find.text('TARGET TANGGAL PENUGASAN'), findsOneWidget);
+      // Target tanggal berupa baris field, tap untuk ganti tanggal
+      expect(find.text('TARGET TANGGAL'), findsOneWidget);
       expect(find.textContaining('Hari Ini ('), findsWidgets);
     });
   });
