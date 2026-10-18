@@ -189,7 +189,7 @@ class DailyTaskService {
     return false;
   }
 
-  /// Tugas ini milik/ikut dikerjakan [nama]? Pemilik ATAU pelaksana tambahan.
+  /// Tugas ini milik/ikut dikerjakan [nama]? Pemilik ATAU teknisi tambahan.
   static bool isAssignedTo(DailyTaskModel task, String nama) {
     if (_matchesTechnician(task.teknisiNama, nama)) return true;
     for (final p in task.pesertaList) {

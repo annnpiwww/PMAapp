@@ -39,8 +39,8 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   final _catatanCtrl = TextEditingController();
   String _taskCategory = 'khusus'; // 'khusus' atau 'maintenance'
   String? _selectedTemplateId = 'tpl_maint_pos';
-  final Set<String> _pesertaTerpilih = {}; // pelaksana tambahan (tugas bareng)
-  bool _pesertaTerbuka = true; // daftar pelaksana tambahan terbuka/tertutup
+  final Set<String> _pesertaTerpilih = {}; // teknisi tambahan (tugas bareng)
+  bool _pesertaTerbuka = true; // daftar teknisi tambahan terbuka/tertutup
 
   final List<Map<String, String>> _templates = [
     {'id': 'tpl_maint_pos', 'nama': 'Maintenance Pos Kasir'},
@@ -1282,7 +1282,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                           if (val != null) {
                             setState(() {
                               _selectedTech = val;
-                              // Pemilik tidak boleh jadi pelaksana tambahan dirinya sendiri.
+                              // Pemilik tidak boleh jadi teknisi tambahan dirinya sendiri.
                               _pesertaTerpilih.remove(val);
                             });
                           }
@@ -1397,7 +1397,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                   ),
                   const SizedBox(height: 26),
 
-                  // PELAKSANA TAMBAHAN
+                  // TEKNISI TAMBAHAN
                   Container(
                     padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
                     decoration: BoxDecoration(
@@ -1416,7 +1416,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                               const SizedBox(width: 9),
                               Expanded(
                                 child: Text(
-                                  'Pelaksana Tambahan',
+                                  'Teknisi Tambahan',
                                   style: TextStyle(
                                     fontFamily: 'PlusJakartaSans',
                                     fontSize: 13.5,

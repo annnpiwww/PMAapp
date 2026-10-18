@@ -83,7 +83,7 @@ class DailyTaskModel {
   final List<String> fotoBuktiUrls;
   final String? catatanTeknisi;
 
-  /// Pelaksana tambahan (tugas dikerjakan bareng), dipisah koma.
+  /// Teknisi tambahan (tugas dikerjakan bareng), dipisah koma.
   final String peserta;
 
   /// Log serah terima antar shift (baris-baris `TaskHandover`).
@@ -111,7 +111,7 @@ class DailyTaskModel {
   bool get isCompleted => status == TaskStatus.completed;
   bool get isMaintenance => kategori == 'maintenance';
 
-  /// Nama pelaksana tambahan (tanpa pemilik).
+  /// Nama teknisi tambahan (tanpa pemilik).
   List<String> get pesertaList => peserta
       .split(',')
       .map((e) => e.trim())

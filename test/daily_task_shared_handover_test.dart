@@ -50,7 +50,7 @@ void main() {
       expect(taskContoh().isShared, isFalse);
     });
 
-    test('tugas ikut tampil untuk pelaksana tambahan, bukan orang lain', () {
+    test('tugas ikut tampil untuk teknisi tambahan, bukan orang lain', () {
       final task = taskContoh(peserta: 'Budi');
       expect(DailyTaskService.isAssignedTo(task, 'Andi'), isTrue);
       expect(DailyTaskService.isAssignedTo(task, 'Budi'), isTrue);
