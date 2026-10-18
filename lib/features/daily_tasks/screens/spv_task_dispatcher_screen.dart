@@ -1401,7 +1401,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
           ),
           const SizedBox(height: 6),
           Text(
-            'Pilih lebih dari satu kalau tugasnya dikerjakan bareng. $_selectedTech yang unggah bukti, lainnya otomatis selesai bareng.',
+            'Pilih lebih dari satu kalau dikerjakan bareng. Bukti diunggah $_selectedTech, yang lain ikut selesai.',
             style: TextStyle(fontSize: 10.5, color: hintColor, height: 1.3),
           ),
           const SizedBox(height: 16),
@@ -2427,7 +2427,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Semua penugasan akan muncul di sini setelah dibuat.',
+                  'Penugasan yang dibuat muncul di sini.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),

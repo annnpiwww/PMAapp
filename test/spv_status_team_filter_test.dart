@@ -126,7 +126,7 @@ void main() {
       expect(recap, contains('REKAP DAILY TEAM PMA KC BSG'));
       expect(recap, contains('SPV : PAK BUDI SPV'));
       expect(recap, contains('Tanggal :'));
-      expect(recap, contains('Proggress : 2/4 (50%)'));
+      expect(recap, contains('Progress : 2/4 (50%)'));
       expect(recap, contains('Status Daily Teknisi :'));
       expect(recap, contains('Ryan Lumasuge : 1/2 selesai'));
       expect(recap, contains('Raldy Sangkop : 1/1 selesai'));
@@ -144,7 +144,7 @@ void main() {
       expect(recap, contains('Ryan Lumasuge - Pengecekan CCTV Pos Keluar (TBM Pos Keluar)'));
 
       // Verify footer
-      expect(recap, contains('Terimakasih'));
+      expect(recap, contains('Terima kasih'));
       expect(recap.contains('PMA app made by'), isFalse);
     });
 
@@ -155,7 +155,7 @@ void main() {
         spvName: 'Supervisor',
       );
 
-      expect(recap, contains('Proggress : 0/0 (0%)'));
+      expect(recap, contains('Progress : 0/0 (0%)'));
       expect(recap.contains('Selesai'), isFalse);
       expect(recap.contains('Belum Selesai'), isFalse);
     });
@@ -168,7 +168,7 @@ void main() {
         spvName: 'Supervisor',
       );
 
-      expect(recap, contains('Proggress : 2/2 (100%)'));
+      expect(recap, contains('Progress : 2/2 (100%)'));
       expect(recap, contains('Selesai (2):'));
       expect(recap.contains('Belum Selesai'), isFalse);
     });

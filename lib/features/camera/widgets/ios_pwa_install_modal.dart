@@ -185,7 +185,7 @@ class IosPwaInstallModal extends StatelessWidget {
             _buildStepCard(
               stepNumber: '3',
               title: 'Ketuk "Tambah" (Add)',
-              description: 'Ketuk tombol Tambah di sudut kanan atas layar. Ikon aplikasi akan langsung muncul di beranda iPhone Anda.',
+              description: 'Ketuk tombol Tambah di kanan atas layar. Ikon aplikasi langsung muncul di beranda iPhone.',
               icon: Icons.check_circle_outline_rounded,
               iconColor: AppColors.accent,
               stepBg: stepBg,

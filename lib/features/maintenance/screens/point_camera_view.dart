@@ -428,7 +428,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
         content: const Text(
           'Aplikasi mendeteksi Mock Location / Fake GPS aktif pada perangkat ini.\n\n'
           'Matikan Fake GPS untuk melanjutkan checklist maintenance sesuai lokasi fisik pos.\n\n'
-          'Jika Anda memilih Lanjut Darurat, foto akan ditandai [FAKE GPS DETECTED] dan otomatis berstatus Cek Manual untuk diaudit oleh Supervisor.',
+          'Kalau kamu pilih Lanjut Darurat, foto ditandai [FAKE GPS DETECTED] dan otomatis jadi Cek Manual buat diaudit Supervisor.',
           style: TextStyle(fontSize: 13, height: 1.5),
         ),
         actions: [

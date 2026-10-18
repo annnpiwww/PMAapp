@@ -255,7 +255,7 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
               ? _buildEmptyState(
                   icon: Icons.task_alt_rounded,
                   title: 'Belum Ada Maintenance Selesai',
-                  subtitle: 'Pekerjaan maintenance yang telah selesai 100% akan tersimpan dan dapat direview di sini.',
+                  subtitle: 'Maintenance yang sudah selesai 100% tersimpan dan bisa dilihat lagi di sini.',
                 )
               : ListView.builder(
                   padding: const EdgeInsets.all(14),
@@ -791,7 +791,7 @@ class _MaintenanceDetailModal extends StatelessWidget {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('✓ $pointsWithImages foto dibuka di WhatsApp. Teks telah disalin ke clipboard!'),
+                                content: Text('✓ $pointsWithImages foto dibuka di WhatsApp. Teks sudah disalin, tinggal paste di chat.'),
                                 backgroundColor: AppColors.success,
                                 behavior: SnackBarBehavior.floating,
                               ),
@@ -827,7 +827,7 @@ class _MaintenanceDetailModal extends StatelessWidget {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('✓ $pointsWithImages foto dibuka di Telegram. Teks telah disalin ke clipboard!'),
+                                content: Text('✓ $pointsWithImages foto dibuka di Telegram. Teks sudah disalin, tinggal paste di chat.'),
                                 backgroundColor: AppColors.success,
                                 behavior: SnackBarBehavior.floating,
                               ),

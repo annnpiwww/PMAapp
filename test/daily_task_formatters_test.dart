@@ -178,7 +178,7 @@ Printer bersih dan hasil cetak tiket jelas''';
 
       expect(recap, contains('REKAP DAILY TEAM PMA KC BSG'));
       expect(recap, contains('SPV : JUNIFER SPV'));
-      expect(recap, contains('Proggress : 2/3 (66%)'));
+      expect(recap, contains('Progress : 2/3 (66%)'));
       expect(recap, contains('Status Daily Teknisi :'));
       expect(recap, contains('Ryan Lumasuge : 1/2 selesai'));
       expect(recap, contains('Raldy Sangkop : 1/1 selesai'));
@@ -188,7 +188,7 @@ Printer bersih dan hasil cetak tiket jelas''';
       expect(recap, contains('2. Raldy Sangkop - Maintenance PC Kasir (MTC) [11:15 WITA]'));
       expect(recap, contains('Belum Selesai (1):'));
       expect(recap, contains('1. Ryan Lumasuge - Perbaikan sensor loop (TBM)'));
-      expect(recap, contains('Terimakasih'));
+      expect(recap, contains('Terima kasih'));
       expect(recap.contains('PMA app made by'), isFalse);
     });
 
@@ -224,7 +224,7 @@ Printer bersih dan hasil cetak tiket jelas''';
 
       expect(recap, contains('REKAP DAILY TEAM PMA KC BALI'));
       expect(recap, contains('SPV : Indra Yohana'));
-      expect(recap, contains('Proggress : 1/2 (50%)'));
+      expect(recap, contains('Progress : 1/2 (50%)'));
       expect(recap, contains('Status Daily Teknisi :'));
       expect(recap, contains('Putu Hyan Parta Wijaya : 1/1 selesai'));
       expect(recap, contains('Alif Candra Triantoro : 0/1 selesai'));
@@ -232,7 +232,7 @@ Printer bersih dan hasil cetak tiket jelas''';
       expect(recap, contains('1. Putu Hyan Parta Wijaya - Pemeriksaan gate in & out (PBKD) [08:30 WITA]'));
       expect(recap, contains('Belum Selesai (1):'));
       expect(recap, contains('1. Alif Candra Triantoro - Ganti ribbon printer (PCD)'));
-      expect(recap, contains('Terimakasih'));
+      expect(recap, contains('Terima kasih'));
     });
   });
 }

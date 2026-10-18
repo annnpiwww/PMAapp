@@ -245,7 +245,7 @@ void main() {
         ],
       );
 
-      expect(recap, contains('Proggress : 1/2 (50%)'));
+      expect(recap, contains('Progress : 1/2 (50%)'));
       expect(recap, contains('Andi + Budi - Pengecoran kabel sensor'));
       expect(recap, contains('Serah Terima (belum selesai):'));
       expect(recap, contains('Andi → Budi, Material belum datang'));

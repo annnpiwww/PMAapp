@@ -72,7 +72,7 @@ void main() {
 
       expect(find.text('Tidak ada tugas untuk tanggal ini'), findsOneWidget);
       expect(
-        find.text('Semua penugasan akan muncul di sini setelah dibuat.'),
+        find.text('Penugasan yang dibuat muncul di sini.'),
         findsOneWidget,
       );
     });

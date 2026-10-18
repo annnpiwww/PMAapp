@@ -261,7 +261,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
                     color: Colors.black87,
                     alignment: Alignment.center,
                     child: const Text(
-                      'Foto tidak ditemukan atau telah dihapus',
+                      'Foto tidak ditemukan atau sudah dihapus',
                       style: TextStyle(color: Colors.white70),
                     ),
                   ),
@@ -572,7 +572,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 40),
                               child: Text(
-                                'Catatan kehadiran timemark akan muncul otomatis setelah Anda melakukan foto absensi masuk atau pulang.',
+                                'Catatan kehadiran timemark muncul otomatis setelah kamu foto absen masuk atau pulang.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 12,

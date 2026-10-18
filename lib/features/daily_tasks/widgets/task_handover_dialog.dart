@@ -177,7 +177,7 @@ class _TaskHandoverDialogState extends State<TaskHandoverDialog> {
                     DropdownMenuItem(
                       value: '',
                       child: Text(
-                        'Terbuka — siapa pun boleh ambil',
+                        'Terbuka (siapa pun boleh ambil)',
                         style: TextStyle(color: textSub, fontSize: 12.5),
                       ),
                     ),

@@ -892,7 +892,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           ],
         ),
         content: const Text(
-          'Mock Location aktif di HP ini. Matikan Fake GPS lalu jepret ulang.\n\nLanjut darurat hanya untuk kondisi khusus — hasil OTOMATIS jadi cek manual dan ditandai untuk SPV.',
+          'Mock Location aktif di HP ini. Matikan Fake GPS lalu jepret ulang.\n\nLanjut darurat hanya untuk kondisi khusus. Hasilnya OTOMATIS jadi cek manual dan ditandai untuk SPV.',
           style: TextStyle(fontSize: 12.5, height: 1.5),
         ),
         actions: [
@@ -1263,7 +1263,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       aiResult = AiVerificationResult(
         status: VerificationStatus.perluCekManual,
         alasan:
-            '${aiResult.alasan} (GPS mock terdeteksi — perlu cek manual SPV).',
+            '${aiResult.alasan} (GPS mock terdeteksi, perlu cek manual SPV).',
         poinGagal: aiResult.poinGagal,
         poinLolos: aiResult.poinLolos,
         confidenceScore: 0.4,

@@ -105,7 +105,7 @@ class MaintenanceShareReportCard extends StatelessWidget {
                     if (context.mounted) {
                       final fotoCount = submission.points.where((p) => p.imagePath != null && p.imagePath!.isNotEmpty).length;
                       final msg = fotoCount > 1
-                          ? '✓ $fotoCount foto dibuka di WhatsApp. Teks laporan telah disalin ke clipboard, silakan paste di chat!'
+                          ? '✓ $fotoCount foto dibuka di WhatsApp. Teks laporan sudah disalin, tinggal paste di chat.'
                           : '✓ Laporan dibuka di WhatsApp & disinkronkan ke Google Sheet SPV!';
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -154,7 +154,7 @@ class MaintenanceShareReportCard extends StatelessWidget {
                     if (context.mounted) {
                       final fotoCount = submission.points.where((p) => p.imagePath != null && p.imagePath!.isNotEmpty).length;
                       final msg = fotoCount > 1
-                          ? '✓ $fotoCount foto dibuka di Telegram. Teks laporan telah disalin ke clipboard, silakan paste di chat!'
+                          ? '✓ $fotoCount foto dibuka di Telegram. Teks laporan sudah disalin, tinggal paste di chat.'
                           : '✓ Laporan dibuka di Telegram!';
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(

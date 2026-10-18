@@ -720,7 +720,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Tugas belum selesai dari shift sebelumnya (${_openTasks.length}). Siapa pun boleh ambil kalau sanggup lanjutkan.',
+                                    'Ada ${_openTasks.length} tugas belum selesai dari shift sebelumnya. Ambil kalau kamu bisa lanjutkan.',
                                     style: TextStyle(fontSize: 11, color: textSub, height: 1.3),
                                   ),
                                 ),
@@ -753,7 +753,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     'Dilepas oleh ${task.handoverDari ?? '-'}'
-                                    '${lastLog != null && lastLog.alasan.isNotEmpty ? ' — ${lastLog.alasan}' : ''}',
+                                    '${lastLog != null && lastLog.alasan.isNotEmpty ? ', ${lastLog.alasan}' : ''}',
                                     style: TextStyle(fontSize: 11, color: textSub, fontStyle: FontStyle.italic),
                                   ),
                                   const SizedBox(height: 10),

@@ -844,7 +844,7 @@ class DailyTaskService {
 📋 <b>Tugas:</b> $judul$targetDateLine$descLine
 ⏰ <b>Waktu Dibuat:</b> $time
 
-<i>Mohon buka aplikasi PMAapp untuk konfirmasi dan pengerjaan.</i>''';
+<i>Buka aplikasi PMAapp buat konfirmasi dan mulai kerjakan ya.</i>''';
   }
 
   /// Kirim notifikasi instan via Telegram bot (menggunakan tools/telegram_notify.sh atau Telegram Bot API)
@@ -1254,7 +1254,7 @@ class DailyTaskService {
     final spvFormatted = activeBranch == AppBranch.bali ? spvStr : spvStr.toUpperCase();
     sb.writeln('SPV : $spvFormatted');
     sb.writeln('Tanggal : $tglIndo');
-    sb.writeln('Proggress : $completedHariIni/$total ($percent%)');
+    sb.writeln('Progress : $completedHariIni/$total ($percent%)');
 
     // Status Daily Teknisi (tugas bareng ikut terhitung untuk semua pelaksananya)
     final techMap = <String, List<DailyTaskModel>>{};
@@ -1301,11 +1301,11 @@ class DailyTaskService {
         final e = t.handoverList.last;
         final tujuan = e.isOpen ? 'terbuka, siapa pun boleh ambil' : e.ke;
         final alasan = e.alasan.isEmpty ? '' : ', ${e.alasan}';
-        sb.writeln('- ${t.judul} (${t.posName}) — ${e.dari} → $tujuan$alasan');
+        sb.writeln('- ${t.judul} (${t.posName}), ${e.dari} → $tujuan$alasan');
       }
     }
 
-    sb.writeln('\nTerimakasih');
+    sb.writeln('\nTerima kasih');
     return sb.toString();
   }
 
