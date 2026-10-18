@@ -117,7 +117,7 @@ void main() {
 
       // Pre-seed storage cache
       final rawTasks = [task1.toJson(), task2.toJson(), task3.toJson()];
-      await StorageService.setString('cached_daily_tasks', rawTasks.toString());
+      await StorageService.setString(DailyTaskService.localCacheKey, rawTasks.toString());
 
       await tester.pumpWidget(
         const MaterialApp(

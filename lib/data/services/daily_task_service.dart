@@ -171,6 +171,14 @@ class DailyTaskService {
 
   static Map<String, String> get getHeaders => _getHeaders;
 
+  /// Tabel tugas harian dipisah per cabang supaya tugas KC Manado dan KC Bali
+  /// tidak pernah duduk di satu tabel (`daily_tasks_manado` / `daily_tasks_bali`).
+  static String get tasksTable => 'daily_tasks_$_branchSlug';
+
+  /// Nama pendek cabang untuk nama tabel & kunci cache.
+  static String get _branchSlug =>
+      BranchService.instance.currentBranch == AppBranch.bali ? 'bali' : 'manado';
+
   /// Helper untuk mencocokkan nama teknisi secara fleksibel
   static bool _matchesTechnician(String taskTech, String targetTech) {
     final cleanTarget = targetTech.trim().toLowerCase();
@@ -207,7 +215,7 @@ class DailyTaskService {
     bool serverSuccess = false;
 
     try {
-      final uri = Uri.parse('$baseUrl/rest/v1/daily_tasks').replace(
+      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
         queryParameters: {
           'or': '(status.eq.pending,tanggal.eq.$tanggal)',
           'order': 'created_at.desc',
@@ -311,7 +319,7 @@ class DailyTaskService {
     final batasLanjutan = _tanggalBatasLanjutan(tanggal);
 
     try {
-      final uri = Uri.parse('$baseUrl/rest/v1/daily_tasks').replace(
+      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
         queryParameters: {
           'or': '(tanggal.eq.$tanggal,and(status.eq.pending,tanggal.gte.$batasLanjutan))',
           'order': 'created_at.desc',
@@ -538,7 +546,7 @@ class DailyTaskService {
     required String posTag,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl/rest/v1/daily_tasks').replace(
+      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
         queryParameters: {
           'tanggal': 'eq.$tanggal',
           'teknisi_nama': 'eq.$teknisiNama',
@@ -609,7 +617,7 @@ class DailyTaskService {
     bool rejectedAsDuplicate = false;
 
     try {
-      final uri = Uri.parse('$baseUrl/rest/v1/daily_tasks');
+      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable');
       final body = jsonEncode(payload);
       final res = await http.post(
         uri,
@@ -737,7 +745,7 @@ class DailyTaskService {
     }
 
     try {
-      final uri = Uri.parse('$baseUrl/rest/v1/daily_tasks').replace(
+      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
         queryParameters: {'id': 'eq.${task.id}'},
       );
       final res = await http.patch(
@@ -800,7 +808,7 @@ class DailyTaskService {
     List<DailyTaskModel> kandidat = [];
 
     try {
-      final uri = Uri.parse('$baseUrl/rest/v1/daily_tasks').replace(
+      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
         queryParameters: {
           'status': 'eq.pending',
           'order': 'created_at.desc',
@@ -1028,7 +1036,7 @@ class DailyTaskService {
         }
       }
 
-      final patchUri = Uri.parse('$baseUrl/rest/v1/daily_tasks').replace(
+      final patchUri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
         queryParameters: {'id': 'eq.$taskId'},
       );
       final patchBody = jsonEncode({
@@ -1336,15 +1344,18 @@ class DailyTaskService {
 
 
   // --- Local Cache Management (Untuk Sinyal Basement) ---
-  static const String _localTasksKey = 'cached_daily_tasks';
+  /// Cache lokal ikut dipisah per cabang, supaya fallback offline tidak
+  /// menampilkan tugas cabang lain.
+  static String get localCacheKey =>
+      'cached_daily_tasks_$_branchSlug';
 
   static Future<void> _cacheTasksLocally(List<DailyTaskModel> list) async {
     final raw = jsonEncode(list.map((e) => e.toJson()).toList());
-    await StorageService.setString(_localTasksKey, raw);
+    await StorageService.setString(localCacheKey, raw);
   }
 
   static List<DailyTaskModel> getCachedTasksLocally() {
-    final raw = StorageService.getString(_localTasksKey);
+    final raw = StorageService.getString(localCacheKey);
     if (raw == null || raw.isEmpty) return [];
     try {
       final decoded = jsonDecode(raw) as List;
@@ -1472,7 +1483,7 @@ class DailyTaskService {
       final list = StorageService.getStringList(_kPendingTaskCreations) ?? [];
       if (list.isEmpty) return 0;
 
-      final uri = Uri.parse('$baseUrl/rest/v1/daily_tasks');
+      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable');
       final remaining = <String>[];
       int flushed = 0;
 

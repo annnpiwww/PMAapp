@@ -109,7 +109,7 @@ void main() {
         judul: 'Uji coba sensor loop',
         status: TaskStatus.pending,
       );
-      await StorageService.setString('cached_daily_tasks', jsonEncode([task.toJson()]));
+      await StorageService.setString(DailyTaskService.localCacheKey, jsonEncode([task.toJson()]));
 
       // Complete task locally with video paths (even if offline / server call fails)
       await DailyTaskService.completeTask(
