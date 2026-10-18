@@ -1234,6 +1234,13 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     _aiBypassCompleter = Completer<AiVerificationResult>();
 
     AiVerificationResult aiResult;
+    // Pause preview di web selama request AI biar Safari iOS tidak membunuh tab
+    // saat kamera aktif barengan dengan request jaringan.
+    if (kIsWeb) {
+      try {
+        await _cameraController?.pausePreview();
+      } catch (_) {}
+    }
     try {
       final aiFuture = AiVisionService.verifyPhoto(
         template: _selectedTemplate,
@@ -1253,6 +1260,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         providerName: 'Offline Fallback',
         isFallback: true,
       );
+    } finally {
+      if (kIsWeb) {
+        try {
+          await _cameraController?.resumePreview();
+        } catch (_) {}
+      }
     }
 
     // Override darurat mock: hasil dipaksa cek manual + ditandai jelas.

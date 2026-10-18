@@ -29,8 +29,44 @@ class PointCameraView extends StatefulWidget {
   final TemplateModel template;
   final PosLocation? location;
 
-  /// Preferensi global mode offline agar jika 1 poin terdeteksi offline, poin berikutnya otomatis cepat
+  /// Preferensi global mode offline (saklar manual teknisi, ikut ke poin berikutnya)
   static bool globalOfflineMode = false;
+
+  // Backoff otomatis saat server AI gagal: lewati beberapa poin, lalu coba AI lagi.
+  // Tujuannya supaya 1 kegagalan jaringan tidak mematikan verifikasi AI sepanjang sesi.
+  static const int _aiSkipMinPoints = 3;
+  static const int _aiSkipMaxPoints = 24;
+  static int _aiSkipRemaining = 0;
+  static int _aiSkipStep = _aiSkipMinPoints;
+  static String _lastAiError = '';
+
+  /// true = poin ini dilewati AI karena backoff kegagalan sebelumnya.
+  @visibleForTesting
+  static bool consumeAutoOffline() {
+    if (_aiSkipRemaining <= 0) return false;
+    _aiSkipRemaining--;
+    return true;
+  }
+
+  /// Satu kegagalan AI: lewati beberapa poin berikutnya (3 -> 6 -> 12 -> 24), lalu coba lagi.
+  @visibleForTesting
+  static void noteAiFailure(String reason) {
+    _lastAiError = reason.trim();
+    _aiSkipRemaining = _aiSkipStep;
+    _aiSkipStep = (_aiSkipStep * 2).clamp(_aiSkipMinPoints, _aiSkipMaxPoints);
+  }
+
+  /// AI berhasil: kembalikan backoff ke kondisi normal.
+  @visibleForTesting
+  static void resetAutoOffline() {
+    _aiSkipRemaining = 0;
+    _aiSkipStep = _aiSkipMinPoints;
+    _lastAiError = '';
+  }
+
+  /// Alasan kegagalan AI terakhir, ditulis ke catatan poin yang dilewati AI.
+  @visibleForTesting
+  static String get lastAiError => _lastAiError;
 
   const PointCameraView({
     super.key,
@@ -540,8 +576,9 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
         debugPrint('[PointCameraView] Error saat memicu watermark: $err');
       }
 
-      // Jika Mode Offline Cepat aktif: tunggu watermark selesai lalu simpan
-      if (_isOfflineFastMode) {
+      // Mode Kilat manual, atau backoff otomatis setelah AI gagal: tunggu watermark selesai lalu simpan
+      final autoOffline = PointCameraView.consumeAutoOffline();
+      if (_isOfflineFastMode || autoOffline) {
         setState(() {
           _statusText = '⚡ Mode Kilat: Selesai';
         });
@@ -566,7 +603,9 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
           status: PointStatus.perluCekManual,
           alasan: mockOverride
               ? '[⚠️ FAKE GPS DETECTED] Mock Location aktif pada HP teknisi saat verifikasi checklist offline.'
-              : 'Mode Offline Cepat: Foto tersimpan aman untuk laporan WhatsApp.',
+              : autoOffline
+                  ? 'Mode Offline otomatis (AI gagal: ${PointCameraView.lastAiError.isEmpty ? "jaringan tidak stabil" : PointCameraView.lastAiError}). Foto tersimpan aman untuk cek manual.'
+                  : 'Mode Offline Cepat: Foto tersimpan aman untuk laporan WhatsApp.',
           confidence: 1.0,
           providerName: mockOverride ? 'Mock GPS Guard' : 'Offline Fast Mode',
         );
@@ -592,6 +631,13 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
 
       // Call Vision per-point with offline/timeout fallback
       AiVerificationResult aiResult;
+      // Pause preview di web selama request AI: kamera aktif + request jaringan barengan
+      // sering bikin Safari iOS membunuh tab (gejala "verifikasi AI terputus").
+      if (kIsWeb) {
+        try {
+          await _controller?.pausePreview();
+        } catch (_) {}
+      }
       try {
         aiResult = await AiVisionService.verifyMaintenancePoint(
           point: widget.point,
@@ -599,11 +645,13 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
           imageBase64: base64Ai,
         );
         if (aiResult.isFallback) {
-          // Jika server vision offline atau timeout, aktifkan auto-offline untuk poin berikutnya
-          PointCameraView.globalOfflineMode = true;
+          // Server vision offline/timeout: lewati beberapa poin, lalu coba AI lagi otomatis
+          PointCameraView.noteAiFailure(aiResult.alasan);
+        } else {
+          PointCameraView.resetAutoOffline();
         }
       } catch (err) {
-        PointCameraView.globalOfflineMode = true;
+        PointCameraView.noteAiFailure(err.toString());
         aiResult = AiVerificationResult(
           status: VerificationStatus.perluCekManual,
           alasan: 'Mode Offline: Foto tersimpan aman di HP. Perlu cek manual.',
@@ -613,6 +661,12 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
           providerName: 'Offline Fallback',
           isFallback: true,
         );
+      } finally {
+        if (kIsWeb) {
+          try {
+            await _controller?.resumePreview();
+          } catch (_) {}
+        }
       }
 
       setState(() {
