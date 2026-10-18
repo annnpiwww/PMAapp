@@ -12,7 +12,12 @@ void main() {
       expect(prompt, contains('ATURAN WAJIB ANTI SALIN CONTOH (PRIORITAS TERTINGGI):'));
       expect(prompt, contains('DILARANG menyalin kalimat contoh apa adanya'));
       expect(prompt, contains('detail yang cuma ada di foto ini'));
-      expect(prompt, contains('DILARANG memakai kalimat identik untuk dua checkpoint'));
+      expect(prompt, contains('DILARANG memakai kalimat identik untuk dua temuan'));
+      // Poin hijau dikecualikan: laporan menggabung poin aman jadi satu baris,
+      // jadi kalimat spesifik justru salah kalau diklaim ke semua gate.
+      expect(prompt, contains('KHUSUS poin sesuai (hijau)'));
+      expect(prompt, contains('digabung jadi satu baris untuk beberapa gate'));
+      expect(prompt, contains('KHUSUS TEMUAN'));
       // Aturan anti salin wajib muncul lebih dulu dari kalimat contoh,
       // biar contoh dibaca AI sebagai patokan gaya, bukan kalimat siap pakai.
       expect(

@@ -708,9 +708,10 @@ CRITERIA: $criteriaListStr
 
 ATURAN WAJIB ANTI SALIN CONTOH (PRIORITAS TERTINGGI):
 - Semua kalimat contoh di bawah ini cuma PATOKAN GAYA, BUKAN kalimat siap pakai. DILARANG menyalin kalimat contoh apa adanya.
-- Setiap alasan WAJIB memuat minimal 1 detail yang cuma ada di foto ini: arah, posisi, nama bagian, warna, jumlah, atau tingkat kondisi (contoh: "baut sisi kanan", "palang ujung kiri", "paving baris depan").
-- Uji sebelum menjawab: kalau kalimatmu bisa dipakai untuk gate/unit lain tanpa diubah, berarti belum spesifik, tulis ulang pakai detail dari foto ini.
-- Kalau dua checkpoint memang kondisinya sama, WAJIB tulis pembedanya. DILARANG memakai kalimat identik untuk dua checkpoint.
+- KHUSUS TEMUAN (status tidak_sesuai dan perlu_cek_manual): setiap alasan WAJIB memuat minimal 1 detail yang cuma ada di foto ini: arah, posisi, nama bagian, warna, jumlah, atau tingkat kondisi (contoh: "baut sisi kanan", "palang ujung kiri", "paving baris depan").
+- Uji sebelum menjawab, khusus temuan: kalau kalimatmu bisa dipakai untuk gate/unit lain tanpa diubah, berarti belum spesifik, tulis ulang pakai detail dari foto ini.
+- Kalau dua checkpoint sama-sama TEMUAN dengan kondisi yang sama, WAJIB tulis pembedanya. DILARANG memakai kalimat identik untuk dua temuan.
+- KHUSUS poin sesuai (hijau): tetap singkat dan umum, 5 sampai 10 kata, cukup sebut bagian dan kondisinya. TIDAK perlu detail arah/posisi, karena poin aman digabung jadi satu baris untuk beberapa gate sekaligus.
 - Kalau foto tidak cukup jelas untuk menyebut detail, status WAJIB "perlu_cek_manual". DILARANG menebak kondisi.
 
 PANDUAN GAYA BAHASA TEKNISI LAPANGAN (NATURAL TECHNICIAN LANGUAGE):
