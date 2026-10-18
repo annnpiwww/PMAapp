@@ -1238,6 +1238,16 @@ class DailyTaskService {
     return sb.toString();
   }
 
+  /// Tugas yang pelaksananya teknisi cabang aktif. Dipakai SPV supaya rekap dan
+  /// hitungan satu cabang tidak kebawa tugas cabang lain.
+  static List<DailyTaskModel> tasksForBranch(
+    List<DailyTaskModel> tasks, {
+    AppBranch? branch,
+  }) {
+    final techs = BranchService.instance.getTechnicians(branch: branch);
+    return tasks.where((t) => techs.contains(t.teknisiNama.trim())).toList();
+  }
+
   /// Format rekapitulasi tim untuk SPV membagikan laporan harian seluruh teknisi
   static String formatSpvTeamRecap({
     required String tanggal,

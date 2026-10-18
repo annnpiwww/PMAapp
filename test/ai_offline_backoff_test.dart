@@ -5,13 +5,12 @@ void main() {
   setUp(() => PointCameraView.resetAutoOffline());
 
   group('Backoff otomatis verifikasi AI maintenance', () {
-    test('poin normal tetap dilewatkan ke AI', () {
+    test('poin normal tetap dikirim ke AI', () {
       expect(PointCameraView.consumeAutoOffline(), isFalse);
     });
 
     test('1 kegagalan melewati 3 poin, lalu AI dicoba lagi', () {
-      PointCameraView.noteAiFailure('Timeout 8s (gemini-3.1-flash-lite)');
-      expect(PointCameraView.lastAiError, contains('Timeout 8s'));
+      PointCameraView.noteAiFailure();
 
       expect(PointCameraView.consumeAutoOffline(), isTrue);
       expect(PointCameraView.consumeAutoOffline(), isTrue);
@@ -22,7 +21,7 @@ void main() {
 
     test('kegagalan beruntun memperbesar jeda sampai batas 24 poin', () {
       for (var i = 0; i < 10; i++) {
-        PointCameraView.noteAiFailure('Koneksi terputus');
+        PointCameraView.noteAiFailure();
       }
       var dilewati = 0;
       while (PointCameraView.consumeAutoOffline()) {
@@ -33,13 +32,12 @@ void main() {
     });
 
     test('AI yang berhasil mengembalikan backoff ke normal', () {
-      PointCameraView.noteAiFailure('Koneksi terputus');
+      PointCameraView.noteAiFailure();
       PointCameraView.resetAutoOffline();
 
       expect(PointCameraView.consumeAutoOffline(), isFalse);
-      expect(PointCameraView.lastAiError, isEmpty);
       // Backoff berikutnya kembali ke 3 poin, bukan melanjutkan jeda panjang.
-      PointCameraView.noteAiFailure('Koneksi terputus');
+      PointCameraView.noteAiFailure();
       var dilewati = 0;
       while (PointCameraView.consumeAutoOffline()) {
         dilewati++;

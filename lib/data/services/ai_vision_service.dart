@@ -681,8 +681,10 @@ OUTPUT STRICT JSON ONLY:
 
     return AiVerificationResult(
       status: VerificationStatus.perluCekManual,
+      // Pesan ke user sengaja generik: nama model/provider tidak ditampilkan saat gagal.
+      // Detail teknisnya tetap dicatat lewat debugPrint di atas.
       alasan:
-          'Koneksi ke server AI terputus ($errorMessage). Foto dialihkan untuk Cek Manual oleh Supervisor.',
+          'Koneksi ke AI gagal. Foto dialihkan untuk Cek Manual oleh Supervisor.',
       poinGagal: ['Koneksi Server Vision Terganggu / Gagal'],
       poinLolos: [],
       confidenceScore: 0.0,

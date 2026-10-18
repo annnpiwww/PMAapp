@@ -113,10 +113,13 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     return list;
   }
 
+  /// Tugas hari ini milik teknisi cabang aktif. Tugas cabang lain tidak ikut
+  /// dihitung dan tidak ikut ke rekap, biar SPV Bali tidak melihat pekerjaan Manado.
+  List<DailyTaskModel> get _teamTasks =>
+      DailyTaskService.tasksForBranch(_tasksToday);
+
   List<DailyTaskModel> get _filteredTasks {
-    final branchTechs = BranchService.instance.getTechnicians();
-    return _tasksToday.where((t) {
-      if (!branchTechs.contains(t.teknisiNama.trim())) return false;
+    return _teamTasks.where((t) {
       if (_selectedStatusFilter == 'PENDING' && t.isCompleted) return false;
       if (_selectedStatusFilter == 'COMPLETED' && !t.isCompleted) return false;
       if (_selectedTechFilter != 'SEMUA' && t.teknisiNama != _selectedTechFilter) return false;
@@ -215,7 +218,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   }
 
   void _shareRecap() {
-    if (_tasksToday.isEmpty) {
+    if (_teamTasks.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Belum ada tugas pada tanggal ini.'),
@@ -227,7 +230,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     final currentUser = AuthRepository.instance.currentUser;
     final recapText = DailyTaskService.formatSpvTeamRecap(
       tanggal: _formatDateToKey(_selectedDate),
-      tasks: _tasksToday,
+      tasks: _teamTasks,
       spvName: currentUser?.nama ?? 'Supervisor',
       cabangName: currentUser?.cabangName,
     );
@@ -240,8 +243,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   }
 
   void _showMorningDispatchBottomSheet(bool isDark) {
-    final branchTechs = BranchService.instance.getTechnicians();
-    final teamTasks = _tasksToday.where((t) => branchTechs.contains(t.teknisiNama.trim())).toList();
+    final teamTasks = _teamTasks;
 
     if (teamTasks.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1529,8 +1531,8 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   }
 
   Widget _buildTopHeaderBar(bool isDark) {
-    final total = _tasksToday.length;
-    final completed = _tasksToday.where((t) => t.isCompleted).length;
+    final total = _teamTasks.length;
+    final completed = _teamTasks.where((t) => t.isCompleted).length;
     final percentInt = total > 0 ? ((completed / total) * 100).toInt() : 0;
     final now = DateTime.now();
     final isToday = _isSameDay(_selectedDate, now);
@@ -1665,9 +1667,9 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   }
 
   Widget _buildQuickStatusFilterBar(bool isDark) {
-    final pendingCount = _tasksToday.where((t) => !t.isCompleted).length;
-    final doneCount = _tasksToday.where((t) => t.isCompleted).length;
-    final total = _tasksToday.length;
+    final pendingCount = _teamTasks.where((t) => !t.isCompleted).length;
+    final doneCount = _teamTasks.where((t) => t.isCompleted).length;
+    final total = _teamTasks.length;
 
     final filterBarBg = isDark ? const Color(0xFF111827) : const Color(0xFFF1F5F9);
     final filterBarBorder = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
@@ -1798,8 +1800,8 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
       builder: (bottomSheetContext) {
         return StatefulBuilder(
           builder: (modalCtx, setModalState) {
-            final total = _tasksToday.length;
-            final completed = _tasksToday.where((t) => t.isCompleted).length;
+            final total = _teamTasks.length;
+            final completed = _teamTasks.where((t) => t.isCompleted).length;
             final pending = total - completed;
             final percent = total > 0 ? (completed / total) : 0.0;
             final percentInt = (percent * 100).toInt();
@@ -2369,7 +2371,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
       return const Center(child: CircularProgressIndicator(color: AppColors.accent));
     }
 
-    if (_tasksToday.isEmpty) {
+    if (_teamTasks.isEmpty) {
       return Center(
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),

@@ -38,7 +38,6 @@ class PointCameraView extends StatefulWidget {
   static const int _aiSkipMaxPoints = 24;
   static int _aiSkipRemaining = 0;
   static int _aiSkipStep = _aiSkipMinPoints;
-  static String _lastAiError = '';
 
   /// true = poin ini dilewati AI karena backoff kegagalan sebelumnya.
   @visibleForTesting
@@ -50,8 +49,7 @@ class PointCameraView extends StatefulWidget {
 
   /// Satu kegagalan AI: lewati beberapa poin berikutnya (3 -> 6 -> 12 -> 24), lalu coba lagi.
   @visibleForTesting
-  static void noteAiFailure(String reason) {
-    _lastAiError = reason.trim();
+  static void noteAiFailure() {
     _aiSkipRemaining = _aiSkipStep;
     _aiSkipStep = (_aiSkipStep * 2).clamp(_aiSkipMinPoints, _aiSkipMaxPoints);
   }
@@ -61,12 +59,7 @@ class PointCameraView extends StatefulWidget {
   static void resetAutoOffline() {
     _aiSkipRemaining = 0;
     _aiSkipStep = _aiSkipMinPoints;
-    _lastAiError = '';
   }
-
-  /// Alasan kegagalan AI terakhir, ditulis ke catatan poin yang dilewati AI.
-  @visibleForTesting
-  static String get lastAiError => _lastAiError;
 
   const PointCameraView({
     super.key,
@@ -604,7 +597,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
           alasan: mockOverride
               ? '[⚠️ FAKE GPS DETECTED] Mock Location aktif pada HP teknisi saat verifikasi checklist offline.'
               : autoOffline
-                  ? 'Mode Offline otomatis (AI gagal: ${PointCameraView.lastAiError.isEmpty ? "jaringan tidak stabil" : PointCameraView.lastAiError}). Foto tersimpan aman untuk cek manual.'
+                  ? 'Mode Offline otomatis (koneksi ke AI gagal). Foto tersimpan aman untuk cek manual.'
                   : 'Mode Offline Cepat: Foto tersimpan aman untuk laporan WhatsApp.',
           confidence: 1.0,
           providerName: mockOverride ? 'Mock GPS Guard' : 'Offline Fast Mode',
@@ -646,12 +639,13 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
         );
         if (aiResult.isFallback) {
           // Server vision offline/timeout: lewati beberapa poin, lalu coba AI lagi otomatis
-          PointCameraView.noteAiFailure(aiResult.alasan);
+          PointCameraView.noteAiFailure();
         } else {
           PointCameraView.resetAutoOffline();
         }
       } catch (err) {
-        PointCameraView.noteAiFailure(err.toString());
+        debugPrint('[PointCameraView] Verifikasi AI gagal: $err');
+        PointCameraView.noteAiFailure();
         aiResult = AiVerificationResult(
           status: VerificationStatus.perluCekManual,
           alasan: 'Mode Offline: Foto tersimpan aman di HP. Perlu cek manual.',
