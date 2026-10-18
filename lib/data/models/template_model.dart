@@ -6,7 +6,8 @@ enum TemplateCategory {
   maintPos,
   maintBarrier,
   maintManless,
-  maintServer;
+  maintServer,
+  maintLengkap;
 
   String get displayName {
     switch (this) {
@@ -26,11 +27,16 @@ enum TemplateCategory {
         return 'Maintenance Manless & Pulau';
       case TemplateCategory.maintServer:
         return 'Maintenance PC Server & Kasir';
+      case TemplateCategory.maintLengkap:
+        return 'Maintenance Lengkap';
     }
   }
 
   static TemplateCategory fromString(String str) {
     final s = str.toLowerCase();
+    if (s.contains('maintlengkap') || s.contains('lengkap')) {
+      return TemplateCategory.maintLengkap;
+    }
     if (s.contains('maintpos') || s.contains('maint_pos') || s.contains('pos parkir')) return TemplateCategory.maintPos;
     if (s.contains('maintbarrier') || s.contains('barrier')) return TemplateCategory.maintBarrier;
     if (s.contains('maintmanless') || s.contains('manless')) return TemplateCategory.maintManless;
@@ -52,7 +58,8 @@ enum TemplateCategory {
       this == TemplateCategory.maintPos ||
       this == TemplateCategory.maintBarrier ||
       this == TemplateCategory.maintManless ||
-      this == TemplateCategory.maintServer;
+      this == TemplateCategory.maintServer ||
+      this == TemplateCategory.maintLengkap;
 }
 
 enum TemplateRole {

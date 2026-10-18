@@ -458,6 +458,29 @@ class TemplateRepository extends ChangeNotifier {
       createdBy: 'Teknisi BSS',
       updatedAt: DateTime.now(),
     ),
+    // 7. MAINTENANCE LENGKAP — 1 tugas cover semua area.
+    // sopPoints sengaja KOSONG: poin diturunkan saat runtime dari template area
+    // di atas (barrier + manless + pos [+ server]) supaya SOP tetap satu sumber.
+    // Lihat MaintenanceChecklistScreen._generateLengkapPoints().
+    TemplateModel(
+      id: 'tpl_maint_lengkap',
+      nama: 'Maintenance: Lengkap',
+      deskripsi: 'Maintenance penuh dalam 1 tugas: Barrier Gate + Manless + Pos Kasir (+ PC Server).',
+      jenis: TemplateCategory.maintLengkap,
+      wajibLokasi: true,
+      requiredRole: TemplateRole.teknisi,
+      aiMode: AiMode.perPoint,
+      sopCriteria: [
+        'Barrier Gate: mesin, palang, sensor loop, jalur kabel, tiang CCTV & speed bump sesuai SOP barrier',
+        'Manless & Pulau: printer tiket, kebersihan luar-dalam, tombol, sensor loop, kunci & gembok sesuai SOP manless',
+        'Pos Kasir: printer pos, kerapian kabel, item pos, aplikasi kasir, kunci & stiker sesuai SOP pos',
+        'PC Server: storage, firewall, input test, debu CPU, kabel & koneksi jaringan sesuai SOP server',
+      ],
+      sopPoints: [],
+      contohFotoDescriptions: ['Foto per-point sesuai checklist tiap area'],
+      createdBy: 'Teknisi BSS',
+      updatedAt: DateTime.now(),
+    ),
   ];
 
   Future<void> init() async {
@@ -509,6 +532,12 @@ class TemplateRepository extends ChangeNotifier {
         if (!_templates.any((t) => t.id == 'tpl_maint_server')) {
           final serverDef = defaultTemplates.firstWhere((d) => d.id == 'tpl_maint_server');
           _templates.add(serverDef);
+          needSave = true;
+        }
+        // Pastikan tpl_maint_lengkap ada untuk install lama (fitur Maintenance Lengkap)
+        if (!_templates.any((t) => t.id == 'tpl_maint_lengkap')) {
+          final lengkapDef = defaultTemplates.firstWhere((d) => d.id == 'tpl_maint_lengkap');
+          _templates.add(lengkapDef);
           needSave = true;
         }
         if (needSave) {

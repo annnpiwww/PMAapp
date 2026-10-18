@@ -901,6 +901,86 @@ class WhatsAppReportService {
         buffer.writeln('Terima kasih 🙏');
         break;
 
+      case TemplateCategory.maintLengkap:
+        // Laporan digabung: 1 header, lalu seksi per area memakai penulis laporan
+        // area yang sama seperti laporan tunggal, jadi kalimatnya tetap identik.
+        final areaPoints = <String, List<MaintenancePointResult>>{};
+        for (final p in submission.points) {
+          areaPoints
+              .putIfAbsent(_detectUnitType(_gateName(p.label)), () => [])
+              .add(p);
+        }
+        final List<MaintenancePointResult> gatePoints =
+            areaPoints['Gate'] ?? const [];
+        final List<MaintenancePointResult> manlessPoints =
+            areaPoints['Manless'] ?? const [];
+        final List<MaintenancePointResult> posPoints =
+            areaPoints['Pos'] ?? const [];
+        final serverPoints = <MaintenancePointResult>[
+          ...?areaPoints['Server'],
+          ...?areaPoints['Kasir'],
+        ];
+        final areaNames = <String>[
+          if (gatePoints.isNotEmpty) 'Barrier Gate',
+          if (manlessPoints.isNotEmpty) 'Manless',
+          if (posPoints.isNotEmpty) 'Pos Kasir',
+          if (serverPoints.isNotEmpty) 'PC Server',
+        ];
+
+        buffer.writeln(greeting);
+        buffer.writeln('');
+        buffer.writeln(
+          'Izin melaporkan hasil Maintenance Lengkap'
+          '${areaNames.isEmpty ? '' : ' (${areaNames.join(' + ')})'}',
+        );
+        buffer.writeln('');
+        buffer.writeln('Lokasi : $lokasi');
+        void writeUnitLine(
+          String title,
+          List<MaintenancePointResult> points,
+        ) {
+          final units = <String>{
+            for (final p in points) _gateName(p.label),
+          }.toList();
+          buffer.writeln('$title : ${_formatUnitList(units)}');
+        }
+        if (gatePoints.isNotEmpty) writeUnitLine('Barrier Gate', gatePoints);
+        if (manlessPoints.isNotEmpty) writeUnitLine('Manless', manlessPoints);
+        if (posPoints.isNotEmpty) writeUnitLine('Pos Kasir', posPoints);
+        if (serverPoints.isNotEmpty) writeUnitLine('Perangkat', serverPoints);
+        buffer.writeln('Tanggal : $dateStr');
+        buffer.writeln('IT Support : $supportName');
+        buffer.writeln('');
+        appendHasilCekSummary(buffer);
+        buffer.writeln('Note :');
+        if (gatePoints.isNotEmpty) {
+          buffer.writeln('');
+          buffer.writeln('— BARRIER GATE —');
+          _appendBarrierGroupedNotes(buffer, gatePoints);
+        }
+        if (manlessPoints.isNotEmpty) {
+          buffer.writeln('');
+          buffer.writeln('— MANLESS —');
+          _appendManlessGroupedNotes(buffer, manlessPoints);
+        }
+        if (posPoints.isNotEmpty) {
+          buffer.writeln('');
+          buffer.writeln('— POS KASIR —');
+          _appendPosGroupedNotes(buffer, posPoints);
+        }
+        if (serverPoints.isNotEmpty) {
+          buffer.writeln('');
+          buffer.writeln('— PC SERVER —');
+          _appendServerGroupedNotes(buffer, serverPoints);
+        }
+        if (additionalNotes != null && additionalNotes.trim().isNotEmpty) {
+          buffer.writeln('');
+          buffer.writeln('Catatan tambahan: $additionalNotes');
+        }
+        buffer.writeln('');
+        buffer.writeln('Terima kasih 🙏');
+        break;
+
       default:
         buffer.writeln(greeting);
         buffer.writeln(

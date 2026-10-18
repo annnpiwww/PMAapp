@@ -39,6 +39,16 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
   int _kasirCount = 1;
   String _serverOs = 'linux'; // 'linux' | 'windows'
 
+  // Khusus Maintenance Lengkap: cakupan area + unit per area
+  final Set<int> _manlessUnitsSel = {1, 2};
+  final Set<int> _posUnitsSel = {1};
+  bool _includeServer = false;
+
+  bool get _isLengkap =>
+      widget.initialTemplate.jenis == TemplateCategory.maintLengkap;
+  List<int> get _manlessUnits => _manlessUnitsSel.toList()..sort();
+  List<int> get _posUnits => _posUnitsSel.toList()..sort();
+
   @override
   void initState() {
     super.initState();
@@ -81,6 +91,10 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
       _isOnlyKasir = false;
       _isServerKasirTerpisah = true;
       _kasirCount = 1;
+    } else if (cat == TemplateCategory.maintLengkap) {
+      // Default wajar: 2 gate + 2 manless + 1 pos, PC Server opsional
+      _startUnit = 1;
+      _endUnit = 2;
     }
   }
 
@@ -112,6 +126,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
         return 'Gate';
       case TemplateCategory.maintManless:
         return 'Manless';
+      case TemplateCategory.maintLengkap:
+        return 'Gate';
       default:
         return 'Unit';
     }
@@ -125,6 +141,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
         return 'Pilih Dispenser Manless (In)';
       case TemplateCategory.maintPos:
         return 'Pilih Pos Maintenance';
+      case TemplateCategory.maintLengkap:
+        return 'Pilih Barrier Gate (area 1 dari Maintenance Lengkap)';
       case TemplateCategory.maintServer:
         return _isOnlyKasir
             ? 'Maintenance: Kasir'
@@ -142,6 +160,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
         return 'Pilih manless yang dicek (8 foto/unit)';
       case TemplateCategory.maintPos:
         return 'Pilih pos yang dicek (9 foto/pos)';
+      case TemplateCategory.maintLengkap:
+        return 'Cek gate dulu (9 foto/gate), lalu atur Manless & Pos di bawah';
       case TemplateCategory.maintServer:
         return _isOnlyKasir ? 'Cek PC Kasir' : 'Cek PC Server & PC Kasir';
       default:
@@ -157,6 +177,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
         return Icons.point_of_sale_outlined;
       case TemplateCategory.maintPos:
         return Icons.home_repair_service_outlined;
+      case TemplateCategory.maintLengkap:
+        return Icons.cleaning_services_rounded;
       case TemplateCategory.maintServer:
         return _isOnlyKasir
             ? Icons.point_of_sale_rounded
@@ -176,6 +198,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
         return widget.initialTemplate.sopPoints.isNotEmpty
             ? widget.initialTemplate.sopPoints.length
             : 9;
+      case TemplateCategory.maintLengkap:
+        return 9; // 9 poin per gate; total lengkap dihitung di _totalPoints
       case TemplateCategory.maintServer:
         return 6;
       default:
@@ -186,6 +210,13 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
   }
 
   int get _totalPoints {
+    // Maintenance Lengkap: jumlah poin = gate*9 + manless*8 + pos*9 (+ server 6)
+    if (_isLengkap) {
+      return _unitNumbers.length * 9 +
+          _manlessUnits.length * 8 +
+          _posUnits.length * 9 +
+          (_includeServer ? 6 : 0);
+    }
     if (widget.initialTemplate.jenis == TemplateCategory.maintServer) {
       if (_isOnlyKasir) {
         return _kasirCount * 6;
@@ -216,6 +247,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
     nav.pop();
     final isServer =
         widget.initialTemplate.jenis == TemplateCategory.maintServer;
+    final isLengkap = _isLengkap;
     await nav.push(
       MaterialPageRoute(
         builder: (_) => MaintenanceChecklistScreen(
@@ -225,12 +257,15 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
               ? (_isOnlyKasir
                     ? _kasirCount
                     : (_isServerKasirGabung ? 1 : 1 + _kasirCount))
-              : _unitNumbers.length,
+              : (isLengkap ? null : _unitNumbers.length),
           unitNumbers: isServer ? null : _unitNumbers,
           unitRoles: {
             for (final i in _unitNumbers)
               if (_gateRoles[i] != null) i: _gateRoles[i]!,
           },
+          manlessUnits: isLengkap ? _manlessUnits : null,
+          posUnits: isLengkap ? _posUnits : null,
+          includeServer: isLengkap && _includeServer,
           isServerKasirGabung: _isOnlyKasir ? false : _isServerKasirGabung,
           isOnlyKasir: _isOnlyKasir,
           kasirCount: _kasirCount,
@@ -241,6 +276,81 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
       ),
     );
     onFinished?.call();
+  }
+
+  /// Chip pemilih unit (multi-pilih) untuk area Manless / Pos di Maintenance Lengkap.
+  Widget _buildAreaUnitChips({
+    required String noun,
+    required Set<int> selected,
+    required int maxUnit,
+    required bool isDark,
+    required Color textTitle,
+    required Color textSub,
+    required ValueChanged<Set<int>> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$noun yang dicek:',
+          style: TextStyle(
+            fontFamily: 'PlusJakartaSans',
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
+            color: textSub,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (int i = 1; i <= maxUnit; i++)
+              Material(
+                color: selected.contains(i)
+                    ? AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.12)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () {
+                    final next = Set<int>.from(selected);
+                    if (!next.remove(i)) next.add(i);
+                    if (next.isEmpty) return; // minimal 1 unit
+                    onChanged(next);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: selected.contains(i)
+                            ? AppColors.primary
+                            : textSub.withValues(alpha: 0.4),
+                        width: selected.contains(i) ? 1.6 : 1.0,
+                      ),
+                    ),
+                    child: Text(
+                      '$noun $i',
+                      style: TextStyle(
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: selected.contains(i)
+                            ? (isDark ? Colors.white : AppColors.primary)
+                            : textTitle,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
   }
 
   /// Chip kecil IN/OUT untuk satu gate; ketuk chip yang sama lagi untuk membatalkan.
@@ -412,7 +522,9 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                           widget.initialTemplate.jenis ==
                                   TemplateCategory.maintServer
                               ? _unitSubtitle
-                              : 'Atur Pengecekan Pos',
+                              : (_isLengkap
+                                    ? 'Atur cakupan: Gate + Manless + Pos (+ Server)'
+                                    : 'Atur Pengecekan Pos'),
                           style: TextStyle(fontSize: 11, color: textSub),
                         ),
                       ],
@@ -1570,9 +1682,11 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _startUnit == _endUnit
-                                        ? 'Cek $_unitNoun $_startUnit saja (${_unitNumbers.length} $_unitNoun)'
-                                        : 'Cek ${_unitNumbers.length} $_unitNoun: $_unitNoun $_startUnit s/d $_unitNoun $_endUnit',
+                                    _isLengkap
+                                        ? 'Cek: ${_unitNumbers.length} Gate + ${_manlessUnits.length} Manless + ${_posUnits.length} Pos${_includeServer ? ' + 1 PC Server' : ''}'
+                                        : (_startUnit == _endUnit
+                                              ? 'Cek $_unitNoun $_startUnit saja (${_unitNumbers.length} $_unitNoun)'
+                                              : 'Cek ${_unitNumbers.length} $_unitNoun: $_unitNoun $_startUnit s/d $_unitNoun $_endUnit'),
                                     style: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       fontSize: 11.5,
@@ -1584,7 +1698,9 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Target: $_totalPoints Foto (${_unitNumbers.length} $_unitNoun × $_pointsPerUnit foto)',
+                                    _isLengkap
+                                        ? 'Target: $_totalPoints Foto (gate×9 + manless×8 + pos×9${_includeServer ? ' + server×6' : ''})'
+                                        : 'Target: $_totalPoints Foto (${_unitNumbers.length} $_unitNoun × $_pointsPerUnit foto)',
                                     style: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
                                       fontSize: 10.5,
@@ -1602,8 +1718,10 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                       ),
 
                       // Penanda arah gate (opsional) supaya manager tahu gate mana IN / OUT.
+                      // Di Maintenance Lengkap, bagian ini khusus gate-nya.
                       if (widget.initialTemplate.jenis ==
-                          TemplateCategory.maintBarrier) ...[
+                              TemplateCategory.maintBarrier ||
+                          _isLengkap) ...[
                         const SizedBox(height: 10),
                         Text(
                           'Arah Gate (opsional):',
@@ -1652,6 +1770,211 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                     ],
                   ),
                 ),
+                // Maintenance Lengkap: Area 2 - 4 (Manless, Pos Kasir, opsi PC Server)
+                if (_isLengkap) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: cardBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(
+                                  alpha: isDark ? 0.25 : 0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.cleaning_services_rounded,
+                                color: isDark
+                                    ? const Color(0xFF38BDF8)
+                                    : AppColors.primary,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Area 2 - 4 Maintenance Lengkap',
+                                    style: TextStyle(
+                                      fontFamily: 'PlusJakartaSans',
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13.5,
+                                      color: textTitle,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Manless 8 foto/unit • Pos Kasir 9 foto/pos • Server 6 foto',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: textSub,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _buildAreaUnitChips(
+                          noun: 'Manless',
+                          selected: _manlessUnitsSel,
+                          maxUnit: 6,
+                          isDark: isDark,
+                          textTitle: textTitle,
+                          textSub: textSub,
+                          onChanged: (next) => setState(() {
+                            _manlessUnitsSel
+                              ..clear()
+                              ..addAll(next);
+                          }),
+                        ),
+                        const SizedBox(height: 10),
+                        _buildAreaUnitChips(
+                          noun: 'Pos',
+                          selected: _posUnitsSel,
+                          maxUnit: 4,
+                          isDark: isDark,
+                          textTitle: textTitle,
+                          textSub: textSub,
+                          onChanged: (next) => setState(() {
+                            _posUnitsSel
+                              ..clear()
+                              ..addAll(next);
+                          }),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'PC Server (opsional)',
+                                    style: TextStyle(
+                                      fontFamily: 'PlusJakartaSans',
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: textTitle,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _includeServer
+                                        ? 'Ikut dicek: 1 PC Server (6 foto) — cakupan 4 area'
+                                        : 'Tidak dicek — cakupan 3 area (Gate + Manless + Pos)',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      color: textSub,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: _includeServer,
+                              activeThumbColor: Colors.white,
+                              activeTrackColor: isDark
+                                  ? const Color(0xFF0284C7)
+                                  : AppColors.primary,
+                              inactiveThumbColor: Colors.white,
+                              inactiveTrackColor: isDark
+                                  ? const Color(0xFF334155)
+                                  : Colors.grey.shade300,
+                              onChanged: (v) =>
+                                  setState(() => _includeServer = v),
+                            ),
+                          ],
+                        ),
+                        if (_includeServer) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                'OS Server:',
+                                style: TextStyle(
+                                  fontFamily: 'PlusJakartaSans',
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: textSub,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              for (final os in const [
+                                ['linux', 'Linux'],
+                                ['windows', 'Windows'],
+                              ])
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: Material(
+                                    color: _serverOs == os[0]
+                                        ? AppColors.primary.withValues(
+                                            alpha: isDark ? 0.35 : 0.12,
+                                          )
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(8),
+                                      onTap: () => setState(
+                                        () => _serverOs = os[0],
+                                      ),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: _serverOs == os[0]
+                                                ? AppColors.primary
+                                                : textSub.withValues(alpha: 0.4),
+                                            width: _serverOs == os[0] ? 1.6 : 1.0,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          os[1],
+                                          style: TextStyle(
+                                            fontFamily: 'PlusJakartaSans',
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: _serverOs == os[0]
+                                                ? (isDark
+                                                      ? Colors.white
+                                                      : AppColors.primary)
+                                                : textTitle,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ],
               const SizedBox(height: 20),
 

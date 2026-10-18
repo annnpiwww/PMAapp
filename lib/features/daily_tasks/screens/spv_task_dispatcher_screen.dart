@@ -47,6 +47,10 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     {'id': 'tpl_maint_manless', 'nama': 'Maintenance Manless Gate'},
     {'id': 'tpl_maint_barrier', 'nama': 'Maintenance Barrier Gate'},
     {'id': 'tpl_maint_server', 'nama': 'Maintenance PC Server & Kasir'},
+    {
+      'id': 'tpl_maint_lengkap',
+      'nama': 'Maintenance Lengkap (Gate + Manless + Pos + Server)',
+    },
   ];
 
   @override

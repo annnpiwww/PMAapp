@@ -9,6 +9,7 @@ import '../../../data/services/storage_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/google_sheets_service.dart';
 import '../../../data/repositories/auth_repository.dart';
+import '../../../data/repositories/template_repository.dart';
 import '../../../data/services/daily_task_service.dart';
 import '../widgets/photo_preview_dialog.dart';
 import '../widgets/maintenance_point_card.dart';
@@ -31,6 +32,11 @@ class MaintenanceChecklistScreen extends StatefulWidget {
   final int? kasirCount;
   final String? serverOs;
   final String? dailyTaskId;
+  final List<int>?
+  manlessUnits; // khusus Maintenance Lengkap: unit manless yang dicek
+  final List<int>? posUnits; // khusus Maintenance Lengkap: unit pos yang dicek
+  final bool
+  includeServer; // khusus Maintenance Lengkap: ikut cek 1 PC Server (cakupan 4 area)
 
   const MaintenanceChecklistScreen({
     super.key,
@@ -46,6 +52,9 @@ class MaintenanceChecklistScreen extends StatefulWidget {
     this.kasirCount,
     this.serverOs,
     this.dailyTaskId,
+    this.manlessUnits,
+    this.posUnits,
+    this.includeServer = false,
   });
 
   @override
@@ -195,10 +204,77 @@ class _MaintenanceChecklistScreenState
     }
   }
 
+  /// Poin Maintenance Lengkap: gabung SOP tiap area dari template masing-masing
+  /// (barrier + manless + pos [+ 1 PC Server]) supaya SOP tetap satu sumber.
+  List<SopPoint> _generateLengkapPoints() {
+    final list = <SopPoint>[];
+
+    void addArea(
+      String templateId,
+      List<int> units,
+      String Function(int unit) prefix,
+    ) {
+      if (units.isEmpty) return;
+      final master = _masterAreaTemplate(templateId);
+      if (master == null) return;
+      for (final i in units) {
+        final pfx = '${prefix(i)} - ';
+        for (final sp in master.sopPoints) {
+          final parts = sp.id.split('_');
+          list.add(
+            SopPoint(
+              id: '${parts.first}_${i}_${parts.last}',
+              label: '$pfx${sp.label}',
+              deskripsi: sp.deskripsi,
+              checkpoints: sp.checkpoints,
+              panduanFoto: sp.panduanFoto,
+              wajibFoto: sp.wajibFoto,
+              contohFoto: sp.contohFoto,
+            ),
+          );
+        }
+      }
+    }
+
+    addArea(
+      'tpl_maint_barrier',
+      widget.unitNumbers ?? const [1],
+      (i) => 'Barrier Gate $i${_roleSuffix(i)}',
+    );
+    addArea(
+      'tpl_maint_manless',
+      widget.manlessUnits ?? const [1],
+      (i) => 'Manless $i',
+    );
+    addArea('tpl_maint_pos', widget.posUnits ?? const [1], (i) => 'Pos $i');
+
+    if (widget.includeServer) {
+      final isLinux = (widget.serverOs ?? 'linux').toLowerCase() == 'linux';
+      list.addAll(_buildServerPoints('PC Server - ', isLinux: isLinux));
+    }
+    return list;
+  }
+
+  /// Master template area (cache user dulu, baru default bawaan).
+  TemplateModel? _masterAreaTemplate(String id) {
+    for (final t in TemplateRepository.instance.templates) {
+      if (t.id == id && t.sopPoints.isNotEmpty) return t;
+    }
+    for (final t in TemplateRepository.defaultTemplates) {
+      if (t.id == id && t.sopPoints.isNotEmpty) return t;
+    }
+    return null;
+  }
+
   List<SopPoint> _generatePoinPerUnit() {
     final count = widget.unitCount ?? 1;
     final cat = widget.template.jenis;
     final list = <SopPoint>[];
+
+    // Maintenance Lengkap: gabungan beberapa area, tiap area punya jumlah unit sendiri
+    if (cat == TemplateCategory.maintLengkap) {
+      return _generateLengkapPoints();
+    }
 
     // Khusus Server & Kasir: Dukung Server & Kasir Gabung vs Server Terpisah + Kasir xx vs Hanya Kasir
     if (cat == TemplateCategory.maintServer) {
@@ -2487,6 +2563,17 @@ class _MaintenanceChecklistScreenState
                       const SizedBox(height: 2),
                       Builder(
                         builder: (_) {
+                          if (widget.template.jenis ==
+                              TemplateCategory.maintLengkap) {
+                            return Text(
+                              'Semua area: Barrier Gate + Manless + Pos Kasir${widget.includeServer ? ' + PC Server' : ''} • $done/$total foto selesai (${(progress * 100).toInt()}%)',
+                              style: TextStyle(
+                                fontFamily: 'PlusJakartaSans',
+                                fontSize: 11,
+                                color: textSub,
+                              ),
+                            );
+                          }
                           final String unitNoun;
                           if (widget.template.jenis ==
                               TemplateCategory.maintPos) {
@@ -2604,7 +2691,9 @@ class _MaintenanceChecklistScreenState
                   Builder(
                     builder: (_) {
                       final String allLabel;
-                      if (widget.template.jenis == TemplateCategory.maintPos) {
+                      if (widget.template.jenis == TemplateCategory.maintLengkap) {
+                        allLabel = 'Semua Area';
+                      } else if (widget.template.jenis == TemplateCategory.maintPos) {
                         allLabel =
                             'Semua Pos (${_effectiveUnits.first} - ${_effectiveUnits.last})';
                       } else if (widget.template.jenis ==
@@ -2666,7 +2755,8 @@ class _MaintenanceChecklistScreenState
                               .length,
                         ),
                     ],
-                  ] else ...[
+                  ] else if (widget.template.jenis !=
+                      TemplateCategory.maintLengkap) ...[
                     for (final i in _effectiveUnits)
                       Builder(
                         builder: (_) {

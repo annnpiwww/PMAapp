@@ -297,6 +297,7 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
     final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
     final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
     final isMaint = template.jenis.isMaintenance;
+    final isLengkap = template.jenis == TemplateCategory.maintLengkap;
     final pointCount = isMaint
         ? template.sopPoints.length
         : template.sopCriteria.length;
@@ -334,6 +335,8 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                   ? Icons.point_of_sale_outlined
                   : template.jenis == TemplateCategory.maintServer
                   ? Icons.computer_outlined
+                  : template.jenis == TemplateCategory.maintLengkap
+                  ? Icons.cleaning_services_rounded
                   : template.jenis == TemplateCategory.lokasi
                   ? Icons.local_parking_outlined
                   : Icons.checklist_rounded,
@@ -401,7 +404,9 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      isMaint
+                      isLengkap
+                          ? "Barrier + Manless + Pos + Server"
+                          : isMaint
                           ? "$pointCount Point • 1 foto/point"
                           : "$pointCount Kriteria SOP",
                       style: TextStyle(
@@ -475,7 +480,8 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  if (isMaint)
+                  // Lengkap tanpa poin tetap: tampilkan ringkasan SOP per area.
+                  if (isMaint && !isLengkap)
                     ...template.sopPoints.asMap().entries.map((e) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 5),
@@ -608,7 +614,9 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                         },
                         icon: const Icon(Icons.tune_rounded, size: 18),
                         label: Text(
-                          'Mulai Maintenance (${template.sopPoints.length} Poin Standar)',
+                          isLengkap
+                              ? 'Mulai Maintenance Lengkap'
+                              : 'Mulai Maintenance (${template.sopPoints.length} Poin Standar)',
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
