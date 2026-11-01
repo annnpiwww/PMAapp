@@ -68,3 +68,11 @@ app.*.map.json
 /test_artifacts/
 /graphify-out/
 
+
+# Vercel CLI (build lokal & env hasil pull tidak ikut repo)
+.vercel/output/
+.vercel/.env*.local
+.semantex/
+
+# Foto absensi + API key Gemini (PII & secret, repo public)
+assets/foto absensi/

@@ -96,8 +96,8 @@ Aturan pencocokan:
 Watermark foto memuat jam terverifikasi dalam format `HH:MM` (`image_watermark_processor.dart:398`). Untuk tiap absen masuk:
 
 1. Cari fotonya. Kalau pesan absen adalah caption foto, foto itu yang dipakai. Kalau teks dikirim terpisah, bot mencari foto dari pengirim yang sama dalam rentang 10 menit sebelum atau sesudahnya.
-2. Foto diambil lewat `msg.downloadMedia()` lalu dikirim ke Gemini dengan `inlineData` dan `responseMimeType: application/json`. Respons yang diminta adalah `{ "tanggal": "YYYY-MM-DD", "jam": "HH:MM" }`.
-3. Hasil AI hanya dipakai bila jamnya berformat `HH:MM`, tanggalnya sama dengan tanggal pesan, dan jamnya tidak lebih lambat daripada jam pesan dikirim.
+2. Foto diambil lewat `msg.downloadMedia()` lalu dikirim ke Gemini dengan `inlineData` dan `responseMimeType: application/json`. Yang dibaca hanya jam: prompt `Baca jam di watermark foto absensi. Balas JSON {"jam":"HH:MM"}. Kalau tidak terbaca, isi null.` Label lokasi dan tanggal di watermark tidak dibaca.
+3. Hasil AI hanya dipakai bila jamnya berformat `HH:MM`, tidak lebih lambat daripada jam pesan dikirim, dan selisihnya dengan jam kirim paling lama 3 jam.
 4. Bila foto tidak ditemukan, API gagal, atau hasil tidak lolos pemeriksaan, jam masuk diambil dari `msg.timestamp` dan entri ditandai `jam dari WA`.
 
 Hasil AI disimpan bersama entri absen, sehingga satu foto hanya dibaca sekali.
@@ -116,7 +116,9 @@ Lokasi diambil dari baris `Lokasi :`, IT Support dari baris `IT Support :`, seda
 
 ### 4.4 Validasi terhadap chat asli
 
-Sebelum `parse.js` ditulis, aturan 4.1 sampai 4.3 diuji terhadap export chat grup selama 5 sampai 7 hari (tanpa media). Export itu akan ditaruh user di repo. Variasi yang ditemukan di sana, misalnya teks yang diedit tangan, ditambahkan ke aturan dan dijadikan fixture test. Nama dan nomor di fixture disamarkan.
+User bukan admin grup, jadi export chat tidak tersedia. Fixture awal untuk `parse.js` disusun dari format teks di kode app (`camera_capture_screen.dart:1445` untuk absen masuk, `whatsapp_report_service.dart` untuk maintenance), ditambah variasi yang wajar: spasi titik dua hilang, huruf besar kecil berbeda, baris `Catatan GPS:` tambahan, nama panggilan. Validasi terhadap pesan asli dilakukan pada minggu pertama dengan `DRY_RUN=1`: bot membaca grup sungguhan, lalu `data/unparsed.jsonl` dicek dan aturan ditambah bila ada pesan yang lolos.
+
+Pembacaan jam sudah diuji pada 3 foto asli di `assets/foto absensi/` dengan `gemini-3.1-flash-lite`, dan hasilnya 3 dari 3 benar (13:55, 02:26, 09:39). Label di samping jam berbeda-beda (`MGLG`, `Absensi`, `ABSENSI`), dan karena itu label tersebut tidak dipakai.
 
 ### 4.5 Pesan yang gagal dibaca
 
@@ -259,8 +261,8 @@ Isi pesan grup tidak dicetak ke log, kecuali pesan yang gagal diparsing di `data
 
 ## 8. Pengujian
 
-- Unit test `node:test` untuk `parse.js` (fixture dari export chat), `format.js` (keluaran sama dengan bagian 5), perhitungan periode 26 s/d 25 dan Jumat ke Kamis, perhitungan telat, serta parser balasan `ok` dan `batal`.
-- Validasi `vision.js` memakai 5 foto absen asli. Jam dari AI dibandingkan dengan jam yang terlihat di watermark.
+- Unit test `node:test` untuk `parse.js` (fixture dari format teks app, lihat 4.4), `format.js` (keluaran sama dengan bagian 5), perhitungan periode 26 s/d 25 dan Jumat ke Kamis, perhitungan telat, serta parser balasan `ok` dan `batal`.
+- Uji `vision.js` memakai 3 foto di `assets/foto absensi/` dengan jam yang diharapkan 13:55, 02:26, 09:39. Test ini hanya jalan bila `GEMINI_API_KEY` tersedia.
 - Smoke test dengan `DRY_RUN=1`: keempat rekap dipicu manual dan dikirim ke nomor SPV, lalu hasilnya dicek di WhatsApp.
 
 ## 9. Keputusan yang sudah diambil user
