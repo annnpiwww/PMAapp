@@ -8,6 +8,7 @@ class WhatsNewRelease {
   final String date;
   final List<String> features;
   final String? aiNote;
+  final String? mapNote;
   final String bugfix;
 
   const WhatsNewRelease({
@@ -15,6 +16,7 @@ class WhatsNewRelease {
     required this.date,
     required this.features,
     this.aiNote,
+    this.mapNote,
     required this.bugfix,
   });
 }
@@ -28,13 +30,15 @@ class WhatsNewService {
 
   /// Diisi ulang tiap versi naik, bareng bump di pubspec.yaml.
   static const WhatsNewRelease current = WhatsNewRelease(
-    version: '2.0.129',
+    version: '2.0.130',
     date: '4 November 2026',
     features: [
-      'Kartu tugas SPV lebih gampang dibaca: kode lokasi pos di depan, huruf lebih besar',
+      'Halaman Daily Task Team PMA baru: progres tim, filter teknisi, buat tugas lewat lembar bawah',
     ],
     aiNote:
         'Waktu absensi tetap memakai jam terverifikasi server, bukan jam HP',
+    mapNote:
+        'Lihat peta POS yang sudah dan belum maintenance, lengkap dengan daftar temuan. Buka dari menu samping, pilih Map Maintenance. Khusus KC Manado.',
     bugfix: 'Beberapa bug sudah diperbaiki.',
   );
 

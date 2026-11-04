@@ -2,6 +2,22 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.130+2143] - 2026-11-04
+
+### 🎯 Highlight Utama
+1. **Redesign Halaman Daily Task Team PMA**:
+   - Tampilan utama bebas tab: header ringkas dengan progres ring tim, filter status (Semua, Belum, Selesai), dan filter teknisi langsung di layar utama.
+   - Form pembuatan tugas berpindah ke lembar bawah (modal bottom sheet) yang dibuka lewat tombol Buat Tugas, lengkap dengan pilihan kategori Rutin, Maintenance, dan Tugas Khusus dalam satu baris rapi.
+   - Kartu tugas dilengkapi aksen status di sisi kiri, posisi pill status rata dengan menu tiga titik (kebab), serta warna dan kontras yang disesuaikan untuk tema gelap.
+2. **Layar Apa yang Baru dengan Bagian Map Maintenance**:
+   - Menambahkan ringkasan Map Maintenance pada layar Apa yang Baru untuk memudahkan teknisi KC Manado memantau lokasi POS yang sudah dan belum maintenance.
+3. **Verifikasi & Build**:
+   - `flutter analyze`: 0 issues found.
+   - `flutter test`: 546 test LULUS, 3 skipped.
+   - APK rilis split-per-abi ARM64 dan ARM32 serta deploy web produksi ke Vercel.
+
+---
+
 ## [2.0.129+2142] — 2026-11-04
 
 ### 🎯 Highlight Utama

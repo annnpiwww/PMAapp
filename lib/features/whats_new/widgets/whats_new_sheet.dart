@@ -133,13 +133,7 @@ class WhatsNewSheet extends StatelessWidget {
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
-                decoration: BoxDecoration(
-                  color: dark ? AppColors.darkSurfaceContainer : const Color(0xFFF2F6FF),
-                  borderRadius: BorderRadius.circular(11),
-                  border: Border.all(
-                    color: dark ? AppColors.darkBorderMuted : const Color(0xFFDCE6FA),
-                  ),
-                ),
+                decoration: _noteBoxDecoration(dark),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -150,6 +144,38 @@ class WhatsNewSheet extends StatelessWidget {
                         release.aiNote!,
                         style: TextStyle(
                           fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          height: 1.45,
+                          color: dark ? AppColors.textDarkSecondary : const Color(0xFF2B4C8F),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            if (release.mapNote != null) ...[
+              const SizedBox(height: 12),
+              _SectionLabel('Map Maintenance baru', textMuted),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+                decoration: _noteBoxDecoration(dark),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.map_outlined,
+                      size: 25,
+                      color: dark ? AppColors.primaryLight : AppColors.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        release.mapNote!,
+                        style: TextStyle(
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                           height: 1.45,
                           color: dark ? AppColors.textDarkSecondary : const Color(0xFF2B4C8F),
@@ -210,6 +236,16 @@ class WhatsNewSheet extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  BoxDecoration _noteBoxDecoration(bool dark) {
+    return BoxDecoration(
+      color: dark ? AppColors.darkSurfaceContainer : const Color(0xFFF2F6FF),
+      borderRadius: BorderRadius.circular(11),
+      border: Border.all(
+        color: dark ? AppColors.darkBorderMuted : const Color(0xFFDCE6FA),
       ),
     );
   }
