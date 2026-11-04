@@ -20,7 +20,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # sudah terpasang di HP teknisi. APK v2.0.66 yang tersebar punya versionCode
 # 2074; kalau build number turun, Android menolak update ("tidak kompatibel")
 # dan satu-satunya cara adalah uninstall (data absensi & riwayat hilang).
-version: 2.0.130+2143
+version: 2.0.131+2144
 
 environment:
   sdk: ^3.11.5

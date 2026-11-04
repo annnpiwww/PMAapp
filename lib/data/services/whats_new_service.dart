@@ -30,10 +30,12 @@ class WhatsNewService {
 
   /// Diisi ulang tiap versi naik, bareng bump di pubspec.yaml.
   static const WhatsNewRelease current = WhatsNewRelease(
-    version: '2.0.130',
+    version: '2.0.131',
     date: '4 November 2026',
     features: [
-      'Halaman Daily Task Team PMA baru: progres tim, filter teknisi, buat tugas lewat lembar bawah',
+      'Shift kustom teknisi tidak tertimpa saat jepret Masuk & Pulang',
+      'Halaman Daily Task SPV lebih ringkas dengan tombol Buat Tugas di header',
+      'Peta Maintenance dilengkapi dropdown wilayah dan filter lokasi belum dikerjakan',
     ],
     aiNote:
         'Waktu absensi tetap memakai jam terverifikasi server, bukan jam HP',

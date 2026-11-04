@@ -2,6 +2,20 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.131+2144] - 2026-11-04
+
+### 🎯 Highlight Utama
+1. **Perbaikan Shift Kustom Teknisi**:
+   - Pilihan shift kustom (seperti `Jaga Pagi (14:00 - 18:00)`) tidak lagi tertimpa shift otomatis saat menekan shutter Masuk atau Pulang.
+   - Jam kepulangan shift kustom dihitung otomatis dari jam akhir shift, dan dialog konfirmasi shift kini lebih jelas.
+2. **Penyempurnaan Halaman Daily Task SPV**:
+   - Kartu tugas SPV tampil lebih ringkas dan padat. Tombol "Buat Tugas" kini berada di header atas menggantikan Floating Action Button (FAB).
+3. **Filter Map Maintenance Dropdown Wilayah & Status**:
+   - Pemilihan wilayah pada peta maintenance kini memakai dropdown ringkas di bar atas.
+   - Filter status cepat untuk menampilkan titik lokasi POS yang belum dikerjakan.
+
+---
+
 ## [2.0.130+2143] - 2026-11-04
 
 ### 🎯 Highlight Utama
