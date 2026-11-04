@@ -114,13 +114,16 @@ void main() {
           backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
           body: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            child: SpvTaskCard(
-              task: task,
-              isDark: isDark,
-              isExpanded: isExpanded,
-              onToggleExpand: onToggleExpand ?? () {},
-              onHandover: onHandover,
-              onDelete: onDelete,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SpvTaskCard(
+                task: task,
+                isDark: isDark,
+                isExpanded: isExpanded,
+                onToggleExpand: onToggleExpand ?? () {},
+                onHandover: onHandover,
+                onDelete: onDelete,
+              ),
             ),
           ),
         ),
@@ -180,7 +183,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Alihkan Tugas'), findsOneWidget);
+      expect(find.text('Alihkan'), findsOneWidget);
       expect(find.text('Belum Mulai'), findsOneWidget);
     });
 
@@ -278,6 +281,81 @@ void main() {
       final size = tester.getSize(kebabFinder);
       expect(size.width >= 44.0, isTrue, reason: 'Kebab width was ${size.width}');
       expect(size.height >= 44.0, isTrue, reason: 'Kebab height was ${size.height}');
+    });
+
+    testWidgets('pending card with onHandover renders status pill and Alihkan in the same row with compact width', (tester) async {
+      final task = createBaseTask(status: TaskStatus.pending);
+      await tester.pumpWidget(
+        buildTestCard(
+          task: task,
+          onHandover: () {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final statusCenter = tester.getCenter(find.text('Belum Mulai'));
+      final alihkanCenter = tester.getCenter(find.text('Alihkan'));
+      expect((statusCenter.dy - alihkanCenter.dy).abs() <= 4.0, isTrue);
+
+      final cardWidth = tester.getSize(find.byType(SpvTaskCard)).width;
+      final alihkanWidth = tester.getSize(find.ancestor(of: find.text('Alihkan'), matching: find.byType(ConstrainedBox)).first).width;
+      expect(alihkanWidth < cardWidth * 0.5, isTrue);
+    });
+
+    testWidgets('posTag PPM with posName PPM does not duplicate POS in meta line', (tester) async {
+      final task = createBaseTask(posTag: 'PPM', posName: 'PPM', teknisiNama: 'Alessandro');
+      await tester.pumpWidget(buildTestCard(task: task));
+      await tester.pumpAndSettle();
+
+      expect(find.text('PPM'), findsOneWidget);
+      expect(find.textContaining('PPM ·'), findsNothing);
+    });
+
+    testWidgets('Alihkan and Bukti tap target height >= 44', (tester) async {
+      final pendingTask = createBaseTask(status: TaskStatus.pending);
+      await tester.pumpWidget(
+        buildTestCard(
+          task: pendingTask,
+          onHandover: () {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final alihkanTarget = tester.getSize(
+        find.ancestor(of: find.text('Alihkan'), matching: find.byType(ConstrainedBox)).first,
+      );
+      expect(alihkanTarget.height >= 44.0, isTrue);
+
+      final doneTask = createBaseTask(
+        status: TaskStatus.completed,
+        jamSelesai: '10:00',
+        fotoBuktiUrls: ['url1'],
+      );
+      await tester.pumpWidget(buildTestCard(task: doneTask));
+      await tester.pumpAndSettle();
+
+      final buktiTarget = tester.getSize(
+        find.ancestor(of: find.text('Bukti (1)'), matching: find.byType(ConstrainedBox)).first,
+      );
+      expect(buktiTarget.height >= 44.0, isTrue);
+    });
+
+    testWidgets('pending card with 1-line title and no deskripsi has height <= 124dp', (tester) async {
+      final task = createBaseTask(
+        judul: 'Pemasangan lampu pos',
+        deskripsi: '',
+        status: TaskStatus.pending,
+      );
+      await tester.pumpWidget(
+        buildTestCard(
+          task: task,
+          onHandover: () {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final cardSize = tester.getSize(find.byType(SpvTaskCard));
+      expect(cardSize.height <= 124.0, isTrue, reason: 'Card height was ${cardSize.height}');
     });
   });
 }

@@ -243,7 +243,7 @@ void main() {
 
       expect(find.byType(TabBar), findsNothing);
       expect(find.byType(TabBarView), findsNothing);
-      expect(find.text('Daily Task Team PMA'), findsOneWidget);
+      expect(find.text('Daily Task'), findsOneWidget);
       expect(find.byType(SpvProgressRingCard), findsOneWidget);
       expect(find.text('Tugas Selesai'), findsOneWidget);
       expect(find.text('2/4'), findsOneWidget);
@@ -255,6 +255,8 @@ void main() {
       expect(find.text('Semua Teknisi'), findsOneWidget);
       expect(find.byType(SpvTaskCard), findsNWidgets(4));
       expect(find.text('Buat Tugas'), findsOneWidget);
+      expect(find.text('Pantau & kelola tugas teknisi dengan mudah'), findsNothing);
+      expect(find.byType(FloatingActionButton), findsNothing);
       expect(find.text('Menunggu Alih'), findsNothing);
     });
   });
@@ -375,7 +377,7 @@ void main() {
       await _pumpScreen(tester, dark: true);
 
       expect(tester.takeException(), isNull);
-      expect(find.text('Daily Task Team PMA'), findsOneWidget);
+      expect(find.text('Daily Task'), findsOneWidget);
       final context = tester.element(find.byType(SpvTaskDispatcherScreen));
       expect(ThemeService.isDarkMode(context), isTrue);
     });

@@ -3,9 +3,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../data/models/daily_task_model.dart';
 import 'completed_daily_task_modal.dart';
 
-/// Single task card for the supervisor dispatcher: semantic left accent bar,
-/// POS tag, status pill, kebab actions, performer/location line, relative date,
-/// and the Alihkan / Bukti actions.
+/// Compact task card for supervisor dispatcher with inline header, merged metadata, and footer actions.
 class SpvTaskCard extends StatelessWidget {
   final DailyTaskModel task;
   final bool isDark;
@@ -50,10 +48,12 @@ class SpvTaskCard extends StatelessWidget {
 
     final deskripsiText = task.deskripsi.trim();
     final hasDeskripsi = deskripsiText.isNotEmpty;
-    final locationLine = [
-      if (task.posName.trim().isNotEmpty) task.posName.trim(),
-      task.labelPelaksana,
-    ].where((e) => e.isNotEmpty).join(' · ');
+    final trimmedPosName = task.posName.trim();
+    final metaText = [
+      if (trimmedPosName.isNotEmpty && trimmedPosName != posPillText) trimmedPosName,
+      if (task.labelPelaksana.trim().isNotEmpty) task.labelPelaksana.trim(),
+      if (_dateLine(isDone).trim().isNotEmpty) _dateLine(isDone).trim(),
+    ].join(' · ');
 
     return Semantics(
       container: true,
@@ -89,8 +89,9 @@ class SpvTaskCard extends StatelessWidget {
               child: InkWell(
                 onTap: isDone ? () => CompletedDailyTaskModal.show(context, task) : null,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+                  padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
@@ -121,23 +122,22 @@ class SpvTaskCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                           ],
-                          const Spacer(),
-                          Flexible(child: _statusPill(status)),
+                          Expanded(
+                            child: Text(
+                              task.judul,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: 'PlusJakartaSans',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                height: 1.3,
+                                color: titleColor,
+                              ),
+                            ),
+                          ),
                           _kebabMenu(hasNotes, isDone, mutedColor),
                         ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        task.judul,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          height: 1.35,
-                          color: titleColor,
-                        ),
                       ),
                       if (hasDeskripsi) ...[
                         const SizedBox(height: 2),
@@ -152,12 +152,10 @@ class SpvTaskCard extends StatelessWidget {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 8),
-                      _metaLine(Icons.place_outlined, locationLine, metaColor),
-                      const SizedBox(height: 4),
-                      _metaLine(Icons.calendar_today_outlined, _dateLine(isDone), metaColor),
+                      const SizedBox(height: 2),
+                      _metaLine(Icons.place_outlined, metaText, metaColor),
                       if (hasNotes && isExpanded) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 2),
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(8),
@@ -192,17 +190,23 @@ class SpvTaskCard extends StatelessWidget {
                           ),
                         ),
                       ],
-                      if (!isDone && onHandover != null) ...[
-                        const SizedBox(height: 10),
-                        _handoverButton(),
-                      ],
-                      if (isDone) ...[
-                        const SizedBox(height: 10),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: _buktiButton(context),
+                      const SizedBox(height: 2),
+                      SizedBox(
+                        height: 44,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Flexible(child: _statusPill(status)),
+                            if (!isDone && onHandover != null) ...[
+                              const Spacer(),
+                              _handoverButton(),
+                            ] else if (isDone) ...[
+                              const Spacer(),
+                              _buktiButton(context),
+                            ],
+                          ],
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
@@ -387,33 +391,41 @@ class SpvTaskCard extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Alihkan tugas',
-      child: InkWell(
-        onTap: onHandover,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          height: 40,
-          width: double.infinity,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: AppColors.accent.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
-          ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.swap_horiz_rounded, size: 16, color: AppColors.accent),
-              SizedBox(width: 6),
-              Text(
-                'Alihkan Tugas',
-                style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.accent,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+        child: InkWell(
+          onTap: onHandover,
+          borderRadius: BorderRadius.circular(8),
+          child: Center(
+            child: SizedBox(
+              height: 32,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.swap_horiz_rounded, size: 14, color: AppColors.accent),
+                      SizedBox(width: 4),
+                      Text(
+                        'Alihkan',
+                        style: TextStyle(
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -424,32 +436,41 @@ class SpvTaskCard extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Lihat bukti',
-      child: InkWell(
-        onTap: () => CompletedDailyTaskModal.show(context, task),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          height: 34,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: AppColors.success.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.success.withValues(alpha: 0.35)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.photo_library_outlined, size: 14, color: AppColors.success),
-              const SizedBox(width: 5),
-              Text(
-                task.fotoBuktiUrls.isNotEmpty ? 'Bukti (${task.fotoBuktiUrls.length})' : 'Lihat Bukti',
-                style: const TextStyle(
-                  fontFamily: 'PlusJakartaSans',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.success,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+        child: InkWell(
+          onTap: () => CompletedDailyTaskModal.show(context, task),
+          borderRadius: BorderRadius.circular(8),
+          child: Center(
+            child: SizedBox(
+              height: 32,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.success.withValues(alpha: 0.35)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.photo_library_outlined, size: 14, color: AppColors.success),
+                      const SizedBox(width: 5),
+                      Text(
+                        task.fotoBuktiUrls.isNotEmpty ? 'Bukti (${task.fotoBuktiUrls.length})' : 'Lihat Bukti',
+                        style: const TextStyle(
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.success,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),

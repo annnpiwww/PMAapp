@@ -26,7 +26,6 @@ class SpvTaskDispatcherScreen extends StatefulWidget {
 class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with SingleTickerProviderStateMixin {
   bool _isLoading = false;
   late final AnimationController _pulse;
-  bool _fabVisible = true;
   List<DailyTaskModel> _tasksToday = [];
 
   // Filter States
@@ -993,119 +992,81 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
               child: RefreshIndicator(
                 onRefresh: _loadTasks,
                 color: AppColors.accent,
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: _onListScroll,
-                  child: _buildTaskList(isDark),
-                ),
+                child: _buildTaskList(isDark),
               ),
             ),
           ],
         ),
       ),
-      floatingActionButton: AnimatedSlide(
-        offset: _fabVisible ? Offset.zero : const Offset(0, 1.6),
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        child: AnimatedOpacity(
-          opacity: _fabVisible ? 1 : 0,
-          duration: const Duration(milliseconds: 200),
-          child: IgnorePointer(
-            ignoring: !_fabVisible,
-            child: FloatingActionButton.extended(
-              onPressed: () => _showBeriTugasBottomSheet(isDark),
-              tooltip: 'Buat tugas baru',
-              backgroundColor: isDark ? AppColors.primaryLight : AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text(
-                'Buat Tugas',
-                style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 14, fontWeight: FontWeight.w700),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
-  bool _onListScroll(ScrollNotification notification) {
-    if (notification is ScrollUpdateNotification) {
-      final delta = notification.scrollDelta ?? 0;
-      if (delta > 2 && _fabVisible) {
-        setState(() => _fabVisible = false);
-      } else if (delta < -2 && !_fabVisible) {
-        setState(() => _fabVisible = true);
-      }
-    }
-    return false;
-  }
-
   Widget _buildHeaderBand(bool isDark) {
+    final canPop = Navigator.of(context).canPop();
     return Container(
       width: double.infinity,
       color: isDark ? AppColors.primaryDark : AppColors.primary,
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
       child: Row(
         children: [
-          if (Navigator.of(context).canPop())
+          if (canPop)
             IconButton(
               tooltip: 'Kembali',
               onPressed: () => Navigator.maybePop(context),
               icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
             ),
-          Container(
-            width: 42,
-            height: 36,
-            margin: const EdgeInsets.only(left: 4),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: const Text(
-              'PMA',
-              style: TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: AppColors.primary,
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(left: canPop ? 4 : 12),
+              child: const Text(
+                'Daily Task',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Daily Task Team PMA',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+          Semantics(
+            button: true,
+            label: 'Buat tugas baru',
+            child: Tooltip(
+              message: 'Buat tugas baru',
+              child: InkWell(
+                onTap: () => _showBeriTugasBottomSheet(isDark),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
                     color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_rounded, size: 18, color: AppColors.primary),
+                      SizedBox(width: 4),
+                      Text(
+                        'Buat Tugas',
+                        style: TextStyle(
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Pantau & kelola tugas teknisi dengan mudah',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    fontSize: 12,
-                    height: 1.3,
-                    color: Colors.white.withValues(alpha: 0.80),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
+          const SizedBox(width: 8),
           _headerAction(
             tooltip: 'Format Briefing WA / Telegram',
             icon: Icons.share_rounded,
@@ -1854,7 +1815,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         if (_isLoading)
           _buildSkeletonList(isDark)
@@ -1904,7 +1865,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
           else
             for (final t in tasks)
               Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.only(bottom: 8),
                 child: SpvTaskCard(
                   task: t,
                   isDark: isDark,
