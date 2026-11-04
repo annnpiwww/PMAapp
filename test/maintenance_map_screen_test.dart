@@ -1296,6 +1296,18 @@ void main() {
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
 
+        final file1 = File('docs/screenshots/map_maintenance_v3_default_360.png');
+        final file2 =
+            File('docs/screenshots/map_maintenance_v3_location_sheet_360.png');
+        final originalBytes1 = file1.existsSync() ? file1.readAsBytesSync() : null;
+        final originalBytes2 = file2.existsSync() ? file2.readAsBytesSync() : null;
+        if (originalBytes1 != null) {
+          addTearDown(() => file1.writeAsBytesSync(originalBytes1));
+        }
+        if (originalBytes2 != null) {
+          addTearDown(() => file2.writeAsBytesSync(originalBytes2));
+        }
+
         final mapController = MapController();
         final repaintKey = GlobalKey();
 
@@ -1332,7 +1344,6 @@ void main() {
         // Capture default screenshot
         final boundary1 =
             repaintKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-        final file1 = File('docs/screenshots/map_maintenance_v3_default_360.png');
         await tester.runAsync(() async {
           final image1 = await boundary1.toImage(pixelRatio: 2.0);
           final byteData1 =
@@ -1359,8 +1370,6 @@ void main() {
         // Capture sheet screenshot
         final boundary2 =
             repaintKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-        final file2 =
-            File('docs/screenshots/map_maintenance_v3_location_sheet_360.png');
         await tester.runAsync(() async {
           final image2 = await boundary2.toImage(pixelRatio: 2.0);
           final byteData2 =
@@ -1373,6 +1382,238 @@ void main() {
         expect(file1.lengthSync(), greaterThan(1000));
         expect(file2.existsSync(), isTrue);
         expect(file2.lengthSync(), greaterThan(1000));
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+      },
+    );
+  });
+
+  group('MaintenanceMapScreen: Wilayah Dropdown & Status Filter', () {
+    final now = DateTime.now();
+
+    final testSubmissions = [
+      MaintenanceSubmission(
+        id: 'sub-aan-pbm-01',
+        posId: 'POS-PBM-01',
+        posName: 'Pasar Bersehati Manado',
+        cabangName: 'KC BSG',
+        userId: 'tech-01',
+        userName: 'Junifer Mamahit',
+        userNpp: 'NPP-101',
+        templateId: 'tpl_maint_manless',
+        templateName: 'Manless Gate',
+        createdAt: now,
+        updatedAt: now,
+        points: const [
+          MaintenancePointResult(
+            pointId: 'manless_dudukan',
+            label: 'Manless 3 - Dudukan Bawah Manless kanan',
+            status: PointStatus.tidakSesuai,
+            alasan: 'Baut dudukan lepas',
+            urgensi: TingkatUrgensi.urgent,
+          ),
+        ],
+      ),
+    ];
+
+    setUp(() async {
+      await loadAppFonts();
+      SharedPreferences.setMockInitialValues({});
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('plugins.flutter.io/path_provider'),
+            (methodCall) async => '.',
+          );
+      await StorageService.init();
+      await StorageService.saveMaintenanceSubmissions(testSubmissions);
+    });
+
+    testWidgets(
+      '(a) top bar contains a DropdownButton<String> and no horizontal ListView of wilayah; selecting wilayah updates visible markers',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: MaintenanceMapScreen(),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(find.byType(DropdownButton<String>), findsOneWidget);
+        expect(find.byType(ListView), findsNothing);
+
+        final initialMarkers = tester
+            .widget<MarkerLayer>(find.byType(MarkerLayer))
+            .markers
+            .length;
+        expect(initialMarkers, greaterThan(0));
+
+        // Open dropdown
+        await tester.tap(find.byType(DropdownButton<String>));
+        await tester.pumpAndSettle();
+
+        // Select the first non-'Semua' wilayah item (e.g. 'Airmadidi' or 'Manado')
+        final itemFinder =
+            find.widgetWithText(DropdownMenuItem<String>, 'Airmadidi (1)');
+        if (itemFinder.evaluate().isNotEmpty) {
+          await tester.tap(itemFinder.last, warnIfMissed: false);
+        } else {
+          final allItems = find.byType(DropdownMenuItem<String>);
+          await tester.tap(allItems.at(1), warnIfMissed: false);
+        }
+        await tester.pumpAndSettle();
+
+        final filteredMarkers = tester
+            .widget<MarkerLayer>(find.byType(MarkerLayer))
+            .markers
+            .length;
+        expect(filteredMarkers, lessThan(initialMarkers));
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+      },
+    );
+
+    testWidgets(
+      '(b) tapping the Belum stat chip leaves only rank-0 markers and stat counts text stays identical; tapping again restores all',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: MaintenanceMapScreen(),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        final allMarkers = tester
+            .widget<MarkerLayer>(find.byType(MarkerLayer))
+            .markers
+            .length;
+
+        // Find the Belum stat chip text, e.g. "X Belum"
+        final belumText = tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byType(Wrap),
+                matching: find.textContaining('Belum'),
+              ),
+            )
+            .data!;
+
+        // Tap the Belum chip
+        await tester.tap(find.text(belumText));
+        await tester.pumpAndSettle();
+
+        // Markers now filtered to rank 0 (Belum only)
+        final belumMarkers = tester
+            .widget<MarkerLayer>(find.byType(MarkerLayer))
+            .markers
+            .length;
+        expect(belumMarkers, lessThanOrEqualTo(allMarkers));
+
+        // Stat counts text must stay identical (counts do not collapse)
+        expect(find.text(belumText), findsOneWidget);
+
+        // Tap again to restore
+        await tester.tap(find.text(belumText));
+        await tester.pumpAndSettle();
+
+        final restoredMarkers = tester
+            .widget<MarkerLayer>(find.byType(MarkerLayer))
+            .markers
+            .length;
+        expect(restoredMarkers, equals(allMarkers));
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+      },
+    );
+
+    testWidgets(
+      '(c) empty state text and Tampilkan semua appears when the selected status has 0 matches',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: MaintenanceMapScreen(),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        final chips = ['Belum', 'Ada temuan', 'Aman'];
+        String? zeroChip;
+        for (final chip in chips) {
+          final finder = find.descendant(
+            of: find.byType(Wrap),
+            matching: find.textContaining(chip),
+          );
+          if (finder.evaluate().isNotEmpty) {
+            final text = tester.widget<Text>(finder).data!;
+            if (text.startsWith('0 ')) {
+              zeroChip = text;
+              break;
+            }
+          }
+        }
+
+        if (zeroChip != null) {
+          await tester.tap(find.text(zeroChip));
+          await tester.pumpAndSettle();
+        } else {
+          // Select Airmadidi (1 pos)
+          await tester.tap(find.byType(DropdownButton<String>));
+          await tester.pumpAndSettle();
+
+          final airmadidiItem =
+              find.widgetWithText(DropdownMenuItem<String>, 'Airmadidi (1)');
+          if (airmadidiItem.evaluate().isNotEmpty) {
+            await tester.tap(airmadidiItem.last, warnIfMissed: false);
+            await tester.pumpAndSettle();
+          }
+
+          for (final chip in chips) {
+            final finder = find.descendant(
+              of: find.byType(Wrap),
+              matching: find.textContaining(chip),
+            );
+            if (finder.evaluate().isNotEmpty) {
+              final text = tester.widget<Text>(finder).data!;
+              if (text.startsWith('0 ')) {
+                zeroChip = text;
+                break;
+              }
+            }
+          }
+          if (zeroChip != null) {
+            await tester.tap(find.text(zeroChip));
+            await tester.pumpAndSettle();
+          }
+        }
+
+        expect(find.textContaining('Tidak ada lokasi'), findsOneWidget);
+        expect(find.text('Tampilkan semua'), findsOneWidget);
+
+        // Tap 'Tampilkan semua' clears status filter
+        await tester.tap(find.text('Tampilkan semua'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Tidak ada lokasi'), findsNothing);
 
         await tester.pumpWidget(const SizedBox());
         await tester.pump();

@@ -291,6 +291,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
 
   List<PosMaintenanceStatus> _allStatuses = [];
   String _selectedWilayah = 'Semua';
+  int? _selectedStatusRank;
   String? _selectedPosId;
   @visibleForTesting
   String? get selectedPosId => _selectedPosId;
@@ -497,9 +498,28 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     _loadMonthData();
   }
 
-  List<PosMaintenanceStatus> get _filteredStatuses {
+  List<PosMaintenanceStatus> get _wilayahStatuses {
     if (_selectedWilayah == 'Semua') return _allStatuses;
     return _allStatuses.where((s) => s.wilayah == _selectedWilayah).toList();
+  }
+
+  List<PosMaintenanceStatus> get _filteredStatuses {
+    final base = _wilayahStatuses;
+    if (_selectedStatusRank == null) return base;
+    return base.where((s) => _statusRank(s) == _selectedStatusRank).toList();
+  }
+
+  String _statusRankLabel(int rank) {
+    switch (rank) {
+      case 0:
+        return 'Belum';
+      case 1:
+        return 'Ada temuan';
+      case 2:
+        return 'Aman';
+      default:
+        return '';
+    }
   }
 
   List<String> get _availableWilayahList {
@@ -737,6 +757,73 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                   ],
                 ),
 
+                if (_filteredStatuses.isEmpty && _selectedStatusRank != null)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: MaintenanceMapPalette.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: MaintenanceMapPalette.divider,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Tidak ada lokasi ${_statusRankLabel(_selectedStatusRank!)} di $_selectedWilayah',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontFamily: 'PlusJakartaSans',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: MaintenanceMapPalette.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedStatusRank = null;
+                                });
+                                _fitMapToCurrentFilter();
+                              },
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                minimumSize: const Size(44, 36),
+                              ),
+                              child: const Text(
+                                'Tampilkan semua',
+                                style: TextStyle(
+                                  fontFamily: 'PlusJakartaSans',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: MaintenanceMapPalette.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
                 // Floating Map Controls Positioned bottom-right
                 Positioned(
                   right: 12,
@@ -836,52 +923,86 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              itemCount: list.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 6),
-              itemBuilder: (context, index) {
-                final w = list[index];
-                final isSelected = _selectedWilayah == w;
-
-                return InkWell(
-                  onTap: () {
+            child: Semantics(
+              label: 'Filter wilayah, $_selectedWilayah',
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: _selectedWilayah,
+                  icon: const Icon(
+                    Icons.expand_more_rounded,
+                    size: 18,
+                    color: MaintenanceMapPalette.textSecondary,
+                  ),
+                  dropdownColor: MaintenanceMapPalette.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  menuMaxHeight: 360,
+                  items: list.map((w) {
+                    final count = w == 'Semua'
+                        ? _allStatuses.length
+                        : _allStatuses.where((s) => s.wilayah == w).length;
+                    return DropdownMenuItem<String>(
+                      value: w,
+                      child: Text(
+                        '$w ($count)',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 13,
+                          color: MaintenanceMapPalette.textPrimary,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  selectedItemBuilder: (context) {
+                    return list.map((w) {
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          height: 32,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            color: MaintenanceMapPalette.surfaceRaised,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.place_outlined,
+                                size: 16,
+                                color: MaintenanceMapPalette.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  w,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: 'PlusJakartaSans',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: MaintenanceMapPalette.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList();
+                  },
+                  onChanged: (v) {
+                    if (v == null) return;
                     setState(() {
-                      _selectedWilayah = w;
+                      _selectedWilayah = v;
                     });
                     _fitMapToCurrentFilter();
                   },
-                  borderRadius: BorderRadius.circular(999),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? MaintenanceMapPalette.primary
-                          : MaintenanceMapPalette.surfaceRaised,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      w,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
-                        fontSize: 12,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w500,
-                        color: isSelected
-                            ? Colors.white
-                            : MaintenanceMapPalette.textSecondary,
-                      ),
-                    ),
-                  ),
-                );
-              },
+                ),
+              ),
             ),
           ),
         ],
@@ -944,7 +1065,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     final currentPhase = MaintenanceLogService.phaseForDate(now);
     final isCur = _isCurrentMonth;
 
-    final filtered = _filteredStatuses;
+    final filtered = _wilayahStatuses;
     final totalFiltered = filtered.length;
 
     int belumCount = 0;
@@ -1017,28 +1138,26 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
           Row(
             children: [
               Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildPhaseStripStatDot(
-                        MaintenanceMapPalette.pending,
-                        '$belumCount Belum',
-                      ),
-                      const SizedBox(width: 8),
-                      _buildPhaseStripStatDot(
-                        MaintenanceMapPalette.findingIcon,
-                        '$temuanCount Ada temuan',
-                      ),
-                      const SizedBox(width: 8),
-                      _buildPhaseStripStatDot(
-                        MaintenanceMapPalette.safeIcon,
-                        '$amanCount Aman',
-                      ),
-                    ],
-                  ),
+                child: Wrap(
+                  spacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _buildPhaseStripStatChip(
+                      rank: 0,
+                      color: MaintenanceMapPalette.pending,
+                      label: '$belumCount Belum',
+                    ),
+                    _buildPhaseStripStatChip(
+                      rank: 1,
+                      color: MaintenanceMapPalette.findingIcon,
+                      label: '$temuanCount Ada temuan',
+                    ),
+                    _buildPhaseStripStatChip(
+                      rank: 2,
+                      color: MaintenanceMapPalette.safeIcon,
+                      label: '$amanCount Aman',
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 12),
@@ -1063,29 +1182,71 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     );
   }
 
-  Widget _buildPhaseStripStatDot(Color color, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
+  Widget _buildPhaseStripStatChip({
+    required int rank,
+    required Color color,
+    required String label,
+  }) {
+    final isSelected = _selectedStatusRank == rank;
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: 'Tampilkan lokasi $label saja',
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _selectedStatusRank = _selectedStatusRank == rank ? null : rank;
+          });
+          _fitMapToCurrentFilter();
+        },
+        borderRadius: BorderRadius.circular(999),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              constraints: const BoxConstraints(minHeight: 32),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? color.withValues(alpha: 0.15)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: isSelected ? color : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: 'PlusJakartaSans',
+                      fontSize: 12,
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected
+                          ? MaintenanceMapPalette.textPrimary
+                          : MaintenanceMapPalette.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'PlusJakartaSans',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: MaintenanceMapPalette.textSecondary,
-          ),
-        ),
-      ],
+      ),
     );
   }
 
