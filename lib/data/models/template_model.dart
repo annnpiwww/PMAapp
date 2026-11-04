@@ -20,7 +20,7 @@ enum TemplateCategory {
       case TemplateCategory.custom:
         return 'Inspeksi Khusus / Custom';
       case TemplateCategory.maintPos:
-        return 'Maintenance Pos Parkir';
+        return 'Maintenance Pos Parkir & Booth';
       case TemplateCategory.maintBarrier:
         return 'Maintenance Barrier Gate';
       case TemplateCategory.maintManless:

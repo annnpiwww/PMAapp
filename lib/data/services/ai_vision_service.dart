@@ -6,6 +6,7 @@ import '../models/ai_vision_config.dart';
 import '../models/submission_model.dart';
 import '../models/template_model.dart';
 import 'storage_service.dart';
+import 'daily_task_service.dart';
 
 class AiVerificationResult {
   final VerificationStatus status;
@@ -166,6 +167,20 @@ class SopCriteriaHelper {
 
 class AiVisionService {
   static AiVisionConfig? _cachedConfig;
+
+  /// Proxy hanya dicoba sekali per sesi. Kalau browser memblokir preflight
+  /// atau function belum di-deploy, semua request berikutnya langsung ke
+  /// endpoint AI supaya tidak menambah delay tiap foto.
+  static bool _proxyUsable = true;
+
+  /// Seam test: ganti client HTTP tanpa jaringan sungguhan.
+  @visibleForTesting
+  static http.Client Function() clientFactory = http.Client.new;
+
+  @visibleForTesting
+  static void resetProxyState() {
+    _proxyUsable = true;
+  }
 
   static String cleanTechnicianReason(String raw) {
     var text = raw.trim();
@@ -392,7 +407,7 @@ class AiVisionService {
         poinGagal: [SopCriteriaHelper.toNegativeStatement(point.label)],
         poinLolos: [],
         confidenceScore: 1.0,
-        providerName: 'Google Gemini (${config.effectiveModelName})',
+        providerName: 'Google Gemini',
       );
     }
     // Untuk per-point, kirim label point + detail checkpoints sebagai kriteria evaluasi presisi
@@ -414,6 +429,25 @@ class AiVisionService {
     );
   }
 
+
+  /// Analisa ulang foto lama tanpa konteks template SOP tertentu (mis. dari
+  /// galeri atau riwayat): kirim ulang ke server AI dengan kriteria umum.
+  static Future<AiVerificationResult> reanalyzePhoto({
+    required String imageBase64,
+    String? konteks,
+    AiVisionConfig? customConfig,
+  }) {
+    return _runCustomEndpointVerification(
+      imageBase64: imageBase64,
+      criteria: const [
+        'Foto terlihat jelas, tidak blur, dan objeknya bisa dikenali',
+        'Objek sesuai dengan judul/keterangan foto',
+        'Tidak ada tanda foto lama, hasil edit, atau manipulasi',
+      ],
+      config: customConfig ?? getConfig(),
+      extraContext: konteks,
+    );
+  }
 
   static Future<AiVerificationResult> _runCustomEndpointVerification({
     required String imageBase64,
@@ -554,18 +588,24 @@ OUTPUT STRICT JSON ONLY:
     ];
 
     final primaryModel = config.effectiveModelName;
-    // Smart Fast Fallback: jika model utama lambat/gangguan, alihkan cepat ke gemini-flash-lite-latest
-    final fallbackModel = (primaryModel == 'gemini-3.1-flash-lite')
-        ? 'gemini-flash-lite-latest'
-        : 'gemini-3.1-flash-lite';
-    final candidateModels = [primaryModel, fallbackModel];
+    // Smart Fast Fallback: kalau model utama lambat, 503, atau kuota free tier
+    // habis (429 = 20 request/hari untuk 3.6-flash), pindah ke model lite yang
+    // masih punya jatah. Diukur 23 Okt 2026: ~1-2 dtk, JSON valid.
+    final candidateModels = <String>{
+      primaryModel,
+      'gemini-3.5-flash-lite',
+      'gemini-flash-lite-latest',
+    }.toList();
 
     final DateTime budgetStart = DateTime.now();
     final Duration totalBudget =
         const Duration(seconds: AiVisionConfig.totalBudgetSeconds);
     String errorMessage = '';
 
-    const maxAttempts = 2;
+    const maxAttempts = 3;
+    var useProxy = AiVisionConfig.proxyEnabled && _proxyUsable;
+    final proxyUri = Uri.parse(AiVisionConfig.proxyUrl);
+    final backendAnonKey = DailyTaskService.anonKey;
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       if (DateTime.now().difference(budgetStart) >= totalBudget) {
         errorMessage = 'Batas waktu ${AiVisionConfig.totalBudgetSeconds}s tercapai';
@@ -577,11 +617,17 @@ OUTPUT STRICT JSON ONLY:
 
       final currentModel =
           candidateModels[attempt.clamp(0, candidateModels.length - 1)];
-      final isFallback = currentModel != primaryModel;
 
-      // Timeout ringkas per attempt (default 8s) agar modal segera tampil
+      // Timeout per attempt: minimal mengikuti default terbaru (15s) walau
+      // config lama di perangkat menyimpan angka lebih kecil.
+      final int requestedTimeout =
+          config.timeoutSeconds > AiVisionConfig.perModelTimeoutSeconds
+              ? config.timeoutSeconds
+              : AiVisionConfig.perModelTimeoutSeconds;
       final perModelTimeout = Duration(
-        seconds: config.timeoutSeconds.clamp(4, remaining.inSeconds),
+        seconds: requestedTimeout < remaining.inSeconds
+            ? requestedTimeout
+            : remaining.inSeconds,
       );
 
       final isRetry = attempt > 0;
@@ -589,7 +635,7 @@ OUTPUT STRICT JSON ONLY:
         debugPrint('[BSS-Vision] RETRY/FAILOVER ${attempt + 1}/$maxAttempts ke $currentModel');
       }
 
-      final client = http.Client();
+      final client = clientFactory();
       try {
         final requestBody = <String, dynamic>{
           'model': currentModel,
@@ -603,23 +649,76 @@ OUTPUT STRICT JSON ONLY:
           'stream': false,
         };
 
-        // Bypass CoT reasoning thinking delay 30s pada gemini-3.1 agar inferensi vision instan (<2 detik)
-        if (currentModel.contains('3.1') ||
+        // Model Gemini 3.x yang mendukung reasoning bisa menghabiskan token
+        // untuk "thinking" sampai JSON terpotong (finish_reason=length) dan
+        // lama. Matikan thinking supaya output JSON utuh dan cepat (~2-3 dtk).
+        // Catatan: varian *-lite (mis. gemini-3.5-flash-lite) menolak param ini
+        // dengan HTTP 400, jadi hanya dikirim ke model yang sudah terverifikasi.
+        final supportsNoThinking = currentModel.contains('3.1') ||
+            currentModel.contains('3.6') ||
+            currentModel.contains('3.7') ||
+            currentModel.contains('3.8') ||
+            currentModel.contains('3-flash') ||
             currentModel.contains('reasoning') ||
-            currentModel.contains('thinking')) {
+            currentModel.contains('thinking');
+        if (supportsNoThinking) {
           requestBody['reasoning_effort'] = 'none';
         }
 
-        final response = await client
+        final bodyJson = jsonEncode(requestBody);
+
+        Future<http.Response> callDirect() => client
             .post(
               uri,
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer $effectiveApiKey',
               },
-              body: jsonEncode(requestBody),
+              body: bodyJson,
             )
             .timeout(perModelTimeout);
+
+        http.Response response;
+        if (useProxy) {
+          try {
+            response = await client
+                .post(
+                  proxyUri,
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': backendAnonKey,
+                    'Authorization': 'Bearer $backendAnonKey',
+                  },
+                  body: bodyJson,
+                )
+                .timeout(perModelTimeout);
+            // Proxy belum di-deploy / sedang error (Supabase sering balas
+            // 5xx saat cold start atau secret belum di-set) -> langsung ke
+            // endpoint AI supaya 503 proxy tidak mematikan verifikasi.
+            if (response.statusCode == 404 ||
+                response.statusCode == 501 ||
+                response.statusCode >= 500) {
+              debugPrint(
+                '[BSS-Vision] Proxy AI belum aktif (${response.statusCode}), pakai koneksi langsung.',
+              );
+              useProxy = false;
+              _proxyUsable = false;
+              response = await callDirect();
+            }
+          } catch (_) {
+            // Di browser, preflight CORS proxy yang belum ter-deploy gagal
+            // sebelum response diterima -> pakai koneksi langsung supaya
+            // verifikasi AI tidak ikut mati.
+            debugPrint(
+              '[BSS-Vision] Proxy AI tidak bisa dihubungi, pakai koneksi langsung.',
+            );
+            useProxy = false;
+            _proxyUsable = false;
+            response = await callDirect();
+          }
+        } else {
+          response = await callDirect();
+        }
 
         if (response.statusCode >= 200 && response.statusCode < 300) {
           final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -631,9 +730,7 @@ OUTPUT STRICT JSON ONLY:
                 _parseAiJsonResponse(rawContent, criteria, config);
             if (parsedResult != null) {
               return parsedResult.copyWith(
-                providerName: isFallback
-                    ? 'Google Gemini ($currentModel - Failover)'
-                    : 'Google Gemini ($currentModel)',
+                providerName: 'Google Gemini',
               );
             }
             errorMessage = 'Format JSON response tidak sesuai';
@@ -644,9 +741,9 @@ OUTPUT STRICT JSON ONLY:
         } else {
           errorMessage = 'Server error HTTP ${response.statusCode}';
           debugPrint('[BSS-Vision] HTTP ${response.statusCode} $currentModel: ${response.body.substring(0, response.body.length.clamp(0, 300))}');
-          final retryable = [429, 502, 503, 504].contains(response.statusCode);
-          if (retryable && attempt == 0 && remaining.inSeconds > 4) {
-            await Future.delayed(const Duration(milliseconds: 300));
+          final retryable = [429, 500, 502, 503, 504].contains(response.statusCode);
+          if (retryable && attempt < maxAttempts - 1 && remaining.inSeconds > 5) {
+            await Future.delayed(Duration(milliseconds: 400 * (attempt + 1)));
             continue;
           }
           break;
@@ -657,9 +754,11 @@ OUTPUT STRICT JSON ONLY:
         final isSocket = e.toString().contains('SocketException') ||
             e.toString().contains('Connection') ||
             e.toString().contains('ClientException');
-        if ((isTimeout || isSocket) && attempt == 0 && remaining.inSeconds > 4) {
-          errorMessage = 'Failover jaringan ($currentModel) -> switch ke $fallbackModel';
-          await Future.delayed(const Duration(milliseconds: 300));
+        if ((isTimeout || isSocket) &&
+            attempt < maxAttempts - 1 &&
+            remaining.inSeconds > 6) {
+          errorMessage = 'Failover jaringan ($currentModel) -> switch ke model berikutnya';
+          await Future.delayed(const Duration(milliseconds: 400));
           continue;
         }
         if (isTimeout) {
@@ -681,16 +780,29 @@ OUTPUT STRICT JSON ONLY:
 
     return AiVerificationResult(
       status: VerificationStatus.perluCekManual,
-      // Pesan ke user sengaja generik: nama model/provider tidak ditampilkan saat gagal.
-      // Detail teknisnya tetap dicatat lewat debugPrint di atas.
+      // Pesan ke user tetap generik (nama model tidak ditampilkan), tapi kode
+      // penyebab singkat ikut dicantumkan supaya masalah jaringan/limit bisa
+      // dilaporkan tanpa perlu buka console browser.
       alasan:
-          'Koneksi ke AI gagal. Foto dialihkan untuk Cek Manual oleh Supervisor.',
+          'Koneksi ke AI gagal${_shortErrorSuffix(errorMessage)}. Foto dialihkan untuk Cek Manual oleh Supervisor.',
       poinGagal: ['Koneksi Server Vision Terganggu / Gagal'],
       poinLolos: [],
       confidenceScore: 0.0,
       providerName: 'AI Fallback Alert (${config.provider.displayName})',
       isFallback: true,
     );
+  }
+
+  /// Kode penyebab singkat untuk ditampilkan ke user: "(HTTP 503)", "(timeout)".
+  static String _shortErrorSuffix(String message) {
+    final httpMatch = RegExp(r'HTTP (\d{3})').firstMatch(message);
+    if (httpMatch != null) return ' (HTTP ${httpMatch.group(1)})';
+    final lower = message.toLowerCase();
+    if (lower.contains('timeout') || lower.contains('batas waktu')) {
+      return ' (timeout)';
+    }
+    if (lower.contains('format json')) return ' (format respons)';
+    return ' (jaringan)';
   }
 
 
@@ -825,13 +937,13 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
    - Contoh alasan sesuai: "Kapasitas Drive C aman indikator biru dan storage lega."
    - Contoh alasan tidak sesuai: "Kapasitas Drive C kritis indikator merah dan sisa storage menipis."
 
-13. ATURAN KHUSUS KABEL BELAKANG CPU & PORT USB (SERVER & KASIR):
-   - Di bagian belakang PC kasir dan server terdapat banyak kabel perangkat (kabel power, LAN, VGA/HDMI, USB scanner, tap reader, printer).
-   - JIKA kabel belakang CPU terikat (menggunakan cable tie, spiral organizer, atau terikat berkelompok) dan port USB terpasang kencang, status WAJIB "sesuai" (LULUS / HIJAU).
-   - DILARANG memberi status "tidak_sesuai" hanya karena jumlah kabel banyak atau ada debu wajar pada ventilasi belakang casing!
-   - Hanya beri "tidak_sesuai" jika kabel menjuntai lepas ke lantai tanpa ikatan sama sekali, kabel terkelupas bahaya, atau konektor USB/LAN kendur hampir lepas.
-   - Contoh alasan sesuai: "Kabel belakang CPU terikat rapi dan colokan port USB kencang."
-   - Contoh alasan tidak sesuai: "Kabel belakang CPU menjuntai semrawut tanpa ikatan pengikat."
+13. ATURAN KHUSUS PERKABELAN (KABEL BELAKANG CPU, PORT USB, DAN SEMUA POIN YANG MEMOTRET KABEL):
+   - Di bagian belakang PC kasir dan server memang terdapat banyak kabel perangkat (kabel power, LAN, VGA/HDMI, USB scanner, tap reader, printer). Kabel yang turun/menggantung dari port ke bawah karena gravitasi adalah kondisi NORMAL, BUKAN temuan.
+   - DEFAULT poin kabel adalah "sesuai" (LULUS / HIJAU). Kabel yang tersambung ke port, jalurnya jelas, dan tidak kusut WAJIB "sesuai", walau tanpa cable tie, walau kabelnya menggantung/menjuntai wajar, walau jumlahnya banyak, dan walau ada debu wajar.
+   - DILARANG memakai kata "menjuntai" sebagai alasan temuan. DILARANG memberi "perlu_cek_manual" untuk poin kabel hanya karena ragu soal kerapian; kalau ragu, pilih "sesuai".
+   - Beri "tidak_sesuai" (MERAH) HANYA jika kabel jelas berantakan: kusut melilit seperti benang kusut, bertumpuk semrawut di lantai/jalur kaki, kabel terkelupas/terbakar, atau konektor USB/LAN/power kendur hampir lepas.
+   - Contoh alasan sesuai: "Kabel belakang CPU tersambung rapi dan port USB kencang."
+   - Contoh alasan tidak sesuai: "Kabel belakang CPU kusut melilit dan menumpuk di lantai."
 
 14. ATURAN KHUSUS KEYBOARD, MOUSE & PING JARINGAN (SERVER & KASIR):
    - Uji Keyboard & Mouse: Segala bentuk tampilan tes ketikan pada jendela Notepad / Terminal Console (misal deretan huruf/angka) atau tuts aktif pada browser KeyTest.com adalah bukti sah keyboard & mouse merespon normal -> status WAJIB "sesuai" (LULUS / HIJAU).
@@ -849,6 +961,13 @@ Bukan seperti hasil generate AI atau laporan audit akademis yang kaku!
      * Contoh sesuai: "Palang naik tegak waktu dibuka dan gerakannya lancar."
      * Contoh tidak sesuai: "Palang terbuka tidak sampai tegak dan macet di tengah."
    - WAJIB sebut arah palangnya (turun/menutup atau naik/terbuka) supaya supervisor tidak tertukar antara gate IN dan gate OUT.
+
+16. ATURAN KHUSUS PEMBERSIHAN KIPAS ANGIN (POS KASIR):
+   - Fokus HANYA pada kebersihan baling-baling dan cover penutup (jaring/grill) kipas angin di dalam pos. Ini BUKAN poin kelengkapan item pos.
+   - JIKA baling-baling dan cover kipas tampak bersih tanpa debu tebal, status WAJIB "sesuai" (LULUS / HIJAU).
+   - Beri "tidak_sesuai" jika baling-baling atau cover kipas tertutup debu tebal, kotor menghitam, atau cover penutup tidak terpasang.
+   - Contoh alasan sesuai: "Baling-baling dan cover kipas angin bersih bebas debu."
+   - Contoh alasan tidak sesuai: "Baling-baling kipas angin berdebu tebal dan cover depan kotor menghitam."
 
 OUTPUT STRICT JSON ONLY:
 {"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
@@ -965,7 +1084,7 @@ OUTPUT STRICT JSON ONLY:
         poinGagal: poinGagal,
         poinLolos: poinLolos,
         confidenceScore: conf,
-        providerName: 'Google Gemini (${config.effectiveModelName})',
+        providerName: 'Google Gemini',
         personCount: personCount,
         briefingKategori: finalKategori,
       );
@@ -1014,7 +1133,7 @@ OUTPUT STRICT JSON ONLY:
         ],
         poinLolos: const [],
         confidenceScore: 0.6,
-        providerName: 'Google Gemini (${config.effectiveModelName})',
+        providerName: 'Google Gemini',
         isFallback: true,
       );
     }
@@ -1051,7 +1170,7 @@ OUTPUT STRICT JSON ONLY:
         poinGagal: [],
         poinLolos: [],
         confidenceScore: 0.5,
-        providerName: 'Google Gemini (${config.effectiveModelName})',
+        providerName: 'Google Gemini',
         isFallback: true,
       );
     }
@@ -1085,7 +1204,7 @@ OUTPUT STRICT JSON ONLY:
         poinLolos:
             criteria.map(SopCriteriaHelper.toPositiveStatement).toList(),
         confidenceScore: 0.7,
-        providerName: 'Google Gemini (${config.effectiveModelName})',
+        providerName: 'Google Gemini',
         isFallback: true,
       );
     }
@@ -1096,7 +1215,7 @@ OUTPUT STRICT JSON ONLY:
       poinGagal: [],
       poinLolos: [],
       confidenceScore: 0.4,
-      providerName: 'Google Gemini (${config.effectiveModelName})',
+      providerName: 'Google Gemini',
       isFallback: true,
     );
   }

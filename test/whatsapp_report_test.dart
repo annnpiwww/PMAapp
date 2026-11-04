@@ -210,6 +210,51 @@ void main() {
       expect(text.contains('Total Point: 5'), isTrue);
     });
 
+    test('Poin Pembersihan Kipas Angin punya baris sendiri, tidak masuk Standarisasi item', () {
+      final submission = MaintenanceSubmission(
+        id: 'test_pos_kipas',
+        templateId: 'tpl_maint_pos',
+        templateName: 'Maintenance: Pos Parkir',
+        userId: 'user_1',
+        userName: 'Farhan Lakoro',
+        userNpp: '12345',
+        posId: 'pos_pbm',
+        posName: 'Pasar Bersehati Manado (PBM)',
+        cabangName: 'Manado',
+        points: [
+          const MaintenancePointResult(
+            pointId: 'pos_1_03',
+            label: 'Standarisasi Item dalam Pos',
+            status: PointStatus.sesuai,
+            alasan: 'Item dalam pos lengkap dan tertata.',
+          ),
+          const MaintenancePointResult(
+            pointId: 'pos_1_10',
+            label: 'Pembersihan Kipas Angin',
+            status: PointStatus.tidakSesuai,
+            alasan: 'Baling-baling kipas angin berdebu tebal',
+          ),
+          const MaintenancePointResult(
+            pointId: 'pos_1_05',
+            label: 'Kunci Pintu Pos (Grendel Pintu)',
+            status: PointStatus.sesuai,
+            alasan: 'Grendel pintu normal.',
+          ),
+        ],
+        createdAt: DateTime(2026, 11, 2, 16, 0),
+        updatedAt: DateTime(2026, 11, 2, 16, 30),
+      );
+
+      final text = WhatsAppReportService.generateReportText(
+        submission: submission,
+        category: TemplateCategory.maintPos,
+      );
+
+      expect(text.contains('3. *Standarisasi item dalam pos* :\n   ✅'), isTrue);
+      expect(text.contains('5. *Pembersihan kipas angin* :\n   ⚠️'), isTrue);
+      expect(text.contains('6. *Kunci pintu pos (grendel pintu)* :\n   ✅'), isTrue);
+    });
+
     test('Poin jalur kabel Pos Kasir pakai kalimat cadangan Pos, bukan barrier', () {
       final submission = MaintenanceSubmission(
         id: 'test_pos_jalur_kabel',

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -66,15 +67,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Switch to tab 2 (Status Tim)
-      await tester.tap(find.text('Status Tim'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Tidak ada tugas untuk tanggal ini'), findsOneWidget);
-      expect(
-        find.text('Penugasan yang dibuat muncul di sini.'),
-        findsOneWidget,
-      );
+      expect(find.text('Belum Ada Tugas Tim Hari Ini'), findsOneWidget);
+      expect(find.widgetWithText(ElevatedButton, 'Buat Tugas Baru'), findsOneWidget);
     });
 
     testWidgets('Renders Status filter pills with Belum Mulai and technician summary', (tester) async {
@@ -117,7 +111,7 @@ void main() {
 
       // Pre-seed storage cache
       final rawTasks = [task1.toJson(), task2.toJson(), task3.toJson()];
-      await StorageService.setString(DailyTaskService.localCacheKey, rawTasks.toString());
+      await StorageService.setString(DailyTaskService.localCacheKey, jsonEncode(rawTasks));
 
       await tester.pumpWidget(
         const MaterialApp(
@@ -126,14 +120,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Go to Status Tim
-      await tester.tap(find.text('Status Tim'));
-      await tester.pumpAndSettle();
-
-      // Filter pills check
-      expect(find.text('Semua (0)'), findsOneWidget);
-      expect(find.text('Belum Mulai (0)'), findsOneWidget);
-      expect(find.text('Selesai (0)'), findsOneWidget);
+      // Filter segments check
+      expect(find.text('Semua (3)'), findsOneWidget);
+      expect(find.text('Belum (1)'), findsOneWidget);
+      expect(find.text('Selesai (2)'), findsOneWidget);
     });
 
     testWidgets('Task Card displays formatted status, location, and expandable notes', (tester) async {

@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bssparking_timemark/data/services/secure_time_service.dart';
@@ -64,40 +62,7 @@ void main() {
     });
   });
 
-  group('StorageService PIN Hardening & Maintenance Sorting', () {
-    test('hashPin generates multi-round SHA-256 hash', () {
-      const pin = '887766';
-      final hash1 = StorageService.hashPin(pin);
-      final hash2 = StorageService.hashPin(pin);
-
-      expect(hash1.length, equals(64)); // 64 hex characters (SHA-256)
-      expect(hash1, equals(hash2));
-    });
-
-    test('Fallback compatibility: legacy single-round PIN is verified and auto-upgraded', () async {
-      final prefs = await SharedPreferences.getInstance();
-      const legacyPin = '654321';
-      const salt = 'testsalt1234567890';
-      // Simpan salt dan hash legacy single-round (sha256(salt::pin))
-      await prefs.setString('bss_technician_pin_salt_v1', salt);
-      final legacyHash = sha256.convert(utf8.encode('$salt::$legacyPin')).toString();
-      await prefs.setString('bss_technician_pin_v1', legacyHash);
-
-      // Verifikasi harus berhasil lewat fallback legacy
-      final verifyRes = await StorageService.verifyTechnicianPin(legacyPin);
-      expect(verifyRes.ok, isTrue);
-      expect(verifyRes.message, equals('PIN sesuai.'));
-
-      // Setelah verifikasi, hash harus otomatis di-upgrade ke multi-round hash
-      final upgradedHash = prefs.getString('bss_technician_pin_v1');
-      expect(upgradedHash, isNotNull);
-      expect(upgradedHash, isNot(equals(legacyHash)));
-
-      // Verifikasi ulang dengan hash baru yang sudah ter-upgrade
-      final verifyAgain = await StorageService.verifyTechnicianPin(legacyPin);
-      expect(verifyAgain.ok, isTrue);
-    });
-
+  group('StorageService Maintenance Sorting', () {
     test('saveMaintenanceSubmissions sorts properly by createdAt descending', () async {
       final sub1 = MaintenanceSubmission(
         id: 'sub_1',

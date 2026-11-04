@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../data/models/user_model.dart';
@@ -12,9 +13,14 @@ import '../../daily_tasks/screens/spv_task_dispatcher_screen.dart';
 import '../../daily_tasks/screens/teknisi_daily_tasks_screen.dart';
 import '../../history/screens/attendance_archive_screen.dart';
 import '../../maintenance/screens/maintenance_history_screen.dart';
+import '../../maintenance/screens/maintenance_map_screen.dart';
+import '../../../data/services/maintenance_log_service.dart';
 import 'ios_pwa_install_modal.dart';
 
 /// Navigation Drawer for CameraCaptureScreen
+/// Versi app yang benar-benar terpasang, buat mastiin teknisi pakai build terbaru.
+final Future<PackageInfo> _appPackageInfo = PackageInfo.fromPlatform();
+
 class CameraDrawer extends StatelessWidget {
   final VoidCallback? onRefreshDailyTasksBadge;
 
@@ -288,6 +294,36 @@ class CameraDrawer extends StatelessWidget {
                         );
                       }),
 
+                      // Menu Khusus Cabang KC Manado: Map Maintenance
+                      if (MaintenanceLogService.isSupported)
+                        ListTile(
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.map_rounded, color: AppColors.primary, size: 22),
+                          ),
+                          title: Text(
+                            'Map Maintenance',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
+                          ),
+                          subtitle: Text(
+                            'Lokasi sudah & belum maintenance',
+                            style: TextStyle(fontSize: 11, color: textSecondary),
+                          ),
+                          trailing: Icon(Icons.chevron_right_rounded, size: 20, color: textSecondary),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const MaintenanceMapScreen(),
+                              ),
+                            );
+                          },
+                        ),
+
                       // Menu Arsip Kehadiran (30 Hari)
                       ListTile(
                         leading: Container(
@@ -459,6 +495,22 @@ class CameraDrawer extends StatelessWidget {
                           fontSize: 10,
                           color: textSecondary,
                           fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      FutureBuilder<PackageInfo>(
+                        future: _appPackageInfo,
+                        builder: (context, snap) => Text(
+                          snap.hasData
+                              ? 'Versi ${snap.data!.version} (${snap.data!.buildNumber})'
+                              : 'Versi tidak terbaca',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'PlusJakartaSans',
+                            fontSize: 10,
+                            color: textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],

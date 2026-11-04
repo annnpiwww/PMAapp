@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/repositories/auth_repository.dart';
+import '../../../data/services/whats_new_service.dart';
 import '../../camera/screens/camera_capture_screen.dart';
 import '../../auth/screens/login_screen.dart';
+import '../../whats_new/widgets/whats_new_sheet.dart';
 
 /// Smooth, modern animated splash screen untuk PMAapp.
 /// Menampilkan micro-interactions logo pulse, live status loading ringan,
@@ -24,12 +26,16 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _pulseAnimation;
 
   final List<Timer> _pendingTimers = [];
+  late final Future<WhatsNewRelease?> _whatsNewCheck;
   String _loadingStatus = 'Menyiapkan aplikasi...';
   double _progress = 0.15;
 
   @override
   void initState() {
     super.initState();
+
+    // Dicek diam-diam selama splash berjalan, tanpa menahan startup.
+    _whatsNewCheck = _safeWhatsNewCheck();
 
     _animController = AnimationController(
       vsync: this,
@@ -94,7 +100,9 @@ class _SplashScreenState extends State<SplashScreen>
               _progress = 1.0;
             });
 
-            _pendingTimers.add(Timer(const Duration(milliseconds: 300), () {
+            _pendingTimers.add(Timer(const Duration(milliseconds: 300), () async {
+              if (!mounted) return;
+              final release = await _whatsNewCheck;
               if (!mounted) return;
               final isLoggedIn = AuthRepository.instance.isLoggedIn;
               final targetScreen = isLoggedIn ? const CameraCaptureScreen() : const LoginScreen();
@@ -102,7 +110,10 @@ class _SplashScreenState extends State<SplashScreen>
               Navigator.of(context).pushReplacement(
                 PageRouteBuilder(
                   transitionDuration: const Duration(milliseconds: 500),
-                  pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
+                  pageBuilder: (context, animation, secondaryAnimation) => WhatsNewGate(
+                    release: release,
+                    child: targetScreen,
+                  ),
                   transitionsBuilder: (context, animation, secondaryAnimation, child) {
                     return FadeTransition(
                       opacity: animation,
@@ -116,6 +127,15 @@ class _SplashScreenState extends State<SplashScreen>
         }));
       }));
     }));
+  }
+
+  /// Kegagalan baca versi tidak boleh menghalangi masuk aplikasi.
+  Future<WhatsNewRelease?> _safeWhatsNewCheck() async {
+    try {
+      return await WhatsNewService.check();
+    } catch (_) {
+      return null;
+    }
   }
 
   @override

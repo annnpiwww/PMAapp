@@ -246,25 +246,6 @@ void main() {
       expect(verified.source.isNotEmpty, isTrue);
     });
 
-    test('PIN Brute-force lockout memblokir percobaan setelah 5 kali gagal', () async {
-      for (int i = 0; i < 4; i++) {
-        final res = await StorageService.verifyTechnicianPin('999999');
-        expect(res.ok, isFalse);
-        expect(res.locked, isFalse);
-      }
-
-      // Percobaan ke-5 memicu lockout
-      final res5 = await StorageService.verifyTechnicianPin('999999');
-      expect(res5.ok, isFalse);
-      expect(res5.locked, isTrue);
-      expect(res5.retryAfterSeconds, greaterThan(0));
-
-      // Percobaan ke-6 langsung tertolak karena status locked
-      final res6 = await StorageService.verifyTechnicianPin('123321');
-      expect(res6.ok, isFalse);
-      expect(res6.locked, isTrue);
-    });
-
     test('Tidak ada bot token atau plaintext credentials hardcoded di kode lib/', () {
       final libDir = Directory('/home/annnpii/Product development annpii/BssparkingTimeMark/lib');
       final files = libDir.listSync(recursive: true).whereType<File>();

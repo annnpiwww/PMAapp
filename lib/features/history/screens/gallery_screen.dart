@@ -9,6 +9,7 @@ import '../../../core/utils/share_helper.dart';
 import '../../../core/utils/timemark_formatter.dart';
 import '../../../data/repositories/submission_repository.dart';
 import '../../../data/services/storage_service.dart';
+import '../../../data/services/ai_vision_service.dart';
 import '../../maintenance/widgets/photo_preview_dialog.dart';
 
 class GalleryScreen extends StatefulWidget {
@@ -143,8 +144,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
         SnackBar(
           content: Text(
             savedCount > 0
-                ? '$savedCount foto berhasil disimpan ke Galeri HP (Album BSS Parking)'
-                : 'Gagal menyimpan foto ke Galeri HP',
+                ? (kIsWeb
+                    ? '$savedCount foto diunduh ke Files/Downloads (bukan Galeri)'
+                    : '$savedCount foto tersimpan di Galeri HP (Album BSS Parking)')
+                : (kIsWeb
+                    ? 'Gagal mengunduh foto'
+                    : 'Gagal menyimpan foto ke Galeri HP'),
           ),
           backgroundColor: savedCount > 0 ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
           behavior: SnackBarBehavior.floating,
@@ -670,6 +675,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 context,
                 imagePath: item.imagePath,
                 title: item.title,
+                onAnalyze: (base64) => AiVisionService.reanalyzePhoto(
+                  imageBase64: base64,
+                  konteks: item.title,
+                ),
               );
             }
           },

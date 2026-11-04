@@ -65,6 +65,25 @@ void main() {
       tempDir.deleteSync(recursive: true);
     });
 
+    testWidgets('Tombol upload gambar & video dari galeri ikut tampil', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CustomTaskExecutionScreen(task: sampleTask),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ambil Foto'), findsOneWidget);
+      expect(find.text('Rekam Video'), findsOneWidget);
+      expect(find.text('Upload Gambar'), findsOneWidget);
+      expect(find.text('Upload Video'), findsOneWidget);
+      expect(find.text('Belum ada bukti yang diambil'), findsOneWidget);
+      expect(
+        find.text('Foto bisa dari kamera atau galeri. Video kamera maks 30 detik.'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('Draft is cleared when completeTask succeeds', (tester) async {
       final tempDir = Directory.systemTemp.createTempSync('bss_test_clear_');
       final testPhoto = File('${tempDir.path}/test_photo.jpg')..writeAsStringSync('dummy photo');

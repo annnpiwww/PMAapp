@@ -235,4 +235,96 @@ Printer bersih dan hasil cetak tiket jelas''';
       expect(recap, contains('Terima kasih'));
     });
   });
+
+  group('Catatan kenapa pekerjaan belum selesai', () {
+    test('formatUnfinishedJob menulis alasan di baris bawah dalam kurung', () {
+      expect(
+        WhatsAppReportService.formatUnfinishedJob(
+          'Pengecatan pulau',
+          alasan: 'Cuaca hujan',
+        ),
+        'Pengecatan pulau\n(Cuaca hujan)',
+      );
+      expect(
+        WhatsAppReportService.formatUnfinishedJob('Pengecatan pulau'),
+        'Pengecatan pulau',
+      );
+    });
+
+    test('splitJobAndAlasan memecah kurung dan tanda hubung', () {
+      final a = WhatsAppReportService.splitJobAndAlasan(
+        'Pengecatan pulau (Cuaca hujan)',
+      );
+      expect(a.judul, 'Pengecatan pulau');
+      expect(a.alasan, 'Cuaca hujan');
+
+      final b = WhatsAppReportService.splitJobAndAlasan(
+        '1. Pengecatan pulau - Cuaca hujan',
+      );
+      expect(b.judul, 'Pengecatan pulau');
+      expect(b.alasan, 'Cuaca hujan');
+
+      final c = WhatsAppReportService.splitJobAndAlasan('Pengecatan pulau');
+      expect(c.judul, 'Pengecatan pulau');
+      expect(c.alasan, isNull);
+    });
+
+    test('formatUnfinishedJobList merapikan daftar teks bebas', () {
+      final out = WhatsAppReportService.formatUnfinishedJobList(
+        'Pengecatan pulau (Cuaca hujan)\nGanti ribbon printer',
+      );
+      expect(out, contains('Pengecatan pulau\n(Cuaca hujan)'));
+      expect(out, contains('Ganti ribbon printer'));
+    });
+
+    test('laporan harian menampilkan alasan tugas yang belum selesai', () {
+      final pending = DailyTaskModel(
+        id: 'p1',
+        tanggal: '2026-10-22',
+        teknisiId: 'tek_01',
+        teknisiNama: 'Raldy',
+        posName: 'PBM',
+        posTag: 'PBM',
+        judul: 'Pengecatan pulau',
+        status: TaskStatus.pending,
+        catatanTeknisi: 'Cuaca hujan',
+      );
+
+      final res = DailyTaskService.formatFinalDailyReport(
+        teknisiNama: 'Raldy',
+        tanggal: '2026-10-22',
+        lokasi: 'PBM',
+        posTag: 'PBM',
+        completedTasks: const [],
+        pendingTasks: [pending],
+      );
+
+      expect(res, contains('Pekerjaan Belum Selesai :'));
+      expect(res, contains('- Pengecatan pulau (Pending)'));
+      expect(res, contains('(Cuaca hujan)'));
+    });
+
+    test('rekap SPV memakai alasan serah terima untuk tugas belum selesai', () {
+      final pending = DailyTaskModel(
+        id: 'p2',
+        tanggal: '2026-10-22',
+        teknisiId: 'tek_02',
+        teknisiNama: 'Alif',
+        posName: 'PCD',
+        posTag: 'PCD',
+        judul: 'Pengecatan pulau',
+        status: TaskStatus.pending,
+        serahTerima: 'Raldy|Budi|Cuaca hujan|22 Okt 21:10',
+      );
+
+      final recap = DailyTaskService.formatSpvTeamRecap(
+        tanggal: '2026-10-22',
+        tasks: [pending],
+        branch: AppBranch.bali,
+      );
+
+      expect(recap, contains('Belum Selesai (1):'));
+      expect(recap, contains('(Cuaca hujan)'));
+    });
+  });
 }

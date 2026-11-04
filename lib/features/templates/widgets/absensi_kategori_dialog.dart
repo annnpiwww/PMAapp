@@ -124,10 +124,85 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     },
   ];
 
-  List<Map<String, String>> get _shiftCards =>
-      BranchService.instance.currentBranch == AppBranch.bali
-          ? _baliShiftCards
-          : _manadoShiftCards;
+  static const List<Map<String, String>> _hoShiftCards = [
+    {
+      'title': 'Shift 1',
+      'full': 'Shift 1 (08.00 - 16.00)',
+      'hours': '08:00 - 16:00 WITA',
+      'period': 'Pagi • 8 Jam',
+    },
+    {
+      'title': 'Shift 2',
+      'full': 'Shift 2 (16.00 - 24.00)',
+      'hours': '16:00 - 24:00 WITA',
+      'period': 'Siang • 8 Jam',
+    },
+    {
+      'title': 'Shift 3',
+      'full': 'Shift 3 (24.00 - 08.00)',
+      'hours': '24:00 - 08:00 WITA',
+      'period': 'Malam • 8 Jam',
+    },
+    {
+      'title': 'Shift 1.1',
+      'full': 'Shift 1.1 (08.00 - 12.00)',
+      'hours': '08:00 - 12:00 WITA',
+      'period': 'Pagi • 4 Jam',
+    },
+    {
+      'title': 'HO.1',
+      'full': 'HO.1 (08.30 - 12.30)',
+      'hours': '08:30 - 12:30 WITA',
+      'period': 'Pagi • 4 Jam',
+    },
+    {
+      'title': 'GMM 1',
+      'full': 'GMM 1 (09.00 - 17.00)',
+      'hours': '09:00 - 17:00 WITA',
+      'period': 'Normal • 8 Jam',
+    },
+    {
+      'title': 'GMM 2',
+      'full': 'GMM 2 (15.00 - 23.00)',
+      'hours': '15:00 - 23:00 WITA',
+      'period': 'Siang-Malam • 8 Jam',
+    },
+    {
+      'title': 'RSWS',
+      'full': 'RSWS (15.00 - 23.00)',
+      'hours': '15:00 - 23:00 WITA',
+      'period': 'Siang-Malam • 8 Jam',
+    },
+    {
+      'title': 'RSWS',
+      'full': 'RSWS (08.30 - 16.30)',
+      'hours': '08:30 - 16:30 WITA',
+      'period': 'Normal • 8 Jam',
+    },
+    {
+      'title': 'JP',
+      'full': 'JP (08.30 - 16.30)',
+      'hours': '08:30 - 16:30 WITA',
+      'period': 'Normal • 8 Jam',
+    },
+    {
+      'title': 'JP',
+      'full': 'JP (17.00 - 01.00)',
+      'hours': '17:00 - 01:00 WITA',
+      'period': 'Sore-Malam • 8 Jam',
+    },
+  ];
+
+  List<Map<String, String>> get _shiftCards {
+    switch (BranchService.instance.currentBranch) {
+      case AppBranch.manado:
+        return _manadoShiftCards;
+      case AppBranch.bali:
+        return _baliShiftCards;
+      case AppBranch.ho:
+        return _hoShiftCards;
+    }
+  }
 
   List<String> get _rekanItOptions => BranchService.instance.getTechnicians();
 
@@ -771,10 +846,10 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     );
   }
 
-  /// Kartu lokasi standby: Manado tetap terkunci di pos default, Bali bisa diisi manual
-  /// (tidak lagi dipaku ke PBKD) karena teknisi Bali sering standby di pos lain.
+  /// Kartu lokasi standby: hanya Manado yang dikunci ke pos default. Bali & HO
+  /// bisa diisi manual karena teknisi sering standby di pos/lokasi lain.
   Widget _buildLocationStandbyCard() {
-    if (BranchService.instance.currentBranch != AppBranch.bali) {
+    if (BranchService.instance.currentBranch == AppBranch.manado) {
       return _buildFixedLocationCard();
     }
 

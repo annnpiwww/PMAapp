@@ -64,7 +64,7 @@ class _TemplateEditorScreenState extends State<TemplateEditorScreen> {
     if (_sopCriteria.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Tambahkan minimal 1 kriteria SOP.'),
+          content: Text('Minimal 1 kriteria SOP.'),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -101,7 +101,7 @@ class _TemplateEditorScreenState extends State<TemplateEditorScreen> {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Template "${template.nama}" berhasil disimpan!'),
+          content: Text('Template "${template.nama}" tersimpan.'),
           backgroundColor: AppColors.success,
         ),
       );

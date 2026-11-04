@@ -34,11 +34,11 @@ void main() {
         }
       }
 
-      // 3 Pos x 9 SOP points = 27 points
-      expect(points.length, equals(27));
-      expect(points.where((p) => p.id.startsWith('pos_1_')).length, equals(9));
-      expect(points.where((p) => p.id.startsWith('pos_2_')).length, equals(9));
-      expect(points.where((p) => p.id.startsWith('pos_3_')).length, equals(9));
+      // 3 Pos x 10 SOP points = 30 points
+      expect(points.length, equals(30));
+      expect(points.where((p) => p.id.startsWith('pos_1_')).length, equals(10));
+      expect(points.where((p) => p.id.startsWith('pos_2_')).length, equals(10));
+      expect(points.where((p) => p.id.startsWith('pos_3_')).length, equals(10));
       expect(points.where((p) => p.id.startsWith('pos_4_')).isEmpty, isTrue);
     });
 
@@ -58,14 +58,14 @@ void main() {
         }
       }
 
-      // 4 Pos x 9 SOP points = 36 points
-      expect(points.length, equals(36));
+      // 4 Pos x 10 SOP points = 40 points
+      expect(points.length, equals(40));
       expect(points.where((p) => p.id.startsWith('pos_1_')).isEmpty, isTrue);
       expect(points.where((p) => p.id.startsWith('pos_2_')).isEmpty, isTrue);
-      expect(points.where((p) => p.id.startsWith('pos_3_')).length, equals(9));
-      expect(points.where((p) => p.id.startsWith('pos_4_')).length, equals(9));
-      expect(points.where((p) => p.id.startsWith('pos_5_')).length, equals(9));
-      expect(points.where((p) => p.id.startsWith('pos_6_')).length, equals(9));
+      expect(points.where((p) => p.id.startsWith('pos_3_')).length, equals(10));
+      expect(points.where((p) => p.id.startsWith('pos_4_')).length, equals(10));
+      expect(points.where((p) => p.id.startsWith('pos_5_')).length, equals(10));
+      expect(points.where((p) => p.id.startsWith('pos_6_')).length, equals(10));
     });
 
     test('WhatsApp report formats Gate Out range correctly from submission points', () {

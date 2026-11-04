@@ -5,6 +5,7 @@ import '../../../core/services/theme_service.dart';
 import '../../../data/services/absensi_setup_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/daily_task_service.dart';
+import '../../../data/services/branch_service.dart';
 import '../../../data/repositories/auth_repository.dart';
 
 class DailyPulangBottomSheet extends StatefulWidget {
@@ -34,13 +35,12 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
   bool _isLoadingDailyTasks = false;
   int _syncedCompletedCount = 0;
 
-  // Daftar nama rekan IT Support
-  static const List<String> _rekanItOptions = [
-    'Ryan Lumasuge',
-    'Raldy Sangkop',
-    'Junifer Manua',
-    'Alessandro Sulistyo',
-    'Shift Terakhir / Tidak Ada Pengganti',
+  static const String _tanpaPengganti = 'Shift Terakhir / Tidak Ada Pengganti';
+
+  // Rekan per cabang aktif: daftar statis dulu membocorkan nama teknisi Manado ke HO/Bali.
+  late final List<String> _rekanItOptions = [
+    ...BranchService.instance.getTechnicians(),
+    _tanpaPengganti,
   ];
 
   @override
@@ -53,7 +53,10 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
     final isHandoverToday = setup.handoverDate == todayStr;
 
     // Prefill data yang sudah tersimpan jika hari ini
-    if (setup.shiftSelanjutnya.isNotEmpty && setup.shiftSelanjutnya != '-') {
+    // Nilai tersimpan dari cabang lain tidak boleh jadi value dropdown (bukan item = assert error).
+    if (setup.shiftSelanjutnya.isNotEmpty &&
+        setup.shiftSelanjutnya != '-' &&
+        _rekanItOptions.contains(setup.shiftSelanjutnya)) {
       _selectedNextShift = setup.shiftSelanjutnya;
     }
     if (isHandoverToday) {
@@ -674,7 +677,8 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                               ),
                               decoration: InputDecoration(
                                 isDense: true,
-                                hintText: 'Tulis pekerjaan yang belum selesai...',
+                                hintText:
+                                    'Tulis pekerjaan yang belum selesai + alasannya\n(contoh: Pengecatan pulau (Cuaca hujan))',
                                 hintStyle: TextStyle(
                                   fontSize: 12,
                                   color: hintColor,

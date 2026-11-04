@@ -10,7 +10,10 @@ import 'data/services/storage_service.dart';
 import 'data/services/secure_time_service.dart';
 import 'data/services/photo_cleanup_service.dart';
 import 'data/services/google_sheets_service.dart';
+import 'data/services/maintenance_log_service.dart';
 import 'data/services/notification_service.dart';
+import 'data/services/location_service.dart';
+import 'data/services/branch_service.dart';
 import 'features/splash/screens/splash_screen.dart';
 
 void main() async {
@@ -40,7 +43,10 @@ void main() async {
     SecureTimeService.syncNetworkTime(),
     PhotoCleanupService.cleanOldPhotos(maxDays: 7),
     GoogleSheetsService.flushPendingQueue(),
+    MaintenanceLogService.syncLocal(),
     NotificationService.instance.init(),
+    LocationService.syncFromRemote(),
+    BranchService.syncTechniciansFromRemote(),
   ], eagerError: false)
       .then((_) => debugPrint('bg init done'))
       .catchError((Object e, StackTrace st) => debugPrint('bg init error $e\n$st')));

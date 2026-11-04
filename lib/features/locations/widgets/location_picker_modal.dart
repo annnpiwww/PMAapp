@@ -151,9 +151,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                     if (nameController.text.trim().isEmpty || tagController.text.trim().isEmpty) return;
 
                     final newPos = PosLocation(
-                      posId: currentBranch == AppBranch.bali
-                          ? 'POS-DPS-${const Uuid().v4().substring(0, 6)}'
-                          : 'POS-${const Uuid().v4().substring(0, 6)}',
+                      posId: '${currentBranch == AppBranch.bali ? 'POS-DPS-' : currentBranch == AppBranch.ho ? 'POS-HO-' : 'POS-'}${const Uuid().v4().substring(0, 6)}',
                       posName: nameController.text.trim(),
                       cabangName: cabangController.text.trim().isNotEmpty
                           ? cabangController.text.trim()
@@ -175,7 +173,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                       Navigator.of(context).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Lokasi "${newPos.posName}" disimpan dan dijadikan aktif!'),
+                          content: Text('Lokasi "${newPos.posName}" disimpan dan jadi aktif!'),
                           backgroundColor: AppColors.success,
                         ),
                       );

@@ -4,7 +4,6 @@ import '../../../core/services/theme_service.dart';
 import '../../../data/models/template_model.dart';
 import '../../../data/repositories/template_repository.dart';
 import '../../maintenance/widgets/maintenance_setup_dialog.dart';
-import '../../maintenance/widgets/technician_pin_dialog.dart';
 import '../widgets/absensi_kategori_dialog.dart';
 import 'template_editor_screen.dart';
 
@@ -35,29 +34,20 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
   void _onRepoChange() {
     if (mounted) setState(() {});
   }
-  void _requestAdminUnlock() {
-    showDialog(
-      context: context,
-      builder: (_) => TechnicianPinDialog(
-        title: 'Buka Kunci Admin SOP',
-        subtitle: 'Masukkan PIN untuk mengaktifkan edit template SOP.',
-        onPinVerified: () {
-          setState(() {
-            _isAdmin = true;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'Mode Admin aktif: bisa edit & buat template SOP.',
-              ),
-              backgroundColor: AppColors.primary,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          );
-        },
+  void _enableAdminMode() {
+    setState(() {
+      _isAdmin = true;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'Mode Admin aktif: bisa edit & buat template SOP.',
+        ),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
       ),
     );
   }
@@ -122,7 +112,7 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('Template bawaan berhasil direset.'),
+                      content: const Text('Template bawaan dikembalikan.'),
                       backgroundColor: AppColors.primary,
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(
@@ -152,8 +142,8 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
           ] else
             IconButton(
               icon: const Icon(Icons.lock_outline_rounded),
-              tooltip: 'Buka Kunci Admin (PIN)',
-              onPressed: _requestAdminUnlock,
+              tooltip: 'Aktifkan Mode Admin',
+              onPressed: _enableAdminMode,
             ),
         ],
       ),
@@ -406,6 +396,8 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                     child: Text(
                       isLengkap
                           ? "Barrier + Manless + Pos + Server"
+                          : template.jenis == TemplateCategory.maintPos
+                          ? "${template.sopPoints.length} Poin Pos • ${TemplateRepository.boothParkirPoints.length} Poin Booth"
                           : isMaint
                           ? "$pointCount Point • 1 foto/point"
                           : "$pointCount Kriteria SOP",
@@ -600,15 +592,8 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                         onPressed: () {
                           showDialog(
                             context: context,
-                            builder: (_) => TechnicianPinDialog(
-                              onPinVerified: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (_) => MaintenanceSetupDialog(
-                                    initialTemplate: template,
-                                  ),
-                                );
-                              },
+                            builder: (_) => MaintenanceSetupDialog(
+                              initialTemplate: template,
                             ),
                           );
                         },
@@ -616,6 +601,8 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                         label: Text(
                           isLengkap
                               ? 'Mulai Maintenance Lengkap'
+                              : template.jenis == TemplateCategory.maintPos
+                              ? 'Mulai Maintenance (Pilih Pos / Booth)'
                               : 'Mulai Maintenance (${template.sopPoints.length} Poin Standar)',
                         ),
                         style: ElevatedButton.styleFrom(

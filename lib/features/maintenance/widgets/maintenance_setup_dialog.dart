@@ -3,8 +3,10 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../data/models/template_model.dart';
 import '../../../data/services/location_service.dart';
+import '../../../data/services/branch_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/repositories/auth_repository.dart';
+import '../../../data/repositories/template_repository.dart';
 import '../screens/maintenance_checklist_screen.dart';
 
 class MaintenanceSetupDialog extends StatefulWidget {
@@ -32,7 +34,9 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
   int _endUnit = 1;
   final Map<int, String> _gateRoles =
       {}; // {1: 'IN', 2: 'OUT'} — opsional, khusus barrier gate
+  String _manlessRole = 'IN'; // 'IN' | 'OUT' | 'PEP' — khusus Maintenance Manless
   bool _isOnlyKasir = false;
+  bool _isBooth = false; // Khusus Pos Parkir & Booth: false = POS Kasir, true = Booth
   bool _isServerKasirTerpisah =
       true; // ON = Terpisah, OFF = Gabung (1 Komputer)
   bool get _isServerKasirGabung => !_isServerKasirTerpisah;
@@ -121,7 +125,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
   String get _unitNoun {
     switch (widget.initialTemplate.jenis) {
       case TemplateCategory.maintPos:
-        return 'Pos';
+        return _isBooth ? 'Booth' : 'Pos';
       case TemplateCategory.maintBarrier:
         return 'Gate';
       case TemplateCategory.maintManless:
@@ -138,9 +142,9 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
       case TemplateCategory.maintBarrier:
         return 'Pilih Barrier Gate';
       case TemplateCategory.maintManless:
-        return 'Pilih Dispenser Manless (In)';
+        return 'Pilih Dispenser Manless';
       case TemplateCategory.maintPos:
-        return 'Pilih Pos Maintenance';
+        return _isBooth ? 'Pilih Booth Maintenance' : 'Pilih Pos Maintenance';
       case TemplateCategory.maintLengkap:
         return 'Pilih Barrier Gate (area 1 dari Maintenance Lengkap)';
       case TemplateCategory.maintServer:
@@ -157,9 +161,11 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
       case TemplateCategory.maintBarrier:
         return 'Pilih gate yang dicek (9 foto/gate)';
       case TemplateCategory.maintManless:
-        return 'Pilih manless yang dicek (8 foto/unit)';
+        return 'Pilih manless yang dicek ($_pointsPerUnit foto/unit)';
       case TemplateCategory.maintPos:
-        return 'Pilih pos yang dicek (9 foto/pos)';
+        return _isBooth
+            ? 'Pilih booth yang dicek (5 foto/booth)'
+            : 'Pilih pos yang dicek (9 foto/pos)';
       case TemplateCategory.maintLengkap:
         return 'Cek gate dulu (9 foto/gate), lalu atur Manless & Pos di bawah';
       case TemplateCategory.maintServer:
@@ -176,7 +182,9 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
       case TemplateCategory.maintManless:
         return Icons.point_of_sale_outlined;
       case TemplateCategory.maintPos:
-        return Icons.home_repair_service_outlined;
+        return _isBooth
+            ? Icons.storefront_outlined
+            : Icons.home_repair_service_outlined;
       case TemplateCategory.maintLengkap:
         return Icons.cleaning_services_rounded;
       case TemplateCategory.maintServer:
@@ -193,11 +201,13 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
       case TemplateCategory.maintBarrier:
         return 9;
       case TemplateCategory.maintManless:
-        return 8;
+        return _manlessPointsPerUnit;
       case TemplateCategory.maintPos:
-        return widget.initialTemplate.sopPoints.isNotEmpty
-            ? widget.initialTemplate.sopPoints.length
-            : 9;
+        return _isBooth
+            ? TemplateRepository.boothParkirPoints.length
+            : (widget.initialTemplate.sopPoints.isNotEmpty
+                  ? widget.initialTemplate.sopPoints.length
+                  : 9);
       case TemplateCategory.maintLengkap:
         return 9; // 9 poin per gate; total lengkap dihitung di _totalPoints
       case TemplateCategory.maintServer:
@@ -209,11 +219,34 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
     }
   }
 
+  /// Jumlah foto per unit manless sesuai SOP yang dipilih (IN / OUT / PEP).
+  int get _manlessPointsPerUnit {
+    int base = 8;
+    if (widget.initialTemplate.jenis == TemplateCategory.maintManless &&
+        widget.initialTemplate.sopPoints.isNotEmpty) {
+      base = widget.initialTemplate.sopPoints.length;
+    } else {
+      final master = TemplateRepository.defaultTemplates
+          .where((t) => t.id == 'tpl_maint_manless')
+          .firstOrNull;
+      if (master != null && master.sopPoints.isNotEmpty) {
+        base = master.sopPoints.length;
+      }
+    }
+    if (_manlessRole == 'OUT') {
+      return base + TemplateRepository.manlessOutExtraPoints.length;
+    }
+    if (_manlessRole == 'PEP') {
+      return TemplateRepository.manlessPepPoints.length;
+    }
+    return base;
+  }
+
   int get _totalPoints {
-    // Maintenance Lengkap: jumlah poin = gate*9 + manless*8 + pos*9 (+ server 6)
+    // Maintenance Lengkap: jumlah poin = gate*9 + manless*SOP + pos*9 (+ server 6)
     if (_isLengkap) {
       return _unitNumbers.length * 9 +
-          _manlessUnits.length * 8 +
+          _manlessUnits.length * _manlessPointsPerUnit +
           _posUnits.length * 9 +
           (_includeServer ? 6 : 0);
     }
@@ -270,8 +303,10 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
           isOnlyKasir: _isOnlyKasir,
           kasirCount: _kasirCount,
           serverOs: _isOnlyKasir ? 'windows' : _serverOs,
+          manlessRole: _manlessRole,
           supportName: supportName.isNotEmpty ? supportName : 'Teknisi BSS',
           dailyTaskId: widget.dailyTaskId,
+          posMode: _isBooth ? 'booth' : 'pos',
         ),
       ),
     );
@@ -405,6 +440,140 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
     );
   }
 
+  /// Kartu pilihan mode Pos Parkir & Booth: POS Kasir atau Booth.
+  Widget _buildPosModeTile({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required bool isDark,
+    required Color textTitle,
+    required VoidCallback onTap,
+  }) {
+    final accent = isDark ? const Color(0xFF38BDF8) : AppColors.primary;
+    final innerCardBorder = isDark
+        ? const Color(0xFF334155)
+        : AppColors.cardBorder;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1)
+              : (isDark ? const Color(0xFF0B1120) : Colors.white),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? accent : innerCardBorder,
+            width: selected ? 1.6 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: selected ? accent : textTitle),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? accent : textTitle,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Pemilih SOP Manless (IN / OUT / PEP). OUT hanya untuk Bali & HO.
+  /// Dipakai template Manless tunggal dan Maintenance Lengkap.
+  Widget _buildManlessRolePicker({
+    required bool isDark,
+    required Color textTitle,
+    required Color textSub,
+    Color? dividerColor,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Pilih SOP Manless',
+          style: TextStyle(
+            fontFamily: 'PlusJakartaSans',
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: textTitle,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          'IN = cek rutin • OUT = IN + 4 perangkat • PEP = fisik pulau',
+          style: TextStyle(fontSize: 10.5, color: textSub),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: KeyedSubtree(
+                key: const ValueKey('manless_role_IN'),
+                child: _buildPosModeTile(
+                  icon: Icons.login_rounded,
+                  label: 'IN',
+                  selected: _manlessRole == 'IN',
+                  isDark: isDark,
+                  textTitle: textTitle,
+                  onTap: () => setState(() => _manlessRole = 'IN'),
+                ),
+              ),
+            ),
+            if (BranchService.instance.currentBranch != AppBranch.manado) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: KeyedSubtree(
+                  key: const ValueKey('manless_role_OUT'),
+                  child: _buildPosModeTile(
+                    icon: Icons.logout_rounded,
+                    label: 'OUT',
+                    selected: _manlessRole == 'OUT',
+                    isDark: isDark,
+                    textTitle: textTitle,
+                    onTap: () => setState(() => _manlessRole = 'OUT'),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(width: 8),
+            Expanded(
+              child: KeyedSubtree(
+                key: const ValueKey('manless_role_PEP'),
+                child: _buildPosModeTile(
+                  icon: Icons.fact_check_outlined,
+                  label: 'PEP',
+                  selected: _manlessRole == 'PEP',
+                  isDark: isDark,
+                  textTitle: textTitle,
+                  onTap: () => setState(() => _manlessRole = 'PEP'),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (dividerColor != null) ...[
+          const SizedBox(height: 14),
+          Divider(height: 1, color: dividerColor),
+          const SizedBox(height: 14),
+        ],
+      ],
+    );
+  }
+
   Widget _buildStepperButton({
     required IconData icon,
     required VoidCallback? onPressed,
@@ -524,7 +693,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                               ? _unitSubtitle
                               : (_isLengkap
                                     ? 'Atur cakupan: Gate + Manless + Pos (+ Server)'
-                                    : 'Atur Pengecekan Pos'),
+                                    : 'Atur Pengecekan $_unitNoun'),
                           style: TextStyle(fontSize: 11, color: textSub),
                         ),
                       ],
@@ -1458,6 +1627,74 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                       ),
                       const SizedBox(height: 12),
 
+                      // Khusus Manless: pilih SOP IN / OUT / PEP. OUT hanya
+                      // tersedia untuk Bali & HO (Manado tanpa manless OUT).
+                      if (widget.initialTemplate.jenis ==
+                          TemplateCategory.maintManless) ...[
+                        _buildManlessRolePicker(
+                          isDark: isDark,
+                          textTitle: textTitle,
+                          textSub: textSub,
+                          dividerColor: innerCardBorder,
+                        ),
+                      ],
+
+                      // Khusus Pos Parkir & Booth: pilih target pengecekan
+                      if (widget.initialTemplate.jenis ==
+                          TemplateCategory.maintPos) ...[
+                        Text(
+                          'Pilih Jenis Maintenance',
+                          style: TextStyle(
+                            fontFamily: 'PlusJakartaSans',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: textTitle,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Pilih pengecekan POS Kasir atau Booth Parkir',
+                          style: TextStyle(fontSize: 10.5, color: textSub),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildPosModeTile(
+                                icon: Icons.point_of_sale_rounded,
+                                label: 'POS Kasir',
+                                selected: !_isBooth,
+                                isDark: isDark,
+                                textTitle: textTitle,
+                                onTap: () => setState(() {
+                                  _isBooth = false;
+                                  _startUnit = 1;
+                                  _endUnit = 3;
+                                }),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _buildPosModeTile(
+                                icon: Icons.storefront_outlined,
+                                label: 'Booth',
+                                selected: _isBooth,
+                                isDark: isDark,
+                                textTitle: textTitle,
+                                onTap: () => setState(() {
+                                  _isBooth = true;
+                                  _startUnit = 1;
+                                  _endUnit = 1;
+                                }),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Divider(height: 1, color: innerCardBorder),
+                        const SizedBox(height: 14),
+                      ],
+
                       // Stepper Rentang Unit: Dari Pos [ 1 ] s/d Sampai Pos [ 3 ]
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -1699,7 +1936,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                   const SizedBox(height: 2),
                                   Text(
                                     _isLengkap
-                                        ? 'Target: $_totalPoints Foto (gate×9 + manless×8 + pos×9${_includeServer ? ' + server×6' : ''})'
+                                        ? 'Target: $_totalPoints Foto (gate×9 + manless×$_manlessPointsPerUnit + pos×9${_includeServer ? ' + server×6' : ''})'
                                         : 'Target: $_totalPoints Foto (${_unitNumbers.length} $_unitNoun × $_pointsPerUnit foto)',
                                     style: TextStyle(
                                       fontFamily: 'PlusJakartaSans',
@@ -1820,7 +2057,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Manless 8 foto/unit • Pos Kasir 9 foto/pos • Server 6 foto',
+                                    'Manless $_manlessPointsPerUnit foto/unit • Pos Kasir 9 foto/pos • Server 6 foto',
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: textSub,
@@ -1845,7 +2082,13 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                               ..addAll(next);
                           }),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
+                        _buildManlessRolePicker(
+                          isDark: isDark,
+                          textTitle: textTitle,
+                          textSub: textSub,
+                        ),
+                        const SizedBox(height: 12),
                         _buildAreaUnitChips(
                           noun: 'Pos',
                           selected: _posUnitsSel,

@@ -47,10 +47,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Tab kategori paling atas: Rutin / Maintenance / Khusus
+      // Buka bottom sheet via FAB Buat Tugas
+      await tester.tap(find.text('Buat Tugas'));
+      await tester.pumpAndSettle();
+
+      // Tab kategori paling atas: Rutin / Maintenance / Tugas Khusus
       expect(find.text('Rutin'), findsOneWidget);
       expect(find.text('Maintenance'), findsOneWidget);
-      expect(find.text('Khusus'), findsOneWidget);
+      expect(find.text('Tugas Khusus'), findsOneWidget);
 
       // Buka tab Rutin, isinya 2 tugas rutin shift 1
       await tester.tap(find.text('Rutin'));
@@ -65,11 +69,10 @@ void main() {
         find.textContaining('Pengecekan Sistem Gate ojek'),
         findsOneWidget,
       );
-      expect(find.text('Kirim 2 Tugas Rutin'), findsOneWidget);
+      expect(find.text('Tugaskan 2 Rutin Shift 1'), findsOneWidget);
 
-      // Target tanggal berupa baris field, tap untuk ganti tanggal
-      expect(find.text('TARGET TANGGAL'), findsOneWidget);
-      expect(find.textContaining('Hari Ini ('), findsWidgets);
+      // Target tanggal berupa baris field
+      expect(find.text('TANGGAL PENUGASAN'), findsOneWidget);
     });
   });
 

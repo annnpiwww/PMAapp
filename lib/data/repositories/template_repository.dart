@@ -34,11 +34,11 @@ class TemplateRepository extends ChangeNotifier {
       createdBy: 'HO BSS Parking Pusat',
       updatedAt: DateTime.now(),
     ),
-    // 2. MAINTENANCE POS PARKIR (7 Poin Representatif)
+    // 2. MAINTENANCE POS PARKIR & BOOTH (10 Poin Pos / 5 Poin Booth)
     TemplateModel(
       id: 'tpl_maint_pos',
-      nama: 'Maintenance: Pos Parkir',
-      deskripsi: 'Pembersihan & perapihan pos parkir. Wajib 1 point 1 foto per pos.',
+      nama: 'Maintenance: Pos Parkir & Booth',
+      deskripsi: 'Pembersihan & perapihan pos parkir serta booth. Wajib 1 point 1 foto per pos/booth.',
       jenis: TemplateCategory.maintPos,
       wajibLokasi: true,
       requiredRole: TemplateRole.teknisi,
@@ -48,6 +48,7 @@ class TemplateRepository extends ChangeNotifier {
         'Kabel terikat rapi dan colokan stopkontak kencang',
         'Item dalam pos lengkap (monitor, keyboard, mouse, scanner, printer, kipas angin)',
         'Aplikasi kasir ready online',
+        'Baling-baling dan cover penutup kipas angin bersih',
         'Kunci grendel pintu pos berfungsi normal',
         'Stiker logo BSS Parking dan Parkways rapi',
         'Pulau parkir rapi, cat jelas, dan tidak ada kabel terlihat',
@@ -96,6 +97,16 @@ class TemplateRepository extends ChangeNotifier {
             'Layar aktif di aplikasi kasir, bukan desktop atau aplikasi lain',
           ],
           panduanFoto: 'Foto layar monitor menampilkan aplikasi kasir BSS status ready online.',
+        ),
+        const SopPoint(
+          id: 'pos_10',
+          label: 'Pembersihan Kipas Angin',
+          deskripsi: 'Baling-baling dan cover penutup kipas angin harus bersih',
+          checkpoints: [
+            'Baling-baling kipas angin bersih dari debu',
+            'Cover penutup kipas angin bersih dan terpasang',
+          ],
+          panduanFoto: 'Foto kipas angin dari depan agar baling-baling dan cover penutupnya terlihat jelas.',
         ),
         const SopPoint(
           id: 'pos_05',
@@ -483,6 +494,154 @@ class TemplateRepository extends ChangeNotifier {
     ),
   ];
 
+  /// Poin khusus mode Booth Parkir (dipilih teknisi di setup Pos Parkir & Booth).
+  /// Disimpan terpisah supaya template Pos Kasir tetap 9 poin.
+  static const List<SopPoint> boothParkirPoints = [
+    SopPoint(
+      id: 'booth_01',
+      label: 'Pembersihan Printer',
+      deskripsi: 'Head printer, roller karet, dan tempat kertas bersih',
+      checkpoints: [
+        'Buka penutup printer thermal booth',
+        'Head printer dan roller karet bersih',
+        'Tempat kertas bersih dari serbuk potongan kertas',
+        'Kabel power dan data terpasang kencang',
+      ],
+      panduanFoto: 'Buka penutup printer, foto dari atas agar head, roller, dan tempat kertas terlihat jelas.',
+    ),
+    SopPoint(
+      id: 'booth_02',
+      label: 'Pembersihan Booth',
+      deskripsi: 'Booth dalam keadaan bersih',
+      checkpoints: [
+        'Area dalam dan luar booth bersih dari sampah dan debu',
+        'Meja serta peralatan booth tertata rapi',
+      ],
+      panduanFoto: 'Foto keseluruhan area booth dari depan, pastikan bersih dan rapi.',
+    ),
+    SopPoint(
+      id: 'booth_03',
+      label: 'Standarisasi Item Booth',
+      deskripsi: 'Item di atas booth lengkap, ada printer, tab/device Harvard',
+      checkpoints: [
+        'Printer tersedia dan terpasang di atas booth',
+        'Tab/device Harvard tersedia dan berfungsi',
+      ],
+      panduanFoto: 'Foto meja booth memperlihatkan printer dan tab/device Harvard lengkap.',
+    ),
+    SopPoint(
+      id: 'booth_04',
+      label: 'Tiket Printer Gate Out',
+      deskripsi: 'Tiket tercetak dengan baik, tanpa barcode yang memudar',
+      checkpoints: [
+        'Cetak tiket uji dari printer gate out',
+        'Barcode tercetak jelas dan bisa dipindai',
+        'Tidak ada barcode yang memudar',
+      ],
+      panduanFoto: 'Foto tiket hasil cetakan printer gate out, pastikan barcode terbaca jelas.',
+    ),
+    SopPoint(
+      id: 'booth_05',
+      label: 'Aplikasi Payment',
+      deskripsi: 'Aplikasi payment POS terbuka dengan baik dan sistem berjalan dengan normal',
+      checkpoints: [
+        'Aplikasi payment POS terbuka di layar',
+        'Sistem payment berjalan normal tanpa error',
+      ],
+      panduanFoto: 'Foto layar PC booth menampilkan aplikasi payment POS terbuka.',
+    ),
+  ];
+
+  /// Poin tambahan mode Manless OUT (SOP IN + pembersihan perangkat luar).
+  /// Dipakai Bali & HO; Manado tidak punya mode OUT.
+  static const List<SopPoint> manlessOutExtraPoints = [
+    SopPoint(
+      id: 'mout_01',
+      label: 'Pembersihan Item Mini PC',
+      deskripsi: 'Mini pc dalam keadaan bersih dan tidak berdebu',
+      checkpoints: [
+        'Mini pc dalam keadaan bersih dan tidak berdebu',
+      ],
+      panduanFoto: 'Foto mini PC di dalam manless memperlihatkan permukaan bersih dan bebas debu.',
+    ),
+    SopPoint(
+      id: 'mout_02',
+      label: 'Pembersihan AINO',
+      deskripsi: 'AINO dalam keadaan bersih dan tidak berdebu',
+      checkpoints: [
+        'AINO dalam keadaan bersih dan tidak berdebu',
+      ],
+      panduanFoto: 'Foto perangkat AINO memperlihatkan layar dan bodi bersih tanpa debu.',
+    ),
+    SopPoint(
+      id: 'mout_03',
+      label: 'Pembersihan Scanner',
+      deskripsi: 'Scanner dalam keadaan bersih dan tidak berdebu',
+      checkpoints: [
+        'Scanner dalam keadaan bersih dan tidak berdebu',
+      ],
+      panduanFoto: 'Foto scanner manless memperlihatkan permukaan bersih dan bebas debu.',
+    ),
+    SopPoint(
+      id: 'mout_04',
+      label: 'Pembersihan Layar Monitor',
+      deskripsi: 'Layar monitor dalam keadaan bersih dan tidak berdebu',
+      checkpoints: [
+        'Layar monitor dalam keadaan bersih dan tidak berdebu',
+      ],
+      panduanFoto: 'Foto layar monitor manless memperlihatkan layar bersih dan terbaca jelas.',
+    ),
+  ];
+
+  /// Poin mode Manless PEP (pengecekan fisik pulau & kunci, semua cabang).
+  static const List<SopPoint> manlessPepPoints = [
+    SopPoint(
+      id: 'mpep_01',
+      label: 'Kebersihan & Kerapihan Kabel dalam Manless',
+      deskripsi: 'Bagian dalam manless bersih dan perkabelan rapih',
+      checkpoints: [
+        'Bagian dalam manless bersih dan perkabelan rapih',
+      ],
+      panduanFoto: 'Buka pintu manless, foto bagian dalam memperlihatkan ruang bersih dan kabel rapi.',
+    ),
+    SopPoint(
+      id: 'mpep_02',
+      label: 'Kebersihan Body Luar Manless & Stiker',
+      deskripsi: 'Body luar manless bersih dan stiker petunjuk terbaca jelas',
+      checkpoints: [
+        'Body luar manless bersih dan stiker petunjuk terbaca jelas',
+      ],
+      panduanFoto: 'Foto tampak depan manless memperlihatkan body bersih dan stiker terbaca.',
+    ),
+    SopPoint(
+      id: 'mpep_03',
+      label: 'Dudukan Dynabolt Manless',
+      deskripsi: 'Dudukan dynabolt kuat dan kokoh, tidak goyang',
+      checkpoints: [
+        'Dudukan dynabolt kuat dan kokoh, tidak goyang',
+      ],
+      panduanFoto: 'Foto dudukan dynabolt manless ke pulau, pastikan baut kencang dan tidak goyang.',
+    ),
+    SopPoint(
+      id: 'mpep_04',
+      label: 'Kondisi Fisik Pulau Manless',
+      deskripsi: 'Pulau kokoh, tidak hancur dan cat pulau masih jelas',
+      checkpoints: [
+        'Pulau kokoh, tidak hancur dan cat pulau masih jelas',
+      ],
+      panduanFoto: 'Foto keseluruhan pulau manless memperlihatkan beton kokoh dan cat masih jelas.',
+    ),
+    SopPoint(
+      id: 'mpep_05',
+      label: 'Kunci Manless',
+      deskripsi: 'Kunci pintu manless berfungsi normal dan tidak berkarat',
+      checkpoints: [
+        'Kunci pintu manless berfungsi normal dan tidak berkarat',
+      ],
+      panduanFoto: 'Foto kunci pintu manless memperlihatkan kondisi kunci dan gembok.',
+    ),
+  ];
+
   Future<void> init() async {
     final saved = StorageService.getTemplates();
     if (saved != null && saved.isNotEmpty) {
@@ -524,6 +683,19 @@ class TemplateRepository extends ChangeNotifier {
             final hasOldPoints = _templates[i].sopPoints.any((pt) => pt.label.contains('Avometer') || pt.label.contains('Receiver') || pt.label.contains('0° Lurus'));
             if (hasOldPoints || _templates[i].sopPoints.length != def.sopPoints.length) {
               _templates[i] = def;
+              needSave = true;
+            }
+          }
+          if (_templates[i].id == 'tpl_maint_pos') {
+            final def = defaultTemplates.firstWhere((d) => d.id == 'tpl_maint_pos');
+            // Rename template lama "Pos Parkir" -> "Pos Parkir & Booth" (tanpa menimpa nama custom)
+            if (_templates[i].nama == 'Maintenance: Pos Parkir') {
+              _templates[i] = _templates[i].copyWith(nama: def.nama, deskripsi: def.deskripsi);
+              needSave = true;
+            }
+            // Cache lama belum punya poin Pembersihan Kipas Angin (pos_10)
+            if (!_templates[i].sopPoints.any((pt) => pt.id == 'pos_10')) {
+              _templates[i] = _templates[i].copyWith(sopPoints: def.sopPoints, sopCriteria: def.sopCriteria);
               needSave = true;
             }
           }

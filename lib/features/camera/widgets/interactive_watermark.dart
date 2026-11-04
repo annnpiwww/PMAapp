@@ -231,14 +231,12 @@ class _InteractiveWatermarkState extends State<InteractiveWatermark> {
       }
     }
 
-    // Perlindungan ketat: Cegah tag cabang Bali (seperti PCD) bocor ke tampilan KC Manado
-    if (BranchService.instance.currentBranch == AppBranch.manado) {
-      final baliTags = BranchService.instance.getLocationTags(branch: AppBranch.bali);
-      if (baliTags.contains(badgeTag.trim().toUpperCase())) {
-        badgeTag = widget.activeLocationTag.isNotEmpty && !baliTags.contains(widget.activeLocationTag.trim().toUpperCase())
-            ? widget.activeLocationTag
-            : 'Absensi';
-      }
+    // Perlindungan ketat: cegah tag cabang lain bocor ke tampilan watermark cabang aktif
+    final otherBranchTags = BranchService.otherBranchLocationTags;
+    if (otherBranchTags.contains(badgeTag.trim().toUpperCase())) {
+      badgeTag = widget.activeLocationTag.isNotEmpty && !otherBranchTags.contains(widget.activeLocationTag.trim().toUpperCase())
+          ? widget.activeLocationTag
+          : 'Absensi';
     }
     final elements = widget.config.elements;
 

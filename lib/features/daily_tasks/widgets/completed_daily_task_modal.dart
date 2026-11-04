@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/widgets/app_file_image.dart';
 import '../../../data/models/daily_task_model.dart';
+import '../../../data/services/ai_vision_service.dart';
 import '../../maintenance/widgets/photo_preview_dialog.dart';
 
 /// Modal dialog/bottom sheet read-only untuk melihat detail tugas harian yang sudah selesai,
@@ -76,7 +78,9 @@ class _CompletedDailyTaskModalState extends State<CompletedDailyTaskModal> {
           SnackBar(
             content: Text(
               success
-                  ? 'Foto #${index + 1} berhasil disimpan ke Galeri HP (Album: BSS Parking)'
+                  ? (kIsWeb
+                      ? 'Foto #${index + 1} diunduh ke Files/Downloads (bukan Galeri)'
+                      : 'Foto #${index + 1} tersimpan di Galeri HP (Album: BSS Parking)')
                   : 'Gagal mengunduh Foto #${index + 1}',
             ),
             backgroundColor: success ? AppColors.success : Colors.redAccent,
@@ -109,7 +113,9 @@ class _CompletedDailyTaskModalState extends State<CompletedDailyTaskModal> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              'Berhasil mengunduh $successCount/${widget.task.fotoBuktiUrls.length} foto ke Galeri (Album: BSS Parking)',
+              kIsWeb
+                  ? 'Terunduh $successCount/${widget.task.fotoBuktiUrls.length} foto ke Files/Downloads (bukan Galeri)'
+                  : 'Berhasil mengunduh $successCount/${widget.task.fotoBuktiUrls.length} foto ke Galeri (Album: BSS Parking)',
             ),
             backgroundColor: successCount > 0 ? AppColors.success : Colors.redAccent,
             duration: const Duration(seconds: 3),
@@ -444,6 +450,11 @@ class _CompletedDailyTaskModalState extends State<CompletedDailyTaskModal> {
                                     context,
                                     imagePath: photoUrl,
                                     title: '${task.judul} · Foto #${idx + 1}',
+                                    onAnalyze: (base64) =>
+                                        AiVisionService.reanalyzePhoto(
+                                      imageBase64: base64,
+                                      konteks: task.judul,
+                                    ),
                                   );
                                 },
                                 child: AppFileImage(
@@ -501,6 +512,11 @@ class _CompletedDailyTaskModalState extends State<CompletedDailyTaskModal> {
                                             context,
                                             imagePath: photoUrl,
                                             title: '${task.judul} · Foto #${idx + 1}',
+                                            onAnalyze: (base64) =>
+                                                AiVisionService.reanalyzePhoto(
+                                              imageBase64: base64,
+                                              konteks: task.judul,
+                                            ),
                                           );
                                         },
                                         child: const Row(

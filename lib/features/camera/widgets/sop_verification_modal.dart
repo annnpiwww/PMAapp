@@ -10,7 +10,7 @@ import '../../../data/services/ai_vision_service.dart';
 /// Layar validasi AI Grooming.
 /// Struktur mengikuti referensi desain: header, banner status, kartu foto beraksen
 /// oranye, kartu alasan AI, daftar "Yang Perlu Diperbaiki", kartu tips, lalu CTA.
-class SopVerificationModal extends StatelessWidget {
+class _VerificationSheet extends StatelessWidget {
   final TemplateModel template;
   final AiVerificationResult result;
   final String kodeVerifikasi;
@@ -22,6 +22,8 @@ class SopVerificationModal extends StatelessWidget {
   final VoidCallback? onShareTelegram;
   final VoidCallback? onShareWhatsApp;
   final bool isLoading;
+  final Future<void> Function()? onRetryAi;
+  final bool isRetrying;
 
   // Palet acuan desain validasi (dark navy tetap, di semua tema).
   static const Color _sheetBg = AppColors.primaryDark; // #0B192C
@@ -53,8 +55,7 @@ class SopVerificationModal extends StatelessWidget {
     return _doesFileExist(imagePath);
   }
 
-  const SopVerificationModal({
-    super.key,
+  const _VerificationSheet({
     required this.template,
     required this.result,
     required this.kodeVerifikasi,
@@ -66,6 +67,8 @@ class SopVerificationModal extends StatelessWidget {
     this.onShareTelegram,
     this.onShareWhatsApp,
     this.isLoading = false,
+    this.onRetryAi,
+    this.isRetrying = false,
   });
 
   @override
@@ -143,6 +146,13 @@ class SopVerificationModal extends StatelessWidget {
                   subtitle: bannerSubtitle,
                 ),
 
+                // Koneksi AI gagal / AI tidak bisa memastikan: teknisi bisa
+                // analisa ulang foto yang sama tanpa memotret dari awal.
+                if (!isSuccess && !isFailure && onRetryAi != null) ...[
+                  const SizedBox(height: 10),
+                  _retryAiButton(),
+                ],
+
                 // Foto hasil unggahan: kartu besar, sudut membulat, border oranye.
                 if (_hasValidImage) ...[
                   const SizedBox(height: 10),
@@ -217,6 +227,18 @@ class SopVerificationModal extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (kIsWeb) ...[
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Di Safari/iPhone: simpan foto ke Galeri lewat menu Bagikan → Simpan Gambar.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 10.5,
+                        color: _onDarkMuted,
+                      ),
+                    ),
+                  ],
                   if (onShareWhatsApp != null || onShareTelegram != null) ...[
                     const SizedBox(height: 10),
                     Container(
@@ -504,6 +526,46 @@ class SopVerificationModal extends StatelessWidget {
     );
   }
 
+  /// Tombol analisa ulang: pakai foto yang sudah ada, tanpa memotret lagi.
+  Widget _retryAiButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: isRetrying ? null : onRetryAi,
+        icon: isRetrying
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: _amberBright,
+                ),
+              )
+            : const Icon(Icons.psychology_rounded, size: 20),
+        label: Text(
+          isRetrying
+              ? 'Menganalisa ulang foto...'
+              : 'Analisa Ulang Foto Ini dengan AI',
+          style: const TextStyle(
+            fontFamily: 'PlusJakartaSans',
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _amberBright,
+          backgroundColor: Colors.white,
+          disabledForegroundColor: _amberBright,
+          side: const BorderSide(color: _amberBright, width: 1.4),
+          minimumSize: const Size(double.infinity, 46),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _photoCard(BuildContext context) {
     return Container(
       width: double.infinity,
@@ -747,6 +809,101 @@ class SopVerificationModal extends StatelessWidget {
   }
 }
 
+/// Modal validasi AI.
+///
+/// Menyimpan hasil verifikasi di dalam state supaya teknisi bisa menganalisa
+/// ulang foto yang sama saat koneksi AI gagal, tanpa memotret ulang.
+class SopVerificationModal extends StatefulWidget {
+  final TemplateModel template;
+  final AiVerificationResult result;
+  final String kodeVerifikasi;
+  final String? imagePath;
+  final Uint8List? imageBytes;
+  final VoidCallback onRetake;
+  final VoidCallback onSave;
+  final VoidCallback? onCancel;
+  final VoidCallback? onShareTelegram;
+  final VoidCallback? onShareWhatsApp;
+  final bool isLoading;
+
+  /// Dijalankan saat teknisi menekan "Analisa Ulang". Null = tombol disembunyikan.
+  final Future<AiVerificationResult> Function()? onRetryAi;
+
+  const SopVerificationModal({
+    super.key,
+    required this.template,
+    required this.result,
+    required this.kodeVerifikasi,
+    this.imagePath,
+    this.imageBytes,
+    required this.onRetake,
+    required this.onSave,
+    this.onCancel,
+    this.onShareTelegram,
+    this.onShareWhatsApp,
+    this.isLoading = false,
+    this.onRetryAi,
+  });
+
+  @override
+  State<SopVerificationModal> createState() => _SopVerificationModalState();
+}
+
+class _SopVerificationModalState extends State<SopVerificationModal> {
+  late AiVerificationResult _result = widget.result;
+  bool _isRetrying = false;
+
+  Future<void> _retryAi() async {
+    final retry = widget.onRetryAi;
+    if (retry == null || _isRetrying) return;
+    setState(() => _isRetrying = true);
+
+    AiVerificationResult? updated;
+    try {
+      updated = await retry();
+    } catch (_) {
+      updated = null;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      if (updated != null) _result = updated;
+      _isRetrying = false;
+    });
+
+    if (updated == null || updated.isFallback) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'AI masih belum terhubung. Foto tetap aman — coba lagi atau simpan untuk cek manual.',
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _VerificationSheet(
+      template: widget.template,
+      result: _result,
+      kodeVerifikasi: widget.kodeVerifikasi,
+      imagePath: widget.imagePath,
+      imageBytes: widget.imageBytes,
+      onRetake: widget.onRetake,
+      onSave: widget.onSave,
+      onCancel: widget.onCancel,
+      onShareTelegram: widget.onShareTelegram,
+      onShareWhatsApp: widget.onShareWhatsApp,
+      isLoading: widget.isLoading,
+      onRetryAi: widget.onRetryAi == null ? null : _retryAi,
+      isRetrying: _isRetrying,
+    );
+  }
+}
+
 /// Satu kartu ringkas berisi seluruh temuan AI apa adanya (verbatim),
 /// bukan kartu merah terpisah per pelanggaran.
 class _NeedsFixCard extends StatelessWidget {
@@ -761,7 +918,7 @@ class _NeedsFixCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: SopVerificationModal._cardBlueDeep,
+        color: _VerificationSheet._cardBlueDeep,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -773,7 +930,7 @@ class _NeedsFixCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(5),
                 decoration: const BoxDecoration(
-                  color: SopVerificationModal._dangerBright,
+                  color: _VerificationSheet._dangerBright,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -790,7 +947,7 @@ class _NeedsFixCard extends StatelessWidget {
                     fontFamily: 'PlusJakartaSans',
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
-                    color: SopVerificationModal._onDark,
+                    color: _VerificationSheet._onDark,
                     height: 1.35,
                   ),
                 ),
@@ -809,7 +966,7 @@ class _NeedsFixCard extends StatelessWidget {
                     child: Icon(
                       Icons.circle,
                       size: 5,
-                      color: SopVerificationModal._onDarkMuted,
+                      color: _VerificationSheet._onDarkMuted,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -820,7 +977,7 @@ class _NeedsFixCard extends StatelessWidget {
                         fontFamily: 'PlusJakartaSans',
                         fontSize: 12.5,
                         height: 1.45,
-                        color: SopVerificationModal._onDarkBody,
+                        color: _VerificationSheet._onDarkBody,
                       ),
                     ),
                   ),

@@ -1,7 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/template_model.dart';
@@ -11,8 +9,8 @@ import '../models/user_model.dart';
 import '../models/ai_vision_config.dart';
 import '../models/watermark_config.dart';
 import '../models/attendance_record.dart';
+import '../../core/utils/web_photo_store/web_photo_store.dart';
 import 'location_service.dart';
-import 'secure_time_service.dart';
 
 class StorageService {
   static const String _keyUser = 'bss_current_user';
@@ -20,13 +18,13 @@ class StorageService {
   static const String _keySubmissions = 'bss_submissions';
   static const String _keyAiVisionConfig = 'bss_ai_vision_config';
   static const String _keyCustomLocations = 'bss_custom_locations';
+  static const String _keyLocationImportQueue = 'bss_location_import_queue_v1';
+  static const String _keyLocationHasSyncedRemote = 'bss_location_has_synced_remote_v1';
+  static const String _keyTechniciansCache = 'bss_technicians_cache_v1';
+  static const String _keyTechniciansSyncedRemote = 'bss_technicians_synced_remote_v1';
   static const String _keyWatermarkConfig = 'bss_watermark_config';
   static const String _keyMaintenanceSubmissions = 'bss_maintenance_submissions';
   static const String _keyAttendanceRecords = 'bss_attendance_records_v1';
-  static const String _keyTechnicianPin = 'bss_technician_pin_v1';
-  static const String _keyTechnicianPinSalt = 'bss_technician_pin_salt_v1';
-  static const String _keyPinFailCount = 'bss_pin_fail_count_v1';
-  static const String _keyPinLockUntilMs = 'bss_pin_lock_until_v1';
   static const String _keyLastTechnicianName = 'bss_last_technician_name_v1';
   static const String _keyLastCheckInTime = 'bss_last_check_in_time_v1';
   static const String _keyHasSeenTutorial = 'bss_has_seen_tutorial_v1';
@@ -52,157 +50,6 @@ class StorageService {
     return isEnv || isSpvQaBypassActive();
   }
 
-
-  /// Hasil verifikasi PIN teknisi (anti brute-force).
-  static const int pinMaxAttempts = 5;
-  static const int pinLockSeconds = 60;
-
-  static const int _kPinHashIterations = 1000;
-  static const String _kPinConstantSalt = 'BSS_TIMEMARK_PIN_PEPPER_2026';
-
-  /// Multi-round SHA-256 (1.000 iterasi) dengan salt unik + constant pepper
-  static String hashPin(String pin, [String? salt]) {
-    final effectiveSalt = salt ?? _pinSalt();
-    // Round 1: Gabungkan salt + constant pepper + pin
-    var digest = sha256.convert(utf8.encode('$effectiveSalt::$_kPinConstantSalt::$pin')).bytes;
-    // Multi-round hashing minimal 1.000 iterasi
-    for (int i = 1; i < _kPinHashIterations; i++) {
-      digest = sha256.convert([...digest, ...utf8.encode(effectiveSalt), i & 0xFF]).bytes;
-    }
-    return digest.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-  }
-
-
-  /// Single-round legacy hash untuk fallback verifikasi PIN lama
-  static String _legacyHashPin(String pin, String salt) {
-    return sha256.convert(utf8.encode('$salt::$pin')).toString();
-  }
-
-  static String _pinSalt() {
-    var salt = _prefs?.getString(_keyTechnicianPinSalt);
-    if (salt == null || salt.isEmpty) {
-      final rnd = Random.secure();
-      final bytes = List<int>.generate(16, (_) => rnd.nextInt(256));
-      final randomHex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-      final posName = LocationService.currentPos.posName;
-      final posTag = posName.isNotEmpty ? posName.replaceAll(' ', '_') : 'BSS_MAIN_POS';
-      salt = '$randomHex::$posTag::$_kPinConstantSalt';
-      _prefs?.setString(_keyTechnicianPinSalt, salt);
-    }
-    return salt;
-  }
-
-  /// Migrasi sekali jalan: PIN plaintext lama (4-6 digit) -> hash multi-round SHA-256.
-  /// Setelah ini tidak ada PIN plaintext yang tersimpan di device.
-  static void _migrateLegacyPin() {
-    final stored = _prefs?.getString(_keyTechnicianPin);
-    if (stored != null &&
-        stored.isNotEmpty &&
-        RegExp(r'^[0-9]{4,6}$').hasMatch(stored)) {
-      _prefs?.setString(_keyTechnicianPin, hashPin(stored, _pinSalt()));
-    }
-  }
-
-  /// True jika PIN masih default pabrik — wajib diganti di Profil.
-  static bool isTechnicianPinDefault() {
-    _migrateLegacyPin();
-    final stored = _prefs?.getString(_keyTechnicianPin);
-    if (stored == null || stored.isEmpty) return true;
-    final salt = _pinSalt();
-    return stored == hashPin('123321', salt) || stored == _legacyHashPin('123321', salt);
-  }
-
-  static int _pinFailCount() => _prefs?.getInt(_keyPinFailCount) ?? 0;
-
-  static DateTime? pinLockedUntil() {
-    final ms = _prefs?.getInt(_keyPinLockUntilMs);
-    if (ms == null || ms <= 0) return null;
-    final until = DateTime.fromMillisecondsSinceEpoch(ms);
-    final verifiedNow = SecureTimeService.getVerifiedTime().accurateTime;
-    if (verifiedNow.isAfter(until)) {
-      _prefs?.remove(_keyPinLockUntilMs);
-      _prefs?.setInt(_keyPinFailCount, 0);
-      return null;
-    }
-    return until;
-  }
-
-  static Future<PinVerifyResult> verifyTechnicianPin(String enteredPin) async {
-    await init();
-    _migrateLegacyPin();
-    final lockedUntil = pinLockedUntil();
-    final verifiedNow = SecureTimeService.getVerifiedTime().accurateTime;
-    if (lockedUntil != null) {
-      final secs = lockedUntil.difference(verifiedNow).inSeconds + 1;
-      return PinVerifyResult(
-        ok: false,
-        locked: true,
-        retryAfterSeconds: secs,
-        message: 'Terlalu banyak percobaan. Coba lagi dalam $secs detik.',
-      );
-    }
-    final pin = enteredPin.trim();
-    final stored = _prefs?.getString(_keyTechnicianPin);
-    final salt = _pinSalt();
-    final expectedNew = (stored == null || stored.isEmpty)
-        ? hashPin('123321', salt)
-        : stored;
-    final isMatchNew = pin.isNotEmpty && hashPin(pin, salt) == expectedNew;
-    // Fallback kompatibilitas jika tersimpan hash single-round lama
-    final isMatchLegacy = pin.isNotEmpty && stored != null && _legacyHashPin(pin, salt) == stored;
-
-    if (isMatchNew || isMatchLegacy) {
-      // Jika lolos verifikasi dengan legacy hash, otomatis upgrade ke multi-round hash
-      if (isMatchLegacy) {
-        await _prefs?.setString(_keyTechnicianPin, hashPin(pin, salt));
-      }
-      await _prefs?.setInt(_keyPinFailCount, 0);
-      await _prefs?.remove(_keyPinLockUntilMs);
-      final isDefault = pin == '123321';
-      return PinVerifyResult(
-        ok: true,
-        isDefaultPin: isDefault,
-        message: isDefault
-            ? 'PIN masih bawaan (123321). Segera ganti di Profil.'
-            : 'PIN sesuai.',
-      );
-    }
-    final fails = _pinFailCount() + 1;
-    await _prefs?.setInt(_keyPinFailCount, fails);
-    if (fails >= pinMaxAttempts) {
-      final until =
-          verifiedNow.add(const Duration(seconds: pinLockSeconds));
-      await _prefs?.setInt(
-          _keyPinLockUntilMs, until.millisecondsSinceEpoch);
-      return const PinVerifyResult(
-        ok: false,
-        locked: true,
-        retryAfterSeconds: pinLockSeconds,
-        message:
-            'PIN salah 5 kali. Akses terkunci selama $pinLockSeconds detik.',
-      );
-    }
-    final left = pinMaxAttempts - fails;
-    return PinVerifyResult(
-      ok: false,
-      remainingAttempts: left,
-      message: 'PIN salah. Sisa $left kali percobaan.',
-    );
-  }
-
-  static Future<void> saveTechnicianPin(String pin) async {
-    final clean = pin.trim();
-    if (!RegExp(r'^[0-9]{4,6}$').hasMatch(clean)) {
-      throw ArgumentError('PIN harus 4-6 digit angka.');
-    }
-    if (clean == '123321') {
-      throw ArgumentError('PIN tidak boleh default 123321.');
-    }
-    await init();
-    await _prefs?.setString(_keyTechnicianPin, hashPin(clean, _pinSalt()));
-    await _prefs?.setInt(_keyPinFailCount, 0);
-    await _prefs?.remove(_keyPinLockUntilMs);
-  }
 
   static SharedPreferences? _prefs;
 
@@ -436,7 +283,7 @@ class StorageService {
       final raw = AiVisionConfig.fromJson(
           jsonDecode(str) as Map<String, dynamic>);
 
-      // MIGRATION: Force-overwrite legacy endpoint / model -> gemini-3.1-flash-lite (Google Cloud AI).
+      // MIGRATION: Force-overwrite legacy endpoint / model -> default model aktif (Google Cloud AI).
       const oldUrls = [
         'pizza-namespace-brings-desert.trycloudflare.com',
         'bss-tunnel.trycloudflare.com',
@@ -452,6 +299,10 @@ class StorageService {
 
       const legacyModels = {
         'gemini-3.7-flash-high',
+        // 2026-10-23: 3.6-flash kena kuota free tier cuma 20 request/hari,
+        // jadi pindah ke 3.1-flash-lite (diukur 3,2 dtk untuk foto 420px).
+        'gemini-3.6-flash',
+        'gemini-3-flash-preview',
         'google/gemini-3.1-flash-lite',
         'agy/gemini-3.1-flash-lite',
         'ollama-cloud/gemma4:31b',
@@ -587,6 +438,34 @@ class StorageService {
     }
   }
 
+  static List<PosLocation> getLocationImportQueue() {
+    final str = _prefs?.getString(_keyLocationImportQueue);
+    if (str == null || str.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(str) as List<dynamic>;
+      return decoded
+          .map((e) => PosLocation.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<void> saveLocationImportQueue(List<PosLocation> queue) async {
+    await init();
+    final listJson = queue.map((loc) => loc.toJson()).toList();
+    await _prefs?.setString(_keyLocationImportQueue, jsonEncode(listJson));
+  }
+
+  static bool hasLocationSyncedRemote() {
+    return _prefs?.getBool(_keyLocationHasSyncedRemote) ?? false;
+  }
+
+  static Future<void> setLocationSyncedRemote(bool value) async {
+    await init();
+    await _prefs?.setBool(_keyLocationHasSyncedRemote, value);
+  }
+
   // --- MAINTENANCE SUBMISSIONS (per-point) ---
   static Future<void> saveMaintenanceSubmissions(List<MaintenanceSubmission> list) async {
     await init();
@@ -682,6 +561,7 @@ class StorageService {
     final existing = getAttendanceRecords();
     final target = existing.where((r) => r.id == id).toList();
     for (final r in target) {
+      await deletePhotoBlob(r.id);
       if (!kIsWeb && r.photoPath != null && r.photoPath!.isNotEmpty) {
         try {
           final file = File(r.photoPath!);
@@ -700,6 +580,7 @@ class StorageService {
     await init();
     final existing = getAttendanceRecords();
     for (final r in existing) {
+      await deletePhotoBlob(r.id);
       if (!kIsWeb && r.photoPath != null && r.photoPath!.isNotEmpty) {
         try {
           final file = File(r.photoPath!);
@@ -733,6 +614,7 @@ class StorageService {
 
     // Hapus file foto dari record yang dipangkas
     for (final record in prunedRecords) {
+      await deletePhotoBlob(record.id);
       if (!kIsWeb && record.photoPath != null && record.photoPath!.isNotEmpty) {
         try {
           final file = File(record.photoPath!);
@@ -763,6 +645,7 @@ class StorageService {
 
   static Future<void> clearAttendanceRecords() async {
     await init();
+    await clearAllPhotoBlobs();
     await _prefs?.remove(_keyAttendanceRecords);
   }
 
@@ -823,23 +706,42 @@ class StorageService {
     map[techName.trim()] = shift.trim();
     await _prefs?.setString(_keySpvTechShifts, jsonEncode(map));
   }
+
+  // --- TECHNICIANS CACHE & REMOTE SYNC FLAG ---
+  static bool hasTechniciansSyncedRemote() {
+    return _prefs?.getBool(_keyTechniciansSyncedRemote) ?? false;
+  }
+
+  static Future<void> setTechniciansSyncedRemote(bool value) async {
+    await init();
+    await _prefs?.setBool(_keyTechniciansSyncedRemote, value);
+  }
+
+  static Map<String, List<String>> getTechniciansCache() {
+    final raw = _prefs?.getString(_keyTechniciansCache);
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          final res = <String, List<String>>{};
+          for (final entry in decoded.entries) {
+            if (entry.value is List) {
+              res[entry.key.toString()] = (entry.value as List)
+                  .map((e) => e.toString())
+                  .toList();
+            }
+          }
+          return res;
+        }
+      } catch (_) {}
+    }
+    return <String, List<String>>{};
+  }
+
+  static Future<void> saveTechniciansCache(Map<String, List<String>> cache) async {
+    await init();
+    await _prefs?.setString(_keyTechniciansCache, jsonEncode(cache));
+  }
 }
 
 /// Hasil verifikasi PIN teknisi (anti brute-force).
-class PinVerifyResult {
-  final bool ok;
-  final bool locked;
-  final bool isDefaultPin;
-  final int remainingAttempts;
-  final int retryAfterSeconds;
-  final String message;
-
-  const PinVerifyResult({
-    required this.ok,
-    this.locked = false,
-    this.isDefaultPin = false,
-    this.remainingAttempts = 0,
-    this.retryAfterSeconds = 0,
-    this.message = '',
-  });
-}

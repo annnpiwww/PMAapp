@@ -197,7 +197,7 @@ class _TaskHandoverDialogState extends State<TaskHandoverDialog> {
                         ],
 
                         const SizedBox(height: 24),
-                        _label('Alasan / Catatan Serah Terima', sub),
+                        _label('Alasan Serah Terima', sub),
                         const SizedBox(height: 10),
                         Wrap(
                           spacing: 7,

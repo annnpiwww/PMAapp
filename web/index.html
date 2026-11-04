@@ -59,6 +59,28 @@
   </script>
 </head>
 <body>
+  <script>
+    // Buang service worker & cache lama supaya PWA selalu memakai JS terbaru.
+    // (Build web sekarang tanpa service worker: --pwa-strategy=none.)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        var hadController = !!navigator.serviceWorker.controller;
+        return Promise.all(regs.map(function (r) { return r.unregister(); }))
+          .then(function () {
+            if (!window.caches) return;
+            return caches.keys().then(function (keys) {
+              return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+            });
+          })
+          .then(function () {
+            if (hadController && !sessionStorage.getItem('pwa-cache-purged')) {
+              sessionStorage.setItem('pwa-cache-purged', '1');
+              location.reload();
+            }
+          });
+      });
+    }
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

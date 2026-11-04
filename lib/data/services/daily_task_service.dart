@@ -8,8 +8,9 @@ import '../models/daily_task_model.dart';
 import '../models/maintenance_submission.dart';
 import '../services/storage_service.dart';
 import '../services/location_service.dart';
-import 'branch_service.dart';
-import 'notification_service.dart';
+import '../services/branch_service.dart';
+import '../services/notification_service.dart';
+import '../../core/utils/web_bytes/web_bytes.dart';
 
 class DailyTaskService {
   static const String _defaultBaseUrl = 'https://sxsjixnnlzhjinzcyhjb.supabase.co';
@@ -32,7 +33,6 @@ class DailyTaskService {
   static final Set<String> _knownPendingTaskIds = <String>{};
 
   @visibleForTesting
-
   @visibleForTesting
   static void resetKnownPendingTaskIdsForTesting() {
     _knownPendingTaskIds.clear();
@@ -132,7 +132,11 @@ class DailyTaskService {
     } catch (_) {}
 
     final custom = StorageService.getString('custom_supabase_url');
-    if (custom != null && custom.isNotEmpty && custom.startsWith('https://') && !custom.contains('8090') && !custom.contains('trakingduit')) {
+    if (custom != null &&
+        custom.isNotEmpty &&
+        custom.startsWith('https://') &&
+        !custom.contains('8090') &&
+        !custom.contains('trakingduit')) {
       return custom;
     }
     return const String.fromEnvironment('SUPABASE_URL', defaultValue: _defaultBaseUrl);
@@ -145,7 +149,8 @@ class DailyTaskService {
   }
 
   static String? _authToken;
-  static String? get authToken => _authToken ?? StorageService.getString('sb_auth_token') ?? StorageService.getString('pb_auth_token');
+  static String? get authToken =>
+      _authToken ?? StorageService.getString('sb_auth_token') ?? StorageService.getString('pb_auth_token');
 
   static void setAuthToken(String? token) {
     _authToken = token;
@@ -176,8 +181,16 @@ class DailyTaskService {
   static String get tasksTable => 'daily_tasks_$_branchSlug';
 
   /// Nama pendek cabang untuk nama tabel & kunci cache.
-  static String get _branchSlug =>
-      BranchService.instance.currentBranch == AppBranch.bali ? 'bali' : 'manado';
+  static String get _branchSlug {
+    switch (BranchService.instance.currentBranch) {
+      case AppBranch.bali:
+        return 'bali';
+      case AppBranch.ho:
+        return 'ho';
+      case AppBranch.manado:
+        return 'manado';
+    }
+  }
 
   /// Helper untuk mencocokkan nama teknisi secara fleksibel
   static bool _matchesTechnician(String taskTech, String targetTech) {
@@ -207,20 +220,13 @@ class DailyTaskService {
   }
 
   /// Ambil daftar tugas harian untuk teknisi tertentu (semua tugas pending + tugas hari ini)
-  static Future<List<DailyTaskModel>> getTasksForTeknisi({
-    required String tanggal,
-    required String teknisiNama,
-  }) async {
+  static Future<List<DailyTaskModel>> getTasksForTeknisi({required String tanggal, required String teknisiNama}) async {
     List<DailyTaskModel> allTasks = [];
     bool serverSuccess = false;
 
     try {
       final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
-        queryParameters: {
-          'or': '(status.eq.pending,tanggal.eq.$tanggal)',
-          'order': 'created_at.desc',
-          'limit': '100',
-        },
+        queryParameters: {'or': '(status.eq.pending,tanggal.eq.$tanggal)', 'order': 'created_at.desc', 'limit': '100'},
       );
       final res = await http.get(uri, headers: _getHeaders).timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
@@ -244,7 +250,9 @@ class DailyTaskService {
         return !t.isCompleted || t.tanggal == tanggal;
       }).toList();
       offlineFiltered.sort((a, b) => b.id.compareTo(a.id));
-      debugPrint('[DailyTaskService] getTasksForTeknisi offline fallback: ${offlineFiltered.length} tugas untuk $teknisiNama');
+      debugPrint(
+        '[DailyTaskService] getTasksForTeknisi offline fallback: ${offlineFiltered.length} tugas untuk $teknisiNama',
+      );
       return offlineFiltered;
     }
 
@@ -258,40 +266,41 @@ class DailyTaskService {
     }).toList();
 
     // Cross-check dengan local cache & maintenance submissions agar status 'completed' tidak ter-reset
-    final localCompletedMap = {
-      for (final t in localCached.where((e) => e.isCompleted)) t.id: t
-    };
+    final localCompletedMap = {for (final t in localCached.where((e) => e.isCompleted)) t.id: t};
     final completedSubs = (StorageService.getMaintenanceSubmissions() ?? []).where((s) => s.isComplete).toList();
+    final completionSyncs = <({String taskId, String jamSelesai, String catatan, List<String> photos})>[];
 
     final syncedList = [...serverFiltered, ...pendingLocal].map((task) {
       if (task.isCompleted) return task;
       if (localCompletedMap.containsKey(task.id)) {
         final loc = localCompletedMap[task.id]!;
+        final jamLokal = task.jamSelesai ?? loc.jamSelesai;
+        completionSyncs.add((
+          taskId: task.id,
+          jamSelesai: (jamLokal == null || jamLokal.isEmpty) ? _jamSekarang() : jamLokal,
+          catatan: (loc.catatanTeknisi ?? '').trim(),
+          photos: loc.fotoBuktiUrls.where((p) => !p.startsWith('http')).toList(),
+        ));
         return task.copyWith(
           status: TaskStatus.completed,
-          jamSelesai: task.jamSelesai ?? loc.jamSelesai,
+          jamSelesai: jamLokal,
           catatanTeknisi: task.catatanTeknisi ?? loc.catatanTeknisi,
         );
       }
-      final matchSub = completedSubs.where((s) =>
-        s.taskId == task.id ||
-        (task.templateId != null &&
-            task.templateId!.isNotEmpty &&
-            s.templateId == task.templateId &&
-            s.posName.toLowerCase().contains(task.posName.toLowerCase()))
-      ).firstOrNull;
+      final matchSub = completedSubs.where((s) => submissionMatchesTask(task, s)).firstOrNull;
       if (matchSub != null) {
-        final timeStr = '${matchSub.createdAt.hour.toString().padLeft(2, '0')}:${matchSub.createdAt.minute.toString().padLeft(2, '0')}';
-        final sopPhotos = matchSub.points
-            .map((r) => r.imagePath)
-            .where((p) => p != null && p.isNotEmpty)
-            .cast<String>()
-            .toList();
+        final timeStr = _jamDariSubmission(matchSub);
+        final sopPhotos = _fotoDariSubmission(matchSub);
+        completionSyncs.add((
+          taskId: task.id,
+          jamSelesai: timeStr,
+          catatan: _catatanDariSubmission(matchSub),
+          photos: sopPhotos,
+        ));
         return task.copyWith(
           status: TaskStatus.completed,
           jamSelesai: task.jamSelesai ?? timeStr,
-          catatanTeknisi: task.catatanTeknisi ??
-              'SOP Maintenance ${matchSub.templateName} selesai (${matchSub.sesuaiCount}/${matchSub.totalPoints} poin sesuai${matchSub.tidakTerpasangCount > 0 ? ", ${matchSub.tidakTerpasangCount} tidak terpasang" : ""})',
+          catatanTeknisi: task.catatanTeknisi ?? _catatanDariSubmission(matchSub),
           fotoBuktiUrls: task.fotoBuktiUrls.isNotEmpty ? task.fotoBuktiUrls : sopPhotos,
         );
       }
@@ -303,9 +312,13 @@ class DailyTaskService {
     // Cache ke local storage untuk offline access di basement
     final otherTasks = localCached.where((t) => !isAssignedTo(t, teknisiNama)).toList();
     await _cacheTasksLocally([...syncedList, ...otherTasks]);
-    debugPrint('[DailyTaskService] getTasksForTeknisi: loaded ${syncedList.length}/${allTasks.length} tasks for "$teknisiNama"');
+    debugPrint(
+      '[DailyTaskService] getTasksForTeknisi: loaded ${syncedList.length}/${allTasks.length} tasks for "$teknisiNama"',
+    );
 
+    await _pushTaskCompletionSyncs(completionSyncs);
     unawaited(flushPendingTaskCreationQueue());
+    unawaited(flushPendingCompletions());
     return syncedList;
   }
 
@@ -340,9 +353,7 @@ class DailyTaskService {
     }
 
     final localCached = getCachedTasksLocally();
-    final localForDate = localCached
-        .where((t) => t.tanggal == tanggal || !t.isCompleted)
-        .toList();
+    final localForDate = localCached.where((t) => t.tanggal == tanggal || !t.isCompleted).toList();
 
     if (!serverSuccess) {
       debugPrint('[DailyTaskService] getAllTasksToday fallback offline: ${localForDate.length} tugas di cache lokal');
@@ -354,40 +365,41 @@ class DailyTaskService {
     final serverIds = serverTasks.map((t) => t.id).toSet();
     final pendingLocal = localForDate.where((t) => t.id.startsWith('local_') && !serverIds.contains(t.id)).toList();
 
-    final localCompletedMap = {
-      for (final t in localCached.where((e) => e.isCompleted)) t.id: t
-    };
+    final localCompletedMap = {for (final t in localCached.where((e) => e.isCompleted)) t.id: t};
     final completedSubs = (StorageService.getMaintenanceSubmissions() ?? []).where((s) => s.isComplete).toList();
+    final completionSyncs = <({String taskId, String jamSelesai, String catatan, List<String> photos})>[];
 
     final syncedList = [...serverTasks, ...pendingLocal].map((task) {
       if (task.isCompleted) return task;
       if (localCompletedMap.containsKey(task.id)) {
         final loc = localCompletedMap[task.id]!;
+        final jamLokal = task.jamSelesai ?? loc.jamSelesai;
+        completionSyncs.add((
+          taskId: task.id,
+          jamSelesai: (jamLokal == null || jamLokal.isEmpty) ? _jamSekarang() : jamLokal,
+          catatan: (loc.catatanTeknisi ?? '').trim(),
+          photos: loc.fotoBuktiUrls.where((p) => !p.startsWith('http')).toList(),
+        ));
         return task.copyWith(
           status: TaskStatus.completed,
-          jamSelesai: task.jamSelesai ?? loc.jamSelesai,
+          jamSelesai: jamLokal,
           catatanTeknisi: task.catatanTeknisi ?? loc.catatanTeknisi,
         );
       }
-      final matchSub = completedSubs.where((s) =>
-        s.taskId == task.id ||
-        (task.templateId != null &&
-            task.templateId!.isNotEmpty &&
-            s.templateId == task.templateId &&
-            s.posName.toLowerCase().contains(task.posName.toLowerCase()))
-      ).firstOrNull;
+      final matchSub = completedSubs.where((s) => submissionMatchesTask(task, s)).firstOrNull;
       if (matchSub != null) {
-        final timeStr = '${matchSub.createdAt.hour.toString().padLeft(2, '0')}:${matchSub.createdAt.minute.toString().padLeft(2, '0')}';
-        final sopPhotos = matchSub.points
-            .map((r) => r.imagePath)
-            .where((p) => p != null && p.isNotEmpty)
-            .cast<String>()
-            .toList();
+        final timeStr = _jamDariSubmission(matchSub);
+        final sopPhotos = _fotoDariSubmission(matchSub);
+        completionSyncs.add((
+          taskId: task.id,
+          jamSelesai: timeStr,
+          catatan: _catatanDariSubmission(matchSub),
+          photos: sopPhotos,
+        ));
         return task.copyWith(
           status: TaskStatus.completed,
           jamSelesai: task.jamSelesai ?? timeStr,
-          catatanTeknisi: task.catatanTeknisi ??
-              'SOP Maintenance ${matchSub.templateName} selesai (${matchSub.sesuaiCount}/${matchSub.totalPoints} poin sesuai${matchSub.tidakTerpasangCount > 0 ? ", ${matchSub.tidakTerpasangCount} tidak terpasang" : ""})',
+          catatanTeknisi: task.catatanTeknisi ?? _catatanDariSubmission(matchSub),
           fotoBuktiUrls: task.fotoBuktiUrls.isNotEmpty ? task.fotoBuktiUrls : sopPhotos,
         );
       }
@@ -398,12 +410,12 @@ class DailyTaskService {
 
     // Simpan ke local cache (gabungkan dengan tanggal lainnya, tanpa id kembar)
     final keptIds = syncedList.map((t) => t.id).toSet();
-    final otherDateTasks = localCached
-        .where((t) => t.tanggal != tanggal && !keptIds.contains(t.id))
-        .toList();
+    final otherDateTasks = localCached.where((t) => t.tanggal != tanggal && !keptIds.contains(t.id)).toList();
     await _cacheTasksLocally([...syncedList, ...otherDateTasks]);
 
+    await _pushTaskCompletionSyncs(completionSyncs);
     unawaited(flushPendingTaskCreationQueue());
+    unawaited(flushPendingCompletions());
     return syncedList;
   }
 
@@ -458,7 +470,8 @@ class DailyTaskService {
     final taskJudul = task.judul.trim().toLowerCase();
 
     // Coba resolve PosLocation dari kata kunci task (SPV keyword)
-    final taskLoc = LocationService.findPosByTagOrName(taskPos) ??
+    final taskLoc =
+        LocationService.findPosByTagOrName(taskPos) ??
         LocationService.findPosByTagOrName(taskName) ??
         LocationService.findPosByTagOrName(taskJudul);
 
@@ -480,10 +493,15 @@ class DailyTaskService {
           match = true;
         }
       }
-      if (taskPos.isNotEmpty && (sId == taskPos || sId.contains(taskPos) || sPos.contains(taskPos) || taskPos.contains(sPos))) {
+      if (taskPos.isNotEmpty &&
+          (sId == taskPos || sId.contains(taskPos) || sPos.contains(taskPos) || taskPos.contains(sPos))) {
         match = true;
       }
-      if (taskName.isNotEmpty && (sPos.contains(taskName) || taskName.contains(sPos) || sCabang.contains(taskName) || sId.contains(taskName))) {
+      if (taskName.isNotEmpty &&
+          (sPos.contains(taskName) ||
+              taskName.contains(sPos) ||
+              sCabang.contains(taskName) ||
+              sId.contains(taskName))) {
         match = true;
       }
       if (taskJudul.isNotEmpty && (taskJudul.contains(sPos) || (sId.isNotEmpty && taskJudul.contains(sId)))) {
@@ -528,10 +546,7 @@ class DailyTaskService {
     required String posTag,
   }) {
     for (final t in getCachedTasksLocally()) {
-      if (t.tanggal == tanggal &&
-          t.teknisiNama == teknisiNama &&
-          t.judul == judul &&
-          t.posTag == posTag) {
+      if (t.tanggal == tanggal && t.teknisiNama == teknisiNama && t.judul == judul && t.posTag == posTag) {
         return t;
       }
     }
@@ -619,14 +634,9 @@ class DailyTaskService {
     try {
       final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable');
       final body = jsonEncode(payload);
-      final res = await http.post(
-        uri,
-        headers: {
-          ..._headers,
-          'Prefer': 'return=representation',
-        },
-        body: body,
-      ).timeout(const Duration(seconds: 7));
+      final res = await http
+          .post(uri, headers: {..._headers, 'Prefer': 'return=representation'}, body: body)
+          .timeout(const Duration(seconds: 7));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final decoded = jsonDecode(res.body);
@@ -692,13 +702,15 @@ class DailyTaskService {
 
     // Kirim notifikasi Telegram (non-blocking)
     try {
-      unawaited(sendTelegramTaskNotification(
-        teknisiNama: teknisiNama,
-        judul: judul,
-        posName: posName,
-        deskripsi: deskripsi,
-        tanggal: tanggal,
-      ));
+      unawaited(
+        sendTelegramTaskNotification(
+          teknisiNama: teknisiNama,
+          judul: judul,
+          posName: posName,
+          deskripsi: deskripsi,
+          tanggal: tanggal,
+        ),
+      );
     } catch (_) {}
 
     return resultTask;
@@ -706,10 +718,7 @@ class DailyTaskService {
 
   static String _stampSekarang() {
     final n = DateTime.now();
-    const bulan = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
-    ];
+    const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
     return '${n.day.toString().padLeft(2, '0')} ${bulan[n.month - 1]} '
         '${n.hour.toString().padLeft(2, '0')}:${n.minute.toString().padLeft(2, '0')}';
   }
@@ -745,19 +754,19 @@ class DailyTaskService {
     }
 
     try {
-      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
-        queryParameters: {'id': 'eq.${task.id}'},
-      );
-      final res = await http.patch(
-        uri,
-        headers: {..._headers, 'Prefer': 'return=representation'},
-        body: jsonEncode({
-          'teknisi_nama': updated.teknisiNama,
-          'peserta': updated.peserta,
-          'serah_terima': updated.serahTerima,
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(queryParameters: {'id': 'eq.${task.id}'});
+      final res = await http
+          .patch(
+            uri,
+            headers: {..._headers, 'Prefer': 'return=representation'},
+            body: jsonEncode({
+              'teknisi_nama': updated.teknisiNama,
+              'peserta': updated.peserta,
+              'serah_terima': updated.serahTerima,
+              'updated_at': DateTime.now().toUtc().toIso8601String(),
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (res.statusCode == 200 || res.statusCode == 204) {
         await _upsertTaskToLocalCache(updated);
@@ -772,16 +781,73 @@ class DailyTaskService {
   }
 
   /// Teknisi shift berikutnya mengambil tugas yang dilepas ke daftar terbuka.
-  static Future<bool> claimTask({
-    required DailyTaskModel task,
-    required String olehSiapa,
-  }) {
+  static Future<bool> claimTask({required DailyTaskModel task, required String olehSiapa}) {
     return transferTask(
       task: task,
       keTeknisi: olehSiapa,
       alasan: 'Ambil tugas terbuka',
       olehSiapa: task.handoverDari ?? task.teknisiNama,
     );
+  }
+
+  /// Hapus tugas harian dari Supabase + cache lokal (khusus SPV).
+  /// Tugas yang sudah selesai ditolak supaya bukti foto & laporan tetap utuh.
+  static Future<bool> deleteTask(DailyTaskModel task) async {
+    if (task.isCompleted) return false;
+
+    if (!task.id.startsWith('local_')) {
+      try {
+        final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(queryParameters: {'id': 'eq.${task.id}'});
+        final res = await http.delete(uri, headers: _headers).timeout(const Duration(seconds: 15));
+        if (res.statusCode != 200 && res.statusCode != 204) {
+          debugPrint('[DailyTaskService] deleteTask gagal: ${res.statusCode} ${res.body}');
+          return false;
+        }
+      } catch (e) {
+        debugPrint('[DailyTaskService] deleteTask error: $e');
+        return false;
+      }
+    }
+
+    await _removePendingTaskCreation(task.id);
+    await _removePendingCompletion(task.id);
+    await _removeTaskFromLocalCache(task.id);
+    return true;
+  }
+
+  static Future<void> _removeTaskFromLocalCache(String taskId) async {
+    final current = getCachedTasksLocally()..removeWhere((t) => t.id == taskId);
+    await _cacheTasksLocally(current);
+    updatePendingCount(current.where((t) => !t.isCompleted).length);
+    final known = StorageService.getKnownPendingTaskIds()..remove(taskId);
+    await StorageService.saveKnownPendingTaskIds(known);
+    _knownPendingTaskIds.remove(taskId);
+  }
+
+  static Future<void> _removePendingTaskCreation(String localId) async {
+    try {
+      await StorageService.init();
+      final list = StorageService.getStringList(_kPendingTaskCreations) ?? [];
+      final filtered = list.where((raw) {
+        try {
+          final item = jsonDecode(raw) as Map<String, dynamic>;
+          return item['localId'] != localId;
+        } catch (_) {
+          return true;
+        }
+      }).toList();
+      if (filtered.length != list.length) {
+        await StorageService.setStringList(_kPendingTaskCreations, filtered);
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> _removePendingCompletion(String taskId) async {
+    final list = _pendingCompletions();
+    final filtered = list.where((e) => e['taskId'] != taskId).toList();
+    if (filtered.length != list.length) {
+      await _savePendingCompletions(filtered);
+    }
   }
 
   /// Tugas yang diserahkan tanpa penerus (daftar terbuka) di cabang aktif.
@@ -802,25 +868,17 @@ class DailyTaskService {
     return task.tanggal == kemarinStr;
   }
 
-  static Future<List<DailyTaskModel>> getOpenHandoverTasks({
-    String? excludeTeknisi,
-  }) async {
+  static Future<List<DailyTaskModel>> getOpenHandoverTasks({String? excludeTeknisi}) async {
     List<DailyTaskModel> kandidat = [];
 
     try {
-      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
-        queryParameters: {
-          'status': 'eq.pending',
-          'order': 'created_at.desc',
-          'limit': '100',
-        },
-      );
+      final uri = Uri.parse(
+        '$baseUrl/rest/v1/$tasksTable',
+      ).replace(queryParameters: {'status': 'eq.pending', 'order': 'created_at.desc', 'limit': '100'});
       final res = await http.get(uri, headers: _getHeaders).timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
-        final List items = decoded is List
-            ? decoded
-            : ((decoded as Map<String, dynamic>)['items'] as List? ?? []);
+        final List items = decoded is List ? decoded : ((decoded as Map<String, dynamic>)['items'] as List? ?? []);
         kandidat = items.map((e) => DailyTaskModel.fromJson(e as Map<String, dynamic>)).toList();
       }
     } catch (e) {
@@ -837,9 +895,10 @@ class DailyTaskService {
       if (excludeTeknisi != null && excludeTeknisi.isNotEmpty && isAssignedTo(t, excludeTeknisi)) {
         return false;
       }
-      return posCabang.any((p) =>
-          p.locationTag.toUpperCase() == t.posTag.toUpperCase() ||
-          p.posName.toLowerCase() == t.posName.toLowerCase());
+      return posCabang.any(
+        (p) =>
+            p.locationTag.toUpperCase() == t.posTag.toUpperCase() || p.posName.toLowerCase() == t.posName.toLowerCase(),
+      );
     }).toList();
   }
 
@@ -910,8 +969,8 @@ class DailyTaskService {
       if (!kIsWeb && (token.isEmpty || chatId.isEmpty)) {
         try {
           final home = Platform.environment['HOME'] ?? '';
-          final envPath = Platform.environment['BSS_TG_ENV'] ??
-              (home.isNotEmpty ? '$home/.config/bss_telegram.env' : '');
+          final envPath =
+              Platform.environment['BSS_TG_ENV'] ?? (home.isNotEmpty ? '$home/.config/bss_telegram.env' : '');
           if (envPath.isNotEmpty) {
             final envFile = File(envPath);
             if (await envFile.exists()) {
@@ -932,15 +991,13 @@ class DailyTaskService {
 
       if (token.isNotEmpty && chatId.isNotEmpty) {
         final tgUri = Uri.parse('https://api.telegram.org/bot$token/sendMessage');
-        final res = await http.post(
-          tgUri,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'chat_id': chatId,
-            'text': message,
-            'parse_mode': 'HTML',
-          }),
-        ).timeout(const Duration(seconds: 8));
+        final res = await http
+            .post(
+              tgUri,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'chat_id': chatId, 'text': message, 'parse_mode': 'HTML'}),
+            )
+            .timeout(const Duration(seconds: 8));
         final ok = res.statusCode == 200;
         if (ok) {
           debugPrint('[DailyTaskService] Notifikasi tugas baru terkirim via Telegram Bot API');
@@ -961,50 +1018,46 @@ class DailyTaskService {
     String? localPhotoPath,
     List<String>? localPhotoPaths,
     List<String>? localVideoPaths,
+    bool fromQueue = false,
   }) async {
-    try {
-      // 1. Verifikasi video lokal yang valid
-    final existingVideos = <String>[];
-    if (localVideoPaths != null && localVideoPaths.isNotEmpty) {
-      for (final p in localVideoPaths) {
-        if (p.isNotEmpty && File(p).existsSync()) {
-          existingVideos.add(p);
-        }
-      }
-    }
-
-    // 2. Catatan murni teknisi tanpa teks annotasi tambahan
-    final effectiveCatatan = (catatan ?? '').trim();
+    // Disiapkan di luar try supaya path foto tetap bisa diantrekan kalau sync gagal.
+    // Di web `File` tidak ada (melempar UnsupportedError), jadi cek file hanya di native.
+    // Tanpa guard ini submit tugas menggantung selamanya di iPhone/Vercel.
+    bool adaFile(String p) => kIsWeb || File(p).existsSync();
 
     final photosToUpload = <String>[];
     if (localPhotoPaths != null && localPhotoPaths.isNotEmpty) {
       for (final p in localPhotoPaths) {
-        if (p.isNotEmpty && File(p).existsSync()) {
+        if (p.isNotEmpty && adaFile(p)) {
           photosToUpload.add(p);
         }
       }
-    } else if (localPhotoPath != null && File(localPhotoPath).existsSync()) {
+    } else if (localPhotoPath != null && adaFile(localPhotoPath)) {
       photosToUpload.add(localPhotoPath);
     }
 
-    // 3. Update status tugas di local cache seketika (agar langsung tercoret di UI dan foto bukti tersimpan)
-    await markTaskCompletedLocally(
-      taskId: taskId,
-      jamSelesai: jamSelesai,
-      catatan: effectiveCatatan.isNotEmpty ? effectiveCatatan : null,
-      fotoBuktiUrls: photosToUpload,
-    );
+    try {
+      // 2. Catatan murni teknisi tanpa teks annotasi tambahan
+      final effectiveCatatan = (catatan ?? '').trim();
 
-    // Jika task berstatus local (belum pernah tersinkron ke Supabase)
-    if (taskId.startsWith('local_')) {
-      await _updatePendingQueueTaskStatus(
-        localId: taskId,
-        status: 'completed',
+      // 3. Update status tugas di local cache seketika (agar langsung tercoret di UI dan foto bukti tersimpan)
+      await markTaskCompletedLocally(
+        taskId: taskId,
         jamSelesai: jamSelesai,
-        catatan: effectiveCatatan,
+        catatan: effectiveCatatan.isNotEmpty ? effectiveCatatan : null,
+        fotoBuktiUrls: photosToUpload,
       );
-      return true;
-    }
+
+      // Jika task berstatus local (belum pernah tersinkron ke Supabase)
+      if (taskId.startsWith('local_')) {
+        await _updatePendingQueueTaskStatus(
+          localId: taskId,
+          status: 'completed',
+          jamSelesai: jamSelesai,
+          catatan: effectiveCatatan,
+        );
+        return true;
+      }
 
       final uploadedUrls = <String>[];
       if (photosToUpload.isNotEmpty) {
@@ -1013,16 +1066,18 @@ class DailyTaskService {
             final filePath = photosToUpload[i];
             final fileName = 'proof_${taskId}_${i + 1}_${DateTime.now().millisecondsSinceEpoch}.jpg';
             final uploadUri = Uri.parse('$baseUrl/storage/v1/object/task-proofs/$fileName');
-            final bytes = await File(filePath).readAsBytes();
-            final uploadRes = await http.post(
-              uploadUri,
-              headers: {
-                'apikey': anonKey,
-                'Authorization': 'Bearer $anonKey',
-                'Content-Type': 'image/jpeg',
-              },
-              body: bytes,
-            ).timeout(const Duration(seconds: 15));
+            final bytes = await _readBuktiBytes(filePath);
+            if (bytes == null || bytes.isEmpty) {
+              debugPrint('[DailyTaskService] Bukti foto tidak terbaca: $filePath');
+              continue;
+            }
+            final uploadRes = await http
+                .post(
+                  uploadUri,
+                  headers: {'apikey': anonKey, 'Authorization': 'Bearer $anonKey', 'Content-Type': 'image/jpeg'},
+                  body: bytes,
+                )
+                .timeout(const Duration(seconds: 15));
 
             if (uploadRes.statusCode == 200 || uploadRes.statusCode == 201) {
               final publicUrl = '$baseUrl/storage/v1/object/public/task-proofs/$fileName';
@@ -1036,9 +1091,7 @@ class DailyTaskService {
         }
       }
 
-      final patchUri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
-        queryParameters: {'id': 'eq.$taskId'},
-      );
+      final patchUri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(queryParameters: {'id': 'eq.$taskId'});
       final patchBody = jsonEncode({
         'status': 'completed',
         'jam_selesai': jamSelesai,
@@ -1047,16 +1100,11 @@ class DailyTaskService {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       });
 
-      final res = await http.patch(
-        patchUri,
-        headers: {
-          ..._headers,
-          'Prefer': 'return=representation',
-        },
-        body: patchBody,
-      ).timeout(const Duration(seconds: 15));
+      final res = await http
+          .patch(patchUri, headers: {..._headers, 'Prefer': 'return=representation'}, body: patchBody)
+          .timeout(const Duration(seconds: 15));
 
-      final success = res.statusCode == 200 || res.statusCode == 204;
+      final success = patchResponseAccepted(res.statusCode, res.body);
       if (success && uploadedUrls.isNotEmpty) {
         await markTaskCompletedLocally(
           taskId: taskId,
@@ -1067,11 +1115,101 @@ class DailyTaskService {
       }
       if (!success) {
         debugPrint('[DailyTaskService] completeTask patch failed: ${res.statusCode} ${res.body}');
+        if (!fromQueue) {
+          await _enqueueCompletion(
+            taskId: taskId,
+            jamSelesai: jamSelesai,
+            catatan: effectiveCatatan,
+            photos: photosToUpload,
+          );
+        }
       }
       return success;
     } catch (e) {
       debugPrint('[DailyTaskService] completeTask error: $e');
+      if (!fromQueue) {
+        await _enqueueCompletion(
+          taskId: taskId,
+          jamSelesai: jamSelesai,
+          catatan: (catatan ?? '').trim(),
+          photos: photosToUpload,
+        );
+      }
       return false;
+    }
+  }
+
+  /// Baca byte bukti foto. Di web path-nya `blob:` URL dan `File` tidak ada,
+  /// jadi harus lewat fetch browser.
+  static Future<Uint8List?> _readBuktiBytes(String path) async {
+    if (kIsWeb) return fetchWebBytes(path);
+    final f = File(path);
+    if (!f.existsSync()) return null;
+    return f.readAsBytes();
+  }
+
+  /// PATCH dengan `Prefer: return=representation` normalnya membalas 200 +
+  /// array baris yang ter-update. Array kosong berarti nol baris ter-update
+  /// (tabel cabang salah / ditolak RLS) walau HTTP 2xx, jadi jangan dianggap sukses.
+  @visibleForTesting
+  static bool patchResponseAccepted(int statusCode, String body) {
+    if (statusCode != 200 && statusCode != 204) return false;
+    if (body.trim().isEmpty) return true;
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is List && decoded.isEmpty) return false;
+    } catch (_) {}
+    return true;
+  }
+
+  /// Submission maintenance dianggap bukti penyelesaian tugas bila `taskId` sama,
+  /// atau template + pos + tanggal pengerjaan sama (submission hari lain tidak
+  /// boleh menandai tugas hari ini selesai).
+  static bool submissionMatchesTask(DailyTaskModel task, MaintenanceSubmission s) {
+    if (s.taskId != null && s.taskId == task.id) return true;
+    final tpl = task.templateId;
+    if (tpl == null || tpl.isEmpty || s.templateId != tpl) return false;
+    final pos = task.posName.trim().toLowerCase();
+    if (pos.isEmpty) return false;
+    if (!s.posName.trim().toLowerCase().contains(pos)) return false;
+    final parts = task.tanggal.split('-');
+    if (parts.length != 3) return false;
+    final y = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    final d = int.tryParse(parts[2]);
+    if (y == null || m == null || d == null) return false;
+    final c = s.createdAt;
+    return c.year == y && c.month == m && c.day == d;
+  }
+
+  static String _jamDariSubmission(MaintenanceSubmission s) =>
+      '${s.createdAt.hour.toString().padLeft(2, '0')}:${s.createdAt.minute.toString().padLeft(2, '0')}';
+
+  static String _jamSekarang() {
+    final now = DateTime.now();
+    return '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+  }
+
+  static List<String> _fotoDariSubmission(MaintenanceSubmission s) =>
+      s.points.map((r) => r.imagePath).where((p) => p != null && p.isNotEmpty).cast<String>().toList();
+
+  static String _catatanDariSubmission(MaintenanceSubmission s) =>
+      'SOP Maintenance ${s.templateName} selesai (${s.sesuaiCount}/${s.totalPoints} poin sesuai'
+      '${s.tidakTerpasangCount > 0 ? ", ${s.tidakTerpasangCount} tidak terpasang" : ""})';
+
+  /// Tugas yang di HP sudah selesai (dari cache lokal/submission) tapi di server
+  /// masih pending: antrekan penyelesaiannya supaya ikut ter-sinkron ke SPV.
+  static Future<void> _pushTaskCompletionSyncs(
+    List<({String taskId, String jamSelesai, String catatan, List<String> photos})> syncs,
+  ) async {
+    for (final s in syncs) {
+      if (s.taskId.startsWith('local_')) continue;
+      await _enqueueCompletion(
+        taskId: s.taskId,
+        jamSelesai: s.jamSelesai,
+        catatan: s.catatan.isEmpty ? null : s.catatan,
+        photos: s.photos,
+      );
     }
   }
 
@@ -1083,8 +1221,18 @@ class DailyTaskService {
         final monthInt = int.tryParse(parts[1]) ?? 1;
         final day = parts[2].padLeft(2, '0');
         const months = [
-          'januari', 'februari', 'maret', 'april', 'mei', 'juni',
-          'juli', 'agustus', 'september', 'oktober', 'november', 'desember'
+          'januari',
+          'februari',
+          'maret',
+          'april',
+          'mei',
+          'juni',
+          'juli',
+          'agustus',
+          'september',
+          'oktober',
+          'november',
+          'desember',
         ];
         final monthName = (monthInt >= 1 && monthInt <= 12) ? months[monthInt - 1] : parts[1];
         return '$day $monthName $year';
@@ -1110,11 +1258,7 @@ class DailyTaskService {
 
   /// Format mikro pelaporan per-task: Pure caption catatan teknisi (tanpa judul & tanpa prefiks)
   /// [partners] diisi kalau tugas dikerjakan bareng, mis. `['Budi']`.
-  static String formatPerTaskReport({
-    String? judul,
-    required String notes,
-    List<String> partners = const [],
-  }) {
+  static String formatPerTaskReport({String? judul, required String notes, List<String> partners = const []}) {
     final cleanNotes = notes.trim();
     final dasar = cleanNotes.isNotEmpty && cleanNotes != '-'
         ? cleanNotes
@@ -1125,6 +1269,18 @@ class DailyTaskService {
     final bersih = partners.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
     if (bersih.isEmpty) return dasar;
     return '$dasar\nDikerjakan bersama ${bersih.join(', ')}';
+  }
+
+  /// Alasan kenapa tugas belum selesai: catatan teknisi, atau alasan serah
+  /// terima terakhir. Dipakai laporan supaya manager tahu kendalanya.
+  static String? unfinishedReason(DailyTaskModel task) {
+    final catatan = (task.catatanTeknisi ?? '').trim();
+    if (catatan.isNotEmpty && catatan != '-') return catatan;
+    if (task.handoverList.isNotEmpty) {
+      final alasan = task.handoverList.last.alasan.trim();
+      if (alasan.isNotEmpty) return alasan;
+    }
+    return null;
   }
 
   /// Format makro pelaporan rekapitulasi harian (hanya teks ringkasan)
@@ -1163,6 +1319,9 @@ class DailyTaskService {
       sb.writeln('Pekerjaan Belum Selesai :');
       for (final p in pendingTasks) {
         sb.writeln('- ${p.judul} (Pending)');
+        // Alasan kenapa belum selesai ditulis di baris bawah, dalam kurung.
+        final alasan = unfinishedReason(p);
+        if (alasan != null) sb.writeln('  ($alasan)');
       }
     }
 
@@ -1236,7 +1395,15 @@ class DailyTaskService {
             if (t.isHandover) 'lanjutan${t.handoverDari != null ? ' dari ${t.handoverDari}' : ''}',
           ];
           final suffix = tags.isEmpty ? '' : ' (${tags.join(', ')})';
-          sb.writeln('${i + 1}. ${t.judul.trim()}$suffix');
+          // Lokasi setelah judul, supaya teknisi tahu posnya dari share SPV.
+          final lokasi = t.posTag.trim().isNotEmpty ? t.posTag.trim() : t.posName.trim();
+          final judul = t.judul.trim();
+          final judulLower = judul.toLowerCase();
+          final lokasiLower = lokasi.toLowerCase();
+          final sudahAda =
+              lokasiLower.isNotEmpty && (judulLower.endsWith(' $lokasiLower') || judulLower.endsWith('-$lokasiLower'));
+          final lokasiSuffix = lokasi.isEmpty || sudahAda ? '' : ' - $lokasi';
+          sb.writeln('${i + 1}. $judul$lokasiSuffix$suffix');
         }
         sb.writeln();
       }
@@ -1248,10 +1415,7 @@ class DailyTaskService {
 
   /// Tugas yang pelaksananya teknisi cabang aktif. Dipakai SPV supaya rekap dan
   /// hitungan satu cabang tidak kebawa tugas cabang lain.
-  static List<DailyTaskModel> tasksForBranch(
-    List<DailyTaskModel> tasks, {
-    AppBranch? branch,
-  }) {
+  static List<DailyTaskModel> tasksForBranch(List<DailyTaskModel> tasks, {AppBranch? branch}) {
     final techs = BranchService.instance.getTechnicians(branch: branch);
     return tasks.where((t) => techs.contains(t.teknisiNama.trim())).toList();
   }
@@ -1274,16 +1438,15 @@ class DailyTaskService {
     final total = tugasHariIni.length;
     final percent = total > 0 ? ((completedHariIni / total) * 100).toInt() : 0;
 
-    final activeBranch = branch ??
+    final activeBranch =
+        branch ??
         (cabangName != null && cabangName.isNotEmpty
             ? BranchService.parseBranchFromName(cabangName)
             : BranchService.instance.currentBranch);
 
     final sb = StringBuffer();
     sb.writeln(activeBranch.recapHeader);
-    final spvStr = (spvName != null && spvName.trim().isNotEmpty)
-        ? spvName.trim()
-        : activeBranch.defaultSpv;
+    final spvStr = (spvName != null && spvName.trim().isNotEmpty) ? spvName.trim() : activeBranch.defaultSpv;
     final spvFormatted = activeBranch == AppBranch.bali ? spvStr : spvStr.toUpperCase();
     sb.writeln('SPV : $spvFormatted');
     sb.writeln('Tanggal : $tglIndo');
@@ -1307,8 +1470,7 @@ class DailyTaskService {
       }
     }
 
-    String lanjutanMark(DailyTaskModel t) =>
-        t.isHandover ? ' [lanjutan dari ${t.handoverDari}]' : '';
+    String lanjutanMark(DailyTaskModel t) => t.isHandover ? ' [lanjutan dari ${t.handoverDari}]' : '';
 
     if (completed.isNotEmpty) {
       sb.writeln('\nSelesai (${completed.length}):');
@@ -1324,6 +1486,9 @@ class DailyTaskService {
       for (int i = 0; i < pending.length; i++) {
         final t = pending[i];
         sb.writeln('${i + 1}. ${t.labelPelaksana} - ${t.judul} (${t.posName})${lanjutanMark(t)}');
+        // Alasan kenapa belum selesai (catatan teknisi / alasan serah terima).
+        final alasan = unfinishedReason(t);
+        if (alasan != null) sb.writeln('   ($alasan)');
       }
     }
 
@@ -1342,12 +1507,10 @@ class DailyTaskService {
     return sb.toString();
   }
 
-
   // --- Local Cache Management (Untuk Sinyal Basement) ---
   /// Cache lokal ikut dipisah per cabang, supaya fallback offline tidak
   /// menampilkan tugas cabang lain.
-  static String get localCacheKey =>
-      'cached_daily_tasks_$_branchSlug';
+  static String get localCacheKey => 'cached_daily_tasks_$_branchSlug';
 
   static Future<void> _cacheTasksLocally(List<DailyTaskModel> list) async {
     final raw = jsonEncode(list.map((e) => e.toJson()).toList());
@@ -1380,9 +1543,7 @@ class DailyTaskService {
           status: TaskStatus.completed,
           jamSelesai: jamSelesai,
           catatanTeknisi: (catatan != null && catatan.isNotEmpty) ? catatan : current[i].catatanTeknisi,
-          fotoBuktiUrls: (fotoBuktiUrls != null && fotoBuktiUrls.isNotEmpty)
-              ? fotoBuktiUrls
-              : current[i].fotoBuktiUrls,
+          fotoBuktiUrls: (fotoBuktiUrls != null && fotoBuktiUrls.isNotEmpty) ? fotoBuktiUrls : current[i].fotoBuktiUrls,
         );
         updated = true;
       }
@@ -1412,11 +1573,7 @@ class DailyTaskService {
     try {
       await StorageService.init();
       final list = StorageService.getStringList(_kPendingTaskCreations) ?? [];
-      final item = jsonEncode({
-        'localId': localId,
-        'payload': payload,
-        'timestamp': DateTime.now().toIso8601String(),
-      });
+      final item = jsonEncode({'localId': localId, 'payload': payload, 'timestamp': DateTime.now().toIso8601String()});
       list.add(item);
       final capped = list.length > 100 ? list.sublist(list.length - 100) : list;
       await StorageService.setStringList(_kPendingTaskCreations, capped);
@@ -1426,10 +1583,7 @@ class DailyTaskService {
     }
   }
 
-  static Future<void> _replaceLocalTaskId({
-    required String localId,
-    required DailyTaskModel newServerTask,
-  }) async {
+  static Future<void> _replaceLocalTaskId({required String localId, required DailyTaskModel newServerTask}) async {
     final current = getCachedTasksLocally();
     final idx = current.indexWhere((t) => t.id == localId);
     if (idx >= 0) {
@@ -1476,6 +1630,67 @@ class DailyTaskService {
     } catch (_) {}
   }
 
+  /// Antrean penyelesaian tugas yang gagal dikirim ke Supabase (mis. sinyal putus
+  /// saat upload bukti). Disimpan di HP dan dikirim ulang saat daftar tugas dimuat.
+  static const String _kPendingCompletions = 'pending_task_completions';
+
+  static List<Map<String, dynamic>> _pendingCompletions() {
+    final raw = StorageService.getString(_kPendingCompletions);
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return [];
+      return decoded.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<void> _savePendingCompletions(List<Map<String, dynamic>> list) async {
+    await StorageService.setString(_kPendingCompletions, jsonEncode(list));
+  }
+
+  static Future<void> _enqueueCompletion({
+    required String taskId,
+    required String jamSelesai,
+    String? catatan,
+    List<String> photos = const [],
+  }) async {
+    final list = _pendingCompletions()..removeWhere((e) => e['taskId'] == taskId);
+    list.add({'taskId': taskId, 'jamSelesai': jamSelesai, 'catatan': catatan ?? '', 'photos': photos});
+    await _savePendingCompletions(list);
+    debugPrint('[DailyTaskService] Penyelesaian $taskId diantrekan, akan dikirim ulang');
+  }
+
+  /// Kirim ulang penyelesaian tugas yang tertunda. Aman dipanggil berkali-kali.
+  static Future<int> flushPendingCompletions() async {
+    final queue = _pendingCompletions();
+    if (queue.isEmpty) return 0;
+
+    final remaining = <Map<String, dynamic>>[];
+    var flushed = 0;
+    for (final entry in queue) {
+      final note = ((entry['catatan'] as String?) ?? '').trim();
+      final ok = await completeTask(
+        taskId: entry['taskId'] as String,
+        jamSelesai: (entry['jamSelesai'] as String?) ?? '',
+        catatan: note.isEmpty ? null : note,
+        localPhotoPaths: (entry['photos'] as List?)?.cast<String>(),
+        fromQueue: true,
+      );
+      if (ok) {
+        flushed++;
+      } else {
+        remaining.add(entry);
+      }
+    }
+    await _savePendingCompletions(remaining);
+    if (flushed > 0) {
+      debugPrint('[DailyTaskService] Flush penyelesaian tertunda: $flushed tersinkron');
+    }
+    return flushed;
+  }
+
   /// Sinkronisasi otomatis semua tugas harian yang dibuat saat offline ke server Supabase
   static Future<int> flushPendingTaskCreationQueue() async {
     try {
@@ -1513,14 +1728,9 @@ class DailyTaskService {
             continue;
           }
 
-          final res = await http.post(
-            uri,
-            headers: {
-              ..._headers,
-              'Prefer': 'return=representation',
-            },
-            body: jsonEncode(payload),
-          ).timeout(const Duration(seconds: 7));
+          final res = await http
+              .post(uri, headers: {..._headers, 'Prefer': 'return=representation'}, body: jsonEncode(payload))
+              .timeout(const Duration(seconds: 7));
 
           if (res.statusCode == 200 || res.statusCode == 201) {
             flushed++;

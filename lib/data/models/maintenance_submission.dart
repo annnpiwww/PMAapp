@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'submission_model.dart';
 
 enum PointStatus {
@@ -110,11 +112,16 @@ class MaintenancePointResult {
   final String? kendalaFisik;
   final TingkatUrgensi urgensi;
 
+  /// Foto ber-watermark siap share. Hanya terisi di web (browser tidak punya
+  /// file lokal untuk ditulisi), sengaja tidak ikut ke [toJson].
+  final Uint8List? shareImageBytes;
+
   const MaintenancePointResult({
     required this.pointId,
     required this.label,
     this.imageBase64,
     this.imagePath,
+    this.shareImageBytes,
     this.timestamp,
     this.lat,
     this.lng,
@@ -169,6 +176,7 @@ class MaintenancePointResult {
   MaintenancePointResult copyWith({
     String? imageBase64,
     String? imagePath,
+    Uint8List? shareImageBytes,
     DateTime? timestamp,
     double? lat,
     double? lng,
@@ -184,6 +192,7 @@ class MaintenancePointResult {
       label: label,
       imageBase64: imageBase64 ?? this.imageBase64,
       imagePath: imagePath ?? this.imagePath,
+      shareImageBytes: shareImageBytes ?? this.shareImageBytes,
       timestamp: timestamp ?? this.timestamp,
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,

@@ -25,6 +25,16 @@ class MaintenanceShareReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!submission.isComplete) return const SizedBox.shrink();
 
+    // Mode Booth pada template Pos Parkir & Booth memakai sebutan "Booth N".
+    final unitWord = submission.points.any(
+      (p) => p.pointId.startsWith('booth_'),
+    )
+        ? 'Booth'
+        : 'Pos';
+    final rangeNote = effectiveUnits.length > 1
+        ? '$unitWord ${effectiveUnits.first} - $unitWord ${effectiveUnits.last}'
+        : '$unitWord ${effectiveUnits.first}';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -85,9 +95,6 @@ class MaintenanceShareReportCard extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () async {
-                    final rangeNote = effectiveUnits.length > 1
-                        ? 'Pos ${effectiveUnits.first} - Pos ${effectiveUnits.last}'
-                        : 'Pos ${effectiveUnits.first}';
                     await onSave();
                     // Sinkronisasi otomatis ke Google Sheet SPV di background
                     unawaited(GoogleSheetsService.syncMaintenanceToGoogleSheet(
@@ -105,8 +112,8 @@ class MaintenanceShareReportCard extends StatelessWidget {
                     if (context.mounted) {
                       final fotoCount = submission.points.where((p) => p.imagePath != null && p.imagePath!.isNotEmpty).length;
                       final msg = fotoCount > 1
-                          ? '✓ $fotoCount foto dibuka di WhatsApp. Teks laporan sudah disalin, tinggal paste di chat.'
-                          : '✓ Laporan dibuka di WhatsApp & disinkronkan ke Google Sheet SPV!';
+                          ? '✓ $fotoCount foto dibuka di WhatsApp. Teks laporan tersalin, tinggal paste di chat.'
+                          : '✓ Laporan dibuka di WhatsApp & disinkronkan ke Google Sheet SPV';
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(msg),
@@ -141,9 +148,6 @@ class MaintenanceShareReportCard extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () async {
-                    final rangeNote = effectiveUnits.length > 1
-                        ? 'Pos ${effectiveUnits.first} - Pos ${effectiveUnits.last}'
-                        : 'Pos ${effectiveUnits.first}';
                     await onSave();
                     await WhatsAppReportService.shareToTelegram(
                       submission: submission,
@@ -155,7 +159,7 @@ class MaintenanceShareReportCard extends StatelessWidget {
                       final fotoCount = submission.points.where((p) => p.imagePath != null && p.imagePath!.isNotEmpty).length;
                       final msg = fotoCount > 1
                           ? '✓ $fotoCount foto dibuka di Telegram. Teks laporan sudah disalin, tinggal paste di chat.'
-                          : '✓ Laporan dibuka di Telegram!';
+                          : '✓ Laporan dibuka di Telegram';
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(msg),

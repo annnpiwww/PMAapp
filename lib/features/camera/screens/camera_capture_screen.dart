@@ -15,6 +15,8 @@ import '../../../core/widgets/verification_step_card.dart';
 import '../../../core/widgets/app_file_image.dart';
 import '../../../core/utils/timemark_formatter.dart';
 import '../../../core/utils/image_watermark_processor.dart';
+import '../../../core/utils/web_bytes/web_bytes.dart';
+import '../../../core/utils/web_photo_store/web_photo_store.dart';
 import '../../../data/models/submission_model.dart';
 import '../../../data/models/template_model.dart';
 import '../../../data/models/watermark_config.dart';
@@ -71,7 +73,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   LocationResult? _location;
   bool _isProcessingAI = false;
-  int _captureStep = 0; // 1=Memproses foto,2=Mengirim ke AI,3=Sedang diverifikasi,4=Verifikasi selesai
+  int _captureStep =
+      0; // 1=Memproses foto,2=Mengirim ke AI,3=Sedang diverifikasi,4=Verifikasi selesai
   Completer<AiVerificationResult>? _aiBypassCompleter;
 
   // Watermark Customization State (Persisted)
@@ -130,22 +133,25 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     final savedConfig = StorageService.getWatermarkConfig();
     _watermarkConfig = savedConfig;
 
-    // Pastikan jika KC Manado, tidak ada badgeTag dari cabang Bali yang menempel
-    if (BranchService.instance.currentBranch == AppBranch.manado) {
-      final baliTags = BranchService.instance.getLocationTags(branch: AppBranch.bali);
-      if (baliTags.contains(_watermarkConfig.badgeTag.trim().toUpperCase())) {
-        _watermarkConfig = _watermarkConfig.copyWith(
-          badgeTag: _activePos.locationTag,
-          badgeColor: _activePos.tagColor,
-        );
-        StorageService.saveWatermarkConfig(_watermarkConfig);
-      }
+    // Pastikan badgeTag dari cabang lain tidak menempel di watermark cabang aktif
+    final otherBranchTags = BranchService.otherBranchLocationTags;
+    if (otherBranchTags.contains(
+      _watermarkConfig.badgeTag.trim().toUpperCase(),
+    )) {
+      _watermarkConfig = _watermarkConfig.copyWith(
+        badgeTag: _activePos.locationTag,
+        badgeColor: _activePos.tagColor,
+      );
+      StorageService.saveWatermarkConfig(_watermarkConfig);
     }
 
     // Minta izin kamera & lokasi langsung di frame pertama UI muncul,
     // lalu init kamera & lokasi setelah izin diberikan (tidak perlu pancing
     // tombol switch kamera lagi).
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Shift tersimpan bisa basi dari hari sebelumnya; layar kamera selalu
+      // menampilkan shift auto-detect kalau tidak ada sesi aktif.
+      AbsensiSetupService.instance.resetStaleShift();
       _requestInitialPermissionsAndInit();
       _refreshDailyTasksBadge();
       IosPwaInstallModal.checkAndShowPrompt(context);
@@ -244,7 +250,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     }
   }
 
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final CameraController? cameraController = _cameraController;
@@ -268,29 +273,34 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   void _refreshDailyTasksBadge() {
     final now = DateTime.now();
     if (_lastDailyTasksBadgeRefreshTime != null &&
-        now.difference(_lastDailyTasksBadgeRefreshTime!) < const Duration(seconds: 4)) {
+        now.difference(_lastDailyTasksBadgeRefreshTime!) <
+            const Duration(seconds: 4)) {
       return;
     }
     _lastDailyTasksBadgeRefreshTime = now;
 
     final user = AuthRepository.instance.currentUser;
     if (user?.role != UserRole.petugas) return;
-    
+
     // Aktifkan realtime listener SSE dan polling background otomatis
     DailyTaskService.startRealtimeListener(teknisiNama: user!.nama);
 
     final todayStr =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     DailyTaskService.getTasksForTeknisi(
-      tanggal: todayStr,
-      teknisiNama: user.nama,
-    ).then((tasks) {
-      if (mounted) {
-        final pending = tasks.where((t) => !t.isCompleted).length;
-        DailyTaskService.updatePendingCount(pending);
-        NotificationService.instance.showDailyTasksNotification(tasks: tasks);
-      }
-    }).catchError((_) {});
+          tanggal: todayStr,
+          teknisiNama: user.nama,
+        )
+        .then((tasks) {
+          if (mounted) {
+            final pending = tasks.where((t) => !t.isCompleted).length;
+            DailyTaskService.updatePendingCount(pending);
+            NotificationService.instance.showDailyTasksNotification(
+              tasks: tasks,
+            );
+          }
+        })
+        .catchError((_) {});
   }
 
   Future<void> _initCamera() async {
@@ -394,6 +404,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   Future<void> _toggleFlash() async {
     if (_cameraController == null || !_isCameraInitialized) return;
+    // WebKit (semua browser di iPhone/iPad) tidak mendukung constraint
+    // 'torch', jadi flash tidak bisa dinyalakan dari halaman web.
+    if (kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      _showFlashUnsupportedMessage();
+      return;
+    }
     FlashMode nextMode;
     switch (_flashMode) {
       case FlashMode.off:
@@ -415,7 +431,28 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       setState(() {
         _flashMode = nextMode;
       });
-    } catch (_) {}
+    } catch (_) {
+      _showFlashUnsupportedMessage();
+    }
+  }
+
+  void _showFlashUnsupportedMessage() {
+    if (!mounted) return;
+    final bool isIosBrowser =
+        kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 4),
+          content: Text(
+            isIosBrowser
+                ? 'iPhone tidak mengizinkan flash dinyalakan dari browser. '
+                      'Nyalakan flash di aplikasi Kamera HP, atau pakai APK BSS di Android.'
+                : 'Lampu kilat tidak bisa diaktifkan di perangkat ini.',
+          ),
+        ),
+      );
   }
 
   Future<void> _setZoom(double zoom) async {
@@ -503,7 +540,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       builder: (ctx) => PopScope(
         canPop: false,
         child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           backgroundColor: const Color(0xFF0F2C59),
           title: Row(
             children: [
@@ -513,7 +552,11 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   color: Colors.red.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.location_off_rounded, color: Colors.redAccent, size: 24),
+                child: const Icon(
+                  Icons.location_off_rounded,
+                  color: Colors.redAccent,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 10),
               const Expanded(
@@ -535,12 +578,20 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             children: [
               Text(
                 'GPS ponsel belum aktif.',
-                style: TextStyle(fontSize: 13, color: Colors.white70, height: 1.4),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white70,
+                  height: 1.4,
+                ),
               ),
               SizedBox(height: 10),
               Text(
                 'Aktifkan GPS ponsel untuk mencatat lokasi absen.',
-                style: TextStyle(fontSize: 12, color: Colors.amberAccent, height: 1.4),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.amberAccent,
+                  height: 1.4,
+                ),
               ),
             ],
           ),
@@ -570,7 +621,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('GPS masih mati. Nyalakan lokasi di pengaturan.'),
+                        content: Text(
+                          'GPS masih mati. Nyalakan lokasi di pengaturan.',
+                        ),
                         backgroundColor: Colors.red,
                         duration: Duration(seconds: 2),
                       ),
@@ -584,8 +637,13 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF38BDF8),
                 foregroundColor: const Color(0xFF071731),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               icon: const Icon(Icons.settings_rounded, size: 18),
               onPressed: () async {
@@ -657,7 +715,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           children: [
             Icon(Icons.security_rounded, color: AppColors.primary, size: 24),
             SizedBox(width: 8),
-            Text('Izin Diperlukan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              'Izin Diperlukan',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: const Text(
@@ -688,7 +749,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       ),
     );
   }
-
 
   /// Cold start optimization: get last known position immediately
   void _loadLocationInBackground() {
@@ -783,7 +843,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       _aiBypassCompleter!.complete(
         AiVerificationResult(
           status: VerificationStatus.perluCekManual,
-          alasan: 'Mode Sinyal Lemah: Teknisi memilih simpan cepat tanpa menunggu cloud AI.',
+          alasan:
+              'Mode Sinyal Lemah: Teknisi memilih simpan cepat tanpa menunggu cloud AI.',
           poinGagal: [],
           poinLolos: [],
           confidenceScore: 0.5,
@@ -807,14 +868,14 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   DateTime? _lastSecretQaTapTime;
 
   bool _isSpvFarhan() {
+    // QA bypass hanya untuk akun SPV yang benar-benar login sebagai Farhan.
+    // Dulu ikut considers "nama teknisi terakhir" (bebas diisi sendiri), jadi
+    // siapa pun bisa mengaktifkan bypass hanya dengan mengetik "Farhan".
     final user = AuthRepository.instance.currentUser;
-    if (user == null) {
-      final lastName = StorageService.getLastTechnicianName();
-      return lastName.toLowerCase().contains('farhan');
-    }
-    final isSpv = user.role == UserRole.supervisor;
-    final isFarhan = user.nama.toLowerCase().contains('farhan');
-    return isSpv || isFarhan;
+    if (user == null) return false;
+    if (user.role != UserRole.supervisor) return false;
+    return user.nama.toLowerCase().contains('farhan') ||
+        user.email.toLowerCase().contains('farhan');
   }
 
   void _handleSecretQaTap() {
@@ -857,12 +918,18 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   next
                       ? '⚡ ROOT QA BYPASS: AKTIF\n• AI Absensi: Auto-Ijo (Lolos SOP)\n• Durasi Shift: Bebas Pulang (Tanpa 8 Jam)'
                       : '🔒 ROOT QA BYPASS: NONAKTIF\nMode normal berjalan (AI SOP & Shift 8 Jam aktif).',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, height: 1.3),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                  ),
                 ),
               ),
             ],
           ),
-          backgroundColor: next ? const Color(0xFF0F172A) : const Color(0xFF1E293B),
+          backgroundColor: next
+              ? const Color(0xFF0F172A)
+              : const Color(0xFF1E293B),
           duration: const Duration(seconds: 3),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -888,7 +955,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           children: [
             Icon(Icons.warning_amber_rounded, color: AppColors.danger),
             SizedBox(width: 8),
-            Text('Lokasi Tidak Valid (Fake GPS Terdeteksi)', style: TextStyle(fontSize: 15)),
+            Text(
+              'Lokasi Tidak Valid (Fake GPS Terdeteksi)',
+              style: TextStyle(fontSize: 15),
+            ),
           ],
         ),
         content: const Text(
@@ -924,7 +994,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       if (setup.lokasiStandby.trim().isEmpty) {
         setup.updateLokasi(activeBranch.defaultLocationTag);
       }
-      if (setup.jadwalShift.trim().isEmpty || !BranchService.instance.getShifts().contains(setup.jadwalShift)) {
+      if (setup.jadwalShift.trim().isEmpty ||
+          !BranchService.instance.getShifts().contains(setup.jadwalShift)) {
         setup.updateShift(AbsensiSetupService.autoDetectShift());
       }
 
@@ -939,12 +1010,21 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               title: const Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: Color(0xFFEF4444),
+                    size: 24,
+                  ),
                   SizedBox(width: 8),
-                  Text('Belum Ada Absen Masuk', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    'Belum Ada Absen Masuk',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
               content: const Text(
@@ -955,7 +1035,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Mengerti',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -963,7 +1046,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           return;
         }
 
-        final isEligible = isQaBypass ||
+        final isEligible =
+            isQaBypass ||
             (lastCheckIn != null &&
                 AbsensiSetupService.isEligibleForAutoPulang(
                   shift: setup.effectiveJadwalShift,
@@ -974,7 +1058,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         if (!isEligible) {
           _isProcessingAI = false;
           _captureStep = 0;
-          final nowVerified = SecureTimeService.getVerifiedTime().accurateTime.toLocal();
+          final nowVerified = SecureTimeService.getVerifiedTime().accurateTime
+              .toLocal();
           final refTime = lastCheckIn ?? nowVerified;
           final gate = AbsensiSetupService.pulangAllowedFrom(
             shift: setup.effectiveJadwalShift,
@@ -984,12 +1069,21 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               title: const Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: Color(0xFFEF4444),
+                    size: 24,
+                  ),
                   SizedBox(width: 8),
-                  Text('Belum Waktunya Pulang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    'Belum Waktunya Pulang',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
               content: Text(
@@ -1003,7 +1097,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Mengerti',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -1021,7 +1118,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           } else if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Selesaikan Daily Task dulu sebelum absen pulang!'),
+                content: Text(
+                  'Selesaikan Daily Task dulu, baru bisa absen pulang.',
+                ),
                 backgroundColor: Color(0xFFF59E0B),
                 duration: Duration(seconds: 2),
               ),
@@ -1055,7 +1154,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             // Masih dalam durasi shift aktif -> BLOKIR JEPET MASUK AGAR TIDAK DUPLIKAT!
             _isProcessingAI = false;
             _captureStep = 0;
-            final worked = SecureTimeService.getVerifiedTime().accurateTime.toLocal().difference(lastCheckIn);
+            final worked = SecureTimeService.getVerifiedTime().accurateTime
+                .toLocal()
+                .difference(lastCheckIn);
             final remaining = AbsensiSetupService.getRemainingWorkTime(
               shift: setup.effectiveJadwalShift,
               checkInTime: lastCheckIn,
@@ -1064,12 +1165,24 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   title: const Row(
                     children: [
-                      Icon(Icons.info_outline_rounded, color: Color(0xFFF59E0B), size: 24),
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: Color(0xFFF59E0B),
+                        size: 24,
+                      ),
                       SizedBox(width: 8),
-                      Text('Sedang Shift Aktif', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(
+                        'Sedang Shift Aktif',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                   content: Text(
@@ -1083,13 +1196,89 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(),
-                      child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        'Mengerti',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                 ),
               );
             }
             return;
+          }
+        }
+
+        // Shift yang mulai > 2 jam lalu biasanya shift basi dari hari sebelumnya;
+        // kalau dibiarkan, absen Masuk tercatat Terlambat.
+        if (!isQaBypass && !StorageService.isDemoBypassActive()) {
+          final now = SecureTimeService.getVerifiedTime().accurateTime
+              .toLocal();
+          final selectedShift = setup.effectiveJadwalShift;
+          if (AbsensiSetupService.isLikelyWrongShift(selectedShift, now)) {
+            final detected = AbsensiSetupService.autoDetectShift(now);
+            final clock =
+                '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+            final selectedName = selectedShift.split(' (').first.trim();
+            final choice = await showDialog<String>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                title: const Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Color(0xFFF59E0B),
+                      size: 24,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Cek Shift Dulu',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                content: Text(
+                  'Shift yang dipilih: $selectedShift\n'
+                  'Sekarang jam $clock.\n\n'
+                  'Kalau shift salah, absen kamu tercatat Terlambat.',
+                  style: const TextStyle(fontSize: 13, height: 1.45),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('Batal'),
+                  ),
+                  if (detected != selectedShift)
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop('switch'),
+                      child: Text('Ganti ke $detected'),
+                    ),
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop('keep'),
+                    child: Text(
+                      'Tetap $selectedName',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            );
+            if (!mounted) return;
+            if (choice == null) {
+              _isProcessingAI = false;
+              _captureStep = 0;
+              return;
+            }
+            if (choice == 'switch') {
+              setup.updateShift(detected);
+              setState(() {});
+            }
           }
         }
       }
@@ -1176,11 +1365,14 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     Uint8List? capturedBytes;
     String? imageBase64;
     Future<String>? watermarkFuture;
+    Future<Uint8List?>? watermarkBytesFuture;
     if (_cameraController != null && _cameraController!.value.isInitialized) {
       try {
-        final isFrontCamera = _cameras.isNotEmpty &&
+        final isFrontCamera =
+            _cameras.isNotEmpty &&
             _selectedCameraIndex < _cameras.length &&
-            _cameras[_selectedCameraIndex].lensDirection == CameraLensDirection.front;
+            _cameras[_selectedCameraIndex].lensDirection ==
+                CameraLensDirection.front;
 
         final xfile = await _cameraController!.takePicture();
         capturedPath = xfile.path;
@@ -1208,21 +1400,41 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         if (mounted) setState(() => _captureStep = 2);
         await Future.delayed(const Duration(milliseconds: 30));
 
-        watermarkFuture = ImageWatermarkProcessor.applyWatermarkToFile(
-          imagePath: capturedPath,
-          timestamp: capturedTimestamp,
-          lat: lat,
-          lng: lng,
-          fullAddress: currentAddress,
-          kodeVerifikasi: kodeVerifikasi,
-          config: _watermarkConfig,
-          activeLocationTag: _activePos.locationTag,
-          activeLocationColor: _activePos.tagColor,
-          isAbsensi: _selectedTemplate.jenis == TemplateCategory.absensi,
-          isFrontCamera: isFrontCamera,
-          targetAspectRatio: targetAspect,
-          jpegQuality: 93,
-        );
+        if (kIsWeb) {
+          // Web tidak punya file lokal yang bisa ditulis; render watermark ke byte
+          // di memori supaya share/save Safari memakai foto yang sudah dibakar.
+          watermarkBytesFuture = ImageWatermarkProcessor.applyWatermarkToBytes(
+            imageBytes: rawBytes,
+            timestamp: capturedTimestamp,
+            lat: lat,
+            lng: lng,
+            fullAddress: currentAddress,
+            kodeVerifikasi: kodeVerifikasi,
+            config: _watermarkConfig,
+            activeLocationTag: _activePos.locationTag,
+            activeLocationColor: _activePos.tagColor,
+            isAbsensi: _selectedTemplate.jenis == TemplateCategory.absensi,
+            isFrontCamera: isFrontCamera,
+            targetAspectRatio: targetAspect,
+            jpegQuality: 93,
+          );
+        } else {
+          watermarkFuture = ImageWatermarkProcessor.applyWatermarkToFile(
+            imagePath: capturedPath,
+            timestamp: capturedTimestamp,
+            lat: lat,
+            lng: lng,
+            fullAddress: currentAddress,
+            kodeVerifikasi: kodeVerifikasi,
+            config: _watermarkConfig,
+            activeLocationTag: _activePos.locationTag,
+            activeLocationColor: _activePos.tagColor,
+            isAbsensi: _selectedTemplate.jenis == TemplateCategory.absensi,
+            isFrontCamera: isFrontCamera,
+            targetAspectRatio: targetAspect,
+            jpegQuality: 93,
+          );
+        }
       } catch (_) {}
     }
 
@@ -1253,7 +1465,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     } catch (e) {
       aiResult = AiVerificationResult(
         status: VerificationStatus.perluCekManual,
-        alasan: 'Gagal terhubung ke AI Vision. Foto tersimpan aman untuk verifikasi manual.',
+        alasan:
+            'Gagal terhubung ke AI Vision. Foto tersimpan aman untuk verifikasi manual.',
         poinGagal: [],
         poinLolos: [],
         confidenceScore: 0.5,
@@ -1288,12 +1501,32 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       _isProcessingAI = false;
     });
 
+    // Web: tunggu watermark byte sebelum modal dibuka supaya tombol share/save
+    // memakai foto ber-watermark tanpa await (user activation Safari tetap valid).
+    if (kIsWeb && watermarkBytesFuture != null) {
+      try {
+        final watermarkedBytes = await watermarkBytesFuture;
+        if (watermarkedBytes != null && watermarkedBytes.isNotEmpty) {
+          capturedBytes = watermarkedBytes;
+          // Ganti blob URL kamera (foto mentah) dengan blob URL foto
+          // ber-watermark, supaya riwayat/galeri/share tidak pernah
+          // mengunduh foto tanpa watermark.
+          capturedPath =
+              createWebBlobUrl(watermarkedBytes, 'image/jpeg') ?? capturedPath;
+        }
+      } catch (e) {
+        debugPrint('[Capture] Gagal render watermark web: $e');
+      }
+    }
+
     // Pre-burn watermark di background agar saat user konfirmasi / share, file sudah siap
     if (capturedPath != null && watermarkFuture != null) {
       unawaited(() async {
         try {
           final burned = await watermarkFuture;
-          if (burned != null && burned.isNotEmpty && (kIsWeb || File(burned).existsSync())) {
+          if (burned != null &&
+              burned.isNotEmpty &&
+              (kIsWeb || File(burned).existsSync())) {
             capturedPath = burned;
           }
         } catch (_) {}
@@ -1304,7 +1537,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     final absensiSetup2 = AbsensiSetupService.instance;
     final isTeknisi = _selectedTemplate.jenis == TemplateCategory.absensi;
     final lastTechName = StorageService.getLastTechnicianName().trim();
-    final effectiveUserName = lastTechName.isNotEmpty ? lastTechName : user.nama;
+    final effectiveUserName = lastTechName.isNotEmpty
+        ? lastTechName
+        : user.nama;
     final currentTipeLaporan = absensiSetup2.tipeLaporan;
     final String shareText;
     if (isTeknisi) {
@@ -1313,7 +1548,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             ? absensiSetup2.jamPulang.trim()
             : absensiSetup2.effectiveJamPulang;
         // Salam pulang disesuaikan jam kepulangan (misal 18:00/22:00 -> Selamat Malam, 11:00 -> Selamat Siang)
-        final greetingPulang = WhatsAppReportService.getGreetingFromTimeString(jamPulangText);
+        final greetingPulang = WhatsAppReportService.getGreetingFromTimeString(
+          jamPulangText,
+        );
         String rawSelesai = absensiSetup2.pekerjaanSelesai.trim();
         String rawBelum = absensiSetup2.pekerjaanBelum.trim();
 
@@ -1326,7 +1563,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             final sb = StringBuffer();
             for (int i = 0; i < completed.length; i++) {
               final t = completed[i];
-              final timeStr = (t.jamSelesai != null && t.jamSelesai!.isNotEmpty) ? ' (Selesai ${t.jamSelesai})' : '';
+              final timeStr = (t.jamSelesai != null && t.jamSelesai!.isNotEmpty)
+                  ? ' (Selesai ${t.jamSelesai})'
+                  : '';
               sb.writeln('${i + 1}. ${t.judul}$timeStr');
             }
             rawSelesai = sb.toString().trim();
@@ -1335,7 +1574,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             final sb = StringBuffer();
             for (int i = 0; i < pending.length; i++) {
               final t = pending[i];
-              sb.writeln('${i + 1}. ${t.judul} (${t.posName})');
+              sb.writeln(
+                WhatsAppReportService.formatUnfinishedJob(
+                  '${t.judul} (${t.posName})',
+                  alasan: DailyTaskService.unfinishedReason(t),
+                ),
+              );
             }
             rawBelum = sb.toString().trim();
           }
@@ -1344,9 +1588,16 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         final selesaiText = rawSelesai.isNotEmpty && rawSelesai != '-'
             ? WhatsAppReportService.formatAutoNumberedList(rawSelesai)
             : '-';
-        final belumText = rawBelum.isNotEmpty && rawBelum != '-' ? rawBelum : '-';
-        final nextShift = absensiSetup2.shiftSelanjutnya.trim().isNotEmpty ? absensiSetup2.shiftSelanjutnya.trim() : '-';
-        shareText = '''$greetingPulang
+        // Alasan kenapa belum selesai ditulis di baris bawah dalam kurung:
+        // "Pengecatan pulau" -> "Pengecatan pulau" + "(Cuaca hujan)"
+        final belumText = rawBelum.isNotEmpty && rawBelum != '-'
+            ? WhatsAppReportService.formatUnfinishedJobList(rawBelum)
+            : '-';
+        final nextShift = absensiSetup2.shiftSelanjutnya.trim().isNotEmpty
+            ? absensiSetup2.shiftSelanjutnya.trim()
+            : '-';
+        shareText =
+            '''$greetingPulang
 
 Izin Update Laporan Jadwal Pulang Technical Support Staff
 
@@ -1363,12 +1614,15 @@ $belumText
 
 Terima Kasih''';
       } else {
-        final greetingMasuk = WhatsAppReportService.getGreeting(capturedTimestamp);
+        final greetingMasuk = WhatsAppReportService.getGreeting(
+          capturedTimestamp,
+        );
         // Gunakan jadwal shift yang sudah dipilih (efektif) atau deteksi jam foto
         final shiftText = absensiSetup2.jadwalShift.trim().isNotEmpty
             ? absensiSetup2.jadwalShift.trim()
             : AbsensiSetupService.autoDetectShift(capturedTimestamp);
-        shareText = '''$greetingMasuk
+        shareText =
+            '''$greetingMasuk
 
 Izin Update Laporan Jadwal Masuk Technical Support Staff
 
@@ -1379,7 +1633,8 @@ Jadwal Shift : $shiftText
 Terima Kasih''';
       }
     } else {
-      shareText = '''[PMAapp]
+      shareText =
+          '''[PMAapp]
 Kode: $kodeVerifikasi
 Waktu: ${TimemarkFormatter.formatIndonesianFullDate(capturedTimestamp)} ${TimemarkFormatter.formatClockTime(capturedTimestamp)}
 Lokasi: ${_activePos.posName} (${_activePos.cabangName})
@@ -1401,6 +1656,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
       fullShareText = shareText;
     }
 
+    final webShareFileName =
+        'Absensi_${capturedTimestamp.millisecondsSinceEpoch}.jpg';
+
     // Helper: Simpan data absensi & submission HANYA saat user konfirmasi (Simpan / Share WA / Share TG)
     bool alreadyCommitted = false;
     Future<void> commitRecord() async {
@@ -1410,7 +1668,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
       // JAMINAN MUTLAK: Tunggu watermark selesai dibakar sebelum file disimpan ke record/galeri
       if (watermarkFuture != null) {
         try {
-          final burned = await watermarkFuture.timeout(const Duration(seconds: 10));
+          final burned = await watermarkFuture.timeout(
+            const Duration(seconds: 10),
+          );
           if (burned.isNotEmpty && (kIsWeb || File(burned).existsSync())) {
             capturedPath = burned;
           }
@@ -1419,8 +1679,10 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
         }
       }
 
-      // JAMINAN MUTLAK: Simpan foto yang sudah ber-watermark ke galeri HP
-      if (capturedPath != null && (kIsWeb || File(capturedPath!).existsSync())) {
+      // JAMINAN MUTLAK: Simpan foto yang sudah ber-watermark ke galeri HP.
+      // Di web tidak ada tulis langsung ke Photos; simpan/bagikan ditangani
+      // lewat tombol Save & Share di bawah.
+      if (!kIsWeb && capturedPath != null && File(capturedPath!).existsSync()) {
         try {
           await ShareHelper.savePhotoToGallery(capturedPath);
         } catch (_) {}
@@ -1457,10 +1719,18 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
         lokasiStandby: isTeknisiSave ? absSetup.lokasiStandby : null,
         jadwalShift: isTeknisiSave ? absSetup.jadwalShift : null,
         tipeLaporan: isTeknisiSave ? currentTipeLaporan : null,
-        jamPulang: isTeknisiSave && currentTipeLaporan == 'Pulang' ? absSetup.jamPulang : null,
-        shiftSelanjutnya: isTeknisiSave && currentTipeLaporan == 'Pulang' ? absSetup.shiftSelanjutnya : null,
-        pekerjaanSelesai: isTeknisiSave && currentTipeLaporan == 'Pulang' ? absSetup.pekerjaanSelesai : null,
-        pekerjaanBelum: isTeknisiSave && currentTipeLaporan == 'Pulang' ? absSetup.pekerjaanBelum : null,
+        jamPulang: isTeknisiSave && currentTipeLaporan == 'Pulang'
+            ? absSetup.jamPulang
+            : null,
+        shiftSelanjutnya: isTeknisiSave && currentTipeLaporan == 'Pulang'
+            ? absSetup.shiftSelanjutnya
+            : null,
+        pekerjaanSelesai: isTeknisiSave && currentTipeLaporan == 'Pulang'
+            ? absSetup.pekerjaanSelesai
+            : null,
+        pekerjaanBelum: isTeknisiSave && currentTipeLaporan == 'Pulang'
+            ? absSetup.pekerjaanBelum
+            : null,
       );
 
       if (isAbsensiSave) {
@@ -1514,19 +1784,28 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
           isAiVerified: aiResult.isSesuai,
           aiStatusText: aiResult.statusDisplay,
         );
+        // Web: photoPath cuma blob: URL yang mati setelah Safari reload.
+        // Simpan byte foto ke IndexedDB agar riwayat tetap punya fotonya.
+        if (kIsWeb && capturedBytes != null && capturedBytes.isNotEmpty) {
+          await putPhotoBlob(attRecord.id, capturedBytes);
+        }
         await StorageService.saveAttendanceRecord(attRecord);
 
         if (attType == AttendanceType.masuk) {
           if (aiResult.isSesuai) {
             await StorageService.saveLastCheckInTime(capturedTimestamp);
 
-            unawaited(NotificationService.instance.showInstantAbsenMasukNotification(
-              shift: absSetup.effectiveJadwalShift,
-            ));
-            unawaited(NotificationService.instance.scheduleAbsenPulangNotification(
-              shift: absSetup.effectiveJadwalShift,
-              checkInTime: capturedTimestamp,
-            ));
+            unawaited(
+              NotificationService.instance.showInstantAbsenMasukNotification(
+                shift: absSetup.effectiveJadwalShift,
+              ),
+            );
+            unawaited(
+              NotificationService.instance.scheduleAbsenPulangNotification(
+                shift: absSetup.effectiveJadwalShift,
+                checkInTime: capturedTimestamp,
+              ),
+            );
 
             final isEligible = AbsensiSetupService.isEligibleForAutoPulang(
               shift: absSetup.effectiveJadwalShift,
@@ -1539,16 +1818,38 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
           }
         } else {
           await StorageService.clearLastCheckInTime();
-          unawaited(NotificationService.instance.showInstantAbsenPulangNotification(
-            shift: absSetup.effectiveJadwalShift,
-            durationText: duration,
-          ));
+          unawaited(
+            NotificationService.instance.showInstantAbsenPulangNotification(
+              shift: absSetup.effectiveJadwalShift,
+              durationText: duration,
+            ),
+          );
           absSetup.updateTipe('Masuk');
         }
       }
 
       await SubmissionRepository.instance.addSubmission(submission);
       if (mounted) setState(() {});
+    }
+
+    // Verifikasi HIJAU absensi web: langsung coba unduh foto + salin caption.
+    // Safari iOS memblokir download/clipboard tanpa gesture user, jadi ini
+    // best-effort — kalau ditolak browser, user tinggal tap tombol di modal.
+    if (kIsWeb && isTeknisi && aiResult.isSesuai && !aiResult.isFallback) {
+      unawaited(() async {
+        try {
+          await Clipboard.setData(ClipboardData(text: fullShareText));
+        } catch (_) {}
+      }());
+      if (capturedBytes != null && capturedBytes.isNotEmpty) {
+        unawaited(
+          ShareHelper.savePhotoToGalleryOutcome(
+            null,
+            imageBytes: capturedBytes,
+            fileName: webShareFileName,
+          ),
+        );
+      }
     }
 
     // Show Verification Result Modal
@@ -1563,12 +1864,77 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
       builder: (modalCtx) {
         return SopVerificationModal(
           template: _selectedTemplate.jenis == TemplateCategory.absensi
-              ? _selectedTemplate.copyWith(nama: AbsensiSetupService.instance.selectedKategori.displayName)
+              ? _selectedTemplate.copyWith(
+                  nama:
+                      AbsensiSetupService.instance.selectedKategori.displayName,
+                )
               : _selectedTemplate,
           result: aiResult,
           kodeVerifikasi: kodeVerifikasi,
           imagePath: capturedPath,
           imageBytes: capturedBytes,
+          // Analisa ulang foto yang sama saat koneksi AI gagal: teknisi tidak
+          // perlu memotret ulang, cukup tekan tombol otak AI di modal.
+          onRetryAi: mockOverride
+              ? null
+              : () async {
+                  // Pakai foto yang sudah ada: base64 hasil kompresi AI, atau
+                  // bytes/file asli kalau base64-nya tidak sempat dibentuk.
+                  final bytesSnapshot = capturedBytes;
+                  final pathSnapshot = capturedPath;
+                  var payload = imageBase64;
+                  if (payload == null || payload.isEmpty) {
+                    if (bytesSnapshot != null && bytesSnapshot.isNotEmpty) {
+                      payload = base64Encode(bytesSnapshot);
+                    } else if (!kIsWeb && pathSnapshot != null) {
+                      try {
+                        payload = base64Encode(
+                          await File(pathSnapshot).readAsBytes(),
+                        );
+                      } catch (_) {
+                        payload = null;
+                      }
+                    }
+                  }
+                  if (payload == null || payload.isEmpty) {
+                    return AiVerificationResult(
+                      status: VerificationStatus.perluCekManual,
+                      alasan:
+                          'Foto tidak tersedia untuk dianalisa ulang. Simpan sebagai cek manual.',
+                      poinGagal: const [],
+                      poinLolos: const [],
+                      confidenceScore: 0.0,
+                      providerName: 'AI Retry',
+                      isFallback: true,
+                    );
+                  }
+                  if (kIsWeb) {
+                    try {
+                      await _cameraController?.pausePreview();
+                    } catch (_) {}
+                  }
+                  try {
+                    final retried = await AiVisionService.verifyPhoto(
+                      template: _selectedTemplate,
+                      imageBase64: payload,
+                      absensiKategori: isAbsensi
+                          ? absensiSetup.selectedKategori
+                          : null,
+                      hariKerja: isAbsensi ? absensiSetup.hariKerja : null,
+                      tipeLaporan: isAbsensi ? absensiSetup.tipeLaporan : null,
+                    );
+                    // Simpan hasil terbaru supaya laporan yang dikirim ikut
+                    // memakai status verifikasi yang baru.
+                    aiResult = retried;
+                    return retried;
+                  } finally {
+                    if (kIsWeb) {
+                      try {
+                        await _cameraController?.resumePreview();
+                      } catch (_) {}
+                    }
+                  }
+                },
           onRetake: () {
             Navigator.of(modalCtx).pop();
             if (mounted) {
@@ -1588,20 +1954,83 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
             }
           },
           onShareWhatsApp: () async {
+            if (kIsWeb) {
+              // Panggil share SEBELUM await apa pun: Safari iOS membatalkan
+              // navigator.share jika user activation sudah habis.
+              final shareFuture = ShareHelper.shareToWhatsApp(
+                text: fullShareText,
+                imagePath: capturedPath ?? '',
+                imageBytes: capturedBytes,
+                fileName: webShareFileName,
+              );
+              await commitRecord();
+              await shareFuture;
+              return;
+            }
             await commitRecord();
-            ShareHelper.shareToWhatsApp(
+            await ShareHelper.shareToWhatsApp(
               text: fullShareText,
               imagePath: capturedPath ?? '',
             );
           },
           onShareTelegram: () async {
+            if (kIsWeb) {
+              final shareFuture = ShareHelper.shareToTelegram(
+                text: fullShareText,
+                imagePath: capturedPath ?? '',
+                imageBytes: capturedBytes,
+                fileName: webShareFileName,
+              );
+              await commitRecord();
+              await shareFuture;
+              return;
+            }
             await commitRecord();
-            ShareHelper.shareToTelegram(
+            await ShareHelper.shareToTelegram(
               text: fullShareText,
               imagePath: capturedPath ?? '',
             );
           },
           onSave: () async {
+            if (kIsWeb) {
+              // iOS Safari: buka share sheet agar user bisa pilih
+              // "Simpan Gambar" dan foto benar-benar masuk Galeri.
+              final saveFuture = ShareHelper.savePhotoToGalleryOutcome(
+                capturedPath,
+                imageBytes: capturedBytes,
+                fileName: webShareFileName,
+                shareSheetOnWeb: true,
+              );
+              // Caption disalin juga di sini: tap tombol = gesture user, jadi
+              // Safari masih mengizinkan clipboard walau auto-copy tadi ditolak.
+              unawaited(() async {
+                try {
+                  await Clipboard.setData(ClipboardData(text: fullShareText));
+                } catch (_) {}
+              }());
+              await commitRecord();
+              final outcome = await saveFuture;
+              if (modalCtx.mounted) Navigator.of(modalCtx).pop();
+              if (mounted) {
+                setState(() {
+                  _captureStep = 0;
+                  _isProcessingAI = false;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Laporan tersimpan. ${outcome.saveHint}'),
+                    backgroundColor: outcome == WebShareOutcome.failed
+                        ? Colors.redAccent
+                        : outcome == WebShareOutcome.cancelled
+                        ? AppColors.warning
+                        : AppColors.success,
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+              }
+              return;
+            }
             await commitRecord();
             if (modalCtx.mounted) Navigator.of(modalCtx).pop();
             if (mounted) {
@@ -1649,7 +2078,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
 
     final currentAddress = _location?.fullAddress ?? _activePos.fullAddress;
     final isDark = ThemeService.isDarkMode(context);
-    final scaffoldBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFFAF8F5);
+    final scaffoldBg = isDark
+        ? const Color(0xFF0F172A)
+        : const Color(0xFFFAF8F5);
     final barBg = isDark ? const Color(0xFF0F172A) : Colors.white;
 
     return Scaffold(
@@ -1777,8 +2208,14 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                         // Animated Focus Reticle Ring (Tap-to-focus visual feedback)
                         if (_showFocusRing && _focusPoint != null)
                           Positioned(
-                            left: (_focusPoint!.dx - 28).clamp(0.0, (frameW - 56).clamp(0.0, frameW)),
-                            top: (_focusPoint!.dy - 28).clamp(0.0, (frameH - 56).clamp(0.0, frameH)),
+                            left: (_focusPoint!.dx - 28).clamp(
+                              0.0,
+                              (frameW - 56).clamp(0.0, frameW),
+                            ),
+                            top: (_focusPoint!.dy - 28).clamp(
+                              0.0,
+                              (frameH - 56).clamp(0.0, frameH),
+                            ),
                             child: IgnorePointer(
                               child: TweenAnimationBuilder<double>(
                                 key: ValueKey(_focusPoint),
@@ -1799,7 +2236,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                         borderRadius: BorderRadius.circular(8),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: const Color(0xFFFACC15).withValues(alpha: 0.35),
+                                            color: const Color(
+                                              0xFFFACC15,
+                                            ).withValues(alpha: 0.35),
                                             blurRadius: 8,
                                             spreadRadius: 1,
                                           ),
@@ -1811,10 +2250,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                             color: Color(0xFFFACC15),
                                             shape: BoxShape.circle,
                                           ),
-                                          child: SizedBox(
-                                            width: 5,
-                                            height: 5,
-                                          ),
+                                          child: SizedBox(width: 5, height: 5),
                                         ),
                                       ),
                                     ),
@@ -1862,7 +2298,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                     width: 36,
                                     height: 36,
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.7),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.7,
+                                      ),
                                       shape: BoxShape.circle,
                                       border: Border.all(
                                         color: AppColors.accent.withValues(
@@ -1904,16 +2342,15 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                   right: 0,
                   height: topBarH,
                   child: Container(
-                    color: isFull
-                        ? Colors.transparent
-                        : barBg,
+                    color: isFull ? Colors.transparent : barBg,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Hamburger Menu / Sidebar Drawer Icon dengan realtime badge Daily Task
                         ValueListenableBuilder<int>(
-                          valueListenable: DailyTaskService.pendingCountNotifier,
+                          valueListenable:
+                              DailyTaskService.pendingCountNotifier,
                           builder: (context, pendingCount, _) {
                             return Semantics(
                               label: 'Buka menu utama',
@@ -1930,53 +2367,62 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                           : const Color(0xFFF1F5F9),
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: isDark ? Colors.white24 : AppColors.cardBorder,
+                                        color: isDark
+                                            ? Colors.white24
+                                            : AppColors.cardBorder,
                                         width: 0.8,
                                       ),
                                     ),
                                     child: IconButton(
                                       padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 44,
+                                        minHeight: 44,
+                                      ),
                                       icon: Icon(
                                         Icons.menu_rounded,
-                                        color: isDark ? Colors.white : AppColors.textPrimary,
+                                        color: isDark
+                                            ? Colors.white
+                                            : AppColors.textPrimary,
                                         size: 20,
                                       ),
-                                      onPressed: () =>
-                                          _scaffoldKey.currentState?.openDrawer(),
+                                      onPressed: () => _scaffoldKey.currentState
+                                          ?.openDrawer(),
                                     ),
                                   ),
-                                if (pendingCount > 0)
-                                  Positioned(
-                                    top: -2,
-                                    right: -2,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFFEF4444),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      constraints: const BoxConstraints(
-                                        minWidth: 16,
-                                        minHeight: 16,
-                                      ),
-                                      child: Text(
-                                        pendingCount > 99 ? '99+' : '$pendingCount',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w900,
-                                          height: 1.0,
+                                  if (pendingCount > 0)
+                                    Positioned(
+                                      top: -2,
+                                      right: -2,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFFEF4444),
+                                          shape: BoxShape.circle,
                                         ),
-                                        textAlign: TextAlign.center,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 16,
+                                          minHeight: 16,
+                                        ),
+                                        child: Text(
+                                          pendingCount > 99
+                                              ? '99+'
+                                              : '$pendingCount',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w900,
+                                            height: 1.0,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
 
                         const SizedBox(width: 8),
 
@@ -1985,7 +2431,10 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                           behavior: HitTestBehavior.opaque,
                           onTap: _showRatioPickerModal,
                           child: ConstrainedBox(
-                            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+                            constraints: const BoxConstraints(
+                              minHeight: 44,
+                              minWidth: 44,
+                            ),
                             child: Container(
                               height: 38,
                               padding: const EdgeInsets.symmetric(
@@ -1993,10 +2442,14 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: isDark ? Colors.black.withValues(alpha: 0.45) : AppColors.surfaceContainerLow,
+                                color: isDark
+                                    ? Colors.black.withValues(alpha: 0.45)
+                                    : AppColors.surfaceContainerLow,
                                 borderRadius: BorderRadius.circular(19),
                                 border: Border.all(
-                                  color: isDark ? Colors.white24 : AppColors.cardBorder,
+                                  color: isDark
+                                      ? Colors.white24
+                                      : AppColors.cardBorder,
                                   width: 0.8,
                                 ),
                               ),
@@ -2012,7 +2465,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                   Text(
                                     _aspectRatio.label,
                                     style: TextStyle(
-                                      color: isDark ? Colors.white : AppColors.textPrimary,
+                                      color: isDark
+                                          ? Colors.white
+                                          : AppColors.textPrimary,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
                                       fontFamily: 'PlusJakartaSans',
@@ -2021,7 +2476,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                   const SizedBox(width: 2),
                                   Icon(
                                     Icons.arrow_drop_down_rounded,
-                                    color: isDark ? Colors.white70 : AppColors.textSecondary,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : AppColors.textSecondary,
                                     size: 16,
                                   ),
                                 ],
@@ -2037,7 +2494,10 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                           behavior: HitTestBehavior.opaque,
                           onTap: _isCountingDown ? null : _showTimerPickerModal,
                           child: ConstrainedBox(
-                            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+                            constraints: const BoxConstraints(
+                              minHeight: 44,
+                              minWidth: 44,
+                            ),
                             child: Container(
                               height: 38,
                               padding: const EdgeInsets.symmetric(
@@ -2047,12 +2507,16 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                               decoration: BoxDecoration(
                                 color: _timerSeconds > 0
                                     ? AppColors.accent.withValues(alpha: 0.22)
-                                    : (isDark ? Colors.black.withValues(alpha: 0.45) : AppColors.surfaceContainerLow),
+                                    : (isDark
+                                          ? Colors.black.withValues(alpha: 0.45)
+                                          : AppColors.surfaceContainerLow),
                                 borderRadius: BorderRadius.circular(19),
                                 border: Border.all(
                                   color: _timerSeconds > 0
                                       ? AppColors.accent
-                                      : (isDark ? Colors.white24 : AppColors.cardBorder),
+                                      : (isDark
+                                            ? Colors.white24
+                                            : AppColors.cardBorder),
                                   width: 0.8,
                                 ),
                               ),
@@ -2065,7 +2529,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                         : Icons.timer_outlined,
                                     color: _timerSeconds > 0
                                         ? AppColors.accent
-                                        : (isDark ? Colors.white70 : AppColors.textSecondary),
+                                        : (isDark
+                                              ? Colors.white70
+                                              : AppColors.textSecondary),
                                     size: 15,
                                   ),
                                   const SizedBox(width: 5),
@@ -2075,8 +2541,10 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                         : 'Timer',
                                     style: TextStyle(
                                       color: _timerSeconds > 0
-                                        ? AppColors.accent
-                                        : (isDark ? Colors.white : AppColors.textPrimary),
+                                          ? AppColors.accent
+                                          : (isDark
+                                                ? Colors.white
+                                                : AppColors.textPrimary),
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
                                       fontFamily: 'PlusJakartaSans',
@@ -2087,7 +2555,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                     Icons.arrow_drop_down_rounded,
                                     color: _timerSeconds > 0
                                         ? AppColors.accent
-                                        : (isDark ? Colors.white70 : AppColors.textSecondary),
+                                        : (isDark
+                                              ? Colors.white70
+                                              : AppColors.textSecondary),
                                     size: 16,
                                   ),
                                 ],
@@ -2113,13 +2583,23 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.black.withValues(alpha: 0.45) : const Color(0xFFF1F5F9),
+                              color: isDark
+                                  ? Colors.black.withValues(alpha: 0.45)
+                                  : const Color(0xFFF1F5F9),
                               shape: BoxShape.circle,
-                              border: Border.all(color: isDark ? Colors.white24 : AppColors.cardBorder, width: 0.8),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white24
+                                    : AppColors.cardBorder,
+                                width: 0.8,
+                              ),
                             ),
                             child: IconButton(
                               padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                              constraints: const BoxConstraints(
+                                minWidth: 44,
+                                minHeight: 44,
+                              ),
                               icon: Icon(
                                 _flashMode == FlashMode.off
                                     ? Icons.flash_off_rounded
@@ -2129,7 +2609,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                                 ? Icons.flashlight_on_rounded
                                                 : Icons.flash_on_rounded)),
                                 color: _flashMode == FlashMode.off
-                                    ? (isDark ? Colors.white70 : AppColors.textSecondary)
+                                    ? (isDark
+                                          ? Colors.white70
+                                          : AppColors.textSecondary)
                                     : (_flashMode == FlashMode.torch
                                           ? Colors.cyanAccent
                                           : Colors.amber),
@@ -2150,16 +2632,28 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.black.withValues(alpha: 0.45) : const Color(0xFFF1F5F9),
+                              color: isDark
+                                  ? Colors.black.withValues(alpha: 0.45)
+                                  : const Color(0xFFF1F5F9),
                               shape: BoxShape.circle,
-                              border: Border.all(color: isDark ? Colors.white24 : AppColors.cardBorder, width: 0.8),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white24
+                                    : AppColors.cardBorder,
+                                width: 0.8,
+                              ),
                             ),
                             child: IconButton(
                               padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                              constraints: const BoxConstraints(
+                                minWidth: 44,
+                                minHeight: 44,
+                              ),
                               icon: Icon(
                                 Icons.flip_camera_ios_rounded,
-                                color: isDark ? Colors.white : AppColors.textPrimary,
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
                                 size: 18,
                               ),
                               onPressed: _toggleCameraFlip,
@@ -2206,7 +2700,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                 boxShadow: isSelected
                                     ? [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.35),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.35,
+                                          ),
                                           blurRadius: 6,
                                           offset: const Offset(0, 2),
                                         ),
@@ -2242,9 +2738,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                   height: bottomBarH,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isFull
-                          ? Colors.transparent
-                          : barBg,
+                      color: isFull ? Colors.transparent : barBg,
                       gradient: isFull
                           ? LinearGradient(
                               begin: Alignment.topCenter,
@@ -2285,12 +2779,16 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                         statusText: _captureStep == 1
                             ? 'Memproses foto'
                             : _captureStep == 2
-                                ? 'Mengirim ke AI'
-                                : _captureStep == 3
-                                    ? 'Sedang diverifikasi'
-                                    : 'Selesai',
-                        templateName: _selectedTemplate.jenis == TemplateCategory.absensi
-                            ? AbsensiSetupService.instance.selectedKategori.displayName
+                            ? 'Mengirim ke AI'
+                            : _captureStep == 3
+                            ? 'Sedang diverifikasi'
+                            : 'Selesai',
+                        templateName:
+                            _selectedTemplate.jenis == TemplateCategory.absensi
+                            ? AbsensiSetupService
+                                  .instance
+                                  .selectedKategori
+                                  .displayName
                             : _selectedTemplate.nama,
                         onFastBypass: _triggerFastBypass,
                       ),
@@ -2311,7 +2809,10 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: Colors.black.withValues(alpha: 0.7),
-                                border: Border.all(color: Colors.white, width: 3),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 3,
+                                ),
                               ),
                               child: Center(
                                 child: Text(
@@ -2328,14 +2829,18 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                             Text(
                               'Foto dalam $_countdownValue detik',
                               style: const TextStyle(
-                                  color: Colors.white, fontSize: 13),
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
                             ),
                             const SizedBox(height: 12),
                             GestureDetector(
                               onTap: _cancelTimer,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(20),
@@ -2343,13 +2848,19 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.close,
-                                        color: Colors.black, size: 16),
+                                    Icon(
+                                      Icons.close,
+                                      color: Colors.black,
+                                      size: 16,
+                                    ),
                                     SizedBox(width: 4),
-                                    Text('Batal',
-                                        style: TextStyle(
-                                            color: Colors.black,
-                                            fontWeight: FontWeight.w700)),
+                                    Text(
+                                      'Batal',
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -2367,7 +2878,10 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
     );
   }
 
-  Widget _buildAttendanceShiftShortcutPill(bool isTransparent, {bool isDark = true}) {
+  Widget _buildAttendanceShiftShortcutPill(
+    bool isTransparent, {
+    bool isDark = true,
+  }) {
     final absSetup = AbsensiSetupService.instance;
     final isCheckedInActive = StorageService.hasCheckedInTodayWithoutCheckOut();
     final lastCheckIn = StorageService.getLastCheckInTime();
@@ -2382,9 +2896,15 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
 
     if (isQaBypass) {
       final isPulang = absSetup.tipeLaporan == 'Pulang';
-      label = isPulang ? '⚡ Pulang : $shiftShort (QA)' : '⚡ Masuk : $shiftShort (QA)';
-      accentColor = isPulang ? const Color(0xFF38BDF8) : const Color(0xFF4ADE80);
-    } else if (isCheckedInActive && lastCheckIn != null && now.isAfter(lastCheckIn)) {
+      label = isPulang
+          ? '⚡ Pulang : $shiftShort (QA)'
+          : '⚡ Masuk : $shiftShort (QA)';
+      accentColor = isPulang
+          ? const Color(0xFF38BDF8)
+          : const Color(0xFF4ADE80);
+    } else if (isCheckedInActive &&
+        lastCheckIn != null &&
+        now.isAfter(lastCheckIn)) {
       final diff = now.difference(lastCheckIn);
       final hours = diff.inHours;
       final minutes = diff.inMinutes.remainder(60);
@@ -2412,7 +2932,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
           absSetup.updateTipe('Masuk');
         }
         label = 'Kerja : $shiftShort (${hours}j ${minutes}m)';
-        accentColor = const Color(0xFFF59E0B); // Amber hangat (sedang dinas aktif)
+        accentColor = const Color(
+          0xFFF59E0B,
+        ); // Amber hangat (sedang dinas aktif)
       }
     } else {
       // Tidak sedang berdinas / sudah absen pulang
@@ -2423,13 +2945,16 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
       accentColor = const Color(0xFF4ADE80); // Emerald green
     }
 
-    final isModePulangTap = absSetup.tipeLaporan == 'Pulang' &&
-        (isQaBypass || (isCheckedInActive && lastCheckIn != null &&
-         AbsensiSetupService.isEligibleForAutoPulang(
-           shift: shift,
-           checkInTime: lastCheckIn,
-           currentTime: now,
-         )));
+    final isModePulangTap =
+        absSetup.tipeLaporan == 'Pulang' &&
+        (isQaBypass ||
+            (isCheckedInActive &&
+                lastCheckIn != null &&
+                AbsensiSetupService.isEligibleForAutoPulang(
+                  shift: shift,
+                  checkInTime: lastCheckIn,
+                  currentTime: now,
+                )));
 
     return GestureDetector(
       onLongPress: _toggleSpvQaBypass,
@@ -2525,9 +3050,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
             behavior: HitTestBehavior.opaque,
             onTap: () {
               HapticFeedback.lightImpact();
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const GalleryScreen()),
-              );
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const GalleryScreen()));
             },
             child: Padding(
               padding: const EdgeInsets.only(bottom: 4),
@@ -2540,23 +3065,30 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                     decoration: BoxDecoration(
                       color: isTransparent
                           ? Colors.black.withValues(alpha: 0.45)
-                          : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                          : (isDark
+                                ? const Color(0xFF1E293B)
+                                : const Color(0xFFF1F5F9)),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: isTransparent
                             ? Colors.white38
-                            : (isDark ? const Color(0xFF334155) : AppColors.cardBorder),
+                            : (isDark
+                                  ? const Color(0xFF334155)
+                                  : AppColors.cardBorder),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: isTransparent ? 0.3 : 0.06),
+                          color: Colors.black.withValues(
+                            alpha: isTransparent ? 0.3 : 0.06,
+                          ),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
                       ],
                     ),
-                    child: (lastSubmission != null &&
+                    child:
+                        (lastSubmission != null &&
                             lastSubmission.imagePath != null &&
                             lastSubmission.imagePath!.isNotEmpty)
                         ? ClipRRect(
@@ -2569,7 +3101,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                 Icons.photo_library_outlined,
                                 color: isTransparent
                                     ? Colors.white
-                                    : (isDark ? Colors.white : AppColors.primary),
+                                    : (isDark
+                                          ? Colors.white
+                                          : AppColors.primary),
                                 size: 22,
                               ),
                             ),
@@ -2578,7 +3112,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                             Icons.photo_library_outlined,
                             color: isTransparent
                                 ? Colors.white70
-                                : (isDark ? Colors.white70 : AppColors.textSecondary),
+                                : (isDark
+                                      ? Colors.white70
+                                      : AppColors.textSecondary),
                             size: 22,
                           ),
                   ),
@@ -2591,7 +3127,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                       fontFamily: 'PlusJakartaSans',
                       color: isTransparent
                           ? Colors.white70
-                          : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
+                          : (isDark
+                                ? const Color(0xFF94A3B8)
+                                : AppColors.textSecondary),
                     ),
                   ),
                 ],
@@ -2607,7 +3145,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
             _buildAttendanceShiftShortcutPill(isTransparent, isDark: isDark),
             const SizedBox(height: 8),
             Semantics(
-              label: _isCountingDown ? 'Batalkan timer foto' : 'Ambil foto verifikasi',
+              label: _isCountingDown
+                  ? 'Batalkan timer foto'
+                  : 'Ambil foto verifikasi',
               button: true,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -2634,10 +3174,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: (_isProcessingAI
-                                ? Colors.black
-                                : AppColors.accent)
-                            .withValues(alpha: 0.35),
+                        color:
+                            (_isProcessingAI ? Colors.black : AppColors.accent)
+                                .withValues(alpha: 0.35),
                         blurRadius: 12,
                         spreadRadius: 1.0,
                         offset: const Offset(0, 2),
@@ -2650,8 +3189,10 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                       color: _isProcessingAI
                           ? Colors.grey.shade600
                           : (isTransparent
-                              ? Colors.white
-                              : (isDark ? AppColors.primary : const Color(0xFF1E448D))),
+                                ? Colors.white
+                                : (isDark
+                                      ? AppColors.primary
+                                      : const Color(0xFF1E448D))),
                       shape: BoxShape.circle,
                     ),
                     child: Center(
@@ -2661,7 +3202,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                               height: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
                               ),
                             )
                           : Icon(
@@ -2700,17 +3243,23 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                     decoration: BoxDecoration(
                       color: isTransparent
                           ? Colors.black.withValues(alpha: 0.45)
-                          : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                          : (isDark
+                                ? const Color(0xFF1E293B)
+                                : const Color(0xFFF1F5F9)),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: isTransparent
                             ? Colors.white38
-                            : (isDark ? const Color(0xFF334155) : AppColors.cardBorder),
+                            : (isDark
+                                  ? const Color(0xFF334155)
+                                  : AppColors.cardBorder),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: isTransparent ? 0.3 : 0.06),
+                          color: Colors.black.withValues(
+                            alpha: isTransparent ? 0.3 : 0.06,
+                          ),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -2733,7 +3282,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                       fontFamily: 'PlusJakartaSans',
                       color: isTransparent
                           ? Colors.white70
-                          : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
+                          : (isDark
+                                ? const Color(0xFF94A3B8)
+                                : AppColors.textSecondary),
                     ),
                   ),
                 ],
@@ -2745,4 +3296,3 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
     );
   }
 }
-

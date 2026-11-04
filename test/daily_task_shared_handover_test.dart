@@ -117,7 +117,7 @@ void main() {
         branch: AppBranch.manado,
       );
 
-      expect(result, contains('1. Pengecoran kabel sensor (bersama Budi)'));
+      expect(result, contains('1. Pengecoran kabel sensor - SL (bersama Budi)'));
       expect(result, contains('(lanjutan dari Andi)'));
     });
   });

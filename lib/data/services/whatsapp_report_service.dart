@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/utils/share_helper.dart';
+import '../../core/utils/web_bytes/web_bytes.dart';
 import '../models/maintenance_submission.dart';
 import '../models/template_model.dart';
 import '../repositories/auth_repository.dart';
@@ -59,6 +60,56 @@ class WhatsAppReportService {
   static String formatIndonesianDate(DateTime dt) {
     final local = dt.toLocal();
     return '${local.day} ${_monthsList[local.month]} ${local.year}';
+  }
+
+  /// Format satu pekerjaan yang belum selesai.
+  /// Bentuknya: judul di baris pertama, alasan dalam kurung di baris kedua.
+  /// Contoh:
+  ///   Pengecatan pulau
+  ///   (Cuaca hujan)
+  static String formatUnfinishedJob(String judul, {String? alasan}) {
+    final j = judul.trim();
+    final a = (alasan ?? '').trim();
+    if (j.isEmpty) return '';
+    if (a.isEmpty || a == '-') return j;
+    return '$j\n($a)';
+  }
+
+  /// Pecah satu baris teks bebas jadi judul + alasan.
+  /// "Pengecatan pulau (Cuaca hujan)" -> judul "Pengecatan pulau", alasan "Cuaca hujan"
+  /// "Pengecatan pulau - Cuaca hujan" -> judul + alasan
+  static ({String judul, String? alasan}) splitJobAndAlasan(String line) {
+    var text = line.trim();
+    text = text.replaceFirst(RegExp(r'^(\d+[\.\)]|\-|\*|•)\s*'), '').trim();
+    if (text.isEmpty) return (judul: '', alasan: null);
+
+    final paren = RegExp(r'^(.*?)\s*\(([^()]+)\)\s*$').firstMatch(text);
+    if (paren != null) {
+      return (judul: paren.group(1)!.trim(), alasan: paren.group(2)!.trim());
+    }
+    final dash = RegExp(r'^(.*?)\s+[-–—]\s+(.*)$').firstMatch(text);
+    if (dash != null) {
+      return (judul: dash.group(1)!.trim(), alasan: dash.group(2)!.trim());
+    }
+    return (judul: text, alasan: null);
+  }
+
+  /// Daftar pekerjaan yang belum selesai dari teks bebas teknisi.
+  /// Alasan ditulis di baris berikutnya dalam kurung.
+  static String formatUnfinishedJobList(String rawText) {
+    final lines = rawText
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty && l != '-')
+        .toList();
+    if (lines.isEmpty) return '-';
+    return lines
+        .map((l) {
+          final parts = splitJobAndAlasan(l);
+          return formatUnfinishedJob(parts.judul, alasan: parts.alasan);
+        })
+        .where((l) => l.isNotEmpty)
+        .join('\n');
   }
 
   /// Format daftar baris (multiline) menjadi auto-numbering (1. , 2. , 3. dst)
@@ -758,9 +809,17 @@ class WhatsAppReportService {
         break;
 
       case TemplateCategory.maintPos:
+        final isBooth = submission.points.any(
+          (p) => p.pointId.startsWith('booth_'),
+        );
+        final unitWord = isBooth ? 'Booth' : 'Pos';
         buffer.writeln(greeting);
         buffer.writeln('');
-        buffer.writeln('Izin melaporkan hasil maintenance POS');
+        buffer.writeln(
+          isBooth
+              ? 'Izin melaporkan hasil maintenance BOOTH'
+              : 'Izin melaporkan hasil maintenance POS',
+        );
         buffer.writeln('');
         buffer.writeln('Lokasi : $lokasi');
         final outCount = unitCount ?? 1;
@@ -777,9 +836,10 @@ class WhatsAppReportService {
           if (set.isNotEmpty) {
             final sorted = set.toList()..sort();
             if (sorted.length > 1) {
-              autoRangeNote = 'Pos ${sorted.first} - Pos ${sorted.last}';
+              autoRangeNote =
+                  '$unitWord ${sorted.first} - $unitWord ${sorted.last}';
             } else {
-              autoRangeNote = 'Pos ${sorted.first}';
+              autoRangeNote = '$unitWord ${sorted.first}';
             }
           }
         }
@@ -791,7 +851,9 @@ class WhatsAppReportService {
                         ? '1 - $outCount'
                         : ''));
         final outNotes = effectiveNotes.isNotEmpty ? ' ($effectiveNotes)' : '';
-        buffer.writeln('Gate Out : $outCount$outNotes');
+        buffer.writeln(
+          isBooth ? 'Booth : $outCount$outNotes' : 'Gate Out : $outCount$outNotes',
+        );
         buffer.writeln('Tanggal : $dateStr');
         buffer.writeln('IT Support : $supportName');
         buffer.writeln('');
@@ -814,14 +876,22 @@ class WhatsAppReportService {
         );
         buffer.writeln('');
         buffer.writeln('Lokasi : $lokasi');
-        // Gate In info: use unitCount if provided, else derive from points
+        // Header ikut SOP yang dipilih: IN, OUT (Bali/HO), atau PEP (semua cabang).
+        final isPep = submission.points.any(
+          (p) => p.label.toLowerCase().contains('(pep)'),
+        );
+        final isOut = !isPep &&
+            submission.points.any(
+              (p) => p.label.toLowerCase().contains('(out)'),
+            );
+        final roleLabel = isPep ? 'Manless PEP' : (isOut ? 'Gate Out' : 'Gate In');
+        final manlessUnits = <String>{
+          for (final p in submission.points) _gateName(p.label),
+        }.length;
         final manlessCount =
-            unitCount ??
-            (submission.points.length ~/ 8 == 0
-                ? 1
-                : submission.points.length ~/ 8);
+            unitCount ?? (manlessUnits == 0 ? 1 : manlessUnits);
         if (manlessCount > 1) {
-          buffer.writeln('Gate In : $manlessCount Unit');
+          buffer.writeln('$roleLabel : $manlessCount Unit');
         } else {
           // Try to extract gate identifier from first point if available
           String gateLabel = '1';
@@ -831,7 +901,7 @@ class WhatsAppReportService {
             final num = RegExp(r'\d+').firstMatch(firstGate);
             if (num != null) gateLabel = num.group(0)!;
           }
-          buffer.writeln('Gate In : $gateLabel');
+          buffer.writeln('$roleLabel : $gateLabel');
         }
         buffer.writeln('Tanggal : $dateStr');
         buffer.writeln('IT Support : $supportName');
@@ -1040,6 +1110,25 @@ class WhatsAppReportService {
       return 'koneksi ke jaringan stabil tidak RTO';
     }
 
+    // Booth Parkir
+    if (l.contains('pembersihan booth')) {
+      return 'booth dalam keadaan bersih dan rapi';
+    }
+    if (l.contains('pembersihan printer')) {
+      return 'printer booth bersih, head & roller bebas debu kertas';
+    }
+    if (l.contains('standarisasi item booth') || l.contains('harvard')) {
+      return 'item di atas booth lengkap (printer & tab/device Harvard)';
+    }
+    if (l.contains('tiket printer') ||
+        l.contains('gate out') ||
+        l.contains('barcode')) {
+      return 'tiket tercetak baik dan barcode terbaca jelas';
+    }
+    if (l.contains('aplikasi payment')) {
+      return 'aplikasi payment POS terbuka & sistem berjalan normal';
+    }
+
     // Barrier Gate
     if (l.contains('dudukan mesin') ||
         l.contains('dynabolt') ||
@@ -1088,6 +1177,9 @@ class WhatsAppReportService {
     }
     if (l.contains('jalur kabel') || l.contains('stopkontak')) {
       return 'jalur kabel rapi terikat & stopkontak aman';
+    }
+    if (l.contains('kipas angin') && l.contains('pembersihan')) {
+      return 'baling-baling & cover kipas angin bersih bebas debu';
     }
     if (l.contains('standarisasi item') ||
         l.contains('meja pos') ||
@@ -1141,6 +1233,12 @@ class WhatsAppReportService {
     }
     if (l.contains('kunci manless') || l.contains('gembok')) {
       return 'kunci manless bersih, tidak berkarat, dan terpasang kokoh';
+    }
+    if (l.contains('mini pc') ||
+        l.contains('aino') ||
+        l.contains('scanner') ||
+        l.contains('layar monitor')) {
+      return 'bersih dan tidak berdebu';
     }
 
     return 'kondisi masih bersih dan terpasang kencang';
@@ -1587,12 +1685,18 @@ class WhatsAppReportService {
     StringBuffer buffer,
     List<MaintenancePointResult> points,
   ) {
+    // Mode Booth Parkir punya 5 poin sendiri, jangan dipaksa masuk 7 tema POS.
+    if (points.any((p) => p.pointId.startsWith('booth_'))) {
+      _appendBoothGroupedNotes(buffer, points);
+      return;
+    }
     if (points.isEmpty) {
       const defaults = [
         'Pembersihan total printer pos',
         'Kerapian jalur kabel & stopkontak',
         'Standarisasi item dalam pos',
         'Fungsi sistem aplikasi kasir',
+        'Pembersihan kipas angin',
         'Kunci pintu pos (grendel pintu)',
         'Stiker BSS Parking & Parkways',
         'Kondisi pulau parkir',
@@ -1637,7 +1741,7 @@ class WhatsAppReportService {
         'kelengkapan meja',
         'meja pos',
         'kipas angin',
-      ]),
+      ]).where((p) => !p.label.toLowerCase().contains('pembersihan kipas')).toList(),
     );
     _appendThematicModel1Line(
       buffer: buffer,
@@ -1649,27 +1753,101 @@ class WhatsAppReportService {
         'aplikasi kasir',
       ]),
     );
+    // Laporan lama (sebelum poin kipas ada) tidak boleh tampil "belum diperiksa".
+    final kipas = filterByKeywords(['pembersihan kipas']);
+    var no = 5;
+    if (kipas.isNotEmpty) {
+      _appendThematicModel1Line(
+        buffer: buffer,
+        no: no++,
+        themeLabel: 'Pembersihan kipas angin',
+        relevant: kipas,
+      );
+    }
     _appendThematicModel1Line(
       buffer: buffer,
-      no: 5,
+      no: no++,
       themeLabel: 'Kunci pintu pos (grendel pintu)',
       relevant: filterByKeywords(['kunci pintu', 'grendel pintu']),
     );
     _appendThematicModel1Line(
       buffer: buffer,
-      no: 6,
+      no: no++,
       themeLabel: 'Stiker BSS Parking & Parkways',
       relevant: filterByKeywords(['stiker']),
     );
     _appendThematicModel1Line(
       buffer: buffer,
-      no: 7,
+      no: no,
       themeLabel: 'Kondisi pulau parkir',
       relevant: filterByKeywords([
         'kondisi pulau',
         'pulau parkir',
         'ujung pulau',
       ]),
+    );
+  }
+
+  /// Laporan Booth Parkir (Model 1 Grouping, 5 poin)
+  static void _appendBoothGroupedNotes(
+    StringBuffer buffer,
+    List<MaintenancePointResult> points,
+  ) {
+    if (points.isEmpty) {
+      const defaults = [
+        'Pembersihan printer booth',
+        'Pembersihan booth',
+        'Standarisasi item booth',
+        'Tiket printer gate out',
+        'Aplikasi payment',
+      ];
+      for (int i = 0; i < defaults.length; i++) {
+        buffer.writeln('${i + 1}. *${defaults[i].trim()}* :');
+        buffer.writeln('   ✅ ${_defaultObservationForTheme(defaults[i])}');
+      }
+      return;
+    }
+
+    List<MaintenancePointResult> filterByKeywords(List<String> keywords) {
+      return points.where((p) {
+        final l = p.label.toLowerCase();
+        return keywords.any((k) => l.contains(k));
+      }).toList();
+    }
+
+    _appendThematicModel1Line(
+      buffer: buffer,
+      no: 1,
+      themeLabel: 'Pembersihan printer booth',
+      relevant: filterByKeywords(['pembersihan printer']),
+    );
+    _appendThematicModel1Line(
+      buffer: buffer,
+      no: 2,
+      themeLabel: 'Pembersihan booth',
+      relevant: filterByKeywords(['pembersihan booth']),
+    );
+    _appendThematicModel1Line(
+      buffer: buffer,
+      no: 3,
+      themeLabel: 'Standarisasi item booth',
+      relevant: filterByKeywords([
+        'standarisasi item',
+        'item booth',
+        'harvard',
+      ]),
+    );
+    _appendThematicModel1Line(
+      buffer: buffer,
+      no: 4,
+      themeLabel: 'Tiket printer gate out',
+      relevant: filterByKeywords(['tiket printer', 'gate out', 'barcode']),
+    );
+    _appendThematicModel1Line(
+      buffer: buffer,
+      no: 5,
+      themeLabel: 'Aplikasi payment',
+      relevant: filterByKeywords(['aplikasi payment', 'payment pos']),
     );
   }
 
@@ -1703,74 +1881,86 @@ class WhatsAppReportService {
       }).toList();
     }
 
-    _appendThematicModel1Line(
-      buffer: buffer,
-      no: 1,
-      themeLabel: 'Pembersihan total printer tiket',
-      relevant: filterByKeywords([
-        'printer tiket',
-        'pembersihan printer',
-        'pembersihan total printer',
-      ]),
-    );
-    _appendThematicModel1Line(
-      buffer: buffer,
-      no: 2,
-      themeLabel: 'Kebersihan dalam manless & kerapihan kabel',
-      relevant: filterByKeywords([
-        'kabel dalam manless',
-        'kebersihan dalam manless',
-        'kebersihan & kerapihan kabel',
-      ]),
-    );
-    _appendThematicModel1Line(
-      buffer: buffer,
-      no: 3,
-      themeLabel: 'Fungsi tombol struk & tiket keluar',
-      relevant: filterByKeywords([
-        'tombol struk',
-        'tiket keluar',
-        'tombol tiket',
-      ]),
-    );
-    _appendThematicModel1Line(
-      buffer: buffer,
-      no: 4,
-      themeLabel: 'Sensor loop kendaraan (layar/LED aktif)',
-      relevant: filterByKeywords(['sensor loop', 'layar/led', 'layar lcd']),
-    );
-    _appendThematicModel1Line(
-      buffer: buffer,
-      no: 5,
-      themeLabel: 'Kebersihan luar manless & stiker panduan',
-      relevant: filterByKeywords([
-        'luar manless',
-        'stiker panduan',
-        'stiker dan tampilan',
-      ]),
-    );
-    _appendThematicModel1Line(
-      buffer: buffer,
-      no: 6,
-      themeLabel: 'Dudukan bawah manless ke pulau',
-      relevant: filterByKeywords(['dudukan bawah', 'dudukan/dinabolt']),
-    );
-    _appendThematicModel1Line(
-      buffer: buffer,
-      no: 7,
-      themeLabel: 'Kondisi fisik lantai dan beton pulau gate',
-      relevant: filterByKeywords(['beton pulau', 'lantai dan beton']),
-    );
-    _appendThematicModel1Line(
-      buffer: buffer,
-      no: 8,
-      themeLabel: 'Kunci manless & gembok',
-      relevant: filterByKeywords([
-        'kunci manless',
-        'kunci pintu manless',
-        'gembok',
-      ]),
-    );
+    final themes = <({String label, List<String> keywords})>[
+      (
+        label: 'Pembersihan total printer tiket',
+        keywords: const [
+          'printer tiket',
+          'pembersihan printer',
+          'pembersihan total printer',
+        ],
+      ),
+      (
+        label: 'Kebersihan dalam manless & kerapihan kabel',
+        keywords: const [
+          'kabel dalam manless',
+          'kebersihan dalam manless',
+          'kebersihan & kerapihan kabel',
+        ],
+      ),
+      (
+        label: 'Fungsi tombol struk & tiket keluar',
+        keywords: const ['tombol struk', 'tiket keluar', 'tombol tiket'],
+      ),
+      (
+        label: 'Sensor loop kendaraan (layar/LED aktif)',
+        keywords: const ['sensor loop', 'layar/led', 'layar lcd'],
+      ),
+      (
+        label: 'Kebersihan luar manless & stiker panduan',
+        keywords: const [
+          'luar manless',
+          'stiker panduan',
+          'stiker dan tampilan',
+        ],
+      ),
+      (
+        label: 'Dudukan bawah manless ke pulau',
+        keywords: const [
+          'dudukan bawah',
+          'dudukan/dinabolt',
+          'dudukan dynabolt',
+          'dynabolt',
+        ],
+      ),
+      (
+        label: 'Kondisi fisik lantai dan beton pulau gate',
+        keywords: const [
+          'beton pulau',
+          'lantai dan beton',
+          'fisik pulau',
+          'pulau manless',
+        ],
+      ),
+      (
+        label: 'Kunci manless & gembok',
+        keywords: const [
+          'kunci manless',
+          'kunci pintu manless',
+          'gembok',
+        ],
+      ),
+      // Tambahan khusus SOP OUT (Bali & HO): perangkat di dalam manless.
+      (label: 'Pembersihan item mini PC', keywords: const ['mini pc']),
+      (label: 'Pembersihan AINO', keywords: const ['aino']),
+      (label: 'Pembersihan scanner', keywords: const ['scanner']),
+      (label: 'Pembersihan layar monitor', keywords: const ['layar monitor']),
+    ];
+
+    var no = 0;
+    for (final theme in themes) {
+      final relevant = filterByKeywords(theme.keywords);
+      // SOP PEP/OUT hanya memuat sebagian tema; tema yang tidak ada di SOP
+      // jangan dilaporkan "belum diperiksa".
+      if (relevant.isEmpty) continue;
+      no++;
+      _appendThematicModel1Line(
+        buffer: buffer,
+        no: no,
+        themeLabel: theme.label,
+        relevant: relevant,
+      );
+    }
   }
 
   /// Laporan Server & Kasir (Model 1 Grouping)
@@ -1980,6 +2170,26 @@ class WhatsAppReportService {
     }
   }
 
+  /// Foto siap-share di web: pakai byte ber-watermark dari kamera (browser tidak
+  /// punya file lokal untuk ditulisi), fallback baca ulang dari path-nya.
+  @visibleForTesting
+  static Future<List<WebShareFile>> buildWebShareFiles(
+    MaintenanceSubmission submission,
+  ) async {
+    final sortedPoints = List<MaintenancePointResult>.from(submission.points)
+      ..sort(_comparePoints);
+    final files = <WebShareFile>[];
+    for (final pt in sortedPoints) {
+      final bytes = (pt.shareImageBytes != null && pt.shareImageBytes!.isNotEmpty)
+          ? pt.shareImageBytes!
+          : await fetchWebBytes(pt.imagePath ?? '');
+      if (bytes == null || bytes.isEmpty) continue;
+      final seq = (files.length + 1).toString().padLeft(2, '0');
+      files.add(WebShareFile(bytes: bytes, name: '${seq}_${pt.pointId}.jpg'));
+    }
+    return files;
+  }
+
   /// Bagikan laporan teks dan file-file foto sekaligus ke WhatsApp
   static Future<void> shareToWhatsApp({
     required MaintenanceSubmission submission,
@@ -1996,10 +2206,12 @@ class WhatsAppReportService {
       additionalNotes: additionalNotes,
     );
 
+    final webFiles = kIsWeb ? await buildWebShareFiles(submission) : null;
     final filePaths = await prepareSortedSharePhotos(submission);
     await ShareHelper.shareToWhatsApp(
       text: text,
       imagePaths: filePaths.isNotEmpty ? filePaths : null,
+      webFiles: webFiles != null && webFiles.isNotEmpty ? webFiles : null,
     );
   }
 
@@ -2023,6 +2235,7 @@ class WhatsAppReportService {
     await ShareHelper.shareToTelegram(
       text: text,
       imagePaths: filePaths.isNotEmpty ? filePaths : null,
+      webFiles: kIsWeb ? await buildWebShareFiles(submission) : null,
     );
   }
 }

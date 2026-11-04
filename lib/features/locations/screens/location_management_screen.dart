@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
+import '../../../data/models/user_model.dart';
+import '../../../data/repositories/auth_repository.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/branch_service.dart';
 
@@ -23,6 +25,284 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
   void initState() {
     super.initState();
     _selectedBranch = BranchService.instance.currentBranch;
+    _syncLocations();
+  }
+
+  Future<void> _syncLocations() async {
+    await LocationService.syncFromRemote();
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _showSpvConfirmDialog({
+    required String actionTitle,
+    required String description,
+    required Future<RemoteWriteResult> Function(String identity, String password)
+        onConfirm,
+    required String successMessage,
+    VoidCallback? onSuccess,
+  }) async {
+    final initialEmail = AuthRepository.instance.currentUser?.email ?? '';
+    final identityController = TextEditingController(text: initialEmail);
+    final passwordController = TextEditingController();
+    bool isLoading = false;
+    String? inlineError;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: !isLoading,
+      builder: (dlgCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDlgState) {
+            Future<void> submit() async {
+              final identity = identityController.text.trim();
+              final password = passwordController.text;
+
+              if (identity.isEmpty || password.isEmpty) {
+                setDlgState(() {
+                  inlineError = 'Username / email dan password wajib diisi.';
+                });
+                return;
+              }
+
+              setDlgState(() {
+                isLoading = true;
+                inlineError = null;
+              });
+
+              try {
+                final result = await onConfirm(identity, password);
+
+                if (!ctx.mounted) return;
+
+                switch (result) {
+                  case RemoteWriteResult.ok:
+                    Navigator.of(dlgCtx).pop();
+                    onSuccess?.call();
+                    setState(() {});
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(successMessage),
+                          backgroundColor: AppColors.success,
+                        ),
+                      );
+                    }
+                    break;
+
+                  case RemoteWriteResult.invalidCredentials:
+                    passwordController.clear();
+                    setDlgState(() {
+                      isLoading = false;
+                      inlineError = 'Username atau password salah';
+                    });
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Username atau password salah'),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                    }
+                    break;
+
+                  case RemoteWriteResult.notSupervisor:
+                    setDlgState(() {
+                      isLoading = false;
+                      inlineError = 'Hanya SPV yang bisa mengubah lokasi';
+                    });
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Hanya SPV yang bisa mengubah lokasi'),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                    }
+                    break;
+
+                  case RemoteWriteResult.offline:
+                    setDlgState(() {
+                      isLoading = false;
+                      inlineError = 'Tidak ada koneksi. Coba lagi saat online.';
+                    });
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text('Tidak ada koneksi. Coba lagi saat online.'),
+                          backgroundColor: AppColors.warning,
+                        ),
+                      );
+                    }
+                    break;
+
+                  case RemoteWriteResult.failed:
+                    setDlgState(() {
+                      isLoading = false;
+                      inlineError = 'Gagal menyimpan. Coba lagi.';
+                    });
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Gagal menyimpan. Coba lagi.'),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                    }
+                    break;
+                }
+              } catch (_) {
+                if (ctx.mounted) {
+                  setDlgState(() {
+                    isLoading = false;
+                    inlineError = 'Gagal menyimpan. Coba lagi.';
+                  });
+                }
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Gagal menyimpan. Coba lagi.'),
+                      backgroundColor: AppColors.danger,
+                    ),
+                  );
+                }
+              }
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.shield_outlined, color: AppColors.primary),
+                  SizedBox(width: 8),
+                  Text(
+                    'Konfirmasi SPV',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (description.isNotEmpty) ...[
+                      Text(
+                        description,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (inlineError != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.dangerLight,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.dangerBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              color: AppColors.danger,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                inlineError!,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: AppColors.danger,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    TextField(
+                      controller: identityController,
+                      enabled: !isLoading,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [
+                        AutofillHints.username,
+                        AutofillHints.email,
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'Username / email',
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: passwordController,
+                      enabled: !isLoading,
+                      obscureText: true,
+                      autofillHints: const [AutofillHints.password],
+                      decoration: const InputDecoration(
+                        labelText: 'Password SPV',
+                        isDense: true,
+                      ),
+                      onSubmitted: isLoading ? null : (_) => submit(),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(64, 44),
+                  ),
+                  onPressed:
+                      isLoading ? null : () => Navigator.of(dlgCtx).pop(),
+                  child: const Text('Batal'),
+                ),
+                ConstrainedBox(
+                  constraints:
+                      const BoxConstraints(minHeight: 44, minWidth: 88),
+                  child: ElevatedButton(
+                    onPressed: isLoading ? null : submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: actionTitle == 'Hapus'
+                          ? AppColors.danger
+                          : AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : Text(actionTitle),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    identityController.dispose();
+    passwordController.dispose();
   }
 
   static const List<Color> _palette = [
@@ -224,15 +504,13 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                     if (address.isEmpty) {
                       address = cabangController.text.trim().isNotEmpty
                           ? cabangController.text.trim()
-                          : (_selectedBranch == AppBranch.bali ? 'Denpasar, Bali' : 'Manado, Sulawesi Utara');
+                          : _defaultAddressFor(_selectedBranch);
                     }
 
                     final pos = PosLocation(
                       posId: isEditing
                           ? existingLocation.posId
-                          : (_selectedBranch == AppBranch.bali
-                              ? 'POS-DPS-${const Uuid().v4().substring(0, 6)}'
-                              : 'POS-${const Uuid().v4().substring(0, 6)}'),
+                          : '${_posPrefixFor(_selectedBranch)}${const Uuid().v4().substring(0, 6)}',
                       posName: nameController.text.trim(),
                       cabangName: cabangController.text.trim().isNotEmpty
                           ? cabangController.text.trim()
@@ -242,27 +520,27 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                       tagColor: selectedColor,
                       lat: lat,
                       lng: lng,
+                      explicitBranch: _selectedBranch,
                     );
 
-                    if (isEditing) {
-                      await LocationService.updateLocation(pos);
-                    } else {
-                      await LocationService.addLocation(pos);
-                    }
-
-                    setState(() {});
-                    if (dlgCtx.mounted) {
-                      Navigator.of(dlgCtx).pop();
-                    }
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Lokasi "${pos.posName}" berhasil disimpan!'),
-                          backgroundColor: AppColors.success,
-                        ),
-                      );
-                    }
+                    await _showSpvConfirmDialog(
+                      actionTitle: 'Simpan',
+                      description:
+                          'Masukkan kredensial SPV untuk menyimpan lokasi "${pos.posName}".',
+                      onConfirm: (identity, password) {
+                        return LocationService.saveLocationRemote(
+                          pos,
+                          identity: identity,
+                          password: password,
+                        );
+                      },
+                      successMessage: 'Lokasi tersimpan untuk semua HP',
+                      onSuccess: () {
+                        if (dlgCtx.mounted) {
+                          Navigator.of(dlgCtx).pop();
+                        }
+                      },
+                    );
                   },
                   child: const Text('Simpan'),
                 ),
@@ -275,40 +553,37 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
   }
 
   void _confirmDelete(PosLocation pos) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Hapus Lokasi?'),
-        content: Text('Hapus lokasi "${pos.posName}" [${pos.locationTag}]?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Batal & Tutup'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () async {
-              await LocationService.deleteLocation(pos.posId);
-              setState(() {});
-              if (ctx.mounted) Navigator.of(ctx).pop();
-            },
-            child: const Text('Hapus'),
-          ),
-        ],
-      ),
+    _showSpvConfirmDialog(
+      actionTitle: 'Hapus',
+      description: 'Hapus lokasi "${pos.posName}" [${pos.locationTag}]?',
+      onConfirm: (identity, password) {
+        return LocationService.deleteLocationRemote(
+          pos.posId,
+          identity: identity,
+          password: password,
+        );
+      },
+      successMessage: 'Lokasi dihapus untuk semua HP',
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isSpv =
+        AuthRepository.instance.currentUser?.role == UserRole.supervisor;
     final allLocations = LocationService.getLocationsByBranch(_selectedBranch);
     final currentPos = LocationService.currentPos;
     final isDark = ThemeService.isDarkMode(context);
-    final scaffoldBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFFAF8F5);
-    final searchFill = isDark ? const Color(0xFF1E293B) : Colors.grey.shade100;
-    final searchBorder = isDark ? const Color(0xFF334155) : Colors.grey.shade300;
-    final textPrimary = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final scaffoldBg =
+        isDark ? const Color(0xFF0B1120) : const Color(0xFFFAF8F5);
+    final searchFill =
+        isDark ? const Color(0xFF1E293B) : Colors.grey.shade100;
+    final searchBorder =
+        isDark ? const Color(0xFF334155) : Colors.grey.shade300;
+    final textPrimary =
+        isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+    final textSecondary =
+        isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
     final textMuted = isDark ? const Color(0xFF64748B) : AppColors.textMuted;
     final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
     final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
@@ -329,11 +604,12 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
         foregroundColor: Colors.white,
         title: Text('Kelola Lokasi (${_selectedBranch.name})'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add_location_alt_rounded),
-            tooltip: 'Tambah Lokasi',
-            onPressed: () => _showLocationFormDialog(),
-          ),
+          if (isSpv)
+            IconButton(
+              icon: const Icon(Icons.add_location_alt_rounded),
+              tooltip: 'Tambah Lokasi',
+              onPressed: () => _showLocationFormDialog(),
+            ),
         ],
       ),
       body: SafeArea(
@@ -344,12 +620,14 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF1E293B) : Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: isDark ? const Color(0xFF334155) : AppColors.cardBorder,
+                    color:
+                        isDark ? const Color(0xFF334155) : AppColors.cardBorder,
                   ),
                 ),
                 child: Row(
@@ -372,6 +650,46 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 ),
               ),
             ),
+            if (!isSpv)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                child: Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF1E293B).withValues(alpha: 0.6)
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF334155)
+                          : AppColors.cardBorder,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.lock_outline_rounded,
+                        size: 16,
+                        color: textMuted,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Lokasi dikelola SPV. Minta SPV kalau ada lokasi baru.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: textMuted,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: TextField(
@@ -404,189 +722,245 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
               ),
             ),
             Expanded(
-              child: filteredLocations.isEmpty
-                  ? Center(
-                      child: Text(
-                        _searchQuery.isNotEmpty
-                            ? 'Tidak ada lokasi cocok dengan "$_searchQuery"'
-                            : 'Belum ada daftar lokasi',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: textSecondary,
-                        ),
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: filteredLocations.length,
-                      separatorBuilder: (ctx, idx) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final pos = filteredLocations[index];
-                        final isCurrent = pos.posId == currentPos.posId;
-
-            return Card(
-              color: cardBg,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: isCurrent ? AppColors.primary : cardBorder,
-                  width: isCurrent ? 2 : 1,
-                ),
-              ),
-              child: ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                leading: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: pos.tagColor,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    pos.locationTag,
-                    style: const TextStyle(
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                title: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        pos.posName,
-                        softWrap: true,
-                        maxLines: 3,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight:
-                              isCurrent ? FontWeight.bold : FontWeight.w600,
-                          color: isCurrent
-                              ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
-                              : textPrimary,
-                        ),
-                      ),
-                    ),
-                    if (isCurrent)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryLight.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'AKTIF',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
+              child: RefreshIndicator(
+                onRefresh: _syncLocations,
+                child: filteredLocations.isEmpty
+                    ? LayoutBuilder(
+                        builder: (context, constraints) =>
+                            SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight),
+                            child: Center(
+                              child: Text(
+                                _searchQuery.isNotEmpty
+                                    ? 'Tidak ada lokasi cocok dengan "$_searchQuery"'
+                                    : 'Belum ada daftar lokasi',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: textSecondary,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
+                      )
+                    : ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filteredLocations.length,
+                        separatorBuilder: (ctx, idx) =>
+                            const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final pos = filteredLocations[index];
+                          final isCurrent = pos.posId == currentPos.posId;
+
+                          return Card(
+                            color: cardBg,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(
+                                color:
+                                    isCurrent ? AppColors.primary : cardBorder,
+                                width: isCurrent ? 2 : 1,
+                              ),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
+                              leading: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: pos.tagColor,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  pos.locationTag,
+                                  style: const TextStyle(
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      pos.posName,
+                                      softWrap: true,
+                                      maxLines: 3,
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: isCurrent
+                                            ? FontWeight.bold
+                                            : FontWeight.w600,
+                                        color: isCurrent
+                                            ? (isDark
+                                                ? const Color(0xFF38BDF8)
+                                                : AppColors.primary)
+                                            : textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isCurrent)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryLight
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'AKTIF',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    pos.fullAddress,
+                                    softWrap: true,
+                                    maxLines: 3,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'GPS: ${pos.lat.toStringAsFixed(6)}°N, ${pos.lng.toStringAsFixed(6)}°E',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontFamily: 'monospace',
+                                      color: textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              trailing: isSpv
+                                  ? PopupMenuButton<String>(
+                                      constraints: const BoxConstraints(
+                                        minWidth: 180,
+                                      ),
+                                      onSelected: (val) {
+                                        if (val == 'select') {
+                                          LocationService.currentPos = pos;
+                                          widget.onLocationSelected?.call(pos);
+                                          setState(() {});
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                  'Lokasi aktif diubah ke: ${pos.posName} [${pos.locationTag}]'),
+                                              backgroundColor: AppColors.primary,
+                                              duration:
+                                                  const Duration(seconds: 1),
+                                            ),
+                                          );
+                                        } else if (val == 'edit') {
+                                          _showLocationFormDialog(
+                                              existingLocation: pos);
+                                        } else if (val == 'delete') {
+                                          _confirmDelete(pos);
+                                        }
+                                      },
+                                      itemBuilder: (ctx) => [
+                                        const PopupMenuItem(
+                                          value: 'select',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.check,
+                                                  size: 16,
+                                                  color: AppColors.primary),
+                                              SizedBox(width: 8),
+                                              Text('Jadikan Lokasi Aktif'),
+                                            ],
+                                          ),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'edit',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.edit, size: 16),
+                                              SizedBox(width: 8),
+                                              Text('Edit Lokasi'),
+                                            ],
+                                          ),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.delete,
+                                                  size: 16,
+                                                  color: AppColors.danger),
+                                              SizedBox(width: 8),
+                                              Text('Hapus',
+                                                  style: TextStyle(
+                                                      color: AppColors.danger)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : null,
+                              onTap: () {
+                                LocationService.currentPos = pos;
+                                widget.onLocationSelected?.call(pos);
+                                setState(() {});
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                        'Lokasi aktif diubah ke: ${pos.posName} [${pos.locationTag}]'),
+                                    backgroundColor: AppColors.primary,
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
                       ),
-                  ],
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 4),
-                    Text(
-                      pos.fullAddress,
-                      softWrap: true,
-                      maxLines: 3,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'GPS: ${pos.lat.toStringAsFixed(6)}°N, ${pos.lng.toStringAsFixed(6)}°E',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontFamily: 'monospace',
-                        color: textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-                trailing: PopupMenuButton<String>(
-                  onSelected: (val) {
-                    if (val == 'select') {
-                      LocationService.currentPos = pos;
-                      widget.onLocationSelected?.call(pos);
-                      setState(() {});
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Lokasi aktif diubah ke: ${pos.posName} [${pos.locationTag}]'),
-                          backgroundColor: AppColors.primary,
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    } else if (val == 'edit') {
-                      _showLocationFormDialog(existingLocation: pos);
-                    } else if (val == 'delete') {
-                      _confirmDelete(pos);
-                    }
-                  },
-                  itemBuilder: (ctx) => [
-                    const PopupMenuItem(
-                      value: 'select',
-                      child: Row(
-                        children: [
-                          Icon(Icons.check, size: 16, color: AppColors.primary),
-                          SizedBox(width: 8),
-                          Text('Jadikan Lokasi Aktif'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit, size: 16),
-                          SizedBox(width: 8),
-                          Text('Edit Lokasi'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, size: 16, color: AppColors.danger),
-                          SizedBox(width: 8),
-                          Text('Hapus',
-                              style: TextStyle(color: AppColors.danger)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                onTap: () {
-                  LocationService.currentPos = pos;
-                  widget.onLocationSelected?.call(pos);
-                  setState(() {});
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                          'Lokasi aktif diubah ke: ${pos.posName} [${pos.locationTag}]'),
-                      backgroundColor: AppColors.primary,
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                },
               ),
-            );
-          },
+            ),
+          ],
         ),
       ),
-    ],
-  ),
-),
-);
+    );
+  }
+}
+
+/// Prefiks posId lokasi baru per cabang (pola lama MDO tanpa segmen cabang).
+String _posPrefixFor(AppBranch branch) {
+  switch (branch) {
+    case AppBranch.bali:
+      return 'POS-DPS-';
+    case AppBranch.ho:
+      return 'POS-HO-';
+    case AppBranch.manado:
+      return 'POS-';
+  }
+}
+
+String _defaultAddressFor(AppBranch branch) {
+  switch (branch) {
+    case AppBranch.bali:
+      return 'Denpasar, Bali';
+    case AppBranch.ho:
+      return 'Makassar, Sulawesi Selatan';
+    case AppBranch.manado:
+      return 'Manado, Sulawesi Utara';
   }
 }

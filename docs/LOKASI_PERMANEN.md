@@ -32,6 +32,8 @@ Daftar lokasi pos parkir dan unit operasional yang tersimpan secara permanen pad
    - Secara otomatis menyertakan tag lokasi dalam format resmi:
      `Lokasi : Pelabuhan Kalimas Manado (PKM)`
      `Lokasi : Mie Gacoan AA Maramis (MGAM)`
-3. **Penyimpanan Lokal (Offline Resilience)**:
-   - Lokasi-lokasi ini di-seed secara otomatis ke dalam `LocationService._defaultSeed` dan disinkronkan ke penyimpanan lokal (`SharedPreferences`).
-   - Perangkat yang sudah terinstal sebelumnya akan otomatis menggabungkan (merge) lokasi baru ini tanpa perlu hapus data aplikasi.
+3. **Penyimpanan & Sinkronisasi (Source of Truth)**:
+   - Source of truth is Supabase table `public.pos_locations` (contract `docs/contracts/pos-locations.md`).
+   - App caches the list in `SharedPreferences` for offline use.
+   - `_defaultSeed` is only the first-install offline fallback.
+   - SPV edits via Edge Function `pos-locations`.

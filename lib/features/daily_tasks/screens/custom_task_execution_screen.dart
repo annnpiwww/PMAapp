@@ -177,6 +177,50 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
     }
   }
 
+  Future<void> _pickGalleryPhotos() async {
+    try {
+      final picked = await _picker.pickMultiImage(
+        imageQuality: 85,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+      if (picked.isNotEmpty) {
+        setState(() {
+          _localPhotoPaths.addAll(picked.map((e) => e.path));
+          _errorMessage = null;
+        });
+        _saveDraft();
+      }
+    } catch (e) {
+      debugPrint('[CustomTaskExecution] Error pick gallery photos: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal membuka galeri foto: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickGalleryVideo() async {
+    try {
+      final picked = await _picker.pickVideo(source: ImageSource.gallery);
+      if (picked != null) {
+        setState(() {
+          _localVideoPaths.add(picked.path);
+          _errorMessage = null;
+        });
+        _saveDraft();
+      }
+    } catch (e) {
+      debugPrint('[CustomTaskExecution] Error pick gallery video: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal membuka galeri video: $e')),
+        );
+      }
+    }
+  }
+
   void _removePhoto(int index) {
     if (index >= 0 && index < _localPhotoPaths.length) {
       setState(() {
@@ -216,7 +260,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
       HapticFeedback.heavyImpact();
       setState(() {
         _isSaving = false;
-        _errorMessage = 'Ambil minimal 1 foto atau video bukti pekerjaan.';
+        _errorMessage = 'Ambil atau upload minimal 1 foto/video bukti pekerjaan.';
       });
       return;
     }
@@ -598,14 +642,48 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickGalleryPhotos,
+                    icon: const Icon(Icons.photo_library_outlined, size: 18),
+                    label: const Text('Upload Gambar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.accent,
+                      side: BorderSide(color: AppColors.accent.withValues(alpha: 0.6)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickGalleryVideo,
+                    icon: const Icon(Icons.video_library_outlined, size: 18),
+                    label: const Text('Upload Video', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626),
+                      side: BorderSide(color: (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626)).withValues(alpha: 0.6)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 6),
             Row(
               children: [
                 Icon(Icons.info_outline_rounded, size: 12, color: textSub),
                 const SizedBox(width: 4),
-                Text(
-                  'Durasi video maksimal 30 detik langsung dari kamera',
-                  style: TextStyle(fontSize: 10.5, color: textSub),
+                Expanded(
+                  child: Text(
+                    'Foto bisa dari kamera atau galeri. Video kamera maks 30 detik.',
+                    style: TextStyle(fontSize: 10.5, color: textSub),
+                  ),
                 ),
               ],
             ),
@@ -630,7 +708,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Wajib mengambil minimal 1 foto atau rekaman video untuk menyelesaikan tugas.',
+                      'Wajib mengambil atau upload minimal 1 foto/video untuk menyelesaikan tugas.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 11, color: textSub),
                     ),
@@ -711,7 +789,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text(
-                    'Video Realtime (${_localVideoPaths.length}):',
+                    'Video Dokumentasi (${_localVideoPaths.length}):',
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textSub),
                   ),
                 ),
@@ -749,7 +827,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    'VIDEO ${index + 1} (MAKS 30s)',
+                                    'VIDEO ${index + 1}',
                                     style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white),
                                   ),
                                 ),

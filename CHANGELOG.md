@@ -2,6 +2,51 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.129+2142] — 2026-11-04
+
+### 🎯 Highlight Utama
+1. **Kartu Tugas SPV Dirapikan (Redesign Concept A)**:
+   - `SpvTaskCard`: kode lokasi pos jadi jangkar di depan judul, avatar inisial dihapus, ukuran huruf minimum 12sp, dan aksen oranye hanya dipakai untuk tombol Alihkan.
+   - Tombol hapus tugas (ikon tempat sampah) tetap ada dengan area sentuh minimum 44x44.
+   - Screenshot bukti: `docs/screenshots/spv_task_card_redesign_light.png` & `..._dark.png`.
+2. **Verifikasi & Build**:
+   - `flutter analyze`: 0 issues found.
+   - `flutter test`: 537 test LULUS, 3 skipped.
+   - APK rilis split-per-abi: `app-arm64-v8a-release.apk` (24,7 MB, versionCode 4142) dan `app-armeabi-v7a-release.apk` (22,8 MB, versionCode 3142), build 165 detik.
+   - Web produksi di-deploy ke Vercel (`https://bssparking-pma.vercel.app`).
+
+---
+
+## [2.0.128+2141] — 2026-11-04
+
+### 🎯 Highlight Utama
+1. **Share Tugas Pagi SPV Menampilkan Lokasi**:
+   - `DailyTaskService.formatMorningDispatchReport`: tiap baris tugas sekarang ditulis `<judul> - <lokasi>` (posTag, fallback posName), contoh `1. Pemasangan lampu pos - PKM`.
+   - Lokasi tidak dobel kalau judulnya sudah menyebut pos yang sama; tag `(bersama ...)` / `(lanjutan ...)` tetap di belakang lokasi.
+   - Tugas tanpa lokasi tampil seperti biasa. `formatSpvTeamRecap` dan `formatFinalDailyReport` tidak berubah.
+2. **Verifikasi & Build**:
+   - `flutter analyze`: 0 issues found.
+   - `flutter test`: 527 test LULUS, 3 skipped.
+   - APK rilis ARM64-only: `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk` (24,7 MB, versionCode 4141, build 161 detik).
+
+---
+
+## [2.0.127+2140] — 2026-11-04
+
+### 🎯 Highlight Utama
+1. **Shift Absensi Tidak Lagi Basi (Anti Terlambat Palsu)**:
+   - `AbsensiSetupService.shouldResetShift` / `resetStaleShift`: shift tersimpan otomatis balik ke deteksi jam sekarang kalau tidak ada sesi Masuk aktif 16 jam terakhir dan teknisi tidak memilih shift manual 4 jam terakhir.
+   - Sesi Masuk yang masih berjalan tidak disentuh, jadi alur Pulang tetap memakai shift yang sama seperti saat Masuk.
+2. **Konfirmasi 'Cek Shift Dulu' Sebelum Foto Masuk**:
+   - `isLikelyWrongShift` (jendela `lateMin > 120 && < 1080`) memunculkan dialog kalau jam mulai shift terpilih sudah lewat lebih dari 2 jam.
+   - Teknisi bisa pilih Batal, Ganti ke shift hasil deteksi jam sekarang, atau Tetap pakai shift lama. Datang lebih awal tidak pernah kena dialog, dan mode QA / Demo bypass dilewati.
+3. **Verifikasi & Build**:
+   - `flutter analyze`: 0 issues found.
+   - `flutter test`: 526 test LULUS, 3 skipped.
+   - APK rilis ARM64-only: `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk` (24,7 MB, versionCode 4140, build 175 detik).
+
+---
+
 ## [2.0.77+85] — 2026-10-09
 
 ### 🎯 Highlight Utama

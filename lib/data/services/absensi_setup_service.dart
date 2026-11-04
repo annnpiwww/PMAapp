@@ -9,6 +9,7 @@ class AbsensiSetupService extends ChangeNotifier {
   static final AbsensiSetupService instance = AbsensiSetupService._internal();
   final Map<AppBranch, String> _branchShifts = {};
   final Map<AppBranch, String> _branchLocations = {};
+  final Map<AppBranch, DateTime> _branchShiftSetAt = {};
 
   AbsensiSetupService._internal() {
     _load();
@@ -35,6 +36,8 @@ class AbsensiSetupService extends ChangeNotifier {
   static const _kLokasi = 'absensi_lokasi_standby_v1';
   static const _kShift = 'absensi_jadwal_shift_v1';
   static String _kShiftKey(AppBranch b) => 'absensi_jadwal_shift_${b.code}';
+  static String _kShiftSetAtKey(AppBranch b) =>
+      'absensi_jadwal_shift_set_at_${b.code}';
   static String _kLokasiKey(AppBranch b) => 'absensi_lokasi_standby_${b.code}';
   static const _kTipe = 'absensi_tipe_laporan_v1';
   static const _kJamPulang = 'absensi_jam_pulang_v1';
@@ -45,7 +48,8 @@ class AbsensiSetupService extends ChangeNotifier {
 
   AbsensiKategori selectedKategori = AbsensiKategori.teknisi;
   // Default mengikuti cabang aktif, bukan dipaku PBM.
-  String lokasiStandby = BranchService.instance.currentBranch.defaultLocationTag;
+  String lokasiStandby =
+      BranchService.instance.currentBranch.defaultLocationTag;
   String jadwalShift = '';
   String tipeLaporan = 'Masuk';
   String jamPulang = '';
@@ -77,6 +81,10 @@ class AbsensiSetupService extends ChangeNotifier {
       }
     }
 
+    if (BranchService.instance.currentBranch == AppBranch.ho) {
+      return _autoDetectHoShift(minutes);
+    }
+
     if (minutes >= 590 && minutes < 830) {
       // 09:50 - 13:49: Shift 2 (10:00 - 18:00)
       return 'Shift 2 (10:00 - 18:00)';
@@ -89,18 +97,95 @@ class AbsensiSetupService extends ChangeNotifier {
     }
   }
 
+  /// Shift manual bisa basi: Shift 1 kemarin masih tersimpan padahal hari ini
+  /// teknisi masuk siang, sehingga absen tercatat Terlambat. Reset ke auto-detect
+  /// hanya kalau tidak ada sesi Masuk aktif (< 16 jam) dan teknisi tidak baru
+  /// memilih shift sendiri (< 4 jam), supaya alur Pulang tetap pakai shift Masuk.
+  static bool shouldResetShift({
+    DateTime? lastCheckIn,
+    DateTime? shiftSetAt,
+    required DateTime now,
+  }) {
+    if (lastCheckIn != null &&
+        now.difference(lastCheckIn) < const Duration(hours: 16)) {
+      return false;
+    }
+    if (shiftSetAt != null &&
+        now.difference(shiftSetAt) < const Duration(hours: 4)) {
+      return false;
+    }
+    return true;
+  }
+
+  /// Shift terpilih kemungkinan salah kalau jam mulai shift itu sudah lewat
+  /// > 2 jam. Datang lebih awal (masih > 6 jam sebelum shift berikutnya, mis.
+  /// 21:00 untuk shift 03:00) tidak pernah dianggap salah.
+  /// shortcut: jendela 18 jam (bukan 12 jam) supaya 15:55 vs shift 03:00 tetap
+  /// terdeteksi; revisit kalau pola shift berubah.
+  static bool isLikelyWrongShift(String shift, DateTime now) {
+    final match = RegExp(r'(\d{1,2})[:.](\d{2})').firstMatch(shift);
+    if (match == null) return false;
+    final startMin =
+        ((int.tryParse(match.group(1)!) ?? 0) % 24) * 60 +
+        (int.tryParse(match.group(2)!) ?? 0);
+    final nowMin = now.hour * 60 + now.minute;
+    final lateMin = (nowMin - startMin) % 1440;
+    return lateMin > 120 && lateMin < 1080;
+  }
+
+  /// Shift HO lama masih menyimpan nomor (RSWS 1 / JP 2); label baru tanpa nomor
+  /// karena pembeda cukup jam. Normalisasi saat load supaya pilihan shift tetap
+  /// terpilih tanpa mengubah riwayat absensi yang sudah tersimpan.
+  static String _normalizeShiftLabel(String shift) {
+    return shift
+        .replaceFirst('RSWS 1 (', 'RSWS (')
+        .replaceFirst('RSWS 2 (', 'RSWS (')
+        .replaceFirst('JP 1 (', 'JP (')
+        .replaceFirst('JP 2 (', 'JP (');
+  }
+
+  /// HO Makassar punya 11 shift dan beberapa berbagi jam mulai (Shift 1 vs Shift 1.1,
+  /// GMM 2 vs RSWS). Auto-detect memakai shift dengan jam mulai terakhir
+  /// yang <= jam sekarang; sisanya dipilih manual oleh teknisi.
+  /// shortcut: hanya satu shift per jam mulai yang auto-terdeteksi, upgrade kalau
+  /// nanti HO butuh deteksi berbasis pos.
+  static String _autoDetectHoShift(int minutes) {
+    const starts = <int, String>{
+      0: 'Shift 3 (24.00 - 08.00)',
+      480: 'Shift 1 (08.00 - 16.00)',
+      510: 'HO.1 (08.30 - 12.30)',
+      540: 'GMM 1 (09.00 - 17.00)',
+      900: 'RSWS (15.00 - 23.00)',
+      960: 'Shift 2 (16.00 - 24.00)',
+      1020: 'JP (17.00 - 01.00)',
+    };
+    var picked = 'Shift 3 (24.00 - 08.00)';
+    var best = -1;
+    for (final entry in starts.entries) {
+      if (entry.key <= minutes && entry.key > best) {
+        best = entry.key;
+        picked = entry.value;
+      }
+    }
+    return picked;
+  }
+
   /// Durasi kerja minimal: 4 jam untuk Shift paruh waktu (Shift 2.2 / Shift 4.1), 8 jam untuk shift penuh.
   /// Jika Mode Demo / SPV Bypass aktif: Durasi minimal 0 detik (bisa langsung pulang untuk demo).
   static Duration getMinimumWorkDuration(String shift) {
     if (StorageService.isDemoBypassActive()) {
       return Duration.zero;
     }
-    final isShiftPartTime = shift.contains('Shift 2.2') ||
+    final isShiftPartTime =
+        shift.contains('Shift 2.2') ||
         shift.contains('Shift 4.1') ||
+        shift.contains('HO.1') ||
         (shift.contains('10:00') && shift.contains('14:00')) ||
         (shift.contains('18.00') && shift.contains('22.00')) ||
         (shift.contains('08.00') && shift.contains('12.00'));
-    return isShiftPartTime ? const Duration(hours: 4) : const Duration(hours: 8);
+    return isShiftPartTime
+        ? const Duration(hours: 4)
+        : const Duration(hours: 8);
   }
 
   /// Batas paling awal teknisi boleh absen pulang.
@@ -115,7 +200,10 @@ class AbsensiSetupService extends ChangeNotifier {
     required String shift,
     required DateTime checkInTime,
   }) {
-    final parts = autoDetectJamPulang(shift: shift, time: checkInTime).split(':');
+    final parts = autoDetectJamPulang(
+      shift: shift,
+      time: checkInTime,
+    ).split(':');
     final endH = parts.length == 2 ? (int.tryParse(parts[0]) ?? 18) : 18;
     final endM = parts.length == 2 ? (int.tryParse(parts[1]) ?? 0) : 0;
     final shiftEnd = DateTime(
@@ -165,7 +253,9 @@ class AbsensiSetupService extends ChangeNotifier {
 
     // honey: waktu terverifikasi mencegah bypass pulang cepat via ubah jam device
     final now = currentTime ?? SecureTimeService.getVerifiedTime().accurateTime;
-    return !now.isBefore(pulangAllowedFrom(shift: shift, checkInTime: checkInTime));
+    return !now.isBefore(
+      pulangAllowedFrom(shift: shift, checkInTime: checkInTime),
+    );
   }
 
   /// Mendeteksi jam akhir shift untuk laporan pulang:
@@ -177,18 +267,23 @@ class AbsensiSetupService extends ChangeNotifier {
     final s = (shift != null && shift.trim().isNotEmpty)
         ? shift
         : autoDetectShift(time);
-    
+
     // Cek pattern jam rentang khusus (misal "08:00 - 16:00" atau "06.00 - 14.00")
-    final rangeMatch = RegExp(r'(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})').firstMatch(s);
+    final rangeMatch = RegExp(
+      r'(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})',
+    ).firstMatch(s);
     if (rangeMatch != null) {
       final endH = rangeMatch.group(3)!.padLeft(2, '0');
       final endM = rangeMatch.group(4)!.padLeft(2, '0');
       return '$endH:$endM';
     }
 
-    if (s.contains('Shift 2.2') || (s.contains('10:00') && s.contains('14:00'))) {
+    if (s.contains('Shift 2.2') ||
+        (s.contains('10:00') && s.contains('14:00'))) {
       return '14:00';
-    } else if (s.contains('03:00') || s.contains('Shift 1') || (s.contains('11:00') && !s.contains('18:00'))) {
+    } else if (s.contains('03:00') ||
+        s.contains('Shift 1') ||
+        (s.contains('11:00') && !s.contains('18:00'))) {
       return '11:00';
     } else if (s.contains('18:00') || s.contains('Shift 2')) {
       return '18:00';
@@ -202,10 +297,7 @@ class AbsensiSetupService extends ChangeNotifier {
   String get effectiveJadwalShift {
     final clean = jadwalShift.trim();
     if (clean.isEmpty) return autoDetectShift();
-    final branch = BranchService.instance.currentBranch;
-    final otherBranch = branch == AppBranch.manado ? AppBranch.bali : AppBranch.manado;
-    final otherBranchShifts = BranchService.instance.getShifts(branch: otherBranch);
-    if (otherBranchShifts.contains(clean)) {
+    if (BranchService.isShiftOfOtherBranch(clean)) {
       return autoDetectShift();
     }
     return clean;
@@ -228,23 +320,38 @@ class AbsensiSetupService extends ChangeNotifier {
   }
 
   String get hariKerja {
-    const map = ['SENIN','SELASA','RABU','KAMIS','JUMAT','SABTU','MINGGU'];
+    const map = [
+      'SENIN',
+      'SELASA',
+      'RABU',
+      'KAMIS',
+      'JUMAT',
+      'SABTU',
+      'MINGGU',
+    ];
     return map[DateTime.now().weekday - 1];
   }
 
   String get seragamHariIni {
     switch (hariKerja) {
-      case 'SENIN': return 'Teknisi / PDH navy';
-      case 'SELASA': return 'PDH biru navy / Teknisi';
-      case 'RABU': return 'Seragam Teknisi';
-      case 'KAMIS': return 'BSS Putih / Teknisi';
-      case 'JUMAT': return 'Batik / Teknisi';
-      case 'SABTU': return 'Olahraga biru-kuning / Teknisi';
-      case 'MINGGU': return 'Bebas rapi / Teknisi';
-      default: return 'Seragam Teknisi';
+      case 'SENIN':
+        return 'Teknisi / PDH navy';
+      case 'SELASA':
+        return 'PDH biru navy / Teknisi';
+      case 'RABU':
+        return 'Seragam Teknisi';
+      case 'KAMIS':
+        return 'BSS Putih / Teknisi';
+      case 'JUMAT':
+        return 'Batik / Teknisi';
+      case 'SABTU':
+        return 'Olahraga biru-kuning / Teknisi';
+      case 'MINGGU':
+        return 'Bebas rapi / Teknisi';
+      default:
+        return 'Seragam Teknisi';
     }
   }
-
 
   Future<void> _load() async {
     try {
@@ -256,11 +363,14 @@ class AbsensiSetupService extends ChangeNotifier {
       // Nilai global lama (sebelum kunci per cabang) hanya dipakai kalau tag-nya
       // memang milik cabang aktif, biar tidak bocor lintas cabang.
       final legacyLokasi = prefs.getString(_kLokasi);
-      final legacyValid = legacyLokasi != null &&
+      final legacyValid =
+          legacyLokasi != null &&
           BranchService.instance
               .getLocationTags(branch: branch)
               .contains(legacyLokasi.trim().toUpperCase());
-      final rawLokasi = prefs.getString(_kLokasiKey(branch)) ?? (legacyValid ? legacyLokasi : null);
+      final rawLokasi =
+          prefs.getString(_kLokasiKey(branch)) ??
+          (legacyValid ? legacyLokasi : null);
       // Isian manual teknisi dipakai apa adanya, termasuk pos di luar daftar default.
       if (rawLokasi != null && rawLokasi.trim().isNotEmpty) {
         lokasiStandby = rawLokasi.trim().toUpperCase();
@@ -269,15 +379,28 @@ class AbsensiSetupService extends ChangeNotifier {
         lokasiStandby = branch.defaultLocationTag;
       }
 
-      final rawShift = prefs.getString(_kShiftKey(branch)) ?? prefs.getString(_kShift);
-      final otherBranch = branch == AppBranch.manado ? AppBranch.bali : AppBranch.manado;
-      final otherBranchShifts = BranchService.instance.getShifts(branch: otherBranch);
-      if (rawShift != null && rawShift.trim().isNotEmpty && !otherBranchShifts.contains(rawShift.trim())) {
-        jadwalShift = rawShift.trim();
+      final rawShift =
+          prefs.getString(_kShiftKey(branch)) ?? prefs.getString(_kShift);
+      final normalizedShift = rawShift == null
+          ? ''
+          : _normalizeShiftLabel(rawShift.trim());
+      if (normalizedShift.isNotEmpty &&
+          !BranchService.isShiftOfOtherBranch(normalizedShift)) {
+        jadwalShift = normalizedShift;
         _branchShifts[branch] = jadwalShift;
       } else {
         jadwalShift = autoDetectShift();
       }
+
+      final rawShiftSetAt = prefs.getInt(_kShiftSetAtKey(branch));
+      if (rawShiftSetAt != null) {
+        _branchShiftSetAt[branch] = DateTime.fromMillisecondsSinceEpoch(
+          rawShiftSetAt,
+        );
+      } else {
+        _branchShiftSetAt.remove(branch);
+      }
+      if (_resetStaleShiftIfNeeded()) _save();
 
       tipeLaporan = prefs.getString(_kTipe) ?? 'Masuk';
       final lastCheck = StorageService.getLastCheckInTime();
@@ -297,7 +420,8 @@ class AbsensiSetupService extends ChangeNotifier {
       shiftSelanjutnya = prefs.getString(_kNextShift) ?? '';
       handoverDate = prefs.getString(_kHandoverDate) ?? '';
       final now = DateTime.now();
-      final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final todayStr =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
       if (handoverDate != todayStr) {
         // Jika handover bukan dari hari ini, reset agar wajib sinkron/isi tugas hari ini
         pekerjaanSelesai = '';
@@ -308,7 +432,10 @@ class AbsensiSetupService extends ChangeNotifier {
         pekerjaanBelum = prefs.getString(_kBelum) ?? '';
       }
       notifyListeners();
-    } catch (e, st) { debugPrint('[AbsensiSetup] _load failed: $e'); debugPrint('$st'); }
+    } catch (e, st) {
+      debugPrint('[AbsensiSetup] _load failed: $e');
+      debugPrint('$st');
+    }
   }
 
   Future<void> _save() async {
@@ -322,13 +449,25 @@ class AbsensiSetupService extends ChangeNotifier {
       final cleanShift = effectiveJadwalShift;
       await prefs.setString(_kShiftKey(branch), cleanShift);
       await prefs.setString(_kShift, cleanShift);
+      final setAt = _branchShiftSetAt[branch];
+      if (setAt == null) {
+        await prefs.remove(_kShiftSetAtKey(branch));
+      } else {
+        await prefs.setInt(
+          _kShiftSetAtKey(branch),
+          setAt.millisecondsSinceEpoch,
+        );
+      }
       await prefs.setString(_kTipe, tipeLaporan);
       await prefs.setString(_kJamPulang, effectiveJamPulang);
       await prefs.setString(_kNextShift, shiftSelanjutnya);
       await prefs.setString(_kSelesai, pekerjaanSelesai);
       await prefs.setString(_kBelum, pekerjaanBelum);
       await prefs.setString(_kHandoverDate, handoverDate);
-    } catch (e, st) { debugPrint('[AbsensiSetup] _save failed: $e'); debugPrint('$st'); }
+    } catch (e, st) {
+      debugPrint('[AbsensiSetup] _save failed: $e');
+      debugPrint('$st');
+    }
   }
 
   void updateKategori(AbsensiKategori k) {
@@ -337,9 +476,8 @@ class AbsensiSetupService extends ChangeNotifier {
     if (lokasiStandby.trim().isEmpty) {
       lokasiStandby = branch.defaultLocationTag;
     }
-    final otherBranch = branch == AppBranch.manado ? AppBranch.bali : AppBranch.manado;
-    final otherBranchShifts = BranchService.instance.getShifts(branch: otherBranch);
-    if (jadwalShift.trim().isEmpty || otherBranchShifts.contains(jadwalShift.trim())) {
+    if (jadwalShift.trim().isEmpty ||
+        BranchService.isShiftOfOtherBranch(jadwalShift)) {
       jadwalShift = autoDetectShift();
     }
     _save();
@@ -358,12 +496,40 @@ class AbsensiSetupService extends ChangeNotifier {
   void updateShift(String v) {
     final clean = v.trim();
     final branch = BranchService.instance.currentBranch;
-    final otherBranch = branch == AppBranch.manado ? AppBranch.bali : AppBranch.manado;
-    final otherBranchShifts = BranchService.instance.getShifts(branch: otherBranch);
-    jadwalShift = (clean.isNotEmpty && !otherBranchShifts.contains(clean)) ? clean : autoDetectShift();
+    jadwalShift =
+        (clean.isNotEmpty && !BranchService.isShiftOfOtherBranch(clean))
+        ? clean
+        : autoDetectShift();
     _branchShifts[branch] = jadwalShift;
+    _branchShiftSetAt[branch] =
+        SecureTimeService.getVerifiedTime().accurateTime;
     _save();
     notifyListeners();
+  }
+
+  /// Dipanggil saat layar kamera dibuka: buang shift basi tanpa mengganggu
+  /// sesi yang sedang berjalan atau pilihan manual yang masih baru.
+  void resetStaleShift() {
+    if (_resetStaleShiftIfNeeded()) {
+      _save();
+      notifyListeners();
+    }
+  }
+
+  bool _resetStaleShiftIfNeeded() {
+    final branch = BranchService.instance.currentBranch;
+    final now = SecureTimeService.getVerifiedTime().accurateTime;
+    final shouldReset = shouldResetShift(
+      lastCheckIn: StorageService.getLastCheckInTime(),
+      shiftSetAt: _branchShiftSetAt[branch],
+      now: now,
+    );
+    if (!shouldReset) return false;
+    final detected = autoDetectShift(now);
+    if (detected == jadwalShift) return false;
+    jadwalShift = detected;
+    _branchShifts[branch] = jadwalShift;
+    return true;
   }
 
   void updateTipe(String v) {
@@ -380,7 +546,8 @@ class AbsensiSetupService extends ChangeNotifier {
 
   void _syncTodayDate() {
     final now = DateTime.now();
-    handoverDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    handoverDate =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
   void updateNextShift(String v) {
@@ -411,7 +578,9 @@ class AbsensiSetupService extends ChangeNotifier {
     String? date,
   }) {
     final now = DateTime.now();
-    final todayStr = date ?? '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final todayStr =
+        date ??
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     shiftSelanjutnya = nextShift;
     pekerjaanSelesai = selesai;
     pekerjaanBelum = belum;
@@ -424,7 +593,8 @@ class AbsensiSetupService extends ChangeNotifier {
   /// Kebijakan: 'Isi daily dulu ya!' sebelum absensi pulang (harus bertanggal hari ini)
   bool isDailyHandoverComplete({String? targetDate}) {
     final now = DateTime.now();
-    final todayStr = targetDate ??
+    final todayStr =
+        targetDate ??
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
     // Tolak jika data berasal dari tanggal kemarin (data basi)
@@ -435,11 +605,13 @@ class AbsensiSetupService extends ChangeNotifier {
     final next = shiftSelanjutnya.trim();
     final selesai = pekerjaanSelesai.trim();
 
-    final hasNext = next.isNotEmpty &&
+    final hasNext =
+        next.isNotEmpty &&
         next != '-' &&
         !next.toLowerCase().contains('tidak ada petugas');
 
-    final hasSelesai = selesai.isNotEmpty &&
+    final hasSelesai =
+        selesai.isNotEmpty &&
         selesai != '-' &&
         selesai != '1. -' &&
         selesai.length >= 3;

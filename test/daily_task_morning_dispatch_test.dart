@@ -80,6 +80,45 @@ void main() {
       expect(result.endsWith('Tetap semangat team🔥'), isTrue);
     });
 
+    test('formatMorningDispatchReport appends task location after the title', () {
+      DailyTaskModel task({
+        String judul = 'Pemasangan lampu pos',
+        String posName = '',
+        String posTag = '',
+        String peserta = '',
+      }) =>
+          DailyTaskModel(
+            id: 'x',
+            tanggal: '2026-10-12',
+            teknisiId: 'tek_raldy',
+            teknisiNama: 'Raldy Sangkop',
+            posName: posName,
+            posTag: posTag,
+            judul: judul,
+            peserta: peserta,
+          );
+
+      const techShiftMap = {'Raldy Sangkop': 'Shift 1 (03:00 - 11:00)'};
+
+      String firstLine(DailyTaskModel t) => DailyTaskService.formatMorningDispatchReport(
+            tasks: [t],
+            techShiftMap: techShiftMap,
+            branch: AppBranch.manado,
+          ).split('\n').firstWhere((l) => l.startsWith('1. '));
+
+      expect(firstLine(task(posTag: 'PKM')), '1. Pemasangan lampu pos - PKM');
+      expect(firstLine(task(posName: 'PKM')), '1. Pemasangan lampu pos - PKM');
+      expect(firstLine(task()), '1. Pemasangan lampu pos');
+      expect(
+        firstLine(task(judul: 'Pemasangan lampu pos - PKM', posTag: 'PKM')),
+        '1. Pemasangan lampu pos - PKM',
+      );
+      expect(
+        firstLine(task(posTag: 'PKM', peserta: 'Budi')),
+        '1. Pemasangan lampu pos - PKM (bersama Budi)',
+      );
+    });
+
     test('formatMorningDispatchReport orders shifts properly (Shift 1 before Shift 2 before Shift 3)', () {
       final taskShift3 = DailyTaskModel(
         id: '3',

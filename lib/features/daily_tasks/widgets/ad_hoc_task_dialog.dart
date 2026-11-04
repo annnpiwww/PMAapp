@@ -146,7 +146,7 @@ class _AdHocTaskDialogState extends State<AdHocTaskDialog> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Kerjaan dadakan yang bukan dari SPV. Setelah disimpan, masuk daftar hari ini dan bisa diserahterimakan.',
+            'Kerjaan dadakan dari sendiri. Langsung masuk daftar hari ini dan boleh serah terima ke shift berikutnya.',
             style: TextStyle(fontSize: 11.5, color: textSub, height: 1.35),
           ),
         ],

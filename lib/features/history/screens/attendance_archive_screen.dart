@@ -7,6 +7,7 @@ import '../../../core/widgets/app_file_image.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/utils/timemark_formatter.dart';
+import '../../../core/utils/web_photo_store/web_photo_store.dart';
 import '../../../data/models/attendance_record.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/location_service.dart';
@@ -24,6 +25,32 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
   List<AttendanceRecord> _records = [];
   bool _isLoading = true;
 
+  /// Byte foto web dari IndexedDB, di-cache per id record. `photoPath` di web
+  /// hanya blob: URL yang mati setelah Safari reload tab.
+  /// Dibatesin 12 entri (LRU) supaya foto 1080p tidak menumpuk di memori iPhone.
+  final Map<String, Future<Uint8List?>> _webPhotoFutures = {};
+
+  Future<Uint8List?> _webPhoto(AttendanceRecord record) {
+    if (!kIsWeb) return Future.value(null);
+    final cached = _webPhotoFutures.remove(record.id);
+    if (cached != null) {
+      _webPhotoFutures[record.id] = cached;
+      return cached;
+    }
+    if (_webPhotoFutures.length >= 12) {
+      _webPhotoFutures.remove(_webPhotoFutures.keys.first);
+    }
+    final future = getPhotoBlob(record.id);
+    _webPhotoFutures[record.id] = future;
+    return future;
+  }
+
+  Future<void> _openPhoto(AttendanceRecord record) async {
+    final bytes = await _webPhoto(record);
+    if (!mounted) return;
+    _showPhotoDialog(record.photoPath, record, photoBytes: bytes);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -35,32 +62,28 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
     final list = StorageService.getAttendanceRecords();
     final currentBranch = BranchService.instance.currentBranch;
     final filtered = list.where((r) {
-      // 1. Cek nama teknisi jika ada
-      final manadoTechs = BranchService.instance.getTechnicians(branch: AppBranch.manado);
-      final baliTechs = BranchService.instance.getTechnicians(branch: AppBranch.bali);
+      // 1. Cek nama teknisi jika ada (teknisi cabang lain tidak muncul di arsip cabang ini)
       final nameClean = r.technicianName.toLowerCase().trim();
       if (nameClean.isNotEmpty) {
-        final isManadoTech = manadoTechs.any((t) => t.toLowerCase().contains(nameClean) || nameClean.contains(t.toLowerCase()));
-        final isBaliTech = baliTechs.any((t) => t.toLowerCase().contains(nameClean) || nameClean.contains(t.toLowerCase()));
-        if (isManadoTech && currentBranch == AppBranch.bali) return false;
-        if (isBaliTech && currentBranch == AppBranch.manado) return false;
+        for (final b in AppBranch.values) {
+          if (b == currentBranch) continue;
+          final belongsOther = BranchService.instance.getTechnicians(branch: b)
+              .any((t) => t.toLowerCase().contains(nameClean) || nameClean.contains(t.toLowerCase()));
+          if (belongsOther) return false;
+        }
       }
       // 2. Cek lokasi pos
       final pos = LocationService.findPosByTagOrName(r.posName);
       if (pos != null) {
         return pos.matchesBranch(currentBranch);
       }
-      // 3. Cek format shift
-      final isBaliShift = r.shiftName.contains('06.00') ||
-          r.shiftName.contains('14.00') ||
-          r.shiftName.contains('22.00') ||
-          r.shiftName.contains('08.00') ||
-          r.shiftName.contains('18.00');
-      final isManadoShift = r.shiftName.contains('03:00') ||
-          r.shiftName.contains('10:00') ||
-          r.shiftName.contains('14:00');
-      if (isBaliShift && currentBranch == AppBranch.manado) return false;
-      if (isManadoShift && currentBranch == AppBranch.bali) return false;
+      // 3. Cek format shift resmi cabang lain
+      for (final b in AppBranch.values) {
+        if (b == currentBranch) continue;
+        if (BranchService.instance.getShifts(branch: b).contains(r.shiftName.trim())) {
+          return false;
+        }
+      }
       return true;
     }).toList();
 
@@ -202,16 +225,17 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
 
     if (confirm == true) {
       await StorageService.clearAllAttendanceRecords();
+      _webPhotoFutures.clear();
       await _loadRecords();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Riwayat absen berhasil dihapus.')),
+          const SnackBar(content: Text('Riwayat absen dihapus.')),
         );
       }
     }
   }
 
-  void _showPhotoDialog(String photoPath, AttendanceRecord record) {
+  void _showPhotoDialog(String? photoPath, AttendanceRecord record, {Uint8List? photoBytes}) {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -228,13 +252,13 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
                   tooltip: 'Download ke Galeri HP',
                   onPressed: () async {
                     final messenger = ScaffoldMessenger.of(context);
-                    final success = await ShareHelper.savePhotoToGallery(photoPath);
+                    final success = await ShareHelper.savePhotoToGallery(photoPath, imageBytes: photoBytes);
                     messenger.showSnackBar(
                       SnackBar(
                         content: Text(
                           success
-                              ? 'Foto timemark berhasil disimpan ke Galeri HP'
-                              : 'Gagal menyimpan foto ke Galeri HP',
+                              ? (kIsWeb ? 'Foto diunduh ke Files/Downloads (bukan Galeri)' : 'Foto timemark berhasil disimpan ke Galeri HP')
+                              : (kIsWeb ? 'Gagal mengunduh foto' : 'Gagal menyimpan foto ke Galeri HP'),
                         ),
                         backgroundColor: success ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
                         duration: const Duration(seconds: 2),
@@ -255,6 +279,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
               child: InteractiveViewer(
                 child: AppFileImage(
                   path: photoPath,
+                  bytes: photoBytes,
                   fit: BoxFit.contain,
                   errorBuilder: (c, err, st) => Container(
                     height: 250,
@@ -280,6 +305,14 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
               ),
             ),
+            if (kIsWeb && (photoBytes == null || photoBytes.isEmpty)) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Foto ini diambil sebelum pembaruan, watermark-nya tidak tersimpan. Absen baru akan tersimpan lengkap.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70, fontSize: 11, height: 1.35),
+              ),
+            ],
           ],
         ),
       ),
@@ -702,6 +735,83 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
     );
   }
 
+  Widget _buildPhotoThumb(AttendanceRecord record, {required bool isDark}) {
+    final path = record.photoPath;
+    final placeholder = Icon(
+      Icons.photo_camera_outlined,
+      color: isDark ? const Color(0xFF64748B) : AppColors.textMuted,
+      size: 26,
+    );
+
+    Widget frame({VoidCallback? onTap, Widget? child}) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 64,
+          height: 72,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+            ),
+          ),
+          child: child,
+        ),
+      );
+    }
+
+    if (!kIsWeb) {
+      final hasFile = path != null && File(path).existsSync();
+      return frame(
+        onTap: hasFile ? () => _openPhoto(record) : null,
+        child: hasFile ? _thumbImage(path: path, isDark: isDark) : placeholder,
+      );
+    }
+
+    return FutureBuilder<Uint8List?>(
+      future: _webPhoto(record),
+      builder: (context, snapshot) {
+        final bytes = snapshot.data;
+        final hasPhoto = (bytes != null && bytes.isNotEmpty) || (path?.isNotEmpty ?? false);
+        return frame(
+          onTap: hasPhoto ? () => _openPhoto(record) : null,
+          child: hasPhoto
+              ? _thumbImage(path: path, bytes: bytes, isDark: isDark)
+              : placeholder,
+        );
+      },
+    );
+  }
+
+  Widget _thumbImage({String? path, Uint8List? bytes, required bool isDark}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(9),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          AppFileImage(path: path, bytes: bytes, fit: BoxFit.cover, cacheWidth: 200),
+          Positioned(
+            right: 2,
+            bottom: 2,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.zoom_in,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildRecordCard(
     AttendanceRecord record, {
     required String activeTechName,
@@ -743,56 +853,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Photo Thumbnail
-            GestureDetector(
-              onTap: (record.photoPath != null && (kIsWeb || File(record.photoPath!).existsSync()))
-                  ? () => _showPhotoDialog(record.photoPath!, record)
-                  : null,
-              child: Container(
-                width: 64,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-                  ),
-                ),
-                child: (record.photoPath != null && (kIsWeb || File(record.photoPath!).existsSync()))
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(9),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            AppFileImage(
-                              path: record.photoPath!,
-                              fit: BoxFit.cover,
-                            ),
-                            Positioned(
-                              right: 2,
-                              bottom: 2,
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.6),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.zoom_in,
-                                  color: Colors.white,
-                                  size: 14,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : Icon(
-                        Icons.photo_camera_outlined,
-                        color: isDark ? const Color(0xFF64748B) : AppColors.textMuted,
-                        size: 26,
-                      ),
-              ),
-            ),
+            _buildPhotoThumb(record, isDark: isDark),
             const SizedBox(width: 12),
 
             // Content details

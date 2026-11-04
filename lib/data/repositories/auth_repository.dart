@@ -27,15 +27,15 @@ class AuthRepository extends ChangeNotifier {
 
     // 1. Coba koneksi ke backend Supabase (table public.app_users)
     try {
+      // Hanya kecocokan persis: pencocokan potongan nama bisa menyeret user ke
+      // akun cabang lain (mis. 'alif' cocok ke Alif Candra/Bali).
       final orFilters = <String>[
         'username.ilike.$cleanIdentity',
         'email.ilike.$cleanIdentity',
         'nama.ilike.$cleanIdentity',
-        if (cleanIdentity.length >= 3) 'nama.ilike.*$cleanIdentity*',
-        if (cleanIdentity.length >= 3) 'username.ilike.*$cleanIdentity*',
         if (userPrefix.isNotEmpty && userPrefix != cleanIdentity) ...[
           'username.ilike.$userPrefix',
-          'email.ilike.*$userPrefix*',
+          'email.ilike.$userPrefix',
         ],
       ];
 
@@ -91,13 +91,11 @@ class AuthRepository extends ChangeNotifier {
             final user = UserModel(
               id: record['id'] as String? ?? 'usr_sb',
               nama: name,
-              npp: role == UserRole.supervisor
-                  ? (branch == AppBranch.bali ? 'BSS-SPV-DPS-01' : 'BSS-SPV-01')
-                  : (branch == AppBranch.bali ? 'BSS-TEK-DPS-01' : 'BSS-TEK-01'),
+              npp: '${role == UserRole.supervisor ? 'BSS-SPV' : 'BSS-TEK'}-${branch == AppBranch.manado ? '' : '${branch.code}-'}01',
               email: email,
               role: role,
-              posId: branch == AppBranch.bali ? 'POS-DPS-01' : 'POS-01',
-              posName: branch == AppBranch.bali ? 'PBKD' : 'Pos Gate Utama',
+              posId: branch == AppBranch.manado ? 'POS-01' : 'POS-${branch.code}-01',
+              posName: branch == AppBranch.manado ? 'Pos Gate Utama' : branch.defaultLocationTag,
               cabangName: branch.name,
             );
 
@@ -177,17 +175,79 @@ class AuthRepository extends ChangeNotifier {
       {'user': 'cokagung@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ANAK AGUNG GEDE AGUNG YUSTIKAWANGSA', 'branch': AppBranch.bali},
       {'user': 'cokagung', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ANAK AGUNG GEDE AGUNG YUSTIKAWANGSA', 'branch': AppBranch.bali},
       {'user': 'anak agung gede agung yustikawangsa', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ANAK AGUNG GEDE AGUNG YUSTIKAWANGSA', 'branch': AppBranch.bali},
+
+      // --- HO Makassar Accounts ---
+      // SPV: ADI SUPRIADI
+      {'user': 'adi@pma.com', 'pass': 'spvho', 'role': UserRole.supervisor, 'name': 'ADI SUPRIADI', 'branch': AppBranch.ho},
+      {'user': 'adi', 'pass': 'spvho', 'role': UserRole.supervisor, 'name': 'ADI SUPRIADI', 'branch': AppBranch.ho},
+      {'user': 'adi supriadi', 'pass': 'spvho', 'role': UserRole.supervisor, 'name': 'ADI SUPRIADI', 'branch': AppBranch.ho},
+
+      // Teknisi HO (username nama depan; 'alif ahmad' dipakai utuh supaya tidak
+      // bentrok dengan akun Bali 'Alif Candra Triantoro')
+      {'user': 'ahmad@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'AHMAD KHAELANI', 'branch': AppBranch.ho},
+      {'user': 'ahmad', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'AHMAD KHAELANI', 'branch': AppBranch.ho},
+      {'user': 'ahmad khaelani', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'AHMAD KHAELANI', 'branch': AppBranch.ho},
+
+      {'user': 'hasrul@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'HASRUL HAQ', 'branch': AppBranch.ho},
+      {'user': 'hasrul', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'HASRUL HAQ', 'branch': AppBranch.ho},
+      {'user': 'hasrul haq', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'HASRUL HAQ', 'branch': AppBranch.ho},
+
+      {'user': 'hardin@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'MUH. HARDIN TAUFIK', 'branch': AppBranch.ho},
+      {'user': 'hardin', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'MUH. HARDIN TAUFIK', 'branch': AppBranch.ho},
+      {'user': 'muh. hardin taufik', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'MUH. HARDIN TAUFIK', 'branch': AppBranch.ho},
+
+      {'user': 'ferdinan@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'FERDINAN PRADANA PANGALA PUTRA', 'branch': AppBranch.ho},
+      {'user': 'ferdinan', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'FERDINAN PRADANA PANGALA PUTRA', 'branch': AppBranch.ho},
+      {'user': 'ferdinan pradana pangala putra', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'FERDINAN PRADANA PANGALA PUTRA', 'branch': AppBranch.ho},
+
+      {'user': 'alifahmad@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ALIF AHMAD MAULANA', 'branch': AppBranch.ho},
+      {'user': 'alifahmad', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ALIF AHMAD MAULANA', 'branch': AppBranch.ho},
+      {'user': 'alif ahmad maulana', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ALIF AHMAD MAULANA', 'branch': AppBranch.ho},
+
+      {'user': 'dany@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'DANY RAMADHANI ASHARI', 'branch': AppBranch.ho},
+      {'user': 'dany', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'DANY RAMADHANI ASHARI', 'branch': AppBranch.ho},
+      {'user': 'dany ramadhani ashari', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'DANY RAMADHANI ASHARI', 'branch': AppBranch.ho},
+
+      {'user': 'yusuf@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'MUHAMMAD YUSUF SALAM', 'branch': AppBranch.ho},
+      {'user': 'yusuf', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'MUHAMMAD YUSUF SALAM', 'branch': AppBranch.ho},
+      {'user': 'muhammad yusuf salam', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'MUHAMMAD YUSUF SALAM', 'branch': AppBranch.ho},
+
+      {'user': 'rahmad@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'RAHMAD HIDAYAT', 'branch': AppBranch.ho},
+      {'user': 'rahmad', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'RAHMAD HIDAYAT', 'branch': AppBranch.ho},
+      {'user': 'rahmad hidayat', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'RAHMAD HIDAYAT', 'branch': AppBranch.ho},
+
+      {'user': 'arif@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ARIF SURYA WIDODO', 'branch': AppBranch.ho},
+      {'user': 'arif', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ARIF SURYA WIDODO', 'branch': AppBranch.ho},
+      {'user': 'arif surya widodo', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ARIF SURYA WIDODO', 'branch': AppBranch.ho},
+
+      {'user': 'riyan@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'RIYAN ADNAN', 'branch': AppBranch.ho},
+      {'user': 'riyan', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'RIYAN ADNAN', 'branch': AppBranch.ho},
+      {'user': 'riyan adnan', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'RIYAN ADNAN', 'branch': AppBranch.ho},
     ];
 
-    for (final acc in hardcodedAccounts) {
+    // Identitas pendek bisa cocok ke >1 orang (mis. 'alif' = Alif Candra/Bali dan
+    // Alif Ahmad/HO). Utamakan kecocokan persis; kalau masih ambigu, tolak login
+    // supaya absensi tidak tercatat di cabang yang salah.
+    bool identityMatch(Map<String, dynamic> acc, {required bool exactOnly}) {
       final accUser = (acc['user'] as String).toLowerCase();
       final accName = (acc['name'] as String).toLowerCase();
-      final accPass = (acc['pass'] as String).toLowerCase();
+      if (accUser == cleanIdentity || accUser == userPrefix || accName == cleanIdentity) {
+        return true;
+      }
+      return !exactOnly && cleanIdentity.length >= 4 && accName.contains(cleanIdentity);
+    }
 
-      final matchesIdentity = accUser == cleanIdentity ||
-          accUser == userPrefix ||
-          accName == cleanIdentity ||
-          (cleanIdentity.length >= 4 && accName.contains(cleanIdentity));
+    var identityMatches =
+        hardcodedAccounts.where((acc) => identityMatch(acc, exactOnly: true)).toList();
+    if (identityMatches.isEmpty) {
+      identityMatches =
+          hardcodedAccounts.where((acc) => identityMatch(acc, exactOnly: false)).toList();
+      if (identityMatches.map((acc) => acc['name']).toSet().length > 1) return false;
+    }
+
+    for (final acc in identityMatches) {
+      final accUser = (acc['user'] as String).toLowerCase();
+      final accPass = (acc['pass'] as String).toLowerCase();
 
       final cleanPassLower = cleanPass.toLowerCase();
       final matchesPassword = accPass == cleanPassLower ||
@@ -196,7 +256,7 @@ class AuthRepository extends ChangeNotifier {
                   cleanPassLower == 'spv123' ||
                   cleanPassLower == 'farhan123'));
 
-      if (matchesIdentity && matchesPassword) {
+      if (matchesPassword) {
         final role = acc['role'] as UserRole;
         final name = acc['name'] as String;
         final branch = (acc['branch'] as AppBranch?) ?? AppBranch.manado;
@@ -204,18 +264,16 @@ class AuthRepository extends ChangeNotifier {
 
         final emailStr = cleanIdentity.contains('@')
             ? cleanIdentity
-            : (branch == AppBranch.bali ? '$cleanIdentity@pma.com' : '$cleanIdentity@bssparking.id');
+            : (branch == AppBranch.manado ? '$cleanIdentity@bssparking.id' : '$cleanIdentity@pma.com');
 
         final user = UserModel(
           id: 'usr_${name.replaceAll(' ', '_').toLowerCase()}',
           nama: name,
-          npp: role == UserRole.supervisor
-              ? (branch == AppBranch.bali ? 'BSS-SPV-DPS-01' : 'BSS-SPV-01')
-              : (branch == AppBranch.bali ? 'BSS-TEK-DPS-01' : 'BSS-TEK-01'),
+          npp: '${role == UserRole.supervisor ? 'BSS-SPV' : 'BSS-TEK'}-${branch == AppBranch.manado ? '' : '${branch.code}-'}01',
           email: emailStr,
           role: role,
-          posId: branch == AppBranch.bali ? 'POS-DPS-01' : 'POS-01',
-          posName: branch == AppBranch.bali ? 'PBKD' : 'Pos Gate Utama',
+          posId: branch == AppBranch.manado ? 'POS-01' : 'POS-${branch.code}-01',
+          posName: branch == AppBranch.manado ? 'Pos Gate Utama' : branch.defaultLocationTag,
           cabangName: branch.name,
         );
         _currentUser = user;

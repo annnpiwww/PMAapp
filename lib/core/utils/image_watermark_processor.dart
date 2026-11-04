@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as imglib;
 import 'timemark_formatter.dart';
+import 'web_watermark/web_watermark.dart';
 import '../../data/models/watermark_config.dart';
 import '../../data/services/branch_service.dart';
 import '../../data/services/location_service.dart';
@@ -181,9 +182,55 @@ class ImageWatermarkProcessor {
     final file = File(imagePath);
     if (!file.existsSync()) return imagePath;
 
+    try {
+      final jpgBytes = await applyWatermarkToBytes(
+        imageBytes: await file.readAsBytes(),
+        timestamp: timestamp,
+        lat: lat,
+        lng: lng,
+        fullAddress: fullAddress,
+        kodeVerifikasi: kodeVerifikasi,
+        config: config,
+        activeLocationTag: activeLocationTag,
+        activeLocationColor: activeLocationColor,
+        pointLabel: pointLabel,
+        isAbsensi: isAbsensi,
+        isFrontCamera: isFrontCamera,
+        targetAspectRatio: targetAspectRatio,
+        jpegQuality: jpegQuality,
+      );
+      if (jpgBytes != null && jpgBytes.isNotEmpty) {
+        await file.writeAsBytes(jpgBytes, flush: true);
+        debugPrint('[Watermark] Sukses burn timemark: ${file.path} (${jpgBytes.length} bytes)');
+      }
+    } catch (e, stack) {
+      debugPrint('[Watermark] Error applyWatermarkToFile: $e\n$stack');
+    }
+
+    return file.path;
+  }
+
+  /// Renders the watermark onto [imageBytes] and returns JPEG bytes.
+  /// Also usable on web, where there is no writable photo file to burn into.
+  static Future<Uint8List?> applyWatermarkToBytes({
+    required Uint8List imageBytes,
+    required DateTime timestamp,
+    required double? lat,
+    required double? lng,
+    required String fullAddress,
+    required String kodeVerifikasi,
+    required WatermarkConfig config,
+    required String activeLocationTag,
+    required Color activeLocationColor,
+    String? pointLabel,
+    bool isAbsensi = false,
+    bool isFrontCamera = false,
+    double? targetAspectRatio,
+    int jpegQuality = 93,
+  }) async {
     final sw = Stopwatch()..start();
     try {
-      final bytes = await file.readAsBytes();
+      final bytes = imageBytes;
 
       // Optimize: Cap max dimension to 1920 (Full HD) to prevent Out-Of-Memory on mobile cameras (12MP-48MP)
       // and ensure ultra-fast watermark rendering in <400ms while preserving crystal-clear sharpness.
@@ -293,21 +340,19 @@ class ImageWatermarkProcessor {
         badgeColor = config.badgeColor != const Color(0xFFF59E0B) ? config.badgeColor : activeLocationColor;
       }
 
-      // Perlindungan ketat: Cegah tag cabang Bali (seperti PCD) bocor ke hasil watermark fisik KC Manado
-      if (BranchService.instance.currentBranch == AppBranch.manado) {
-        final baliTags = BranchService.instance.getLocationTags(branch: AppBranch.bali);
-        if (baliTags.contains(badgeTag.trim().toUpperCase())) {
-          badgeTag = activeLocationTag.isNotEmpty && !baliTags.contains(activeLocationTag.trim().toUpperCase())
-              ? activeLocationTag
-              : 'Absensi';
-        }
+      // Perlindungan ketat: cegah tag cabang lain (mis. PCD Bali) bocor ke watermark cabang aktif
+      final otherBranchTags = BranchService.otherBranchLocationTags;
+      if (otherBranchTags.contains(badgeTag.trim().toUpperCase())) {
+        badgeTag = activeLocationTag.isNotEmpty && !otherBranchTags.contains(activeLocationTag.trim().toUpperCase())
+            ? activeLocationTag
+            : 'Absensi';
       }
 
       final padding = 18.0 * scale;
       final borderRadius = 10.0 * scale;
       // Load custom logo image if any, or fallback to default asset logo
       ui.Image? customLogoUiImage;
-      if (config.logoImagePath != null && config.logoImagePath!.isNotEmpty) {
+      if (!kIsWeb && config.logoImagePath != null && config.logoImagePath!.isNotEmpty) {
         final logoFile = File(config.logoImagePath!);
         if (logoFile.existsSync()) {
           try {
@@ -323,7 +368,9 @@ class ImageWatermarkProcessor {
       }
       if (customLogoUiImage == null) {
         try {
-          final assetData = await rootBundle.load('foto/bssfotologo_transparent.png');
+          final assetData = await rootBundle
+              .load('foto/bssfotologo_transparent.png')
+              .timeout(const Duration(seconds: 2));
           final logoBytes = assetData.buffer.asUint8List();
           final logoCodec = await ui.instantiateImageCodec(
             logoBytes,
@@ -840,21 +887,32 @@ class ImageWatermarkProcessor {
 
       if (byteData != null) {
         final rgbaBytes = byteData.buffer.asUint8List();
-        final jpgBytes = await compute(
-          _encodeRgbaToJpegIsolate,
-          _RgbaEncodePayload(outputImg.width, outputImg.height, rgbaBytes, jpegQuality),
-        );
-        if (jpgBytes.isNotEmpty) {
-          await file.writeAsBytes(jpgBytes, flush: true);
+        Uint8List? jpgBytes;
+        if (kIsWeb) {
+          jpgBytes = await encodeRgbaToJpegWeb(
+            rgbaBytes,
+            outputImg.width,
+            outputImg.height,
+            jpegQuality,
+          );
+        }
+        if (jpgBytes == null || jpgBytes.isEmpty) {
+          jpgBytes = await compute(
+            _encodeRgbaToJpegIsolate,
+            _RgbaEncodePayload(outputImg.width, outputImg.height, rgbaBytes, jpegQuality),
+          );
+        }
+        if (jpgBytes != null && jpgBytes.isNotEmpty) {
           sw.stop();
-          debugPrint('[Watermark] Sukses burn timemark: ${file.path} (${sw.elapsedMilliseconds}ms, ${jpgBytes.length} bytes)');
+          debugPrint('[Watermark] Sukses render timemark: ${jpgBytes.length} bytes (${sw.elapsedMilliseconds}ms)');
+          return jpgBytes;
         }
       }
     } catch (e, stack) {
-      debugPrint('[Watermark] Error applyWatermarkToFile: $e\n$stack');
+      debugPrint('[Watermark] Error applyWatermarkToBytes: $e\n$stack');
     }
 
-    return file.path;
+    return null;
   }
 }
 

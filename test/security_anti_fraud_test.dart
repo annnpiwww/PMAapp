@@ -115,7 +115,7 @@ void main() {
       // Maintenance templates checks (technician per-point ringkas representatif)
       final maintPos = templates.firstWhere((t) => t.id == 'tpl_maint_pos');
       expect(maintPos.isPerPoint, isTrue);
-      expect(maintPos.sopPoints.length, equals(9));
+      expect(maintPos.sopPoints.length, equals(10));
 
       final maintBarrier = templates.firstWhere((t) => t.id == 'tpl_maint_barrier');
       expect(maintBarrier.sopPoints.length, equals(9));

@@ -57,7 +57,9 @@ Modul:
 ## 3. Konfigurasi `.env`
 
 ```
-GROUP_NAME=            # nama grup persis, dicocokkan saat bot siap
+GROUP_NAME=Maintenance Manado   # nama grup persis, dicocokkan saat bot siap
+BOT_NUMBER=6285111315732        # nomor bot, login via pairing code (kode muncul di log PM2)
+CHROME_PATH=/root/.cache/puppeteer/chrome/linux-146.0.7680.31/chrome-linux64/chrome
 SPV_NUMBER=62895803663572
 SUPABASE_URL=
 SUPABASE_ANON_KEY=

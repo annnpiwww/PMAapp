@@ -9,6 +9,7 @@ import '../../../data/models/maintenance_submission.dart';
 import '../../../data/models/template_model.dart';
 import '../../../data/repositories/template_repository.dart';
 import '../../../data/services/storage_service.dart';
+import '../../../data/services/ai_vision_service.dart';
 import '../../../data/services/whatsapp_report_service.dart';
 import '../widgets/photo_preview_dialog.dart';
 import 'maintenance_checklist_screen.dart';
@@ -95,7 +96,7 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Data maintenance berhasil dihapus.'),
+            content: Text('Data maintenance dihapus.'),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -654,6 +655,11 @@ class _MaintenanceDetailModal extends StatelessWidget {
                                   imagePath: p.imagePath!,
                                   title: p.label,
                                   pointResult: p,
+                                  onAnalyze: (base64) =>
+                                      AiVisionService.reanalyzePhoto(
+                                    imageBase64: base64,
+                                    konteks: p.label,
+                                  ),
                                 )
                             : null,
                         child: Container(
@@ -791,7 +797,7 @@ class _MaintenanceDetailModal extends StatelessWidget {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('✓ $pointsWithImages foto dibuka di WhatsApp. Teks sudah disalin, tinggal paste di chat.'),
+                                content: Text('✓ $pointsWithImages foto dibuka di WhatsApp. Teks tersalin, tinggal paste di chat.'),
                                 backgroundColor: AppColors.success,
                                 behavior: SnackBarBehavior.floating,
                               ),

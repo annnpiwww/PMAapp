@@ -119,14 +119,31 @@ class AiVisionConfig {
   static const String defaultCustomUrl =
       'https://generativelanguage.googleapis.com/v1beta/openai';
 
-  /// Primary gemini-flash-lite (super cepat <2s via reasoning_effort: none).
+  /// Proxy AI Vision (Supabase Edge Function).
+  /// API key Gemini disimpan sebagai secret di server, jadi tidak ikut terpasang
+  /// di APK / bundle web. Kalau proxy belum di-deploy, app otomatis fallback ke
+  /// panggilan langsung supaya validasi AI tetap jalan.
+  static const String proxyUrl = String.fromEnvironment(
+    'BSS_AI_PROXY_URL',
+    defaultValue:
+        'https://sxsjixnnlzhjinzcyhjb.supabase.co/functions/v1/ai-vision',
+  );
+
+  /// Matikan proxy (--dart-define=BSS_AI_PROXY=false) untuk development lokal.
+  static const bool proxyEnabled =
+      bool.fromEnvironment('BSS_AI_PROXY', defaultValue: true);
+
+  /// Primary: 3.1-flash-lite. Diukur 2026-10-23 dengan foto 420px: 3,2 dtk,
+  /// JSON valid. 3.6-flash lebih pintar tapi kuota free tier-nya cuma 20
+  /// request/hari, jadi gampang 429 di jam sibuk.
   static const String defaultCustomModel = 'gemini-3.1-flash-lite';
 
-  /// Timeout per-request: 8 detik untuk respons instan (normal <2-3 detik)
-  static const int perModelTimeoutSeconds = 8;
+  /// Timeout per-request. Diukur di lapangan: 5-6 dtk normal, bisa 19 dtk
+  /// saat model cold start. 8 dtk terlalu ketat -> verifikasi sering terputus.
+  static const int perModelTimeoutSeconds = 15;
 
-  /// Total budget 16 detik: toleransi jika ada 1x failover ke fallback model.
-  static const int totalBudgetSeconds = 16;
+  /// Total budget 30 detik: cukup untuk 2x retry saat model 503/high demand.
+  static const int totalBudgetSeconds = 30;
 
   const AiVisionConfig({
     this.provider = AiProviderType.customEndpoint,

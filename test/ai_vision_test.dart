@@ -24,7 +24,7 @@ void main() {
       expect(config.enableIdCardDetection, isTrue);
       expect(config.enableFormationCheck, isTrue);
       expect(config.enableCleanlinessCheck, isTrue);
-      expect(config.modelName, equals('gemini-3.1-flash-lite'));
+      expect(config.modelName, equals(AiVisionConfig.defaultCustomModel));
       expect(config.baseUrl,
           equals('https://generativelanguage.googleapis.com/v1beta/openai'));
       // API key tidak boleh hardcoded di source: default = compile-time env
@@ -111,7 +111,7 @@ void main() {
 
       expect(migrated.baseUrl,
           equals('https://generativelanguage.googleapis.com/v1beta/openai'));
-      expect(migrated.modelName, equals('gemini-3.1-flash-lite'));
+      expect(migrated.modelName, equals(AiVisionConfig.defaultCustomModel));
       expect(migrated.apiKey, equals(AiVisionConfig.defaultApiKey));
     });
 

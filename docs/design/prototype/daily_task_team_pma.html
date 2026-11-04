@@ -1,0 +1,1447 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Task Team PMA — Interactive Prototype</title>
+<style>
+@font-face {
+  font-family: 'PlusJakartaSans';
+  src: url('../../../assets/fonts/PlusJakartaSans-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'PlusJakartaSans';
+  src: url('../../../assets/fonts/PlusJakartaSans-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'PlusJakartaSans';
+  src: url('../../../assets/fonts/PlusJakartaSans-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'PlusJakartaSans';
+  src: url('../../../assets/fonts/PlusJakartaSans-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'PlusJakartaSans';
+  src: url('../../../assets/fonts/PlusJakartaSans-ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+  font-style: normal;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: 'PlusJakartaSans', sans-serif;
+  background-color: #E2E8F0;
+  padding: 24px;
+  display: flex;
+  gap: 24px;
+  width: max-content;
+  color: #18181B;
+}
+
+body.isolated {
+  padding: 0;
+  margin: 0;
+  background: #0B1120;
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+.frame-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.frame-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.2px;
+  padding-left: 4px;
+}
+
+/* 360 x 800 Phone Shell */
+.phone {
+  width: 360px;
+  height: 800px;
+  background-color: #FAF8F5;
+  border-radius: 28px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.20), 0 0 0 8px #18181B;
+  display: flex;
+  flex-direction: column;
+}
+
+.phone.dark {
+  background-color: #0B1120;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55), 0 0 0 8px #1E293B;
+  color: #F8FAFC;
+}
+
+/* Status Bar */
+.status-bar {
+  height: 24px;
+  background-color: #1A428A;
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+.phone.dark .status-bar {
+  background-color: #111827;
+  color: #F8FAFC;
+}
+.status-bar .icons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.status-bar svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+/* Header Band */
+.header-band {
+  background-color: #1A428A;
+  color: #FFFFFF;
+  padding: 8px 16px 14px 16px;
+  flex-shrink: 0;
+}
+.phone.dark .header-band {
+  background-color: #111827;
+  border-bottom: 1px solid #1E293B;
+}
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand-logo {
+  width: 26px;
+  height: 26px;
+  background: #FFFFFF;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1A428A;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: -0.5px;
+}
+.brand-name {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  line-height: 1.1;
+}
+.brand-sub {
+  font-size: 8.5px;
+  opacity: 0.8;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+.phone.dark .icon-btn {
+  background: rgba(255, 255, 255, 0.06);
+}
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: #FFFFFF;
+}
+.header-titles {
+  margin-top: 10px;
+}
+.header-title {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.header-desc {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 2px;
+}
+
+/* Scrollable Content */
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px 80px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: none;
+}
+.content-area::-webkit-scrollbar {
+  display: none;
+}
+
+/* Summary Progress Card */
+.summary-card {
+  background: #FFFFFF;
+  border: 1px solid #E6E2D8;
+  border-radius: 16px;
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+}
+.phone.dark .summary-card {
+  background: #111827;
+  border-color: #1E293B;
+  box-shadow: none;
+}
+.progress-ring-box {
+  width: 48px;
+  height: 48px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.progress-ring-box svg {
+  width: 48px;
+  height: 48px;
+  transform: rotate(-90deg);
+}
+.ring-track {
+  fill: none;
+  stroke: #ECFDF5;
+  stroke-width: 4.5;
+}
+.phone.dark .ring-track {
+  stroke: rgba(5, 150, 105, 0.20);
+}
+.ring-bar {
+  fill: none;
+  stroke: #059669;
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  stroke-dasharray: 125.6;
+  stroke-dashoffset: 70.0; /* ~44% = 4/9 */
+}
+.ring-val {
+  position: absolute;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #18181B;
+}
+.phone.dark .ring-val {
+  color: #F8FAFC;
+}
+.summary-info {
+  flex: 1;
+  min-width: 0;
+}
+.summary-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #18181B;
+}
+.phone.dark .summary-title {
+  color: #F8FAFC;
+}
+.summary-sub {
+  font-size: 12px;
+  color: #52525B;
+  margin-top: 1px;
+}
+.phone.dark .summary-sub {
+  color: #94A3B8;
+}
+.summary-chevron svg {
+  width: 20px;
+  height: 20px;
+  fill: #71717A;
+}
+
+/* Status Segment */
+.status-segment {
+  background: #F3EFE6;
+  border: 1px solid #E6E2D8;
+  border-radius: 12px;
+  padding: 3px;
+  display: flex;
+  gap: 2px;
+}
+.phone.dark .status-segment {
+  background: #1E293B;
+  border-color: #334155;
+}
+.seg-btn {
+  flex: 1;
+  height: 32px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #52525B;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.phone.dark .seg-btn {
+  color: #94A3B8;
+}
+.seg-btn svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+.seg-btn.active {
+  background: #FFFFFF;
+  color: #18181B;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.phone.dark .seg-btn.active {
+  background: #111827;
+  color: #F8FAFC;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Technician Strip */
+.tech-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.tech-strip::-webkit-scrollbar {
+  display: none;
+}
+.tech-chip {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 16px;
+  background: #F6F4EE;
+  border: 1px solid #E6E2D8;
+  color: #52525B;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  cursor: pointer;
+}
+.phone.dark .tech-chip {
+  background: #1E293B;
+  border-color: #334155;
+  color: #94A3B8;
+}
+.tech-chip.active {
+  background: #1A428A;
+  border-color: #1A428A;
+  color: #FFFFFF;
+}
+.phone.dark .tech-chip.active {
+  background: #2563EB;
+  border-color: #2563EB;
+  color: #FFFFFF;
+}
+.tech-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #E6E2D8;
+  color: #18181B;
+  font-size: 10px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+.tech-chip.active .tech-avatar {
+  background: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+}
+.tech-badge {
+  font-size: 11px;
+  font-weight: 700;
+  background: #E6E2D8;
+  color: #18181B;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+.tech-chip.active .tech-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+}
+
+/* Task Cards */
+.task-card {
+  background: #FFFFFF;
+  border: 1px solid #E6E2D8;
+  border-radius: 14px;
+  display: flex;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+.phone.dark .task-card {
+  background: #111827;
+  border-color: #1E293B;
+  box-shadow: none;
+}
+.accent-bar {
+  width: 5px;
+  flex-shrink: 0;
+  background: #2563EB;
+}
+.accent-bar.warning { background: #FF8A00; }
+.accent-bar.success { background: #059669; }
+.accent-bar.info { background: #2563EB; }
+.accent-bar.slate { background: #64748B; }
+
+.card-body {
+  flex: 1;
+  padding: 11px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pos-box {
+  background: rgba(26, 66, 138, 0.10);
+  color: #1A428A;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  padding: 3px 7px;
+  border-radius: 6px;
+}
+.phone.dark .pos-box {
+  background: rgba(37, 99, 235, 0.20);
+  color: #93C5FD;
+}
+.status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.status-pill.pending {
+  background: #F3EFE6;
+  color: #52525B;
+}
+.phone.dark .status-pill.pending {
+  background: #1E293B;
+  color: #94A3B8;
+}
+.status-pill.process {
+  background: #FFF7ED;
+  color: #FF8A00;
+  border: 1px solid #FFEDD5;
+}
+.phone.dark .status-pill.process {
+  background: rgba(255, 138, 0, 0.15);
+  color: #FFB020;
+  border-color: rgba(255, 138, 0, 0.35);
+}
+.status-pill.done {
+  background: #ECFDF5;
+  color: #059669;
+  border: 1px solid #A7F3D0;
+}
+.phone.dark .status-pill.done {
+  background: rgba(5, 150, 105, 0.15);
+  color: #34D399;
+  border-color: rgba(5, 150, 105, 0.35);
+}
+.kebab-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: #71717A;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.kebab-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.card-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #18181B;
+  line-height: 1.35;
+}
+.phone.dark .card-title {
+  color: #F8FAFC;
+}
+.card-meta-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #52525B;
+  line-height: 1.3;
+}
+.phone.dark .card-meta-line {
+  color: #94A3B8;
+}
+.card-meta-line svg {
+  width: 14px;
+  height: 14px;
+  fill: #71717A;
+  flex-shrink: 0;
+}
+.card-meta-line.date {
+  color: #71717A;
+  font-size: 11.5px;
+}
+.phone.dark .card-meta-line.date {
+  color: #64748B;
+}
+
+.btn-alihkan {
+  margin-top: 5px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 101, 0, 0.08);
+  border: 1px solid rgba(255, 101, 0, 0.35);
+  color: #FF6500;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.phone.dark .btn-alihkan {
+  background: rgba(255, 101, 0, 0.15);
+  border-color: rgba(255, 101, 0, 0.40);
+  color: #FF8A00;
+}
+.btn-alihkan svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.btn-bukti {
+  align-self: flex-end;
+  margin-top: 2px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  color: #059669;
+  font-size: 11.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.phone.dark .btn-bukti {
+  background: rgba(5, 150, 105, 0.15);
+  border-color: rgba(5, 150, 105, 0.35);
+  color: #34D399;
+}
+.btn-bukti svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+/* Extended FAB */
+.fab {
+  position: absolute;
+  right: 16px;
+  bottom: 20px;
+  height: 48px;
+  padding: 0 18px 0 14px;
+  border-radius: 16px;
+  background-color: #1A428A;
+  color: #FFFFFF;
+  font-size: 13.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 6px 18px rgba(26, 66, 138, 0.35);
+  cursor: pointer;
+  z-index: 10;
+}
+.phone.dark .fab {
+  background-color: #2563EB;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+}
+.fab svg {
+  width: 20px;
+  height: 20px;
+  fill: #FFFFFF;
+}
+
+/* Bottom Sheet Overlay & Drawer */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 17, 32, 0.45);
+  z-index: 20;
+}
+.bottom-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 745px;
+  background: #FFFFFF;
+  border-radius: 24px 24px 0 0;
+  padding: 10px 16px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  z-index: 30;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.15);
+}
+.phone.dark .bottom-sheet {
+  background: #111827;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.6);
+}
+.drag-handle {
+  width: 38px;
+  height: 4px;
+  border-radius: 2px;
+  background: #CBD5E1;
+  margin: 0 auto 8px auto;
+  flex-shrink: 0;
+}
+.phone.dark .drag-handle {
+  background: #334155;
+}
+.sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+.sheet-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sheet-icon-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #1A428A;
+  color: #FFFFFF;
+  display: grid;
+  place-items: center;
+}
+.sheet-icon-circle svg {
+  width: 18px;
+  height: 18px;
+  fill: #FFFFFF;
+}
+.sheet-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #18181B;
+}
+.phone.dark .sheet-title {
+  color: #F8FAFC;
+}
+.sheet-desc {
+  font-size: 11px;
+  color: #52525B;
+  margin-top: 1px;
+}
+.phone.dark .sheet-desc {
+  color: #94A3B8;
+}
+.close-btn {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: #71717A;
+  cursor: pointer;
+}
+.close-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.category-chips {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+.cat-chip {
+  flex: 1;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid #E6E2D8;
+  background: #F6F4EE;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #52525B;
+  cursor: pointer;
+}
+.phone.dark .cat-chip {
+  background: #1E293B;
+  border-color: #334155;
+  color: #94A3B8;
+}
+.cat-chip svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+.cat-chip.active {
+  background: #1A428A;
+  border-color: #1A428A;
+  color: #FFFFFF;
+}
+.phone.dark .cat-chip.active {
+  background: #2563EB;
+  border-color: #2563EB;
+  color: #FFFFFF;
+}
+
+.sheet-form-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scrollbar-width: none;
+}
+.sheet-form-scroll::-webkit-scrollbar {
+  display: none;
+}
+.form-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.field-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: #71717A;
+  text-transform: uppercase;
+}
+.phone.dark .field-label {
+  color: #94A3B8;
+}
+.field-input {
+  height: 42px;
+  border: 1px solid #E6E2D8;
+  border-radius: 10px;
+  padding: 0 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #18181B;
+  background: #FFFFFF;
+}
+.phone.dark .field-input {
+  background: #1E293B;
+  border-color: #334155;
+  color: #F8FAFC;
+}
+.field-input.multiline {
+  height: 54px;
+  align-items: flex-start;
+  padding-top: 8px;
+  line-height: 1.35;
+}
+.field-lead-icon {
+  width: 17px;
+  height: 17px;
+  fill: #71717A;
+  flex-shrink: 0;
+}
+.field-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.field-input.multiline .field-value {
+  white-space: normal;
+  font-size: 12px;
+  color: #52525B;
+  font-weight: 500;
+}
+.phone.dark .field-input.multiline .field-value {
+  color: #94A3B8;
+}
+.field-trail-icon {
+  width: 17px;
+  height: 17px;
+  fill: #71717A;
+  flex-shrink: 0;
+}
+
+.info-banner {
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #1E40AF;
+  font-weight: 600;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.phone.dark .info-banner {
+  background: rgba(37, 99, 235, 0.15);
+  border-color: rgba(37, 99, 235, 0.35);
+  color: #93C5FD;
+}
+.info-banner svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.submit-btn {
+  margin-top: 10px;
+  height: 46px;
+  border-radius: 12px;
+  background: #1A428A;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(26, 66, 138, 0.25);
+}
+.phone.dark .submit-btn {
+  background: #2563EB;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+.submit-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: #FFFFFF;
+}
+
+/* Single View Mode for orca-bridge browser capture */
+body.isolated .frame-wrapper {
+  display: none;
+}
+body.isolated .frame-title {
+  display: none;
+}
+body.isolated.view-list-light #frame-list-light-wrapper,
+body.isolated.view-list-dark #frame-list-dark-wrapper,
+body.isolated.view-sheet-light #frame-sheet-light-wrapper {
+  display: flex;
+  position: absolute;
+  top: 16px;
+  left: 16px;
+}
+</style>
+</head>
+<body>
+
+<!-- FRAME 1: List Light Theme -->
+<div class="frame-wrapper" id="frame-list-light-wrapper">
+  <div class="frame-title">1 · Status Tim (Layar Utama Light)</div>
+  <div class="phone" id="phone-list-light">
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span>08:14</span>
+      <div class="icons">
+        <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.28 19.59 10.59 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+      </div>
+    </div>
+
+    <!-- Header Band -->
+    <div class="header-band">
+      <div class="header-top">
+        <div class="brand-group">
+          <div class="brand-logo">PMA</div>
+          <div>
+            <div class="brand-name">PMA</div>
+            <div class="brand-sub">Project Maintenance Assembly</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <div class="icon-btn" title="Format Briefing WA/Telegram">
+            <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11A2.99 2.99 0 0 0 21 5a3 3 0 1 0-5.91.7L8.04 9.81A2.99 2.99 0 0 0 3 12a3 3 0 0 0 5.04 2.19l7.12 4.16c-.05.21-.08.43-.08.65A2.92 2.92 0 1 0 18 16.08z"/></svg>
+          </div>
+          <div class="icon-btn" title="Kontrol Tim & Rekap">
+            <svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+          </div>
+        </div>
+      </div>
+      <div class="header-titles">
+        <div class="header-title">Daily Task Team PMA</div>
+        <div class="header-desc">Pantau & kelola tugas teknisi dengan mudah</div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content-area">
+      <!-- Summary Card -->
+      <div class="summary-card">
+        <div class="progress-ring-box">
+          <svg viewBox="0 0 48 48">
+            <circle class="ring-track" cx="24" cy="24" r="20"/>
+            <circle class="ring-bar" cx="24" cy="24" r="20"/>
+          </svg>
+          <div class="ring-val">4/9</div>
+        </div>
+        <div class="summary-info">
+          <div class="summary-title">Tugas Selesai</div>
+          <div class="summary-sub">Hari Ini · Rabu, 4 Nov 2026</div>
+        </div>
+        <div class="summary-chevron">
+          <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </div>
+      </div>
+
+      <!-- Status Segment -->
+      <div class="status-segment">
+        <div class="seg-btn active">
+          <svg viewBox="0 0 24 24"><path d="M3 3v8h8V3H3zm2 2h4v4H5V5zm8-2v8h8V3h-8zm2 2h4v4h-4V5zM3 13v8h8v-8H3zm2 2h4v4H5v-4zm8-2v8h8v-8h-8zm2 2h4v4h-4v-4z"/></svg>
+          Semua (9)
+        </div>
+        <div class="seg-btn">
+          <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+          Belum (5)
+        </div>
+        <div class="seg-btn">
+          <svg viewBox="0 0 24 24" style="fill:#059669"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          Selesai (4)
+        </div>
+      </div>
+
+      <!-- Tech Filter Strip -->
+      <div class="tech-strip">
+        <div class="tech-chip active">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 3s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+          Semua Teknisi
+          <span class="tech-badge">5</span>
+        </div>
+        <div class="tech-chip">
+          <div class="tech-avatar">RL</div>
+          Ryan
+          <span class="tech-badge">2</span>
+        </div>
+        <div class="tech-chip">
+          <div class="tech-avatar">RS</div>
+          Raldy
+          <span class="tech-badge">1</span>
+        </div>
+        <div class="tech-chip">
+          <div class="tech-avatar">JM</div>
+          Junifer
+          <span class="tech-badge">2</span>
+        </div>
+      </div>
+
+      <!-- Task Cards -->
+      <!-- Card 1: Pending with Alihkan -->
+      <div class="task-card">
+        <div class="accent-bar slate"></div>
+        <div class="card-body">
+          <div class="card-header-row">
+            <div class="pos-box">PKM</div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span class="status-pill pending">Belum Mulai</span>
+              <div class="kebab-btn"><svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div>
+            </div>
+          </div>
+          <div class="card-title">Pemasangan lampu pos</div>
+          <div class="card-meta-line">
+            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            Pos Utama · Ryan Lumasuge + Raldy Sangkop
+          </div>
+          <div class="card-meta-line date">
+            <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V9h14v11z"/></svg>
+            Hari ini
+          </div>
+          <div class="btn-alihkan">
+            <svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+            Alihkan Tugas
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: In Progress -->
+      <div class="task-card">
+        <div class="accent-bar warning"></div>
+        <div class="card-body">
+          <div class="card-header-row">
+            <div class="pos-box">PBM</div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span class="status-pill process">
+                <svg viewBox="0 0 24 24" style="width:10px;height:10px;fill:currentColor"><path d="M8 5v14l11-7z"/></svg>
+                Dalam Proses
+              </span>
+              <div class="kebab-btn"><svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div>
+            </div>
+          </div>
+          <div class="card-title">Maintenance 3 Pos Kasir</div>
+          <div class="card-meta-line">
+            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            Kasir Utama · Junifer Manua
+          </div>
+          <div class="card-meta-line date">
+            <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V9h14v11z"/></svg>
+            Hari ini
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Completed with Bukti -->
+      <div class="task-card">
+        <div class="accent-bar success"></div>
+        <div class="card-body">
+          <div class="card-header-row">
+            <div class="pos-box">MGNS</div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span class="status-pill done">✓ Selesai</span>
+              <div class="kebab-btn"><svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div>
+            </div>
+          </div>
+          <div class="card-title">Cek sensor loop gate keluar</div>
+          <div class="card-meta-line">
+            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            Gate Keluar · Junifer Manua
+          </div>
+          <div class="card-meta-line date">
+            <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V9h14v11z"/></svg>
+            Hari ini · Selesai 11:00 WITA
+          </div>
+          <div class="btn-bukti">
+            <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+            Bukti (2)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extended FAB -->
+    <div class="fab">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      + Buat Tugas
+    </div>
+  </div>
+</div>
+
+<!-- FRAME 2: List Dark Theme -->
+<div class="frame-wrapper" id="frame-list-dark-wrapper">
+  <div class="frame-title">2 · Status Tim (Layar Utama Dark)</div>
+  <div class="phone dark" id="phone-list-dark">
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span>08:14</span>
+      <div class="icons">
+        <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.28 19.59 10.59 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+      </div>
+    </div>
+
+    <!-- Header Band -->
+    <div class="header-band">
+      <div class="header-top">
+        <div class="brand-group">
+          <div class="brand-logo" style="background:#2563EB;color:#fff">PMA</div>
+          <div>
+            <div class="brand-name">PMA</div>
+            <div class="brand-sub">Project Maintenance Assembly</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <div class="icon-btn" title="Format Briefing WA/Telegram">
+            <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11A2.99 2.99 0 0 0 21 5a3 3 0 1 0-5.91.7L8.04 9.81A2.99 2.99 0 0 0 3 12a3 3 0 0 0 5.04 2.19l7.12 4.16c-.05.21-.08.43-.08.65A2.92 2.92 0 1 0 18 16.08z"/></svg>
+          </div>
+          <div class="icon-btn" title="Kontrol Tim & Rekap">
+            <svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+          </div>
+        </div>
+      </div>
+      <div class="header-titles">
+        <div class="header-title">Daily Task Team PMA</div>
+        <div class="header-desc">Pantau & kelola tugas teknisi dengan mudah</div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content-area">
+      <!-- Summary Card -->
+      <div class="summary-card">
+        <div class="progress-ring-box">
+          <svg viewBox="0 0 48 48">
+            <circle class="ring-track" cx="24" cy="24" r="20"/>
+            <circle class="ring-bar" cx="24" cy="24" r="20"/>
+          </svg>
+          <div class="ring-val">4/9</div>
+        </div>
+        <div class="summary-info">
+          <div class="summary-title">Tugas Selesai</div>
+          <div class="summary-sub">Hari Ini · Rabu, 4 Nov 2026</div>
+        </div>
+        <div class="summary-chevron">
+          <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </div>
+      </div>
+
+      <!-- Status Segment -->
+      <div class="status-segment">
+        <div class="seg-btn active">
+          <svg viewBox="0 0 24 24"><path d="M3 3v8h8V3H3zm2 2h4v4H5V5zm8-2v8h8V3h-8zm2 2h4v4h-4V5zM3 13v8h8v-8H3zm2 2h4v4H5v-4zm8-2v8h8v-8h-8zm2 2h4v4h-4v-4z"/></svg>
+          Semua (9)
+        </div>
+        <div class="seg-btn">
+          <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+          Belum (5)
+        </div>
+        <div class="seg-btn">
+          <svg viewBox="0 0 24 24" style="fill:#34D399"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          Selesai (4)
+        </div>
+      </div>
+
+      <!-- Tech Filter Strip -->
+      <div class="tech-strip">
+        <div class="tech-chip active">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 3s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+          Semua Teknisi
+          <span class="tech-badge">5</span>
+        </div>
+        <div class="tech-chip">
+          <div class="tech-avatar" style="background:#334155;color:#F8FAFC">RL</div>
+          Ryan
+          <span class="tech-badge">2</span>
+        </div>
+        <div class="tech-chip">
+          <div class="tech-avatar" style="background:#334155;color:#F8FAFC">RS</div>
+          Raldy
+          <span class="tech-badge">1</span>
+        </div>
+        <div class="tech-chip">
+          <div class="tech-avatar" style="background:#334155;color:#F8FAFC">JM</div>
+          Junifer
+          <span class="tech-badge">2</span>
+        </div>
+      </div>
+
+      <!-- Task Cards -->
+      <!-- Card 1: Pending with Alihkan -->
+      <div class="task-card">
+        <div class="accent-bar info"></div>
+        <div class="card-body">
+          <div class="card-header-row">
+            <div class="pos-box">PKM</div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span class="status-pill pending">Belum Mulai</span>
+              <div class="kebab-btn"><svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div>
+            </div>
+          </div>
+          <div class="card-title">Pemasangan lampu pos</div>
+          <div class="card-meta-line">
+            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            Pos Utama · Ryan Lumasuge + Raldy Sangkop
+          </div>
+          <div class="card-meta-line date">
+            <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V9h14v11z"/></svg>
+            Hari ini
+          </div>
+          <div class="btn-alihkan">
+            <svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+            Alihkan Tugas
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: In Progress -->
+      <div class="task-card">
+        <div class="accent-bar warning"></div>
+        <div class="card-body">
+          <div class="card-header-row">
+            <div class="pos-box">PBM</div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span class="status-pill process">
+                <svg viewBox="0 0 24 24" style="width:10px;height:10px;fill:currentColor"><path d="M8 5v14l11-7z"/></svg>
+                Dalam Proses
+              </span>
+              <div class="kebab-btn"><svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div>
+            </div>
+          </div>
+          <div class="card-title">Maintenance 3 Pos Kasir</div>
+          <div class="card-meta-line">
+            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            Kasir Utama · Junifer Manua
+          </div>
+          <div class="card-meta-line date">
+            <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V9h14v11z"/></svg>
+            Hari ini
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Completed with Bukti -->
+      <div class="task-card">
+        <div class="accent-bar success"></div>
+        <div class="card-body">
+          <div class="card-header-row">
+            <div class="pos-box">MGNS</div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span class="status-pill done">✓ Selesai</span>
+              <div class="kebab-btn"><svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div>
+            </div>
+          </div>
+          <div class="card-title">Cek sensor loop gate keluar</div>
+          <div class="card-meta-line">
+            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            Gate Keluar · Junifer Manua
+          </div>
+          <div class="card-meta-line date">
+            <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V9h14v11z"/></svg>
+            Hari ini · Selesai 11:00 WITA
+          </div>
+          <div class="btn-bukti">
+            <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+            Bukti (2)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extended FAB -->
+    <div class="fab">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      + Buat Tugas
+    </div>
+  </div>
+</div>
+
+<!-- FRAME 3: Sheet Light Theme -->
+<div class="frame-wrapper" id="frame-sheet-light-wrapper">
+  <div class="frame-title">3 · Buat Tugas Baru (Bottom Sheet Light)</div>
+  <div class="phone" id="phone-sheet-light">
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span>08:15</span>
+      <div class="icons">
+        <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.28 19.59 10.59 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+      </div>
+    </div>
+
+    <!-- Background List (Dimmed behind sheet) -->
+    <div class="header-band" style="filter:blur(1px)">
+      <div class="header-titles">
+        <div class="header-title">Daily Task Team PMA</div>
+      </div>
+    </div>
+    <div class="backdrop"></div>
+
+    <!-- Bottom Sheet Modal -->
+    <div class="bottom-sheet">
+      <div class="drag-handle"></div>
+      
+      <!-- Sheet Header -->
+      <div class="sheet-header">
+        <div class="sheet-title-group">
+          <div class="sheet-icon-circle">
+            <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          </div>
+          <div>
+            <div class="sheet-title">Buat Tugas Baru</div>
+            <div class="sheet-desc">Pilih kategori dan isi detail tugas</div>
+          </div>
+        </div>
+        <div class="close-btn" title="Tutup">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </div>
+      </div>
+
+      <!-- Category Segmented Chips -->
+      <div class="category-chips">
+        <div class="cat-chip">
+          <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V9h14v11z"/></svg>
+          Rutin
+        </div>
+        <div class="cat-chip">
+          <svg viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
+          Maintenance
+        </div>
+        <div class="cat-chip active">
+          <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+          Tugas Khusus
+        </div>
+      </div>
+
+      <!-- Form Inputs -->
+      <div class="sheet-form-scroll">
+        <!-- Field 1: Teknisi -->
+        <div class="form-field-group">
+          <div class="field-label">Teknisi (Pemilik Tugas)</div>
+          <div class="field-input">
+            <svg class="field-lead-icon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <span class="field-value">Ryan Lumasuge</span>
+            <svg class="field-trail-icon" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+          </div>
+        </div>
+
+        <!-- Field 2: Dikerjakan Bersama -->
+        <div class="form-field-group">
+          <div class="field-label">Dikerjakan Bersama (Opsional)</div>
+          <div class="field-input">
+            <svg class="field-lead-icon" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 3s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+            <span class="field-value">Raldy Sangkop</span>
+            <svg class="field-trail-icon" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+          </div>
+        </div>
+
+        <!-- Field 3: Lokasi Pekerjaan -->
+        <div class="form-field-group">
+          <div class="field-label">Lokasi Pekerjaan</div>
+          <div class="field-input">
+            <svg class="field-lead-icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            <span class="field-value">PKM - Pos Kasir Masuk</span>
+            <svg class="field-trail-icon" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+          </div>
+        </div>
+
+        <!-- Field 4: Detail Pekerjaan -->
+        <div class="form-field-group">
+          <div class="field-label">Detail Pekerjaan</div>
+          <div class="field-input">
+            <svg class="field-lead-icon" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+            <span class="field-value">Pemasangan lampu pos</span>
+          </div>
+        </div>
+
+        <!-- Field 5: Tanggal -->
+        <div class="form-field-group">
+          <div class="field-label">Tanggal Penugasan</div>
+          <div class="field-input">
+            <svg class="field-lead-icon" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V9h14v11z"/></svg>
+            <span class="field-value">Hari ini, Rabu 4 Nov 2026</span>
+            <svg class="field-trail-icon" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V8h14v11z"/></svg>
+          </div>
+        </div>
+
+        <!-- Field 6: Catatan (Opsional) -->
+        <div class="form-field-group">
+          <div class="field-label">Catatan (Opsional)</div>
+          <div class="field-input multiline">
+            <svg class="field-lead-icon" style="margin-top:2px" viewBox="0 0 24 24"><path d="M3 18h12v-2H3v2zM3 6v2h18V6H3zm0 7h18v-2H3v2z"/></svg>
+            <div class="field-value">Lampu cadangan dan fitting berada di gudang pos barat dekat gardu 2.</div>
+          </div>
+        </div>
+
+        <!-- Info Validation Notice -->
+        <div class="info-banner">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+          <span>Pastikan data sudah sesuai sebelum menyimpan</span>
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <div class="submit-btn">
+        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        Simpan Tugas
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Query param switcher for single screenshot views
+const urlParams = new URLSearchParams(window.location.search);
+const view = urlParams.get('view') || window.location.hash.replace('#', '');
+if (view === 'list_light' || view === 'list-light') {
+  document.body.classList.add('isolated', 'view-list-light');
+} else if (view === 'list_dark' || view === 'list-dark') {
+  document.body.classList.add('isolated', 'view-list-dark');
+} else if (view === 'sheet_light' || view === 'sheet-light') {
+  document.body.classList.add('isolated', 'view-sheet-light');
+}
+</script>
+</body>
+</html>

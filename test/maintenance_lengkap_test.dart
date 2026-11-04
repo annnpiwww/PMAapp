@@ -76,8 +76,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 2 gate x 9 + 2 manless x 8 + 1 pos x 9 + 1 server x 6 = 49 foto
-      expect(find.textContaining('0/49 foto selesai'), findsOneWidget);
+      // 2 gate x 9 + 2 manless x 8 + 1 pos x 10 + 1 server x 6 = 50 foto
+      expect(find.textContaining('0/50 foto selesai'), findsOneWidget);
       expect(
         find.textContaining(
           'Semua area: Barrier Gate + Manless + Pos Kasir + PC Server',
@@ -109,8 +109,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 1 gate x 9 + 1 manless x 8 + 1 pos x 9 = 26 foto
-      expect(find.textContaining('0/26 foto selesai'), findsOneWidget);
+      // 1 gate x 9 + 1 manless x 8 + 1 pos x 10 = 27 foto
+      expect(find.textContaining('0/27 foto selesai'), findsOneWidget);
       expect(
         find.textContaining('Semua area: Barrier Gate + Manless + Pos Kasir •'),
         findsOneWidget,
@@ -185,11 +185,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 2 gate x 9 + 1 manless x 8 + 1 pos x 9 + 1 server x 6 = 41 foto
-      expect(find.text('Semua Area (41)'), findsOneWidget);
+      // 2 gate x 9 + 1 manless x 8 + 1 pos x 10 + 1 server x 6 = 42 foto
+      expect(find.text('Semua Area (42)'), findsOneWidget);
       expect(find.text('Barrier Gate (18)'), findsOneWidget);
       expect(find.text('Manless (8)'), findsOneWidget);
-      expect(find.text('Pos Kasir (9)'), findsOneWidget);
+      expect(find.text('Pos Kasir (10)'), findsOneWidget);
 
       // Chip Server ada di ujung baris chip, geser dulu biar kelihatan.
       await tester.drag(find.text('Manless (8)'), const Offset(-400, 0));
@@ -213,7 +213,7 @@ void main() {
       // Balik ke Semua Area.
       await tester.drag(find.text('PC Server (6)'), const Offset(400, 0));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Semua Area (41)'));
+      await tester.tap(find.text('Semua Area (42)'));
       await tester.pumpAndSettle();
       expect(
         find.textContaining(

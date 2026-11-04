@@ -334,6 +334,12 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
 
   Future<void> _toggleFlash() async {
     if (_controller == null || !_isInit) return;
+    // WebKit (semua browser di iPhone/iPad) tidak mendukung constraint
+    // 'torch', jadi flash tidak bisa dinyalakan dari halaman web.
+    if (kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      _showFlashUnsupportedMessage();
+      return;
+    }
     FlashMode next;
     switch (_flashMode) {
       case FlashMode.off:
@@ -352,7 +358,28 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
     try {
       await _controller!.setFlashMode(next);
       setState(() => _flashMode = next);
-    } catch (_) {}
+    } catch (_) {
+      _showFlashUnsupportedMessage();
+    }
+  }
+
+  void _showFlashUnsupportedMessage() {
+    if (!mounted) return;
+    final bool isIosBrowser =
+        kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 4),
+          content: Text(
+            isIosBrowser
+                ? 'iPhone tidak mengizinkan flash dinyalakan dari browser. '
+                      'Nyalakan flash di aplikasi Kamera HP, atau pakai APK BSS di Android.'
+                : 'Lampu kilat tidak bisa diaktifkan di perangkat ini.',
+          ),
+        ),
+      );
   }
 
   @override
@@ -385,7 +412,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
             Expanded(
               child: Text(
                 _isOfflineFastMode
-                    ? 'Mode Kilat Aktif: Foto langsung disimpan tanpa AI Vision (hemat waktu & sinyal)'
+                    ? 'Mode Kilat aktif: foto langsung disimpan, tanpa AI Vision (hemat waktu & sinyal)'
                     : 'AI Cloud Aktif: Verifikasi SOP otomatis via Gemini Vision AI Online',
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
               ),
@@ -544,29 +571,70 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
         userId: user?.id ?? 'tech',
       );
 
-      // Mulai watermark di background (jalan paralel dengan AI verify)
+      // Mulai watermark di background (jalan paralel dengan AI verify).
+      // Web tidak punya file lokal yang bisa ditulisi, jadi watermark dirender
+      // ke byte di memori; tanpa ini foto share di iPhone/Vercel polos tanpa watermark.
       Future<String>? watermarkFuture;
+      Future<Uint8List?>? webWatermarkFuture;
       try {
-        watermarkFuture = ImageWatermarkProcessor.applyWatermarkToFile(
-          imagePath: file.path,
-          timestamp: now,
-          lat: lat,
-          lng: lng,
-          fullAddress: fullAddr,
-          kodeVerifikasi: code,
-          config: _watermarkConfig.copyWith(
-            badgeTag: activeTag,
-            badgeColor: activeTagColor,
-          ),
-          activeLocationTag: activeTag,
-          activeLocationColor: activeTagColor,
-          pointLabel: widget.point.label,
-          isFrontCamera: _isFrontCamera,
-          targetAspectRatio: targetAspect,
-          jpegQuality: 93,
+        final wmConfig = _watermarkConfig.copyWith(
+          badgeTag: activeTag,
+          badgeColor: activeTagColor,
         );
+        if (kIsWeb) {
+          webWatermarkFuture = ImageWatermarkProcessor.applyWatermarkToBytes(
+            imageBytes: bytes,
+            timestamp: now,
+            lat: lat,
+            lng: lng,
+            fullAddress: fullAddr,
+            kodeVerifikasi: code,
+            config: wmConfig,
+            activeLocationTag: activeTag,
+            activeLocationColor: activeTagColor,
+            pointLabel: widget.point.label,
+            isFrontCamera: _isFrontCamera,
+            targetAspectRatio: targetAspect,
+            jpegQuality: 93,
+          );
+        } else {
+          watermarkFuture = ImageWatermarkProcessor.applyWatermarkToFile(
+            imagePath: file.path,
+            timestamp: now,
+            lat: lat,
+            lng: lng,
+            fullAddress: fullAddr,
+            kodeVerifikasi: code,
+            config: wmConfig,
+            activeLocationTag: activeTag,
+            activeLocationColor: activeTagColor,
+            pointLabel: widget.point.label,
+            isFrontCamera: _isFrontCamera,
+            targetAspectRatio: targetAspect,
+            jpegQuality: 93,
+          );
+        }
       } catch (err) {
         debugPrint('[PointCameraView] Error saat memicu watermark: $err');
+      }
+
+      Uint8List? shareBytes;
+      Future<void> tungguWatermark() async {
+        if (watermarkFuture != null) {
+          try {
+            await watermarkFuture.timeout(const Duration(seconds: 12));
+          } catch (e) {
+            debugPrint('[PointCameraView] Timeout/error watermark: $e');
+          }
+        }
+        if (webWatermarkFuture != null) {
+          try {
+            final wm = await webWatermarkFuture.timeout(const Duration(seconds: 12));
+            if (wm != null && wm.isNotEmpty) shareBytes = wm;
+          } catch (e) {
+            debugPrint('[PointCameraView] Timeout/error watermark web: $e');
+          }
+        }
       }
 
       // Mode Kilat manual, atau backoff otomatis setelah AI gagal: tunggu watermark selesai lalu simpan
@@ -582,16 +650,34 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
             debugPrint('[PointCameraView] Timeout/error watermark offline: $e');
           }
         }
+        if (webWatermarkFuture != null) {
+          try {
+            final wm = await webWatermarkFuture.timeout(const Duration(seconds: 12));
+            if (wm != null && wm.isNotEmpty) shareBytes = wm;
+          } catch (e) {
+            debugPrint('[PointCameraView] Timeout/error watermark web offline: $e');
+          }
+        }
         setState(() {
           _statusText = '⚡ Mode Offline Cepat: Foto tersimpan!';
         });
         await Future.delayed(const Duration(milliseconds: 150));
 
+        // Simpan base64 ringan di memori (tidak ikut ke local storage) supaya
+        // tombol "Analisa Ulang" tetap bisa dipakai walau file/blob hilang.
+        final offlineB64 = await ImageWatermarkProcessor.generateAiVisionBase64(
+          file.path,
+          bytes,
+          _isFrontCamera,
+          targetAspect,
+        );
+
         final result = MaintenancePointResult(
           pointId: widget.point.id,
           label: widget.point.label,
           imagePath: file.path,
-          imageBase64: null,
+          shareImageBytes: shareBytes,
+          imageBase64: offlineB64 ?? (bytes.isNotEmpty ? base64Encode(bytes) : null),
           timestamp: now,
           status: PointStatus.perluCekManual,
           alasan: mockOverride
@@ -669,13 +755,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
       });
 
       // Pastikan watermark HD selesai sebelum foto disimpan ke laporan
-      if (watermarkFuture != null) {
-        try {
-          await watermarkFuture.timeout(const Duration(seconds: 12));
-        } catch (e) {
-          debugPrint('[PointCameraView] Timeout/error watermark online: $e');
-        }
-      }
+      await tungguWatermark();
 
       await Future.delayed(const Duration(milliseconds: 200));
 
@@ -691,7 +771,10 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
         pointId: widget.point.id,
         label: widget.point.label,
         imagePath: file.path,
-        imageBase64: null, // Jangan simpan base64 ke local storage
+        shareImageBytes: shareBytes,
+        // Disimpan di memori saja (toJson tidak menyertakan field ini) supaya
+        // analisa ulang tetap jalan; local storage tetap ringan.
+        imageBase64: base64Ai,
         timestamp: now,
         status: pointStatus,
         alasan: mockOverride

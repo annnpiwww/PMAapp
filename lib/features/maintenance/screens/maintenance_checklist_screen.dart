@@ -5,12 +5,15 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../data/models/template_model.dart';
 import '../../../data/models/maintenance_submission.dart';
+import '../../../data/models/submission_model.dart';
 import '../../../data/services/storage_service.dart';
+import '../../../data/services/ai_vision_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/google_sheets_service.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/repositories/template_repository.dart';
 import '../../../data/services/daily_task_service.dart';
+import '../../../data/services/maintenance_log_service.dart';
 import '../widgets/photo_preview_dialog.dart';
 import '../widgets/maintenance_point_card.dart';
 import '../widgets/maintenance_share_report_card.dart';
@@ -37,6 +40,10 @@ class MaintenanceChecklistScreen extends StatefulWidget {
   final List<int>? posUnits; // khusus Maintenance Lengkap: unit pos yang dicek
   final bool
   includeServer; // khusus Maintenance Lengkap: ikut cek 1 PC Server (cakupan 4 area)
+  final String?
+  posMode; // khusus Pos Parkir & Booth: 'pos' (default) atau 'booth'
+  final String
+  manlessRole; // khusus Manless: 'IN' (default) | 'OUT' | 'PEP'
 
   const MaintenanceChecklistScreen({
     super.key,
@@ -55,6 +62,8 @@ class MaintenanceChecklistScreen extends StatefulWidget {
     this.manlessUnits,
     this.posUnits,
     this.includeServer = false,
+    this.posMode,
+    this.manlessRole = 'IN',
   });
 
   @override
@@ -79,6 +88,20 @@ class _MaintenanceChecklistScreenState
     'srv': 'PC Server',
   };
 
+  /// Prefix id poin per area di Maintenance Lengkap. Poin manless SOP OUT/PEP
+  /// punya prefix sendiri (mout_/mpep_) supaya tidak bentrok dengan man_01..08.
+  static const Map<String, List<String>> _lengkapAreaPrefixes = {
+    'bar': ['bar'],
+    'man': ['man', 'mout', 'mpep'],
+    'pos': ['pos'],
+    'srv': ['srv'],
+  };
+
+  static bool _isPointInArea(String pointId, String area) {
+    final prefixes = _lengkapAreaPrefixes[area] ?? [area];
+    return prefixes.any((pfx) => pointId.startsWith('${pfx}_'));
+  }
+
   PosLocation get _effectiveLocation {
     if (widget.location != null) return widget.location!;
     if (widget.existingSubmission != null) {
@@ -100,6 +123,17 @@ class _MaintenanceChecklistScreenState
       );
     }
     return LocationService.currentPos;
+  }
+
+  /// Mode Booth Parkir di template Pos Parkir & Booth. Draft lama dibaca dari
+  /// prefix pointId supaya resume/history tetap menampilkan label Booth.
+  bool get _isBoothMode {
+    if (widget.template.jenis != TemplateCategory.maintPos) return false;
+    if (widget.posMode == 'booth') return true;
+    return widget.existingSubmission?.points.any(
+          (p) => p.pointId.startsWith('booth_'),
+        ) ??
+        false;
   }
 
   bool get _isEffectiveOnlyKasir {
@@ -125,6 +159,44 @@ class _MaintenanceChecklistScreenState
   String _roleSuffix(int unit) {
     final role = widget.unitRoles?[unit]?.trim() ?? '';
     return role.isEmpty ? '' : ' ($role)';
+  }
+
+  /// Role Manless: dari setup, atau dibaca dari label submission lama supaya
+  /// riwayat OUT/PEP tidak tampil sebagai IN saat dibuka ulang.
+  /// Hanya label manless yang dicek — label gate barrier juga bisa "(OUT)".
+  String get _manlessRole {
+    if (widget.manlessRole != 'IN') return widget.manlessRole;
+    for (final p
+        in widget.existingSubmission?.points ??
+            const <MaintenancePointResult>[]) {
+      final l = p.label.toLowerCase();
+      if (!l.contains('manless')) continue;
+      if (l.contains('(pep)')) return 'PEP';
+      if (l.contains('(out)')) return 'OUT';
+    }
+    return 'IN';
+  }
+
+  String get _manlessRoleSuffix =>
+      _manlessRole == 'IN' ? '' : ' ($_manlessRole)';
+
+  /// Poin manless sesuai SOP yang dipilih. [master] dipakai untuk Maintenance
+  /// Lengkap, di mana template utama bukan template manless.
+  List<SopPoint> _manlessPointsForRole({TemplateModel? master}) {
+    final base = master != null
+        ? master.sopPoints
+        : (widget.template.sopPoints.isNotEmpty
+              ? widget.template.sopPoints
+              : (_masterAreaTemplate('tpl_maint_manless')?.sopPoints ??
+                    const []));
+    if (base.isEmpty) return base;
+    if (_manlessRole == 'OUT') {
+      return [...base, ...TemplateRepository.manlessOutExtraPoints];
+    }
+    if (_manlessRole == 'PEP') {
+      return TemplateRepository.manlessPepPoints;
+    }
+    return base;
   }
 
   List<int> _resolveUnits() {
@@ -250,11 +322,27 @@ class _MaintenanceChecklistScreenState
       widget.unitNumbers ?? const [1],
       (i) => 'Barrier Gate $i${_roleSuffix(i)}',
     );
-    addArea(
-      'tpl_maint_manless',
-      widget.manlessUnits ?? const [1],
-      (i) => 'Manless $i',
-    );
+    // Manless ikut SOP yang dipilih (IN / OUT / PEP), labelnya pakai suffix
+    // role supaya manager tahu unit yang dicek itu bagian mana.
+    final manlessMaster = _masterAreaTemplate('tpl_maint_manless');
+    final manlessPoints = _manlessPointsForRole(master: manlessMaster);
+    for (final i in (widget.manlessUnits ?? const [1])) {
+      final pfx = 'Manless $i$_manlessRoleSuffix - ';
+      for (final sp in manlessPoints) {
+        final parts = sp.id.split('_');
+        list.add(
+          SopPoint(
+            id: '${parts.first}_${i}_${parts.last}',
+            label: '$pfx${sp.label}',
+            deskripsi: sp.deskripsi,
+            checkpoints: sp.checkpoints,
+            panduanFoto: sp.panduanFoto,
+            wajibFoto: sp.wajibFoto,
+            contohFoto: sp.contohFoto,
+          ),
+        );
+      }
+    }
     addArea('tpl_maint_pos', widget.posUnits ?? const [1], (i) => 'Pos $i');
 
     if (widget.includeServer) {
@@ -318,19 +406,26 @@ class _MaintenanceChecklistScreenState
         case TemplateCategory.maintBarrier:
           return 'Barrier Gate $i${_roleSuffix(i)}';
         case TemplateCategory.maintManless:
-          return 'Manless $i';
+          return 'Manless $i$_manlessRoleSuffix';
         case TemplateCategory.maintPos:
-          return 'Pos $i';
+          return _isBoothMode ? 'Booth $i' : 'Pos $i';
         default:
           return 'Unit $i';
       }
     }
 
+    // Mode Booth memakai SOP booth; mode Pos Kasir tetap SOP pos.
+    final sourcePoints = (cat == TemplateCategory.maintPos && _isBoothMode)
+        ? TemplateRepository.boothParkirPoints
+        : (cat == TemplateCategory.maintManless
+              ? _manlessPointsForRole()
+              : widget.template.sopPoints);
+
     // Jika template memiliki master sopPoints (dari TemplateRepository / seed), kita duplikasi per unit
-    if (widget.template.sopPoints.isNotEmpty) {
+    if (sourcePoints.isNotEmpty) {
       for (final i in _effectiveUnits) {
         final pfx = '${unitPrefix(i)} - ';
-        for (final sp in widget.template.sopPoints) {
+        for (final sp in sourcePoints) {
           list.add(
             SopPoint(
               id: '${sp.id.split('_').first}_${i}_${sp.id.split('_').last}',
@@ -482,6 +577,12 @@ class _MaintenanceChecklistScreenState
               label: '${pfx}Fungsi Sistem Aplikasi Kasir',
               deskripsi:
                   'Foto layar aplikasi kasir status ready online, tanpa cashbox',
+            ),
+            SopPoint(
+              id: 'pos_${i}_10',
+              label: '${pfx}Pembersihan Kipas Angin',
+              deskripsi:
+                  'Baling-baling dan cover penutup kipas angin harus bersih',
             ),
             SopPoint(
               id: 'pos_${i}_05',
@@ -770,6 +871,7 @@ class _MaintenanceChecklistScreenState
       list.insert(0, _submission);
     }
     await StorageService.saveMaintenanceSubmissions(list);
+    if (_submission.isComplete) unawaited(MaintenanceLogService.syncLocal());
   }
 
   Future<void> _openCameraForPoint(SopPoint point) async {
@@ -2458,7 +2560,7 @@ class _MaintenanceChecklistScreenState
       if (_selectedUnitFilter.startsWith('AREA_')) {
         // Maintenance Lengkap: saring per area pakai awalan id poin.
         final area = _selectedUnitFilter.replaceAll('AREA_', '');
-        if (p.pointId.split('_').first != area) return false;
+        if (!_isPointInArea(p.pointId, area)) return false;
       } else if (_selectedUnitFilter != 'ALL') {
         final unitIdx = _selectedUnitFilter.replaceAll('UNIT_', '');
         if (!p.pointId.contains('_${unitIdx}_')) return false;
@@ -2498,7 +2600,9 @@ class _MaintenanceChecklistScreenState
               ? (_isEffectiveOnlyKasir
                     ? 'Maintenance: Kasir'
                     : 'Maintenance: Server & Kasir')
-              : widget.template.nama,
+              : (widget.template.jenis == TemplateCategory.maintManless
+                    ? '${widget.template.nama}$_manlessRoleSuffix'
+                    : widget.template.nama),
         ),
         actions: [
           IconButton(
@@ -2611,7 +2715,7 @@ class _MaintenanceChecklistScreenState
                           final String unitNoun;
                           if (widget.template.jenis ==
                               TemplateCategory.maintPos) {
-                            unitNoun = 'Pos';
+                            unitNoun = _isBoothMode ? 'Booth' : 'Pos';
                           } else if (widget.template.jenis ==
                               TemplateCategory.maintBarrier) {
                             unitNoun = 'Gate';
@@ -2729,7 +2833,7 @@ class _MaintenanceChecklistScreenState
                         allLabel = 'Semua Area';
                       } else if (widget.template.jenis == TemplateCategory.maintPos) {
                         allLabel =
-                            'Semua Pos (${_effectiveUnits.first} - ${_effectiveUnits.last})';
+                            'Semua ${_isBoothMode ? 'Booth' : 'Pos'} (${_effectiveUnits.first} - ${_effectiveUnits.last})';
                       } else if (widget.template.jenis ==
                           TemplateCategory.maintBarrier) {
                         allLabel =
@@ -2795,14 +2899,14 @@ class _MaintenanceChecklistScreenState
                     // (nomor unit tidak lagi mewakili satu perangkat di tugas gabungan).
                     for (final entry in _lengkapAreaLabels.entries)
                       if (_submission.points.any(
-                        (p) => p.pointId.startsWith('${entry.key}_'),
+                        (p) => _isPointInArea(p.pointId, entry.key),
                       ))
                         _buildFilterUnitChip(
                           'AREA_${entry.key}',
                           entry.value,
                           _submission.points
                               .where(
-                                (p) => p.pointId.startsWith('${entry.key}_'),
+                                (p) => _isPointInArea(p.pointId, entry.key),
                               )
                               .length,
                         ),
@@ -2813,13 +2917,13 @@ class _MaintenanceChecklistScreenState
                           final String unitLabel;
                           if (widget.template.jenis ==
                               TemplateCategory.maintPos) {
-                            unitLabel = 'Pos $i';
+                            unitLabel = _isBoothMode ? 'Booth $i' : 'Pos $i';
                           } else if (widget.template.jenis ==
                               TemplateCategory.maintBarrier) {
                             unitLabel = 'Gate $i${_roleSuffix(i)}';
                           } else if (widget.template.jenis ==
                               TemplateCategory.maintManless) {
-                            unitLabel = 'Manless $i';
+                            unitLabel = 'Manless $i$_manlessRoleSuffix';
                           } else {
                             unitLabel = 'Unit $i';
                           }
@@ -2866,6 +2970,27 @@ class _MaintenanceChecklistScreenState
                       imagePath: result.imagePath!,
                       title: result.label,
                       pointResult: result,
+                      // Analisa ulang foto point ini, lalu simpan hasilnya
+                      // supaya laporan yang dibagikan ikut ter-update.
+                      onAnalyze: (base64) async {
+                        final res = await AiVisionService.verifyMaintenancePoint(
+                          point: point,
+                          template: widget.template,
+                          imageBase64: base64,
+                        );
+                        final updated = result.copyWith(
+                          status: res.status == VerificationStatus.sesuai
+                              ? PointStatus.sesuai
+                              : res.status == VerificationStatus.tidakSesuai
+                                  ? PointStatus.tidakSesuai
+                                  : PointStatus.perluCekManual,
+                          alasan: res.alasan,
+                          confidence: res.confidenceScore,
+                          providerName: res.providerName,
+                        );
+                        await _updatePointResult(point, result, updated);
+                        return res;
+                      },
                     );
                   },
                   onTapCard: () {
@@ -2950,7 +3075,7 @@ class _MaintenanceChecklistScreenState
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    '✓ Laporan ${_submission.templateName} tersimpan & disinkronkan ke Google Sheet SPV!',
+                                    '✓ Laporan ${_submission.templateName} tersimpan & disinkronkan ke Google Sheet SPV',
                                   ),
                                   backgroundColor: AppColors.success,
                                 ),

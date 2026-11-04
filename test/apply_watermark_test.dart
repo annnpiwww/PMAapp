@@ -129,4 +129,32 @@ void main() {
 
     tempDir.deleteSync(recursive: true);
   });
+
+  test('applyWatermarkToBytes renders JPEG bytes without file IO (jalur web)', () async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1440), Paint()..color = Colors.blue);
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(1080, 1440);
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+
+    final resultBytes = await ImageWatermarkProcessor.applyWatermarkToBytes(
+      imageBytes: byteData!.buffer.asUint8List(),
+      timestamp: DateTime.now(),
+      lat: 1.4882,
+      lng: 124.8428,
+      fullAddress: 'Pos 1 Megamas Manado',
+      kodeVerifikasi: 'BSS-WEB-1234',
+      config: const WatermarkConfig(),
+      activeLocationTag: 'PBM/PKM',
+      activeLocationColor: const Color(0xFFF59E0B),
+      targetAspectRatio: 3 / 4,
+      jpegQuality: 90,
+    );
+
+    expect(resultBytes, isNotNull);
+    expect(resultBytes!.length, greaterThan(0));
+    expect(resultBytes[0], 0xFF);
+    expect(resultBytes[1], 0xD8);
+  });
 }

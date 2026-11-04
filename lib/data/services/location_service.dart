@@ -1,10 +1,37 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart' as geo;
+import 'package:http/http.dart' as http;
 import 'storage_service.dart';
 import 'branch_service.dart';
+import 'daily_task_service.dart';
+
+enum RemoteWriteResult { ok, invalidCredentials, notSupervisor, offline, failed }
+
+String _appBranchToKey(AppBranch b) {
+  switch (b) {
+    case AppBranch.manado:
+      return 'manado';
+    case AppBranch.bali:
+      return 'bali';
+    case AppBranch.ho:
+      return 'ho';
+  }
+}
+
+AppBranch? _appBranchFromKey(String? str) {
+  if (str == null) return null;
+  final s = str.trim().toLowerCase();
+  if (s == 'manado' || s == 'kc manado' || s == 'mdo') return AppBranch.manado;
+  if (s == 'bali' || s == 'kc bali' || s == 'dps') return AppBranch.bali;
+  if (s == 'ho' || s == 'ho makassar') return AppBranch.ho;
+  return null;
+}
 
 class PosLocation {
   final String posId;
@@ -15,6 +42,7 @@ class PosLocation {
   final Color tagColor;
   final double lat;
   final double lng;
+  final AppBranch? explicitBranch;
 
   const PosLocation({
     required this.posId,
@@ -25,6 +53,7 @@ class PosLocation {
     required this.tagColor,
     required this.lat,
     required this.lng,
+    this.explicitBranch,
   });
 
   Map<String, dynamic> toJson() => {
@@ -36,18 +65,48 @@ class PosLocation {
         'tagColorValue': tagColor.toARGB32(),
         'lat': lat,
         'lng': lng,
+        if (explicitBranch != null) 'branch': _appBranchToKey(explicitBranch!),
       };
 
-  factory PosLocation.fromJson(Map<String, dynamic> json) => PosLocation(
-        posId: json['posId'] as String,
-        posName: json['posName'] as String,
-        cabangName: json['cabangName'] as String,
-        fullAddress: json['fullAddress'] as String,
-        locationTag: json['locationTag'] as String,
-        tagColor: Color(json['tagColorValue'] as int? ?? 0xFFF59E0B),
-        lat: (json['lat'] as num).toDouble(),
-        lng: (json['lng'] as num).toDouble(),
-      );
+  factory PosLocation.fromJson(Map<String, dynamic> json) {
+    return PosLocation(
+      posId: json['posId'] as String,
+      posName: json['posName'] as String,
+      cabangName: json['cabangName'] as String,
+      fullAddress: json['fullAddress'] as String,
+      locationTag: json['locationTag'] as String,
+      tagColor: Color(json['tagColorValue'] as int? ?? 0xFFF59E0B),
+      lat: (json['lat'] as num).toDouble(),
+      lng: (json['lng'] as num).toDouble(),
+      explicitBranch: _appBranchFromKey(json['branch'] as String?),
+    );
+  }
+
+  Map<String, dynamic> toRemoteJson() => {
+        'pos_id': posId,
+        'pos_name': posName,
+        'cabang_name': cabangName,
+        'full_address': fullAddress,
+        'location_tag': locationTag,
+        'tag_color': tagColor.toARGB32(),
+        'branch': _appBranchToKey(explicitBranch ?? branch),
+        'lat': lat,
+        'lng': lng,
+      };
+
+  factory PosLocation.fromRemoteJson(Map<String, dynamic> json) {
+    return PosLocation(
+      posId: json['pos_id'] as String,
+      posName: json['pos_name'] as String,
+      cabangName: json['cabang_name'] as String,
+      fullAddress: (json['full_address'] as String?) ?? '',
+      locationTag: json['location_tag'] as String,
+      tagColor: Color((json['tag_color'] as num?)?.toInt() ?? 0xFFF59E0B),
+      lat: (json['lat'] as num).toDouble(),
+      lng: (json['lng'] as num).toDouble(),
+      explicitBranch: _appBranchFromKey(json['branch'] as String?),
+    );
+  }
 
   PosLocation copyWith({
     String? posId,
@@ -58,6 +117,7 @@ class PosLocation {
     Color? tagColor,
     double? lat,
     double? lng,
+    AppBranch? explicitBranch,
   }) {
     return PosLocation(
       posId: posId ?? this.posId,
@@ -68,6 +128,7 @@ class PosLocation {
       tagColor: tagColor ?? this.tagColor,
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
+      explicitBranch: explicitBranch ?? this.explicitBranch,
     );
   }
 
@@ -81,28 +142,46 @@ class PosLocation {
   @override
   int get hashCode => posId.hashCode;
 
-  /// Cek apakah lokasi ini termasuk ke dalam cabang target
+  /// Cek apakah lokasi ini termasuk ke dalam cabang target.
+  /// Penanda cabang eksplisit (explicitBranch/cabangName/posId) didahulukan atas tag supaya
+  /// lokasi hasil input SPV tidak pindah cabang walau tag-nya mirip cabang lain.
   bool matchesBranch(AppBranch branch) {
-    if (branch == AppBranch.bali) {
-      if (cabangName.toLowerCase().contains('bali') ||
-          posId.toUpperCase().contains('DPS') ||
-          BranchService.instance.getLocationTags(branch: AppBranch.bali).contains(locationTag.trim().toUpperCase())) {
-        return true;
-      }
-      return false;
-    } else {
-      // Manado / BSG branch
-      if (cabangName.toLowerCase().contains('bali') ||
-          posId.toUpperCase().contains('DPS') ||
-          BranchService.instance.getLocationTags(branch: AppBranch.bali).contains(locationTag.trim().toUpperCase())) {
-        return false;
-      }
+    if (explicitBranch != null) {
+      return explicitBranch == branch;
+    }
+
+    final tag = locationTag.trim().toUpperCase();
+    final name = cabangName.toLowerCase();
+    final id = posId.toUpperCase();
+    final hasHoMarker = name.contains('ho makassar') ||
+        name.contains('head office') ||
+        id.contains('-HO-');
+    final hasBaliMarker = name.contains('bali') || id.contains('DPS');
+
+    if (hasHoMarker) return branch == AppBranch.ho;
+    if (hasBaliMarker) return branch == AppBranch.bali;
+
+    if (BranchService.instance.getLocationTags(branch: branch).contains(tag)) {
       return true;
     }
+    // Sisa lokasi tanpa penanda dianggap milik KC BSG Manado.
+    return branch == AppBranch.manado &&
+        !BranchService.instance
+            .getLocationTags(branch: AppBranch.bali)
+            .contains(tag) &&
+        !BranchService.instance
+            .getLocationTags(branch: AppBranch.ho)
+            .contains(tag);
   }
 
   /// Branch kepemilikan lokasi ini
-  AppBranch get branch => matchesBranch(AppBranch.bali) ? AppBranch.bali : AppBranch.manado;
+  AppBranch get branch {
+    if (explicitBranch != null) return explicitBranch!;
+    for (final b in AppBranch.values) {
+      if (b != AppBranch.manado && matchesBranch(b)) return b;
+    }
+    return AppBranch.manado;
+  }
 }
 
 class LocationResult {
@@ -150,141 +229,141 @@ class LocationService {
       posId: 'POS-PBM-01',
       posName: 'Pasar Bersehati Manado',
       cabangName: 'KC BSG',
-      fullAddress: 'Pasar Bersehati, Kota Manado, Sulawesi Utara',
+      fullAddress: 'Jl. Nusantara No.17, Calaca, Wenang, Kota Manado, Sulawesi Utara',
       locationTag: 'PBM',
       tagColor: Color(0xFFF59E0B),
-      lat: 1.493055,
-      lng: 124.841972,
+      lat: 1.4980709,
+      lng: 124.8415709,
     ),
     const PosLocation(
       posId: 'POS-PKM-01',
       posName: 'Pelabuhan Kalimas Manado',
       cabangName: 'KC BSG',
-      fullAddress: 'Pelabuhan Kalimas, Kota Manado, Sulawesi Utara',
+      fullAddress: 'Jl. Rumambi, Calaca, Wenang, Kota Manado, Sulawesi Utara',
       locationTag: 'PKM',
       tagColor: Color(0xFFF59E0B),
-      lat: 1.494722,
-      lng: 124.839167,
+      lat: 1.4986164,
+      lng: 124.8400064,
     ),
     const PosLocation(
       posId: 'POS-MPP-01',
       posName: 'Mall Pelayanan Publik',
       cabangName: 'KC BSG',
-      fullAddress: 'Mall Pelayanan Publik, Kota Manado, Sulawesi Utara',
+      fullAddress: 'Jl. Piere Tendean, Sario Tumpaan, Sario, Kota Manado, Sulawesi Utara 95114',
       locationTag: 'MPP',
       tagColor: Color(0xFFF59E0B),
-      lat: 1.487778,
-      lng: 124.843056,
+      lat: 1.4689489,
+      lng: 124.8303596,
     ),
     const PosLocation(
       posId: 'POS-NBM-01',
       posName: 'New Bendar Manado',
       cabangName: 'KC BSG',
-      fullAddress: 'New Bendar, Kota Manado, Sulawesi Utara',
+      fullAddress: 'President Shopping Center, Jl. Walanda Maramis, Pinaesaan, Wenang, Kota Manado, Sulawesi Utara',
       locationTag: 'NBM',
       tagColor: Color(0xFFF59E0B),
-      lat: 1.488500,
-      lng: 124.838889,
+      lat: 1.4934467,
+      lng: 124.8416130,
     ),
     const PosLocation(
       posId: 'POS-PPM-01',
       posName: 'Pasar Pinasungkulan Manado',
       cabangName: 'KC BSG',
-      fullAddress: 'Pasar Pinasungkulan, Kota Manado, Sulawesi Utara',
+      fullAddress: 'Jl. Pasar Karombasan, Karombasan Utara, Wanea, Kota Manado, Sulawesi Utara',
       locationTag: 'PPM',
       tagColor: Color(0xFFF59E0B),
-      lat: 1.464167,
-      lng: 124.844722,
+      lat: 1.4567512,
+      lng: 124.8402042,
     ),
     const PosLocation(
       posId: 'POS-TBM-01',
       posName: 'Toko Bintang Manado',
       cabangName: 'KC BSG',
-      fullAddress: 'Toko Bintang, Kota Manado, Sulawesi Utara',
+      fullAddress: 'Jl. A.A. Maramis No.291, Paniki Bawah, Kec. Mapanget, Kota Manado, Sulawesi Utara',
       locationTag: 'TBM',
       tagColor: Color(0xFFF59E0B),
-      lat: 1.492000,
-      lng: 124.841000,
+      lat: 1.5030,
+      lng: 124.9000,
     ),
     const PosLocation(
       posId: 'POS-MGAM-01',
       posName: 'Mie Gacoan AA Maramis',
       cabangName: 'KC BSG',
-      fullAddress: 'Jl. A.A. Maramis, Kota Manado, Sulawesi Utara',
+      fullAddress: 'Jl. A.A. Maramis, Paniki Bawah, Kec. Mapanget, Kota Manado, Sulawesi Utara',
       locationTag: 'MGAM',
       tagColor: Color(0xFFF59E0B),
-      lat: 1.503200,
-      lng: 124.878500,
+      lat: 1.5059531,
+      lng: 124.9033492,
     ),
     const PosLocation(
       posId: 'POS-MGMM-01',
       posName: 'Mie Gacoan AirMadidi',
       cabangName: 'KC BSG',
-      fullAddress: 'Airmadidi, Minahasa Utara, Sulawesi Utara',
+      fullAddress: 'CXCP+V34, Airmadidi Atas, Kec. Airmadidi, Kabupaten Minahasa Utara, Sulawesi Utara',
       locationTag: 'MGMM',
       tagColor: Color(0xFFF59E0B),
-      lat: 1.428500,
-      lng: 124.981000,
+      lat: 1.4221375,
+      lng: 124.9852031,
     ),
     const PosLocation(
       posId: 'POS-MGBP-01',
       posName: 'Mie Gacoan Babe Palar',
       cabangName: 'KC BSG',
-      fullAddress: 'Jl. Babe Palar, Kota Manado, Sulawesi Utara',
+      fullAddress: 'Jl. Babe Palar No.81, Madidir Ure, Kec. Maesa, Kota Bitung, Sulawesi Utara',
       locationTag: 'MGBP',
       tagColor: Color(0xFFF59E0B),
-      lat: 1.472000,
-      lng: 124.838000,
+      lat: 1.4429952,
+      lng: 125.1583095,
     ),
     const PosLocation(
       posId: 'POS-MGTO-01',
       posName: 'Mie Gacoan Tomohon',
       cabangName: 'KC BSG',
-      fullAddress: 'Kota Tomohon, Sulawesi Utara',
+      fullAddress: 'Jl. Raya Tomohon, Talete Satu, Kec. Tomohon Tengah, Kota Tomohon, Sulawesi Utara',
       locationTag: 'MGTO',
       tagColor: Color(0xFFF59E0B),
-      lat: 1.328000,
-      lng: 124.839000,
+      lat: 1.3285085,
+      lng: 124.8396419,
     ),
     const PosLocation(
       posId: 'POS-MGKB-01',
       posName: 'Mie Gacoan Kotamobagu',
       cabangName: 'KC BSG',
-      fullAddress: 'Kotamobagu, Sulawesi Utara',
+      fullAddress: 'P7JX+JXX, Molinow, Kec. Kotamobagu Barat, Kota Kotamobagu, Sulawesi Utara',
       locationTag: 'MGKB',
       tagColor: Color(0xFFF59E0B),
-      lat: 0.742000,
-      lng: 124.316000,
+      lat: 0.7316125,
+      lng: 124.2999844,
     ),
     const PosLocation(
       posId: 'POS-MGNW-01',
       posName: 'Mie Gacoan Nani Wartabone',
       cabangName: 'KC BSG',
-      fullAddress: 'Jl. Nani Wartabone, Kota Gorontalo, Gorontalo',
+      fullAddress: 'Jl. Nani Wartabone No.05, Heledulaa Selatan, Kec. Kota Timur, Kota Gorontalo, Gorontalo',
       locationTag: 'MGNW',
       tagColor: Color(0xFFF59E0B),
-      lat: 0.543000,
-      lng: 123.059000,
+      lat: 0.5397008,
+      lng: 123.0610370,
     ),
     const PosLocation(
       posId: 'POS-MGGJ-01',
       posName: 'Mie Gacoan Gorontalo Jhon',
       cabangName: 'KC BSG',
-      fullAddress: 'Kota Gorontalo, Gorontalo',
+      fullAddress: 'H3C4+FX9, Tapa, Kec. Sipatana, Kota Gorontalo, Gorontalo',
       locationTag: 'MGGJ',
       tagColor: Color(0xFFF59E0B),
-      lat: 0.551000,
-      lng: 123.065000,
+      lat: 0.5711625,
+      lng: 123.0574844,
     ),
     const PosLocation(
       posId: 'POS-MGLG-01',
       posName: 'Mie Gacoan Limboto Gorontalo',
       cabangName: 'KC BSG',
-      fullAddress: 'Limboto, Kab. Gorontalo, Gorontalo',
+      fullAddress: 'JXCG+6M2, Jl. Jenderal Sudirman, Hunggaluwa, Kec. Limboto, Kabupaten Gorontalo, Gorontalo',
       locationTag: 'MGLG',
       tagColor: Color(0xFFF59E0B),
-      lat: 0.625000,
-      lng: 122.980000,
+      lat: 0.6205125,
+      lng: 122.9766406,
     ),
     // --- 15 Pos Pengelolaan KC Bali ---
     const PosLocation(
@@ -437,6 +516,131 @@ class LocationService {
       lat: -8.670458,
       lng: 115.212629,
     ),
+
+    // HO Makassar: 12 lokasi visit. Koordinat sengaja 0 (tag-only) sampai
+    // koordinat GPS asli tiap lokasi dipasang.
+    // shortcut: lat/lng 0,0 bikin deteksi lokasi via GPS tidak pernah cocok;
+    // isi koordinat asli kalau nanti HO butuh validasi radius GPS.
+    const PosLocation(
+      posId: 'POS-HO-TBP-01',
+      posName: 'Toko Bintang Palangga',
+      cabangName: 'HO Makassar',
+      fullAddress: 'Toko Bintang Palangga, HO Makassar',
+      locationTag: 'TBP',
+      tagColor: Color(0xFFF59E0B),
+      lat: 0,
+      lng: 0,
+    ),
+    const PosLocation(
+      posId: 'POS-HO-GMM-01',
+      posName: 'Grand Mall Maros',
+      cabangName: 'HO Makassar',
+      fullAddress: 'Grand Mall Maros, HO Makassar',
+      locationTag: 'GMM',
+      tagColor: Color(0xFFF59E0B),
+      lat: 0,
+      lng: 0,
+    ),
+    const PosLocation(
+      posId: 'POS-HO-RSWS-01',
+      posName: 'Rumah Sakit Wahidin Sudirohusodo',
+      cabangName: 'HO Makassar',
+      fullAddress: 'Rumah Sakit Wahidin Sudirohusodo, HO Makassar',
+      locationTag: 'RSWS',
+      tagColor: Color(0xFFF59E0B),
+      lat: 0,
+      lng: 0,
+    ),
+    const PosLocation(
+      posId: 'POS-HO-MGPO-01',
+      posName: 'MG Polman',
+      cabangName: 'HO Makassar',
+      fullAddress: 'MG Polman, HO Makassar',
+      locationTag: 'MGPO',
+      tagColor: Color(0xFFF59E0B),
+      lat: 0,
+      lng: 0,
+    ),
+    const PosLocation(
+      posId: 'POS-HO-MGPI-01',
+      posName: 'MG Pinrang',
+      cabangName: 'HO Makassar',
+      fullAddress: 'MG Pinrang, HO Makassar',
+      locationTag: 'MGPI',
+      tagColor: Color(0xFFF59E0B),
+      lat: 0,
+      lng: 0,
+    ),
+    const PosLocation(
+      posId: 'POS-HO-MGWJ-01',
+      posName: 'MG Wajo',
+      cabangName: 'HO Makassar',
+      fullAddress: 'MG Wajo, HO Makassar',
+      locationTag: 'MGWJ',
+      tagColor: Color(0xFFF59E0B),
+      lat: 0,
+      lng: 0,
+    ),
+    const PosLocation(
+      posId: 'POS-HO-PCC-01',
+      posName: 'Private Care Centre',
+      cabangName: 'HO Makassar',
+      fullAddress: 'Private Care Centre, HO Makassar',
+      locationTag: 'PCC',
+      tagColor: Color(0xFFF59E0B),
+      lat: 0,
+      lng: 0,
+    ),
+    const PosLocation(
+      posId: 'POS-HO-MGPP-01',
+      posName: 'MG Pepaya Bone',
+      cabangName: 'HO Makassar',
+      fullAddress: 'MG Pepaya Bone, HO Makassar',
+      locationTag: 'MGPP',
+      tagColor: Color(0xFFF59E0B),
+      lat: 0,
+      lng: 0,
+    ),
+    const PosLocation(
+      posId: 'POS-HO-MGSP-01',
+      posName: 'MG Sidrap',
+      cabangName: 'HO Makassar',
+      fullAddress: 'MG Sidrap, HO Makassar',
+      locationTag: 'MGSP',
+      tagColor: Color(0xFFF59E0B),
+      lat: 0,
+      lng: 0,
+    ),
+    const PosLocation(
+      posId: 'POS-HO-MGKW-01',
+      posName: 'MG Kendari',
+      cabangName: 'HO Makassar',
+      fullAddress: 'MG Kendari, HO Makassar',
+      locationTag: 'MGKW',
+      tagColor: Color(0xFFF59E0B),
+      lat: 0,
+      lng: 0,
+    ),
+    const PosLocation(
+      posId: 'POS-HO-KMS-01',
+      posName: 'Karsa Mini Soccer',
+      cabangName: 'HO Makassar',
+      fullAddress: 'Karsa Mini Soccer, HO Makassar',
+      locationTag: 'KMS',
+      tagColor: Color(0xFFF59E0B),
+      lat: 0,
+      lng: 0,
+    ),
+    const PosLocation(
+      posId: 'POS-HO-PJT-01',
+      posName: 'Pusat Jantung Terpadu',
+      cabangName: 'HO Makassar',
+      fullAddress: 'Pusat Jantung Terpadu, HO Makassar',
+      locationTag: 'PJT',
+      tagColor: Color(0xFFF59E0B),
+      lat: 0,
+      lng: 0,
+    ),
   ];
 
   static List<PosLocation> _locations = [];
@@ -445,6 +649,11 @@ class LocationService {
 
   static bool get isLastLocationMocked => _cachedLocationResult?.isMockLocation ?? false;
   static LocationResult? get lastLocationResult => _cachedLocationResult;
+
+  @visibleForTesting
+  static http.Client? clientOverride;
+
+  static http.Client get _client => clientOverride ?? http.Client();
 
   @visibleForTesting
   static void setCachedLocationForTesting(LocationResult? result) {
@@ -456,13 +665,36 @@ class LocationService {
     _locations = [];
     _cachedLocationResult = null;
     _lastLocationFetchTime = null;
+    clientOverride = null;
   }
+
+  static const String keySeedCoordsMigration = 'bss_location_seed_coords_v3';
+
+  static const Set<String> _manadoSeedIds = {
+    'POS-PBM-01',
+    'POS-PKM-01',
+    'POS-MPP-01',
+    'POS-PPM-01',
+    'POS-NBM-01',
+    'POS-TBM-01',
+    'POS-MGAM-01',
+    'POS-MGMM-01',
+    'POS-MGBP-01',
+    'POS-MGTO-01',
+    'POS-MGKB-01',
+    'POS-MGNW-01',
+    'POS-MGGJ-01',
+    'POS-MGLG-01',
+  };
 
   static void _ensureInitialized() {
     if (_locations.isEmpty) {
       final saved = StorageService.getLocations();
+      final hasSynced = StorageService.hasLocationSyncedRemote();
       if (saved != null && saved.isNotEmpty) {
-        final existingTags = saved.map((e) => e.locationTag.trim().toUpperCase()).toSet();
+        // Kunci merge = posId (identitas lokasi), bukan tag: dua cabang boleh
+        // punya tag mirip dan seed baru tidak boleh tertelan lokasi cabang lain.
+        final existingIds = saved.map((e) => e.posId).toSet();
         // Migrasikan warna default seed menjadi standard BSS Orange (#F59E0B)
         final merged = saved.map((pos) {
           final isSeed = _defaultSeed.any((s) => s.posId == pos.posId);
@@ -471,18 +703,85 @@ class LocationService {
           }
           return pos;
         }).toList();
-        for (final seed in _defaultSeed) {
-          if (!existingTags.contains(seed.locationTag.trim().toUpperCase())) {
-            merged.add(seed);
+        if (!hasSynced) {
+          for (final seed in _defaultSeed) {
+            if (!existingIds.contains(seed.posId)) {
+              merged.add(seed);
+            }
           }
         }
         _locations = merged;
-        StorageService.saveLocations(_locations);
       } else {
         _locations = List.from(_defaultSeed);
-        StorageService.saveLocations(_locations);
       }
     }
+
+    // Migrasi sekali jalan koordinat & alamat 14 seed Manado (v3) + self-healing koordinat lama
+    final isMigrated = StorageService.getBool(keySeedCoordsMigration) ?? false;
+    final seedMap = {for (final s in _defaultSeed) s.posId: s};
+    final seedTagMap = {
+      for (final s in _defaultSeed) s.locationTag.toUpperCase(): s
+    };
+
+    bool needsSave = !isMigrated;
+    _locations = _locations.map((loc) {
+      final seed = seedMap[loc.posId] ??
+          seedTagMap[loc.locationTag.trim().toUpperCase()];
+      if (seed != null && _manadoSeedIds.contains(seed.posId)) {
+        // Deteksi self-healing: jika lokasi masih menggunakan koordinat lama salah
+        // (MGBP di Manado, TBM di dekat PBM Pasar 45, atau koordinat lama PBM/PKM)
+        final tag = loc.locationTag.trim().toUpperCase();
+        final isOldMgbp = tag == 'MGBP' &&
+            (loc.lng < 125.0 || (loc.lat - 1.472).abs() < 0.005);
+        final isOldTbm = tag == 'TBM' &&
+            (loc.lng < 124.88 || (loc.lat - 1.492).abs() < 0.005);
+        final isOldPbm = tag == 'PBM' && (loc.lat - 1.493055).abs() < 0.002;
+        final isOldPkm = tag == 'PKM' && (loc.lat - 1.494722).abs() < 0.002;
+
+        if (!isMigrated || isOldMgbp || isOldTbm || isOldPbm || isOldPkm) {
+          needsSave = true;
+          return loc.copyWith(
+            posId: seed.posId,
+            lat: seed.lat,
+            lng: seed.lng,
+            fullAddress: seed.fullAddress,
+          );
+        }
+      }
+      return loc;
+    }).toList();
+
+    if (needsSave) {
+      StorageService.saveLocations(_locations);
+      StorageService.setBool(keySeedCoordsMigration, true);
+    }
+  }
+
+  /// Reset koordinat seluruh lokasi seed cabang tertentu ke nilai default resmi.
+  static Future<void> resetCoordinatesToSeed(AppBranch branch) async {
+    _ensureInitialized();
+    final seedMap = {for (final s in _defaultSeed) s.posId: s};
+    final seedTagMap = {
+      for (final s in _defaultSeed) s.locationTag.trim().toUpperCase(): s
+    };
+
+    _locations = _locations.map((loc) {
+      if (!loc.matchesBranch(branch)) return loc;
+      final seed = seedMap[loc.posId] ??
+          seedTagMap[loc.locationTag.trim().toUpperCase()];
+      if (seed != null) {
+        return loc.copyWith(
+          posId: seed.posId,
+          lat: seed.lat,
+          lng: seed.lng,
+          fullAddress: seed.fullAddress,
+        );
+      }
+      return loc;
+    }).toList();
+
+    await StorageService.saveLocations(_locations);
+    await StorageService.setBool(keySeedCoordsMigration, true);
   }
 
   /// Seluruh lokasi tersimpan di sistem (lintas cabang)
@@ -686,12 +985,12 @@ class LocationService {
           ? posName.trim()
           : targetRaw;
 
-      final isBali = targetBranch == AppBranch.bali;
+      final posPrefix = targetBranch == AppBranch.bali
+          ? 'POS-DPS-'
+          : (targetBranch == AppBranch.ho ? 'POS-HO-' : 'POS-');
 
       final newLoc = PosLocation(
-        posId: isBali
-            ? 'POS-DPS-${cleanTag.replaceAll(RegExp(r'[^A-Z0-9]'), '')}-01'
-            : 'POS-${cleanTag.replaceAll(RegExp(r'[^A-Z0-9]'), '')}-01',
+        posId: '$posPrefix${cleanTag.replaceAll(RegExp(r'[^A-Z0-9]'), '')}-01',
         posName: cleanName,
         cabangName: targetBranch.name,
         fullAddress: cleanName,
@@ -716,6 +1015,14 @@ class LocationService {
     final targetBranch = pos.branch;
     await StorageService.setString('active_pos_id_${targetBranch.code}', pos.posId);
     clearLocationCache();
+
+    // Enqueue for remote import and fire-and-forget flush
+    final queue = StorageService.getLocationImportQueue();
+    if (!queue.any((q) => q.posId == pos.posId)) {
+      queue.add(pos);
+      await StorageService.saveLocationImportQueue(queue);
+    }
+    unawaited(_flushImportQueue().catchError((_) {}));
   }
 
   static Future<void> updateLocation(PosLocation pos) async {
@@ -741,6 +1048,230 @@ class LocationService {
     _locations = list.isNotEmpty ? list : List.from(_defaultSeed);
     await StorageService.saveLocations(_locations);
     clearLocationCache();
+  }
+
+  /// GET active rows, replace local list, keep + queue local-only rows for import, persist. Never throws.
+  static Future<bool> syncFromRemote() async {
+    _ensureInitialized();
+    try {
+      final uri = Uri.parse(
+        '${DailyTaskService.baseUrl}/rest/v1/pos_locations?select=*&active=eq.true',
+      );
+      final client = _client;
+      final res = await client.get(
+        uri,
+        headers: {
+          'apikey': DailyTaskService.anonKey,
+          'Authorization': 'Bearer ${DailyTaskService.anonKey}',
+        },
+      ).timeout(const Duration(seconds: 8));
+
+      if (res.statusCode != 200) {
+        return false;
+      }
+
+      final decoded = jsonDecode(res.body);
+      if (decoded is! List) return false;
+
+      final remoteLocations = decoded
+          .map((m) => PosLocation.fromRemoteJson(m as Map<String, dynamic>))
+          .toList();
+
+      final remoteIds = remoteLocations.map((r) => r.posId).toSet();
+      final seedIds = _defaultSeed.map((s) => s.posId).toSet();
+
+      final currentList = List<PosLocation>.from(_locations);
+      final localOnly = currentList
+          .where((loc) => !remoteIds.contains(loc.posId) && !seedIds.contains(loc.posId))
+          .toList();
+
+      final queue = StorageService.getLocationImportQueue();
+      final queueIds = queue.map((q) => q.posId).toSet();
+      for (final loc in localOnly) {
+        if (!queueIds.contains(loc.posId)) {
+          queue.add(loc);
+          queueIds.add(loc.posId);
+        }
+      }
+      await StorageService.saveLocationImportQueue(queue);
+
+      final merged = <PosLocation>[...remoteLocations];
+      for (final loc in localOnly) {
+        if (!remoteIds.contains(loc.posId)) {
+          merged.add(loc);
+        }
+      }
+
+      _locations = merged;
+      await StorageService.saveLocations(_locations);
+      await StorageService.setLocationSyncedRemote(true);
+
+      await _flushImportQueue();
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> _flushImportQueue() async {
+    final queue = StorageService.getLocationImportQueue();
+    if (queue.isEmpty) return;
+
+    final remaining = List<PosLocation>.from(queue);
+    final client = _client;
+
+    while (remaining.isNotEmpty) {
+      final chunk = remaining.take(50).toList();
+      final body = {
+        'action': 'import',
+        'locations': chunk.map((loc) => loc.toRemoteJson()).toList(),
+      };
+
+      try {
+        final uri = Uri.parse(
+          '${DailyTaskService.baseUrl}/functions/v1/pos-locations',
+        );
+        final res = await client.post(
+          uri,
+          headers: {
+            'apikey': DailyTaskService.anonKey,
+            'Authorization': 'Bearer ${DailyTaskService.anonKey}',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(body),
+        ).timeout(const Duration(seconds: 8));
+
+        if (res.statusCode == 200) {
+          final chunkIds = chunk.map((c) => c.posId).toSet();
+          queue.removeWhere((q) => chunkIds.contains(q.posId));
+          remaining.removeRange(0, chunk.length);
+          await StorageService.saveLocationImportQueue(queue);
+        } else {
+          break;
+        }
+      } catch (_) {
+        break;
+      }
+    }
+  }
+
+  /// SPV write. On ok also updates the local list. Never stores the password.
+  static Future<RemoteWriteResult> saveLocationRemote(
+    PosLocation pos, {
+    required String identity,
+    required String password,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        '${DailyTaskService.baseUrl}/functions/v1/pos-locations',
+      );
+      final client = _client;
+      final body = {
+        'action': 'upsert',
+        'identity': identity,
+        'password': password,
+        'location': pos.toRemoteJson(),
+      };
+
+      final res = await client.post(
+        uri,
+        headers: {
+          'apikey': DailyTaskService.anonKey,
+          'Authorization': 'Bearer ${DailyTaskService.anonKey}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 8));
+
+      if (res.statusCode == 200) {
+        _ensureInitialized();
+        final list = List<PosLocation>.from(_locations);
+        final idx = list.indexWhere((p) => p.posId == pos.posId);
+        if (idx != -1) {
+          list[idx] = pos;
+        } else {
+          list.insert(0, pos);
+        }
+        _locations = list;
+        await StorageService.saveLocations(_locations);
+        clearLocationCache();
+        return RemoteWriteResult.ok;
+      } else if (res.statusCode == 401) {
+        return RemoteWriteResult.invalidCredentials;
+      } else if (res.statusCode == 403) {
+        return RemoteWriteResult.notSupervisor;
+      } else {
+        return RemoteWriteResult.failed;
+      }
+    } on SocketException {
+      return RemoteWriteResult.offline;
+    } on TimeoutException {
+      return RemoteWriteResult.offline;
+    } on http.ClientException catch (e) {
+      if (e.message.contains('SocketException') || e.message.contains('Network')) {
+        return RemoteWriteResult.offline;
+      }
+      return RemoteWriteResult.failed;
+    } catch (_) {
+      return RemoteWriteResult.failed;
+    }
+  }
+
+  static Future<RemoteWriteResult> deleteLocationRemote(
+    String posId, {
+    required String identity,
+    required String password,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        '${DailyTaskService.baseUrl}/functions/v1/pos-locations',
+      );
+      final client = _client;
+      final body = {
+        'action': 'delete',
+        'identity': identity,
+        'password': password,
+        'pos_id': posId,
+      };
+
+      final res = await client.post(
+        uri,
+        headers: {
+          'apikey': DailyTaskService.anonKey,
+          'Authorization': 'Bearer ${DailyTaskService.anonKey}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 8));
+
+      if (res.statusCode == 200) {
+        _ensureInitialized();
+        final list = List<PosLocation>.from(_locations);
+        list.removeWhere((p) => p.posId == posId);
+        _locations = list;
+        await StorageService.saveLocations(_locations);
+        clearLocationCache();
+        return RemoteWriteResult.ok;
+      } else if (res.statusCode == 401) {
+        return RemoteWriteResult.invalidCredentials;
+      } else if (res.statusCode == 403) {
+        return RemoteWriteResult.notSupervisor;
+      } else {
+        return RemoteWriteResult.failed;
+      }
+    } on SocketException {
+      return RemoteWriteResult.offline;
+    } on TimeoutException {
+      return RemoteWriteResult.offline;
+    } on http.ClientException catch (e) {
+      if (e.message.contains('SocketException') || e.message.contains('Network')) {
+        return RemoteWriteResult.offline;
+      }
+      return RemoteWriteResult.failed;
+    } catch (_) {
+      return RemoteWriteResult.failed;
+    }
   }
 
   static Future<bool> isGpsServiceEnabled() async {
