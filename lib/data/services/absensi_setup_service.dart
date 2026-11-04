@@ -270,11 +270,21 @@ class AbsensiSetupService extends ChangeNotifier {
 
     // Cek pattern jam rentang khusus (misal "08:00 - 16:00" atau "06.00 - 14.00")
     final rangeMatch = RegExp(
-      r'(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})',
+      r'(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})',
     ).firstMatch(s);
     if (rangeMatch != null) {
       final endH = rangeMatch.group(3)!.padLeft(2, '0');
       final endM = rangeMatch.group(4)!.padLeft(2, '0');
+      return '$endH:$endM';
+    }
+
+    final allTimeMatches = RegExp(
+      r'(\d{1,2})[:.](\d{2})',
+    ).allMatches(s).toList();
+    if (allTimeMatches.length >= 2) {
+      final second = allTimeMatches[1];
+      final endH = second.group(1)!.padLeft(2, '0');
+      final endM = second.group(2)!.padLeft(2, '0');
       return '$endH:$endM';
     }
 
@@ -291,6 +301,14 @@ class AbsensiSetupService extends ChangeNotifier {
       return '22:00';
     }
     return '18:00';
+  }
+
+  /// Cek apakah shift merupakan shift kustom teknisi (bukan shift bawaan cabang aktif maupun cabang lain).
+  static bool isCustomShift(String shift) {
+    final clean = shift.trim();
+    return clean.isNotEmpty &&
+        !BranchService.instance.getShifts().contains(clean) &&
+        !BranchService.isShiftOfOtherBranch(clean);
   }
 
   /// Jadwal shift efektif: jika kosong atau merupakan shift milik cabang lain, gunakan auto-detect cabang

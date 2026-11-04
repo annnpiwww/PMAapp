@@ -995,7 +995,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         setup.updateLokasi(activeBranch.defaultLocationTag);
       }
       if (setup.jadwalShift.trim().isEmpty ||
-          !BranchService.instance.getShifts().contains(setup.jadwalShift)) {
+          BranchService.isShiftOfOtherBranch(setup.jadwalShift)) {
         setup.updateShift(AbsensiSetupService.autoDetectShift());
       }
 
@@ -1088,10 +1088,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               ),
               content: Text(
                 'Absen pulang belum bisa dilakukan karena shift belum selesai.\n\n'
+                '• Shift: ${setup.effectiveJadwalShift}\n'
                 '• Jam Sekarang (waktu terverifikasi): ${TimemarkFormatter.formatClockTime(nowVerified)}\n'
                 '• Durasi Berjalan: ${worked.inHours}j ${worked.inMinutes.remainder(60)}m\n'
                 '• Boleh Absen Pulang Mulai: Jam ${TimemarkFormatter.formatClockTime(gate)}\n\n'
-                'Jam di foto memakai waktu terverifikasi ini, bukan jam HP.',
+                'Jam di foto memakai waktu terverifikasi ini, bukan jam HP.\n\n'
+                'Salah pilih shift? Ganti shift di pengaturan Absensi, lalu coba lagi.',
                 style: const TextStyle(fontSize: 13, height: 1.45),
               ),
               actions: [
@@ -1220,6 +1222,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             final clock =
                 '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
             final selectedName = selectedShift.split(' (').first.trim();
+            final detectedName = detected.split(' (').first.trim();
             final choice = await showDialog<String>(
               context: context,
               builder: (ctx) => AlertDialog(
@@ -1229,13 +1232,13 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                 title: const Row(
                   children: [
                     Icon(
-                      Icons.warning_amber_rounded,
+                      Icons.schedule_rounded,
                       color: Color(0xFFF59E0B),
                       size: 24,
                     ),
                     SizedBox(width: 8),
                     Text(
-                      'Cek Shift Dulu',
+                      'Shift Kamu Sudah Benar?',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -1243,26 +1246,47 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                     ),
                   ],
                 ),
-                content: Text(
-                  'Shift yang dipilih: $selectedShift\n'
-                  'Sekarang jam $clock.\n\n'
-                  'Kalau shift salah, absen kamu tercatat Terlambat.',
-                  style: const TextStyle(fontSize: 13, height: 1.45),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Shift dipilih',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      selectedShift,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Sekarang jam $clock, sudah lewat lebih dari 2 jam dari jam masuk shift ini. Kalau shift-nya benar, absen tetap tercatat Terlambat.',
+                      style: const TextStyle(fontSize: 13, height: 1.45),
+                    ),
+                  ],
                 ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(ctx).pop(),
                     child: const Text('Batal'),
                   ),
-                  if (detected != selectedShift)
+                  if (detected != selectedShift &&
+                      !AbsensiSetupService.isCustomShift(selectedShift))
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop('switch'),
-                      child: Text('Ganti ke $detected'),
+                      child: Text('Ganti ke $detectedName'),
                     ),
-                  TextButton(
+                  FilledButton(
                     onPressed: () => Navigator.of(ctx).pop('keep'),
                     child: Text(
-                      'Tetap $selectedName',
+                      'Ya, pakai $selectedName',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
