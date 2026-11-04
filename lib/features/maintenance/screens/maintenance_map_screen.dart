@@ -654,15 +654,20 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     }
   }
 
-  void _onMarkerTap(PosMaintenanceStatus s) {
+  Future<void> _onMarkerTap(PosMaintenanceStatus s) async {
     setState(() {
       _selectedPosId = s.location.posId;
     });
-    _showLocationSheet(s);
+    await _openDetail(s);
+    if (mounted) {
+      setState(() {
+        _selectedPosId = null;
+      });
+    }
   }
 
-  void _openDetail(PosMaintenanceStatus s) {
-    Navigator.push(
+  Future<void> _openDetail(PosMaintenanceStatus s) {
+    return Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => MaintenanceLocationDetailScreen(
@@ -896,10 +901,8 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   }
 
   Widget _buildTopFilterBar() {
-    final list = _availableWilayahList;
-
     return Container(
-      height: 44,
+      height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: const BoxDecoration(
         color: MaintenanceMapPalette.surface,
@@ -924,83 +927,57 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
           const SizedBox(width: 6),
           Expanded(
             child: Semantics(
+              button: true,
               label: 'Filter wilayah, $_selectedWilayah',
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  isExpanded: true,
-                  value: _selectedWilayah,
-                  icon: const Icon(
-                    Icons.expand_more_rounded,
-                    size: 18,
-                    color: MaintenanceMapPalette.textSecondary,
-                  ),
-                  dropdownColor: MaintenanceMapPalette.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  menuMaxHeight: 360,
-                  items: list.map((w) {
-                    final count = w == 'Semua'
-                        ? _allStatuses.length
-                        : _allStatuses.where((s) => s.wilayah == w).length;
-                    return DropdownMenuItem<String>(
-                      value: w,
-                      child: Text(
-                        '$w ($count)',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontSize: 13,
-                          color: MaintenanceMapPalette.textPrimary,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _showWilayahDialog,
+                  borderRadius: BorderRadius.circular(999),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        height: 32,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: MaintenanceMapPalette.surfaceRaised,
+                          borderRadius: BorderRadius.circular(999),
                         ),
-                      ),
-                    );
-                  }).toList(),
-                  selectedItemBuilder: (context) {
-                    return list.map((w) {
-                      return Align(
-                        alignment: Alignment.centerLeft,
-                        child: Container(
-                          height: 32,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: BoxDecoration(
-                            color: MaintenanceMapPalette.surfaceRaised,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.place_outlined,
-                                size: 16,
-                                color: MaintenanceMapPalette.primary,
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  w,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontFamily: 'PlusJakartaSans',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: MaintenanceMapPalette.textPrimary,
-                                  ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.place_outlined,
+                              size: 16,
+                              color: MaintenanceMapPalette.primary,
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                _selectedWilayah,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: 'PlusJakartaSans',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: MaintenanceMapPalette.textPrimary,
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.expand_more_rounded,
+                              size: 18,
+                              color: MaintenanceMapPalette.textSecondary,
+                            ),
+                          ],
                         ),
-                      );
-                    }).toList();
-                  },
-                  onChanged: (v) {
-                    if (v == null) return;
-                    setState(() {
-                      _selectedWilayah = v;
-                    });
-                    _fitMapToCurrentFilter();
-                  },
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1008,6 +985,153 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _showWilayahDialog() async {
+    final list = _availableWilayahList;
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final screenHeight = MediaQuery.sizeOf(ctx).height;
+        return Dialog(
+          backgroundColor: MaintenanceMapPalette.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 48,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 360,
+              maxHeight: screenHeight * 0.7,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Pilih wilayah',
+                          style: TextStyle(
+                            fontFamily: 'PlusJakartaSans',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: MaintenanceMapPalette.textPrimary,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        tooltip: 'Tutup',
+                        color: MaintenanceMapPalette.textSecondary,
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(
+                  height: 1,
+                  thickness: 0.5,
+                  color: MaintenanceMapPalette.divider,
+                ),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: list.length,
+                    itemBuilder: (context, index) {
+                      final w = list[index];
+                      final isSelected = w == _selectedWilayah;
+                      final count = w == 'Semua'
+                          ? _allStatuses.length
+                          : _allStatuses.where((s) => s.wilayah == w).length;
+
+                      return Material(
+                        color: isSelected
+                            ? MaintenanceMapPalette.primary
+                                .withValues(alpha: 0.08)
+                            : Colors.transparent,
+                        child: InkWell(
+                          onTap: () => Navigator.pop(ctx, w),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 48),
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      w,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: 'PlusJakartaSans',
+                                        fontSize: 14,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color: isSelected
+                                            ? MaintenanceMapPalette.primary
+                                            : MaintenanceMapPalette.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          MaintenanceMapPalette.surfaceRaised,
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      '$count',
+                                      style: const TextStyle(
+                                        fontFamily: 'PlusJakartaSans',
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color:
+                                            MaintenanceMapPalette.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelected) ...[
+                                    const SizedBox(width: 8),
+                                    const Icon(
+                                      Icons.check_rounded,
+                                      size: 18,
+                                      color: MaintenanceMapPalette.primary,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected != null && selected != _selectedWilayah && mounted) {
+      setState(() {
+        _selectedWilayah = selected;
+      });
+      _fitMapToCurrentFilter();
+    }
   }
 
   Widget _buildCompactMonthSwitcher() {
@@ -1134,45 +1258,49 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
             ],
           ),
           const SizedBox(height: 6),
-          // Row 2: ● Belum ● Ada temuan ● Aman + 4dp Progress bar
+          // Full-width LinearProgressIndicator minHeight 4 radius 2
+          SizedBox(
+            width: double.infinity,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 4,
+                backgroundColor: MaintenanceMapPalette.surfaceRaised,
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  MaintenanceMapPalette.primary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Row of 3 Expanded stat tiles with 8dp gaps
           Row(
             children: [
               Expanded(
-                child: Wrap(
-                  spacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    _buildPhaseStripStatChip(
-                      rank: 0,
-                      color: MaintenanceMapPalette.pending,
-                      label: '$belumCount Belum',
-                    ),
-                    _buildPhaseStripStatChip(
-                      rank: 1,
-                      color: MaintenanceMapPalette.findingIcon,
-                      label: '$temuanCount Ada temuan',
-                    ),
-                    _buildPhaseStripStatChip(
-                      rank: 2,
-                      color: MaintenanceMapPalette.safeIcon,
-                      label: '$amanCount Aman',
-                    ),
-                  ],
+                child: _buildPhaseStripStatTile(
+                  rank: 0,
+                  count: belumCount,
+                  color: MaintenanceMapPalette.pending,
+                  label: 'Belum',
                 ),
               ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 60,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 4,
-                    backgroundColor: MaintenanceMapPalette.surfaceRaised,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      MaintenanceMapPalette.primary,
-                    ),
-                  ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildPhaseStripStatTile(
+                  rank: 1,
+                  count: temuanCount,
+                  color: MaintenanceMapPalette.findingIcon,
+                  label: 'Ada temuan',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildPhaseStripStatTile(
+                  rank: 2,
+                  count: amanCount,
+                  color: MaintenanceMapPalette.safeIcon,
+                  label: 'Aman',
                 ),
               ),
             ],
@@ -1182,8 +1310,9 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     );
   }
 
-  Widget _buildPhaseStripStatChip({
+  Widget _buildPhaseStripStatTile({
     required int rank,
+    required int count,
     required Color color,
     required String label,
   }) {
@@ -1191,58 +1320,75 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     return Semantics(
       button: true,
       selected: isSelected,
-      label: 'Tampilkan lokasi $label saja',
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _selectedStatusRank = _selectedStatusRank == rank ? null : rank;
-          });
-          _fitMapToCurrentFilter();
-        },
-        borderRadius: BorderRadius.circular(999),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 44),
-          child: Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              constraints: const BoxConstraints(minHeight: 32),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? color.withValues(alpha: 0.15)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: isSelected ? color : Colors.transparent,
-                  width: 1,
+      label: 'Tampilkan lokasi $count $label saja',
+      child: Material(
+        color: isSelected
+            ? color.withValues(alpha: 0.12)
+            : MaintenanceMapPalette.surfaceRaised,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              _selectedStatusRank = _selectedStatusRank == rank ? null : rank;
+            });
+            _fitMapToCurrentFilter();
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? color : MaintenanceMapPalette.divider,
+                width: isSelected ? 1.5 : 1.0,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$count',
+                  style: const TextStyle(
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: MaintenanceMapPalette.textPrimary,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
                 ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontSize: 12,
-                      fontWeight:
-                          isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: isSelected
-                          ? MaintenanceMapPalette.textPrimary
-                          : MaintenanceMapPalette.textSecondary,
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 12,
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected
+                              ? MaintenanceMapPalette.textPrimary
+                              : MaintenanceMapPalette.textSecondary,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
@@ -1838,166 +1984,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     );
   }
 
-  void _showLocationSheet(PosMaintenanceStatus s) {
-    final temuanItems = MaintenanceMapScreen.extractTemuanItems(
-      statuses: [s],
-      isCurrentMonth: _isCurrentMonth,
-      selectedMonth: _selectedMonth,
-    );
-    temuanItems.sort((a, b) {
-      if (a.temuan.urgent != b.temuan.urgent) {
-        return a.temuan.urgent ? -1 : 1;
-      }
-      return b.log.tanggal.compareTo(a.log.tanggal);
-    });
 
-    final loc = s.location;
-    final shortName = MaintenanceMapScreen.shortName(loc);
-    final headerTitle = '${loc.locationTag} · $shortName';
-    final countText = '${temuanItems.length} temuan';
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.5,
-          minChildSize: 0.3,
-          maxChildSize: 0.85,
-          expand: false,
-          builder: (context, scrollController) {
-            return Container(
-              decoration: const BoxDecoration(
-                color: MaintenanceMapPalette.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x14000000),
-                    blurRadius: 10,
-                    offset: Offset(0, -3),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Drag handle
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 8, bottom: 6),
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: MaintenanceMapPalette.divider,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-
-                  // Header row: '<TAG> · <Lokasi name>' (1 line, ellipsis) + trailing '<n> temuan' + close IconButton(tooltip 'Tutup')
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 2, 8, 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            headerTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: 'PlusJakartaSans',
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: MaintenanceMapPalette.textPrimary,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          countText,
-                          style: const TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: MaintenanceMapPalette.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 20),
-                          tooltip: 'Tutup',
-                          color: MaintenanceMapPalette.textSecondary,
-                          onPressed: () => Navigator.pop(ctx),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(
-                    height: 1,
-                    thickness: 0.5,
-                    color: MaintenanceMapPalette.divider,
-                  ),
-
-                  // Body
-                  Expanded(
-                    child: temuanItems.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 32,
-                              ),
-                              child: Text(
-                                _statusRank(s) == 0
-                                    ? 'Belum dikerjakan bulan ini'
-                                    : 'Aman, tidak ada temuan',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontFamily: 'PlusJakartaSans',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: MaintenanceMapPalette.textSecondary,
-                                ),
-                              ),
-                            ),
-                          )
-                        : ListView.builder(
-                            controller: scrollController,
-                            padding: const EdgeInsets.only(bottom: 24),
-                            itemCount: temuanItems.length,
-                            itemBuilder: (context, index) {
-                              final item = temuanItems[index];
-                              final showDivider =
-                                  index < temuanItems.length - 1;
-                              return MaintenanceTemuanRow(
-                                item: item,
-                                isSelected: false,
-                                showDivider: showDivider,
-                                onTap: () {
-                                  _openDetail(s);
-                                },
-                                onOpenDetail: () {
-                                  _openDetail(s);
-                                },
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    ).whenComplete(() {
-      if (mounted) {
-        setState(() {
-          _selectedPosId = null;
-        });
-      }
-    });
-  }
 }
 
 /// Widget baris untuk daftar lokasi belum dikerjakan.

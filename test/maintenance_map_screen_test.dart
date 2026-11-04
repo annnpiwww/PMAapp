@@ -12,6 +12,7 @@ import 'package:bssparking_timemark/data/models/maintenance_submission.dart';
 import 'package:bssparking_timemark/data/services/location_service.dart';
 import 'package:bssparking_timemark/data/services/maintenance_log_service.dart';
 import 'package:bssparking_timemark/data/services/storage_service.dart';
+import 'package:bssparking_timemark/features/maintenance/screens/maintenance_location_detail_screen.dart';
 import 'package:bssparking_timemark/features/maintenance/screens/maintenance_map_screen.dart';
 
 bool _fontsLoaded = false;
@@ -1074,9 +1075,9 @@ void main() {
       },
     );
 
-    // (d) tapping PBM opens sheet with exactly its 4 temuan, urgent first
+    // (d) tapping a location marker pushes MaintenanceLocationDetailScreen directly
     testWidgets(
-      'tapping PBM opens sheet with exactly its 4 temuan, urgent first',
+      'tapping a location marker pushes MaintenanceLocationDetailScreen directly without bottom sheet',
       (tester) async {
         tester.view.physicalSize = const Size(360, 780);
         tester.view.devicePixelRatio = 1.0;
@@ -1108,40 +1109,32 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
 
-        // Sheet is open: DraggableScrollableSheet
-        expect(find.byType(DraggableScrollableSheet), findsOneWidget);
-
-        // Header row
-        expect(find.text('PBM · Pasar Bersehati'), findsOneWidget);
-        expect(find.text('4 temuan'), findsOneWidget);
-        expect(find.byTooltip('Tutup'), findsOneWidget);
-
-        // Exactly 4 temuan rows
-        final temuanRows = find.byType(MaintenanceTemuanRow);
-        expect(temuanRows, findsNWidgets(4));
-
-        // Urgent item is first
-        final firstRow = tester.widget<MaintenanceTemuanRow>(temuanRows.at(0));
-        expect(firstRow.item.temuan.urgent, isTrue);
-        expect(
-          firstRow.item.temuan.alasan,
-          'Baut dudukan bawah sisi kanan hilang dan plat penahan longgar sehingga manless goyang',
-        );
-
-        // Close button works
-        await tester.tap(find.byTooltip('Tutup'));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 400));
+        // No BottomSheet shown
+        expect(find.byType(BottomSheet), findsNothing);
         expect(find.byType(DraggableScrollableSheet), findsNothing);
+
+        // Pushed MaintenanceLocationDetailScreen directly
+        expect(find.byType(MaintenanceLocationDetailScreen), findsOneWidget);
+
+        // Pop back to map
+        final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+        navigator.pop();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 600));
+        await tester.pump();
+
+        // Back on map screen, detail screen popped
+        expect(find.byType(MaintenanceLocationDetailScreen), findsNothing);
+        expect(find.byType(MaintenanceMapScreen), findsOneWidget);
 
         await tester.pumpWidget(const SizedBox());
         await tester.pump();
       },
     );
 
-    // (e) tapping a 0-temuan belum location shows 'Belum dikerjakan bulan ini'
+    // (e) tapping a 0-temuan belum location pushes MaintenanceLocationDetailScreen directly
     testWidgets(
-      'tapping a 0-temuan belum location shows "Belum dikerjakan bulan ini"',
+      'tapping a 0-temuan belum location pushes MaintenanceLocationDetailScreen directly',
       (tester) async {
         tester.view.physicalSize = const Size(360, 780);
         tester.view.devicePixelRatio = 1.0;
@@ -1174,11 +1167,9 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
 
-        // Sheet displays 0 temuan and "Belum dikerjakan bulan ini"
-        expect(find.text('NBM · New Bendar'), findsOneWidget);
-        expect(find.text('0 temuan'), findsOneWidget);
-        expect(find.text('Belum dikerjakan bulan ini'), findsOneWidget);
-        expect(find.byType(MaintenanceTemuanRow), findsNothing);
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(find.byType(DraggableScrollableSheet), findsNothing);
+        expect(find.byType(MaintenanceLocationDetailScreen), findsOneWidget);
 
         await tester.pumpWidget(const SizedBox());
         await tester.pump();
@@ -1289,27 +1280,25 @@ void main() {
 
     // Screenshots generation test
     testWidgets(
-      'generates required screenshots: map_maintenance_v3_default_360.png and map_maintenance_v3_location_sheet_360.png',
+      'generates required screenshots: maintenance_map_stats.png and maintenance_map_wilayah_dialog.png (both default and _ts13)',
       (tester) async {
         tester.view.physicalSize = const Size(720, 1560);
         tester.view.devicePixelRatio = 2.0;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
 
-        final file1 = File('docs/screenshots/map_maintenance_v3_default_360.png');
-        final file2 =
-            File('docs/screenshots/map_maintenance_v3_location_sheet_360.png');
-        final originalBytes1 = file1.existsSync() ? file1.readAsBytesSync() : null;
-        final originalBytes2 = file2.existsSync() ? file2.readAsBytesSync() : null;
-        if (originalBytes1 != null) {
-          addTearDown(() => file1.writeAsBytesSync(originalBytes1));
-        }
-        if (originalBytes2 != null) {
-          addTearDown(() => file2.writeAsBytesSync(originalBytes2));
-        }
+        final fileStats = File('docs/screenshots/maintenance_map_stats.png');
+        final fileStatsTs13 =
+            File('docs/screenshots/maintenance_map_stats_ts13.png');
+        final fileDialog =
+            File('docs/screenshots/maintenance_map_wilayah_dialog.png');
+        final fileDialogTs13 =
+            File('docs/screenshots/maintenance_map_wilayah_dialog_ts13.png');
 
-        final mapController = MapController();
-        final repaintKey = GlobalKey();
+        fileStats.parent.createSync(recursive: true);
+
+        // --- 1. Default scale (1.0) ---
+        final repaintKey1 = GlobalKey();
 
         await tester.pumpWidget(
           MaterialApp(
@@ -1319,69 +1308,127 @@ void main() {
               useMaterial3: true,
             ),
             builder: (context, child) => RepaintBoundary(
-              key: repaintKey,
+              key: repaintKey1,
               child: child!,
             ),
-            home: MaintenanceMapScreen(
-              mapController: mapController,
-            ),
+            home: const MaintenanceMapScreen(),
           ),
         );
 
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
 
-        // 1. Screenshot 1: default map at zoom where PBM, PKM, NBM are visible as separate markers with badges
-        mapController.move(const LatLng(1.4965, 124.8412), 16.2);
+        // Select 'Ada temuan' stat tile
+        await tester.tap(find.text('Ada temuan'));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
 
-        // Assert separate markers are present
-        expect(find.text('PBM'), findsOneWidget);
-        expect(find.text('PKM'), findsOneWidget);
-        expect(find.text('NBM'), findsOneWidget);
-
-        // Capture default screenshot
-        final boundary1 =
-            repaintKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+        // Capture stats screenshot
+        final boundaryStats =
+            repaintKey1.currentContext!.findRenderObject() as RenderRepaintBoundary;
         await tester.runAsync(() async {
-          final image1 = await boundary1.toImage(pixelRatio: 2.0);
-          final byteData1 =
-              await image1.toByteData(format: ui.ImageByteFormat.png);
-          await file1.parent.create(recursive: true);
-          await file1.writeAsBytes(byteData1!.buffer.asUint8List());
+          final image = await boundaryStats.toImage(pixelRatio: 2.0);
+          final byteData =
+              await image.toByteData(format: ui.ImageByteFormat.png);
+          fileStats.writeAsBytesSync(byteData!.buffer.asUint8List());
         });
 
-        // 2. Screenshot 2: tap PBM marker to open location sheet
-        final pbmFinder = find.byWidgetPredicate(
-          (w) =>
-              w is Semantics &&
-              (w.properties.label?.contains('PBM, 4 temuan') ?? false),
+        // Tap wilayah pill to open dialog
+        final wilayahPill1 = find.bySemanticsLabel(RegExp(r'Filter wilayah'));
+        await tester.tap(wilayahPill1);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(find.byType(Dialog), findsOneWidget);
+
+        // Capture dialog screenshot
+        final boundaryDialog =
+            repaintKey1.currentContext!.findRenderObject() as RenderRepaintBoundary;
+        await tester.runAsync(() async {
+          final image = await boundaryDialog.toImage(pixelRatio: 2.0);
+          final byteData =
+              await image.toByteData(format: ui.ImageByteFormat.png);
+          fileDialog.writeAsBytesSync(byteData!.buffer.asUint8List());
+        });
+
+        // Close dialog and clean up tree
+        await tester.tap(find.byTooltip('Tutup'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+
+        // --- 2. TextScaler 1.3 ---
+        final repaintKey2 = GlobalKey();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
+              fontFamily: 'PlusJakartaSans',
+              useMaterial3: true,
+            ),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: const TextScaler.linear(1.3),
+              ),
+              child: RepaintBoundary(
+                key: repaintKey2,
+                child: child!,
+              ),
+            ),
+            home: const MaintenanceMapScreen(),
+          ),
         );
-        expect(pbmFinder, findsOneWidget);
-        await tester.tap(pbmFinder);
+
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
 
-        // Verify sheet is open
-        expect(find.text('PBM · Pasar Bersehati'), findsOneWidget);
-        expect(find.text('4 temuan'), findsOneWidget);
+        // Select 'Ada temuan' stat tile
+        await tester.tap(find.text('Ada temuan'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
 
-        // Capture sheet screenshot
-        final boundary2 =
-            repaintKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+        final boundaryStatsTs13 =
+            repaintKey2.currentContext!.findRenderObject() as RenderRepaintBoundary;
         await tester.runAsync(() async {
-          final image2 = await boundary2.toImage(pixelRatio: 2.0);
-          final byteData2 =
-              await image2.toByteData(format: ui.ImageByteFormat.png);
-          await file2.parent.create(recursive: true);
-          await file2.writeAsBytes(byteData2!.buffer.asUint8List());
+          final image = await boundaryStatsTs13.toImage(pixelRatio: 2.0);
+          final byteData =
+              await image.toByteData(format: ui.ImageByteFormat.png);
+          fileStatsTs13.writeAsBytesSync(byteData!.buffer.asUint8List());
         });
 
-        expect(file1.existsSync(), isTrue);
-        expect(file1.lengthSync(), greaterThan(1000));
-        expect(file2.existsSync(), isTrue);
-        expect(file2.lengthSync(), greaterThan(1000));
+        // Tap wilayah pill to open dialog
+        final wilayahPill2 = find.bySemanticsLabel(RegExp(r'Filter wilayah'));
+        await tester.tap(wilayahPill2);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(find.byType(Dialog), findsOneWidget);
+
+        final boundaryDialogTs13 =
+            repaintKey2.currentContext!.findRenderObject() as RenderRepaintBoundary;
+        await tester.runAsync(() async {
+          final image = await boundaryDialogTs13.toImage(pixelRatio: 2.0);
+          final byteData =
+              await image.toByteData(format: ui.ImageByteFormat.png);
+          fileDialogTs13.writeAsBytesSync(byteData!.buffer.asUint8List());
+        });
+
+        await tester.tap(find.byTooltip('Tutup'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+
+        expect(fileStats.existsSync(), isTrue);
+        expect(fileStats.lengthSync(), greaterThan(1000));
+        expect(fileStatsTs13.existsSync(), isTrue);
+        expect(fileStatsTs13.lengthSync(), greaterThan(1000));
+        expect(fileDialog.existsSync(), isTrue);
+        expect(fileDialog.lengthSync(), greaterThan(1000));
+        expect(fileDialogTs13.existsSync(), isTrue);
+        expect(fileDialogTs13.lengthSync(), greaterThan(1000));
 
         await tester.pumpWidget(const SizedBox());
         await tester.pump();
@@ -1389,7 +1436,7 @@ void main() {
     );
   });
 
-  group('MaintenanceMapScreen: Wilayah Dropdown & Status Filter', () {
+  group('MaintenanceMapScreen: Wilayah Modal & Status Filter', () {
     final now = DateTime.now();
 
     final testSubmissions = [
@@ -1430,7 +1477,7 @@ void main() {
     });
 
     testWidgets(
-      '(a) top bar contains a DropdownButton<String> and no horizontal ListView of wilayah; selecting wilayah updates visible markers',
+      '(a) top bar contains a wilayah pill trigger and no DropdownButton; tapping opens modal dialog and selecting wilayah updates visible markers',
       (tester) async {
         tester.view.physicalSize = const Size(360, 780);
         tester.view.devicePixelRatio = 1.0;
@@ -1445,7 +1492,8 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
 
-        expect(find.byType(DropdownButton<String>), findsOneWidget);
+        // No DropdownButton exists anywhere in the widget tree
+        expect(find.byType(DropdownButton<String>), findsNothing);
         expect(find.byType(ListView), findsNothing);
 
         final initialMarkers = tester
@@ -1454,20 +1502,31 @@ void main() {
             .length;
         expect(initialMarkers, greaterThan(0));
 
-        // Open dropdown
-        await tester.tap(find.byType(DropdownButton<String>));
+        // Tap wilayah pill to open dialog
+        final wilayahPill = find.bySemanticsLabel(RegExp(r'Filter wilayah'));
+        expect(wilayahPill, findsOneWidget);
+        await tester.tap(wilayahPill);
         await tester.pumpAndSettle();
 
-        // Select the first non-'Semua' wilayah item (e.g. 'Airmadidi' or 'Manado')
-        final itemFinder =
-            find.widgetWithText(DropdownMenuItem<String>, 'Airmadidi (1)');
+        // Dialog is open with title 'Pilih wilayah'
+        expect(find.byType(Dialog), findsOneWidget);
+        expect(find.text('Pilih wilayah'), findsOneWidget);
+
+        // Select the first non-'Semua' wilayah item (e.g. 'Airmadidi')
+        final itemFinder = find.text('Airmadidi');
         if (itemFinder.evaluate().isNotEmpty) {
-          await tester.tap(itemFinder.last, warnIfMissed: false);
+          await tester.tap(itemFinder.first);
         } else {
-          final allItems = find.byType(DropdownMenuItem<String>);
-          await tester.tap(allItems.at(1), warnIfMissed: false);
+          final dialogRows = find.descendant(
+            of: find.byType(Dialog),
+            matching: find.byType(InkWell),
+          );
+          await tester.tap(dialogRows.at(1));
         }
         await tester.pumpAndSettle();
+
+        // Dialog is closed
+        expect(find.byType(Dialog), findsNothing);
 
         final filteredMarkers = tester
             .widget<MarkerLayer>(find.byType(MarkerLayer))
@@ -1481,7 +1540,7 @@ void main() {
     );
 
     testWidgets(
-      '(b) tapping the Belum stat chip leaves only rank-0 markers and stat counts text stays identical; tapping again restores all',
+      '(b) tapping the Belum stat tile leaves only rank-0 markers and stat counts text stays identical; tapping again restores all',
       (tester) async {
         tester.view.physicalSize = const Size(360, 780);
         tester.view.devicePixelRatio = 1.0;
@@ -1501,18 +1560,21 @@ void main() {
             .markers
             .length;
 
-        // Find the Belum stat chip text, e.g. "X Belum"
-        final belumText = tester
-            .widget<Text>(
-              find.descendant(
-                of: find.byType(Wrap),
-                matching: find.textContaining('Belum'),
-              ),
-            )
-            .data!;
+        // Find the Belum stat tile
+        final belumLabel = find.text('Belum');
+        expect(belumLabel, findsOneWidget);
 
-        // Tap the Belum chip
-        await tester.tap(find.text(belumText));
+        final belumSemanticsFinder = find.byWidgetPredicate(
+          (w) =>
+              w is Semantics &&
+              (w.properties.label?.contains('Belum saja') ?? false),
+        );
+        expect(belumSemanticsFinder, findsOneWidget);
+        final initialLabel =
+            tester.widget<Semantics>(belumSemanticsFinder).properties.label;
+
+        // Tap the Belum tile
+        await tester.tap(belumLabel);
         await tester.pumpAndSettle();
 
         // Markers now filtered to rank 0 (Belum only)
@@ -1523,10 +1585,12 @@ void main() {
         expect(belumMarkers, lessThanOrEqualTo(allMarkers));
 
         // Stat counts text must stay identical (counts do not collapse)
-        expect(find.text(belumText), findsOneWidget);
+        final afterFilterLabel =
+            tester.widget<Semantics>(belumSemanticsFinder).properties.label;
+        expect(afterFilterLabel, equals(initialLabel));
 
         // Tap again to restore
-        await tester.tap(find.text(belumText));
+        await tester.tap(belumLabel);
         await tester.pumpAndSettle();
 
         final restoredMarkers = tester
@@ -1557,51 +1621,53 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
 
         final chips = ['Belum', 'Ada temuan', 'Aman'];
-        String? zeroChip;
+        String? zeroTile;
         for (final chip in chips) {
-          final finder = find.descendant(
-            of: find.byType(Wrap),
-            matching: find.textContaining(chip),
+          final semanticsFinder = find.byWidgetPredicate(
+            (w) =>
+                w is Semantics &&
+                (w.properties.label?.contains('$chip saja') ?? false),
           );
-          if (finder.evaluate().isNotEmpty) {
-            final text = tester.widget<Text>(finder).data!;
-            if (text.startsWith('0 ')) {
-              zeroChip = text;
+          if (semanticsFinder.evaluate().isNotEmpty) {
+            final sem = tester.widget<Semantics>(semanticsFinder);
+            if (sem.properties.label?.contains('lokasi 0 ') ?? false) {
+              zeroTile = chip;
               break;
             }
           }
         }
 
-        if (zeroChip != null) {
-          await tester.tap(find.text(zeroChip));
+        if (zeroTile != null) {
+          await tester.tap(find.text(zeroTile));
           await tester.pumpAndSettle();
         } else {
-          // Select Airmadidi (1 pos)
-          await tester.tap(find.byType(DropdownButton<String>));
+          // Open wilayah dialog to select Airmadidi (1 pos)
+          final wilayahPill = find.bySemanticsLabel(RegExp(r'Filter wilayah'));
+          await tester.tap(wilayahPill);
           await tester.pumpAndSettle();
 
-          final airmadidiItem =
-              find.widgetWithText(DropdownMenuItem<String>, 'Airmadidi (1)');
+          final airmadidiItem = find.text('Airmadidi');
           if (airmadidiItem.evaluate().isNotEmpty) {
-            await tester.tap(airmadidiItem.last, warnIfMissed: false);
+            await tester.tap(airmadidiItem.first);
             await tester.pumpAndSettle();
           }
 
           for (final chip in chips) {
-            final finder = find.descendant(
-              of: find.byType(Wrap),
-              matching: find.textContaining(chip),
+            final semanticsFinder = find.byWidgetPredicate(
+              (w) =>
+                  w is Semantics &&
+                  (w.properties.label?.contains('$chip saja') ?? false),
             );
-            if (finder.evaluate().isNotEmpty) {
-              final text = tester.widget<Text>(finder).data!;
-              if (text.startsWith('0 ')) {
-                zeroChip = text;
+            if (semanticsFinder.evaluate().isNotEmpty) {
+              final sem = tester.widget<Semantics>(semanticsFinder);
+              if (sem.properties.label?.contains('lokasi 0 ') ?? false) {
+                zeroTile = chip;
                 break;
               }
             }
           }
-          if (zeroChip != null) {
-            await tester.tap(find.text(zeroChip));
+          if (zeroTile != null) {
+            await tester.tap(find.text(zeroTile));
             await tester.pumpAndSettle();
           }
         }
