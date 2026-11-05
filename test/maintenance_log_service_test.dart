@@ -56,6 +56,46 @@ void main() {
       );
       expect(MaintenanceLogService.wilayahOf(bitungLoc), 'Bitung');
     });
+
+    test('mengklasifikasikan lokasi KC Bali dengan tepat', () {
+      const kutaLoc = PosLocation(
+        posId: 'POS-BALI-01',
+        posName: 'Discovery Shopping Mall',
+        cabangName: 'KC Bali',
+        fullAddress: 'Jl. Raya Kuta, Badung, Bali',
+        locationTag: 'PBKD',
+        tagColor: Colors.blue,
+        lat: -8.7258,
+        lng: 115.1687,
+      );
+      expect(MaintenanceLogService.wilayahOf(kutaLoc, AppBranch.bali), 'Badung');
+
+      const unknownLoc = PosLocation(
+        posId: 'POS-BALI-99',
+        posName: 'Pos Rahasia',
+        cabangName: 'KC Bali',
+        fullAddress: 'Jl. Tanpa Nama',
+        locationTag: 'PBKD',
+        tagColor: Colors.blue,
+        lat: 0.0,
+        lng: 0.0,
+      );
+      expect(MaintenanceLogService.wilayahOf(unknownLoc, AppBranch.bali), 'Lainnya');
+    });
+
+    test('mengklasifikasikan lokasi HO Makassar dengan tepat', () {
+      const gowaLoc = PosLocation(
+        posId: 'POS-HO-01',
+        posName: 'Pos Gowa',
+        cabangName: 'HO',
+        fullAddress: 'Jl. Poros Malino, Gowa, Sulawesi Selatan',
+        locationTag: 'HO',
+        tagColor: Colors.blue,
+        lat: -5.2012,
+        lng: 119.4589,
+      );
+      expect(MaintenanceLogService.wilayahOf(gowaLoc, AppBranch.ho), 'Gowa');
+    });
   });
 
   group('MaintenanceLogEntry.fromSubmission', () {
@@ -293,6 +333,26 @@ void main() {
       expect(restored.temuan[1].status, 'perlu_cek_manual');
       expect(restored.temuan[1].alasan, 'Kedip redup');
       expect(restored.temuan[1].urgent, isFalse);
+      expect(row['branch'], 'MDO');
+      expect(restored.branch, 'MDO');
+    });
+
+    test('entry row contains branch code and fromJson without branch works', () {
+      const entryBali = MaintenanceLogEntry(
+        id: 'log_bali_01',
+        tanggal: '2026-11-04',
+        jamSelesai: '10:00',
+        posId: 'POS-BALI-01',
+        posName: 'Discovery Mall',
+        teknisiNama: 'Wayan',
+        branch: 'DPS',
+      );
+      final row = entryBali.toRow();
+      expect(row['branch'], 'DPS');
+
+      final jsonNoBranch = Map<String, dynamic>.from(row)..remove('branch');
+      final restored = MaintenanceLogEntry.fromJson(jsonNoBranch);
+      expect(restored.branch, 'MDO');
     });
   });
 
@@ -362,7 +422,7 @@ void main() {
     });
   });
 
-  group('MaintenanceLogService.entriesFromSubmission & isManadoSubmission', () {
+  group('MaintenanceLogService.entriesFromSubmission & isBranchSubmission', () {
     test(
       'lengkap submission memecah menjadi 4 entri dan menandai 4 fase di map',
       () {
@@ -526,7 +586,7 @@ void main() {
       expect(entries.first.templateId, 'tpl_maint_pos');
     });
 
-    test('isManadoSubmission memvalidasi posId Manado vs HO Makassar', () {
+    test('isBranchSubmission memvalidasi posId dan cabang secara ketat', () {
       final subHo = MaintenanceSubmission(
         id: 'sub_ho',
         templateId: 'tpl_maint_pos',
@@ -534,9 +594,9 @@ void main() {
         userId: 'usr_ho',
         userName: 'Teknisi HO',
         userNpp: 'NPP-999',
-        posId: 'POS-HO-MGAM-01',
-        posName: 'HO Makassar',
-        cabangName: 'HO',
+        posId: 'POS-HO-GMM-01',
+        posName: 'Grand Mall Maros',
+        cabangName: 'HO Makassar',
         points: const [],
         createdAt: DateTime(2026, 11, 2, 12, 0),
         updatedAt: DateTime(2026, 11, 2, 12, 10),
@@ -557,8 +617,10 @@ void main() {
         updatedAt: DateTime(2026, 11, 2, 12, 10),
       );
 
-      expect(MaintenanceLogService.isManadoSubmission(subHo), isFalse);
-      expect(MaintenanceLogService.isManadoSubmission(subManado), isTrue);
+      expect(MaintenanceLogService.isBranchSubmission(subHo, AppBranch.manado), isFalse);
+      expect(MaintenanceLogService.isBranchSubmission(subManado, AppBranch.manado), isTrue);
+      expect(MaintenanceLogService.isBranchSubmission(subHo, AppBranch.ho), isTrue);
+      expect(MaintenanceLogService.isBranchSubmission(subManado, AppBranch.ho), isFalse);
     });
   });
 

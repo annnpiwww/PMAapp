@@ -53,6 +53,7 @@ class MaintenanceLogEntry {
   final int totalPoin;
   final int sesuaiPoin;
   final List<MaintenanceTemuan> temuan;
+  final String branch;
 
   const MaintenanceLogEntry({
     required this.id,
@@ -67,6 +68,7 @@ class MaintenanceLogEntry {
     this.totalPoin = 0,
     this.sesuaiPoin = 0,
     this.temuan = const [],
+    this.branch = 'MDO',
   });
 
   bool get hasTemuan => temuan.isNotEmpty;
@@ -96,6 +98,7 @@ class MaintenanceLogEntry {
       totalPoin: (json['total_poin'] as num?)?.toInt() ?? 0,
       sesuaiPoin: (json['sesuai_poin'] as num?)?.toInt() ?? 0,
       temuan: list,
+      branch: json['branch'] as String? ?? 'MDO',
     );
   }
 
@@ -112,6 +115,7 @@ class MaintenanceLogEntry {
     'total_poin': totalPoin,
     'sesuai_poin': sesuaiPoin,
     'temuan': temuan.map((t) => t.toJson()).toList(),
+    'branch': branch,
   };
 
   static List<MaintenanceTemuan> _extractTemuan(
@@ -142,6 +146,7 @@ class MaintenanceLogEntry {
     String? id,
     String? templateId,
     String? templateName,
+    String? branch,
   }) {
     final y = s.createdAt.year.toString().padLeft(4, '0');
     final m = s.createdAt.month.toString().padLeft(2, '0');
@@ -170,11 +175,15 @@ class MaintenanceLogEntry {
       totalPoin: points.length,
       sesuaiPoin: sesuaiCount,
       temuan: temuanList,
+      branch: branch ?? BranchService.instance.currentBranch.code,
     );
   }
 
-  factory MaintenanceLogEntry.fromSubmission(MaintenanceSubmission s) {
-    return _entryFromPoints(s, s.points);
+  factory MaintenanceLogEntry.fromSubmission(
+    MaintenanceSubmission s, {
+    String? branch,
+  }) {
+    return _entryFromPoints(s, s.points, branch: branch);
   }
 }
 
@@ -222,21 +231,44 @@ class PosMaintenanceStatus {
   }
 }
 
-/// Service log maintenance KC Manado untuk sinkronisasi dan visualisasi map.
+/// Service log maintenance untuk sinkronisasi dan visualisasi map semua cabang.
 class MaintenanceLogService {
   static const String tableName = 'maintenance_logs_manado';
 
-  static bool get isSupported =>
-      BranchService.instance.currentBranch == AppBranch.manado;
-
-  static const List<String> wilayahList = [
-    'Manado',
-    'Airmadidi',
-    'Bitung',
-    'Tomohon',
-    'Kotamobagu',
-    'Gorontalo',
-  ];
+  static List<String> wilayahListFor(AppBranch b) {
+    switch (b) {
+      case AppBranch.manado:
+        return const [
+          'Manado',
+          'Airmadidi',
+          'Bitung',
+          'Tomohon',
+          'Kotamobagu',
+          'Gorontalo',
+        ];
+      case AppBranch.bali:
+        return const [
+          'Denpasar',
+          'Badung',
+          'Gianyar',
+          'Tabanan',
+          'Klungkung',
+          'Bangli',
+          'Karangasem',
+          'Buleleng',
+          'Jembrana',
+          'Lainnya',
+        ];
+      case AppBranch.ho:
+        return const [
+          'Makassar',
+          'Gowa',
+          'Maros',
+          'Takalar',
+          'Lainnya',
+        ];
+    }
+  }
 
   static const Map<int, String> phaseNames = {
     1: 'Manless & Pulau Gate In/Out',
@@ -285,23 +317,73 @@ class MaintenanceLogService {
   }
 
   /// Mengelompokkan lokasi pos ke wilayah berdasarkan alamat dan nama pos.
-  static String wilayahOf(PosLocation p) {
+  static String wilayahOf(PosLocation p, [AppBranch? b]) {
+    final branch = b ?? BranchService.instance.currentBranch;
     final combined = '${p.fullAddress} ${p.posName}'.toLowerCase();
-    if (combined.contains('bitung')) return 'Bitung';
-    if (combined.contains('tomohon')) return 'Tomohon';
-    if (combined.contains('kotamobagu')) return 'Kotamobagu';
-    if (combined.contains('gorontalo') || combined.contains('limboto')) {
-      return 'Gorontalo';
+    switch (branch) {
+      case AppBranch.manado:
+        if (combined.contains('bitung')) return 'Bitung';
+        if (combined.contains('tomohon')) return 'Tomohon';
+        if (combined.contains('kotamobagu')) return 'Kotamobagu';
+        if (combined.contains('gorontalo') || combined.contains('limboto')) {
+          return 'Gorontalo';
+        }
+        if (combined.contains('airmadidi')) return 'Airmadidi';
+        return 'Manado';
+
+      case AppBranch.bali:
+        if (combined.contains('denpasar')) return 'Denpasar';
+        if (combined.contains('badung') ||
+            combined.contains('kuta') ||
+            combined.contains('seminyak') ||
+            combined.contains('legian') ||
+            combined.contains('jimbaran') ||
+            combined.contains('nusa dua') ||
+            combined.contains('mengwi') ||
+            combined.contains('canggu')) {
+          return 'Badung';
+        }
+        if (combined.contains('gianyar') || combined.contains('ubud')) {
+          return 'Gianyar';
+        }
+        if (combined.contains('tabanan')) return 'Tabanan';
+        if (combined.contains('klungkung') ||
+            combined.contains('semarapura')) {
+          return 'Klungkung';
+        }
+        if (combined.contains('bangli')) return 'Bangli';
+        if (combined.contains('karangasem') ||
+            combined.contains('amlapura')) {
+          return 'Karangasem';
+        }
+        if (combined.contains('buleleng') ||
+            combined.contains('singaraja') ||
+            combined.contains('lovina')) {
+          return 'Buleleng';
+        }
+        if (combined.contains('jembrana') || combined.contains('negara')) {
+          return 'Jembrana';
+        }
+        return 'Lainnya';
+
+      case AppBranch.ho:
+        if (combined.contains('makassar')) return 'Makassar';
+        if (combined.contains('gowa') || combined.contains('sungguminasa')) {
+          return 'Gowa';
+        }
+        if (combined.contains('maros')) return 'Maros';
+        if (combined.contains('takalar')) return 'Takalar';
+        return 'Lainnya';
     }
-    if (combined.contains('airmadidi')) return 'Airmadidi';
-    return 'Manado';
   }
 
   /// Membangun daftar status maintenance per lokasi dari daftar log bulan terpilih.
   static List<PosMaintenanceStatus> buildStatuses(
     List<PosLocation> locations,
-    List<MaintenanceLogEntry> logs,
-  ) {
+    List<MaintenanceLogEntry> logs, [
+    AppBranch? branch,
+  ]) {
+    final activeBranch = branch ?? BranchService.instance.currentBranch;
     return locations.map((loc) {
       final locDispName = LocationService.displayName(loc);
       final matchedLogs = logs.where((log) {
@@ -319,29 +401,28 @@ class MaintenanceLogService {
 
       return PosMaintenanceStatus(
         location: loc,
-        wilayah: wilayahOf(loc),
+        wilayah: wilayahOf(loc, activeBranch),
         logs: matchedLogs,
       );
     }).toList();
   }
 
-  /// Cek apakah submission berasal dari cabang Manado (posId atau nama pos cocok).
+  /// Cek apakah submission berasal dari cabang yang ditentukan (posId atau nama pos cocok).
   @visibleForTesting
-  static bool isManadoSubmission(MaintenanceSubmission s) {
-    final manadoLocations =
-        LocationService.getLocationsByBranch(AppBranch.manado);
-    final manadoIds = manadoLocations
+  static bool isBranchSubmission(MaintenanceSubmission s, AppBranch branch) {
+    final locations = LocationService.getLocationsByBranch(branch);
+    final ids = locations
         .map((l) => l.posId)
         .where((id) => id.isNotEmpty)
         .toSet();
-    final manadoNames = <String>{};
-    for (final l in manadoLocations) {
-      if (l.posName.isNotEmpty) manadoNames.add(l.posName);
+    final names = <String>{};
+    for (final l in locations) {
+      if (l.posName.isNotEmpty) names.add(l.posName);
       final disp = LocationService.displayName(l);
-      if (disp.isNotEmpty) manadoNames.add(disp);
+      if (disp.isNotEmpty) names.add(disp);
     }
-    final matchId = s.posId.isNotEmpty && manadoIds.contains(s.posId);
-    final matchName = s.posName.isNotEmpty && manadoNames.contains(s.posName);
+    final matchId = s.posId.isNotEmpty && ids.contains(s.posId);
+    final matchName = s.posName.isNotEmpty && names.contains(s.posName);
     return matchId || matchName;
   }
 
@@ -349,10 +430,13 @@ class MaintenanceLogService {
   /// - Non-lengkap: 1 log entry asli
   /// - Lengkap: dipecah per area (barrier, manless, pos, server) sesuai prefix pointId
   static List<MaintenanceLogEntry> entriesFromSubmission(
-    MaintenanceSubmission s,
-  ) {
+    MaintenanceSubmission s, {
+    AppBranch? branch,
+  }) {
+    final branchCode =
+        branch?.code ?? BranchService.instance.currentBranch.code;
     if (s.templateId != 'tpl_maint_lengkap') {
-      return [MaintenanceLogEntry.fromSubmission(s)];
+      return [MaintenanceLogEntry.fromSubmission(s, branch: branchCode)];
     }
 
     final groups = <String, List<MaintenancePointResult>>{};
@@ -403,6 +487,7 @@ class MaintenanceLogService {
           id: '${s.id}__$areaTemplateId',
           templateId: areaTemplateId,
           templateName: templateName,
+          branch: branchCode,
         ),
       );
     }
@@ -412,22 +497,21 @@ class MaintenanceLogService {
 
   /// Mengirim semua submission lengkap lokal 62 hari terakhir ke Supabase (idempotent / upsert).
   static Future<void> syncLocal() async {
-    if (!isSupported) return;
-
     try {
+      final branch = BranchService.instance.currentBranch;
       final all = StorageService.getMaintenanceSubmissions() ?? [];
       final cutoff = DateTime.now().subtract(const Duration(days: 62));
       final candidates = all
           .where((s) =>
               s.isComplete &&
               s.createdAt.isAfter(cutoff) &&
-              isManadoSubmission(s))
+              isBranchSubmission(s, branch))
           .toList();
 
       if (candidates.isEmpty) return;
 
       final rows = candidates
-          .expand((s) => entriesFromSubmission(s))
+          .expand((s) => entriesFromSubmission(s, branch: branch))
           .map((entry) => entry.toRow())
           .toList();
 
@@ -457,8 +541,10 @@ class MaintenanceLogService {
 
   /// Mengambil data log maintenance bulan tertentu dari Supabase dengan fallback data lokal.
   static Future<({List<MaintenanceLogEntry> logs, bool offline})> fetchMonth(
-    DateTime month,
-  ) async {
+    DateTime month, {
+    AppBranch? branch,
+  }) async {
+    final activeBranch = branch ?? BranchService.instance.currentBranch;
     final y = month.year;
     final m = month.month;
     final yStr = y.toString().padLeft(4, '0');
@@ -470,7 +556,7 @@ class MaintenanceLogService {
 
     try {
       final uri = Uri.parse(
-        '${DailyTaskService.baseUrl}/rest/v1/$tableName?tanggal=gte.$startTanggal&tanggal=lte.$endTanggal&order=tanggal.desc,jam_selesai.desc',
+        '${DailyTaskService.baseUrl}/rest/v1/$tableName?tanggal=gte.$startTanggal&tanggal=lte.$endTanggal&branch=eq.${activeBranch.code}&order=tanggal.desc,jam_selesai.desc',
       );
       final headers = {
         'apikey': DailyTaskService.anonKey,
@@ -503,7 +589,7 @@ class MaintenanceLogService {
               s.isComplete &&
               s.createdAt.year == month.year &&
               s.createdAt.month == month.month &&
-              isManadoSubmission(s),
+              isBranchSubmission(s, activeBranch),
         )
         .toList();
 
@@ -514,7 +600,7 @@ class MaintenanceLogService {
     });
 
     final localLogs = localSubmissions
-        .expand((s) => entriesFromSubmission(s))
+        .expand((s) => entriesFromSubmission(s, branch: activeBranch))
         .toList();
 
     return (logs: localLogs, offline: true);

@@ -278,6 +278,19 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   late final MapController _mapController;
   bool _ownsMapController = false;
 
+  late final AppBranch _branch;
+
+  static LatLng _fallbackCenterFor(AppBranch branch) {
+    switch (branch) {
+      case AppBranch.manado:
+        return const LatLng(1.4748, 124.8428);
+      case AppBranch.bali:
+        return const LatLng(-8.6705, 115.2126);
+      case AppBranch.ho:
+        return const LatLng(-5.1477, 119.4327);
+    }
+  }
+
   late final MapOptions _mapOptions;
   bool _mapReady = false;
 
@@ -303,6 +316,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   @override
   void initState() {
     super.initState();
+    _branch = BranchService.instance.currentBranch;
     if (widget.mapController != null) {
       _mapController = widget.mapController!;
       _ownsMapController = false;
@@ -314,15 +328,15 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     final now = DateTime.now();
     _selectedMonth = DateTime(now.year, now.month, 1);
 
-    final manadoCoords = LocationService.getLocationsByBranch(AppBranch.manado)
+    final branchCoords = LocationService.getLocationsByBranch(_branch)
         .where((l) => l.lat != 0 && l.lng != 0)
         .map((l) => LatLng(l.lat, l.lng))
         .toList();
 
-    if (manadoCoords.length >= 2) {
+    if (branchCoords.length >= 2) {
       _mapOptions = MapOptions(
         initialCameraFit: CameraFit.coordinates(
-          coordinates: manadoCoords,
+          coordinates: branchCoords,
           padding: const EdgeInsets.only(
             top: 40,
             left: 20,
@@ -364,7 +378,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
       );
     } else {
       _mapOptions = MapOptions(
-        initialCenter: const LatLng(1.4748, 124.8428),
+        initialCenter: _fallbackCenterFor(_branch),
         initialZoom: 12.0,
         backgroundColor: const Color(0xFFE5E7EB),
         onTap: (tapPosition, point) {
@@ -443,9 +457,9 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   Future<void> _loadMonthData() async {
     setState(() => _isLoading = true);
 
-    final locations = LocationService.getLocationsByBranch(AppBranch.manado);
-    final result = await MaintenanceLogService.fetchMonth(_selectedMonth);
-    final statuses = MaintenanceLogService.buildStatuses(locations, result.logs);
+    final locations = LocationService.getLocationsByBranch(_branch);
+    final result = await MaintenanceLogService.fetchMonth(_selectedMonth, branch: _branch);
+    final statuses = MaintenanceLogService.buildStatuses(locations, result.logs, _branch);
 
     if (!mounted) return;
 
@@ -464,9 +478,9 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   }
 
   Future<void> _silentRefresh() async {
-    final locations = LocationService.getLocationsByBranch(AppBranch.manado);
-    final result = await MaintenanceLogService.fetchMonth(_selectedMonth);
-    final statuses = MaintenanceLogService.buildStatuses(locations, result.logs);
+    final locations = LocationService.getLocationsByBranch(_branch);
+    final result = await MaintenanceLogService.fetchMonth(_selectedMonth, branch: _branch);
+    final statuses = MaintenanceLogService.buildStatuses(locations, result.logs, _branch);
 
     if (!mounted) return;
 
@@ -523,13 +537,13 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   }
 
   List<String> get _availableWilayahList {
-    final manadoLocations =
-        LocationService.getLocationsByBranch(AppBranch.manado);
+    final locations =
+        LocationService.getLocationsByBranch(_branch);
     final present =
-        manadoLocations.map(MaintenanceLogService.wilayahOf).toSet();
+        locations.map((loc) => MaintenanceLogService.wilayahOf(loc, _branch)).toSet();
     return [
       'Semua',
-      ...MaintenanceLogService.wilayahList.where(present.contains)
+      ...MaintenanceLogService.wilayahListFor(_branch).where(present.contains)
     ];
   }
 

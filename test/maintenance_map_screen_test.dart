@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bssparking_timemark/data/models/maintenance_submission.dart';
+import 'package:bssparking_timemark/data/services/branch_service.dart';
 import 'package:bssparking_timemark/data/services/location_service.dart';
 import 'package:bssparking_timemark/data/services/maintenance_log_service.dart';
 import 'package:bssparking_timemark/data/services/storage_service.dart';
@@ -41,6 +42,11 @@ Future<void> loadAppFonts() async {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    BranchService.instance.resetForTesting();
+  });
+
   group('MaintenanceMapScreen.shortName', () {
     test('strips trailing Manado case-insensitively', () {
       const loc1 = PosLocation(
@@ -1680,6 +1686,39 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.textContaining('Tidak ada lokasi'), findsNothing);
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+      },
+    );
+
+    testWidgets(
+      'branch bali with 0 locations renders without exception and shows 0/0 lokasi',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await BranchService.instance.setBranch(AppBranch.bali);
+        addTearDown(() => BranchService.instance.resetForTesting());
+
+        final manadoOnly = LocationService.getLocationsByBranch(AppBranch.manado);
+        await StorageService.saveLocations(manadoOnly);
+        await StorageService.setLocationSyncedRemote(true);
+        LocationService.resetForTesting();
+        addTearDown(() => LocationService.resetForTesting());
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: MaintenanceMapScreen(),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(find.text('0/0 lokasi'), findsOneWidget);
+        expect(tester.takeException(), isNull);
 
         await tester.pumpWidget(const SizedBox());
         await tester.pump();

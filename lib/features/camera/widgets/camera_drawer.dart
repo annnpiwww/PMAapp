@@ -14,7 +14,6 @@ import '../../daily_tasks/screens/teknisi_daily_tasks_screen.dart';
 import '../../history/screens/attendance_archive_screen.dart';
 import '../../maintenance/screens/maintenance_history_screen.dart';
 import '../../maintenance/screens/maintenance_map_screen.dart';
-import '../../../data/services/maintenance_log_service.dart';
 import 'ios_pwa_install_modal.dart';
 
 /// Navigation Drawer for CameraCaptureScreen
@@ -294,35 +293,34 @@ class CameraDrawer extends StatelessWidget {
                         );
                       }),
 
-                      // Menu Khusus Cabang KC Manado: Map Maintenance
-                      if (MaintenanceLogService.isSupported)
-                        ListTile(
-                          leading: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.map_rounded, color: AppColors.primary, size: 22),
+                      // Map Maintenance
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          title: Text(
-                            'Map Maintenance',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
-                          ),
-                          subtitle: Text(
-                            'Lokasi sudah & belum maintenance',
-                            style: TextStyle(fontSize: 11, color: textSecondary),
-                          ),
-                          trailing: Icon(Icons.chevron_right_rounded, size: 20, color: textSecondary),
-                          onTap: () {
-                            Navigator.of(context).pop();
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const MaintenanceMapScreen(),
-                              ),
-                            );
-                          },
+                          child: const Icon(Icons.map_rounded, color: AppColors.primary, size: 22),
                         ),
+                        title: Text(
+                          'Map Maintenance',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
+                        ),
+                        subtitle: Text(
+                          'Lokasi sudah & belum maintenance',
+                          style: TextStyle(fontSize: 11, color: textSecondary),
+                        ),
+                        trailing: Icon(Icons.chevron_right_rounded, size: 20, color: textSecondary),
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const MaintenanceMapScreen(),
+                            ),
+                          );
+                        },
+                      ),
 
                       // Menu Arsip Kehadiran (30 Hari)
                       ListTile(
