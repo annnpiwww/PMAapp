@@ -2,6 +2,28 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.132+2145] - 2026-11-05
+
+### 🎯 Highlight Utama
+1. **Map Maintenance Semua Cabang**:
+   - Lihat lokasi mana yang bermasalah, sekarang untuk Manado, Bali, dan HO.
+   - SPV bisa isi alamat lokasi, titik di peta otomatis mengikuti alamat.
+2. **Analisa Ulang Foto dengan AI**:
+   - Foto bisa dianalisa ulang saat koneksi gagal, tanpa perlu foto ulang.
+3. **Ganti Shift Saat Absen**:
+   - Teknisi bisa ganti shift kalau salah pilih saat absen.
+4. **Halaman Daily Task SPV Lebih Ringkas**:
+   - Tombol "Buat Tugas" kini berada di kanan bawah.
+
+### 🔒 Keamanan
+- Bypass QA SPV dan password hardcoded akun SPV dihapus dari APK dan web. SPV login lewat server seperti akun lain.
+
+### ⚡ Performa
+- Polling tugas teknisi dibatasi di sisi server.
+- Upload foto bukti berjalan paralel.
+
+---
+
 ## [2.0.131+2144] - 2026-11-04
 
 ### 🎯 Highlight Utama

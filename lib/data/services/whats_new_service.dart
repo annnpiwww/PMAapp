@@ -30,18 +30,18 @@ class WhatsNewService {
 
   /// Diisi ulang tiap versi naik, bareng bump di pubspec.yaml.
   static const WhatsNewRelease current = WhatsNewRelease(
-    version: '2.0.131',
-    date: '4 November 2026',
+    version: '2.0.132',
+    date: '5 November 2026',
     features: [
-      'Shift kustom teknisi tidak tertimpa saat jepret Masuk & Pulang',
-      'Halaman Daily Task SPV lebih ringkas dengan tombol Buat Tugas di header',
-      'Peta Maintenance dilengkapi dropdown wilayah dan filter lokasi belum dikerjakan',
+      'Map Maintenance: lihat lokasi mana yang bermasalah, sekarang untuk Manado, Bali, dan HO',
+      'SPV bisa isi alamat lokasi, titik di peta otomatis mengikuti alamat',
+      'Analisa ulang foto dengan AI saat koneksi gagal, tanpa foto ulang',
+      'Teknisi bisa ganti shift kalau salah pilih saat absen',
+      'Halaman Daily Task SPV lebih ringkas, tombol Buat Tugas di kanan bawah',
     ],
-    aiNote:
-        'Waktu absensi tetap memakai jam terverifikasi server, bukan jam HP',
-    mapNote:
-        'Lihat peta POS yang sudah dan belum maintenance, lengkap dengan daftar temuan. Buka dari menu samping, pilih Map Maintenance. Khusus KC Manado.',
-    bugfix: 'Beberapa bug sudah diperbaiki.',
+    aiNote: 'AI lebih cepat membalas, dengan cadangan otomatis saat server AI sibuk',
+    mapNote: 'Buka dari menu samping, pilih Map Maintenance.',
+    bugfix: 'Beberapa bug sudah diperbaiki dan aplikasi lebih ringan saat memuat tugas.',
   );
 
   /// `seen` kosong berarti aplikasi belum pernah mencatat versi di perangkat ini.
