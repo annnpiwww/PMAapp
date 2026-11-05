@@ -19,7 +19,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/openai';
 const MAX_BODY_BYTES = 12_000_000; // foto base64 + prompt
 const ALLOWED_MODELS = [
+  'gemini-3-flash-preview',
+  'gemini-3.5-flash',
   'gemini-3.6-flash',
+  'gemini-3.8-flash',
   'gemini-3.5-flash-lite',
   'gemini-flash-lite-latest',
   'gemini-3.1-flash-lite',
@@ -69,26 +72,37 @@ serve(async (req: Request) => {
 
   // Batasi model ke daftar yang diizinkan supaya client tidak bisa memakai
   // proxy ini untuk model lain di luar kebutuhan app.
-  let model = '';
+  let parsed: Record<string, unknown>;
   try {
-    const parsed = JSON.parse(rawBody);
-    model = typeof parsed?.model === 'string' ? parsed.model : '';
+    parsed = JSON.parse(rawBody);
   } catch {
     return json({ error: 'invalid json body' }, 400);
   }
+  const model = typeof parsed?.model === 'string' ? parsed.model : '';
   if (!ALLOWED_MODELS.includes(model)) {
     return json({ error: 'model not allowed' }, 400);
   }
 
-  try {
-    const upstream = await fetch(`${GEMINI_BASE}/chat/completions`, {
+  const callGemini = (key: string, body: string) =>
+    fetch(`${GEMINI_BASE}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${key}`,
       },
-      body: rawBody,
+      body,
     });
+
+  try {
+    let upstream = await callGemini(apiKey, rawBody);
+
+    // Model utama kena kuota/overload: coba sekali lagi pakai key cadangan
+    // (project lain, kuota terpisah) dan model cadangan.
+    const fallbackKey = Deno.env.get('GEMINI_API_KEY_FALLBACK');
+    if (fallbackKey && [429, 500, 502, 503, 504].includes(upstream.status)) {
+      const fallbackModel = Deno.env.get('GEMINI_FALLBACK_MODEL') ?? 'gemini-3.5-flash';
+      upstream = await callGemini(fallbackKey, JSON.stringify({ ...parsed, model: fallbackModel }));
+    }
 
     const text = await upstream.text();
     return new Response(text, {

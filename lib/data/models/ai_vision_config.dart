@@ -133,10 +133,10 @@ class AiVisionConfig {
   static const bool proxyEnabled =
       bool.fromEnvironment('BSS_AI_PROXY', defaultValue: true);
 
-  /// Primary: 3.1-flash-lite. Diukur 2026-10-23 dengan foto 420px: 3,2 dtk,
-  /// JSON valid. 3.6-flash lebih pintar tapi kuota free tier-nya cuma 20
-  /// request/hari, jadi gampang 429 di jam sibuk.
-  static const String defaultCustomModel = 'gemini-3.1-flash-lite';
+  /// Primary: 3-flash-preview. Diukur 2026-11-05 dengan foto 512px: median
+  /// 1,9 dtk (5/5 OK, JSON valid). 3.1-flash-lite saat itu terus 503 (high
+  /// demand) dan varian lite lain 13+ dtk; 3.5/3.6-flash kuotanya 20 request/hari.
+  static const String defaultCustomModel = 'gemini-3-flash-preview';
 
   /// Timeout per-request. Diukur di lapangan: 5-6 dtk normal, bisa 19 dtk
   /// saat model cold start. 8 dtk terlalu ketat -> verifikasi sering terputus.

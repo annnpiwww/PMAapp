@@ -76,7 +76,7 @@ void main() {
         provider: AiProviderType.customEndpoint,
         apiKey: 'AQ.test-bss-persist-999',
         baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-        modelName: 'gemini-3.1-flash-lite',
+        modelName: AiVisionConfig.defaultCustomModel,
         confidenceThreshold: 0.88,
       );
 
@@ -86,7 +86,7 @@ void main() {
 
       expect(retrieved.confidenceThreshold, equals(0.88));
       expect(retrieved.apiKey, equals('AQ.test-bss-persist-999'));
-      expect(retrieved.modelName, equals('gemini-3.1-flash-lite'));
+      expect(retrieved.modelName, equals(AiVisionConfig.defaultCustomModel));
       expect(retrieved.baseUrl,
           equals('https://generativelanguage.googleapis.com/v1beta/openai'));
     });
@@ -113,6 +113,23 @@ void main() {
           equals('https://generativelanguage.googleapis.com/v1beta/openai'));
       expect(migrated.modelName, equals(AiVisionConfig.defaultCustomModel));
       expect(migrated.apiKey, equals(AiVisionConfig.defaultApiKey));
+    });
+
+    test('Stored gemini-3.1-flash-lite (503 overload) migrates to default model', () async {
+      SharedPreferences.setMockInitialValues({});
+      await StorageService.init();
+      await StorageService.saveAiVisionConfig(const AiVisionConfig(
+        provider: AiProviderType.customEndpoint,
+        apiKey: 'AQ.test-bss-persist-999',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+        modelName: 'gemini-3.1-flash-lite',
+      ));
+
+      AiVisionService.clearConfigCache();
+      final migrated = AiVisionService.getConfig();
+
+      expect(migrated.modelName, equals(AiVisionConfig.defaultCustomModel));
+      expect(migrated.apiKey, equals('AQ.test-bss-persist-999'));
     });
 
     test('Valid Google AI Studio custom key is preserved during migration', () async {
