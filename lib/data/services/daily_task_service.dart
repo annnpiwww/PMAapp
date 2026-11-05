@@ -176,6 +176,19 @@ class DailyTaskService {
 
   static Map<String, String> get getHeaders => _getHeaders;
 
+  /// Klien HTTP palsu untuk unit test (pola sama dengan LocationService).
+  @visibleForTesting
+  static http.Client? clientOverride;
+
+  static Future<http.Response> _get(Uri uri, {Map<String, String>? headers}) =>
+      clientOverride?.get(uri, headers: headers) ?? http.get(uri, headers: headers);
+
+  static Future<http.Response> _post(Uri uri, {Map<String, String>? headers, Object? body}) =>
+      clientOverride?.post(uri, headers: headers, body: body) ?? http.post(uri, headers: headers, body: body);
+
+  static Future<http.Response> _patch(Uri uri, {Map<String, String>? headers, Object? body}) =>
+      clientOverride?.patch(uri, headers: headers, body: body) ?? http.patch(uri, headers: headers, body: body);
+
   /// Tabel tugas harian dipisah per cabang supaya tugas KC Manado dan KC Bali
   /// tidak pernah duduk di satu tabel (`daily_tasks_manado` / `daily_tasks_bali`).
   static String get tasksTable => 'daily_tasks_$_branchSlug';
@@ -219,26 +232,50 @@ class DailyTaskService {
     return false;
   }
 
+  /// PostgREST OR-group yang memuat semua baris yang mungkin lolos [isAssignedTo].
+  /// `peserta` berupa teks dipisah koma, jadi pola pada kolomnya cukup.
+  static String _assignedOrGroup(String nama) {
+    final cleaned = nama.replaceAll(RegExp(r'[,()*.:\\]'), ' ').trim();
+    final tokens = cleaned.split(RegExp(r'\s+')).where((p) => p.length >= 2).toSet();
+    final needles = tokens.isEmpty ? <String>{cleaned} : tokens;
+    final parts = <String>[];
+    for (final n in needles) {
+      if (n.isEmpty) continue;
+      parts.add('teknisi_nama.ilike.*$n*');
+      parts.add('peserta.ilike.*$n*');
+    }
+    return parts.join(',');
+  }
+
   /// Ambil daftar tugas harian untuk teknisi tertentu (semua tugas pending + tugas hari ini)
   static Future<List<DailyTaskModel>> getTasksForTeknisi({required String tanggal, required String teknisiNama}) async {
     List<DailyTaskModel> allTasks = [];
     bool serverSuccess = false;
 
-    try {
-      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
-        queryParameters: {'or': '(status.eq.pending,tanggal.eq.$tanggal)', 'order': 'created_at.desc', 'limit': '100'},
-      );
-      final res = await http.get(uri, headers: _getHeaders).timeout(const Duration(seconds: 8));
-      if (res.statusCode == 200) {
-        final decoded = jsonDecode(res.body);
-        final List items = decoded is List ? decoded : ((decoded as Map<String, dynamic>)['items'] as List? ?? []);
-        allTasks = items.map((e) => DailyTaskModel.fromJson(e as Map<String, dynamic>)).toList();
-        serverSuccess = true;
-      } else {
-        debugPrint('[DailyTaskService] getTasksForTeknisi failed: ${res.statusCode} ${res.body}');
+    // Nama kosong: lewati server, langsung pakai cache offline.
+    if (teknisiNama.trim().isNotEmpty) {
+      try {
+        // Tugas terbuka/serah terima punya jalur sendiri (getOpenHandoverTasks),
+        // jadi query ini sengaja hanya mengambil tugas milik/ikuti teknisi ini.
+        final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
+          queryParameters: {
+            'and': '(or(status.eq.pending,tanggal.eq.$tanggal),or(${_assignedOrGroup(teknisiNama)}))',
+            'order': 'created_at.desc',
+            'limit': '100',
+          },
+        );
+        final res = await _get(uri, headers: _getHeaders).timeout(const Duration(seconds: 8));
+        if (res.statusCode == 200) {
+          final decoded = jsonDecode(res.body);
+          final List items = decoded is List ? decoded : ((decoded as Map<String, dynamic>)['items'] as List? ?? []);
+          allTasks = items.map((e) => DailyTaskModel.fromJson(e as Map<String, dynamic>)).toList();
+          serverSuccess = true;
+        } else {
+          debugPrint('[DailyTaskService] getTasksForTeknisi failed: ${res.statusCode} ${res.body}');
+        }
+      } catch (e) {
+        debugPrint('[DailyTaskService] getTasks error, fallback local: $e');
       }
-    } catch (e) {
-      debugPrint('[DailyTaskService] getTasks error, fallback local: $e');
     }
 
     final localCached = getCachedTasksLocally();
@@ -1061,33 +1098,16 @@ class DailyTaskService {
 
       final uploadedUrls = <String>[];
       if (photosToUpload.isNotEmpty) {
-        for (int i = 0; i < photosToUpload.length; i++) {
-          try {
-            final filePath = photosToUpload[i];
-            final fileName = 'proof_${taskId}_${i + 1}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-            final uploadUri = Uri.parse('$baseUrl/storage/v1/object/task-proofs/$fileName');
-            final bytes = await _readBuktiBytes(filePath);
-            if (bytes == null || bytes.isEmpty) {
-              debugPrint('[DailyTaskService] Bukti foto tidak terbaca: $filePath');
-              continue;
-            }
-            final uploadRes = await http
-                .post(
-                  uploadUri,
-                  headers: {'apikey': anonKey, 'Authorization': 'Bearer $anonKey', 'Content-Type': 'image/jpeg'},
-                  body: bytes,
-                )
-                .timeout(const Duration(seconds: 15));
-
-            if (uploadRes.statusCode == 200 || uploadRes.statusCode == 201) {
-              final publicUrl = '$baseUrl/storage/v1/object/public/task-proofs/$fileName';
-              uploadedUrls.add(publicUrl);
-            } else {
-              debugPrint('[DailyTaskService] Upload bukti foto gagal: ${uploadRes.statusCode} ${uploadRes.body}');
-            }
-          } catch (uploadError) {
-            debugPrint('[DailyTaskService] Upload bukti foto error: $uploadError');
-          }
+        // Maks 3 upload paralel per batch: cepat tapi uplink HP tidak tersaturasi.
+        for (int start = 0; start < photosToUpload.length; start += 3) {
+          final end = min(start + 3, photosToUpload.length);
+          final batch = await Future.wait(
+            List.generate(
+              end - start,
+              (offset) => _uploadBuktiFoto(photosToUpload[start + offset], taskId: taskId, index: start + offset),
+            ),
+          );
+          uploadedUrls.addAll(batch.whereType<String>());
         }
       }
 
@@ -1100,8 +1120,7 @@ class DailyTaskService {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       });
 
-      final res = await http
-          .patch(patchUri, headers: {..._headers, 'Prefer': 'return=representation'}, body: patchBody)
+      final res = await _patch(patchUri, headers: {..._headers, 'Prefer': 'return=representation'}, body: patchBody)
           .timeout(const Duration(seconds: 15));
 
       final success = patchResponseAccepted(res.statusCode, res.body);
@@ -1136,6 +1155,34 @@ class DailyTaskService {
         );
       }
       return false;
+    }
+  }
+
+  /// Upload satu foto bukti. `null` = gagal/tidak terbaca (foto dilewati, sama
+  /// seperti perilaku loop sekuensial sebelumnya).
+  static Future<String?> _uploadBuktiFoto(String filePath, {required String taskId, required int index}) async {
+    try {
+      final fileName = 'proof_${taskId}_${index + 1}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final uploadUri = Uri.parse('$baseUrl/storage/v1/object/task-proofs/$fileName');
+      final bytes = await _readBuktiBytes(filePath);
+      if (bytes == null || bytes.isEmpty) {
+        debugPrint('[DailyTaskService] Bukti foto tidak terbaca: $filePath');
+        return null;
+      }
+      final uploadRes = await _post(
+        uploadUri,
+        headers: {'apikey': anonKey, 'Authorization': 'Bearer $anonKey', 'Content-Type': 'image/jpeg'},
+        body: bytes,
+      ).timeout(const Duration(seconds: 15));
+
+      if (uploadRes.statusCode == 200 || uploadRes.statusCode == 201) {
+        return '$baseUrl/storage/v1/object/public/task-proofs/$fileName';
+      }
+      debugPrint('[DailyTaskService] Upload bukti foto gagal: ${uploadRes.statusCode} ${uploadRes.body}');
+      return null;
+    } catch (uploadError) {
+      debugPrint('[DailyTaskService] Upload bukti foto error: $uploadError');
+      return null;
     }
   }
 
