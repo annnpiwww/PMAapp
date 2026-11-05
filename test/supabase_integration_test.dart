@@ -16,6 +16,13 @@ const String _liveWriteSkipReason =
     'Test ini menulis task nyata ke Supabase produksi. Jalankan dengan '
     '--dart-define=ALLOW_LIVE_WRITE=true bila memang perlu.';
 
+/// Password SPV Farhan hanya ada di lokal/CI, tidak lagi di source code.
+final String? _spvPassword = Platform.environment['SUPABASE_TEST_SPV_PASSWORD'];
+
+const String _spvSkipReason =
+    'Butuh password SPV nyata. Set env SUPABASE_TEST_SPV_PASSWORD untuk '
+    'menjalankan test login online ini.';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = _RealHttpOverrides();
@@ -29,7 +36,7 @@ void main() {
     test('Online login for SPV Farhan Lakoro against Supabase app_users table', () async {
       final success = await AuthRepository.instance.loginWithPassword(
         identity: 'farhan',
-        password: 'flakoro05',
+        password: _spvPassword!,
       );
 
       expect(success, isTrue);
@@ -38,12 +45,12 @@ void main() {
       expect(user!.nama, equals('Farhan Lakoro'));
       expect(user.role, equals(UserRole.supervisor));
       expect(user.email, contains('farhan'));
-    });
+    }, skip: _spvPassword == null ? _spvSkipReason : false);
 
     test('Online login for SPV Farhan using full name "Farhan Lakoro"', () async {
       final success = await AuthRepository.instance.loginWithPassword(
         identity: 'Farhan Lakoro',
-        password: 'flakoro05',
+        password: _spvPassword!,
       );
 
       expect(success, isTrue);
@@ -51,12 +58,12 @@ void main() {
       expect(user, isNotNull);
       expect(user!.nama, equals('Farhan Lakoro'));
       expect(user.role, equals(UserRole.supervisor));
-    });
+    }, skip: _spvPassword == null ? _spvSkipReason : false);
 
     test('Online login for SPV Farhan using email "farhan@pma.com"', () async {
       final success = await AuthRepository.instance.loginWithPassword(
         identity: 'farhan@pma.com',
-        password: 'flakoro05',
+        password: _spvPassword!,
       );
 
       expect(success, isTrue);
@@ -64,20 +71,7 @@ void main() {
       expect(user, isNotNull);
       expect(user!.nama, equals('Farhan Lakoro'));
       expect(user.role, equals(UserRole.supervisor));
-    });
-
-    test('Online login for SPV Farhan using password alias "spv123"', () async {
-      final success = await AuthRepository.instance.loginWithPassword(
-        identity: 'farhan',
-        password: 'spv123',
-      );
-
-      expect(success, isTrue);
-      final user = AuthRepository.instance.currentUser;
-      expect(user, isNotNull);
-      expect(user!.nama, equals('Farhan Lakoro'));
-      expect(user.role, equals(UserRole.supervisor));
-    });
+    }, skip: _spvPassword == null ? _spvSkipReason : false);
 
     test('Online login for Teknisi Ryan Lumasuge against Supabase app_users table', () async {
       final success = await AuthRepository.instance.loginWithPassword(

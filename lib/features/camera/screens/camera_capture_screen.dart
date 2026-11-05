@@ -864,86 +864,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     }
   }
 
-  int _secretQaTapCount = 0;
-  DateTime? _lastSecretQaTapTime;
-
-  bool _isSpvFarhan() {
-    // QA bypass hanya untuk akun SPV yang benar-benar login sebagai Farhan.
-    // Dulu ikut considers "nama teknisi terakhir" (bebas diisi sendiri), jadi
-    // siapa pun bisa mengaktifkan bypass hanya dengan mengetik "Farhan".
-    final user = AuthRepository.instance.currentUser;
-    if (user == null) return false;
-    if (user.role != UserRole.supervisor) return false;
-    return user.nama.toLowerCase().contains('farhan') ||
-        user.email.toLowerCase().contains('farhan');
-  }
-
-  void _handleSecretQaTap() {
-    if (!_isSpvFarhan()) return;
-    final now = DateTime.now();
-    if (_lastSecretQaTapTime == null ||
-        now.difference(_lastSecretQaTapTime!) > const Duration(seconds: 2)) {
-      _secretQaTapCount = 1;
-    } else {
-      _secretQaTapCount++;
-    }
-    _lastSecretQaTapTime = now;
-
-    if (_secretQaTapCount >= 5) {
-      _secretQaTapCount = 0;
-      _toggleSpvQaBypass();
-    }
-  }
-
-  void _toggleSpvQaBypass() async {
-    if (!_isSpvFarhan()) return;
-    HapticFeedback.heavyImpact();
-    final current = StorageService.isSpvQaBypassActive();
-    final next = !current;
-    await StorageService.setSpvQaBypassMode(next);
-    if (mounted) {
-      setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                next ? Icons.bolt_rounded : Icons.lock_outline_rounded,
-                color: next ? Colors.amberAccent : Colors.white70,
-                size: 22,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  next
-                      ? '⚡ ROOT QA BYPASS: AKTIF\n• AI Absensi: Auto-Ijo (Lolos SOP)\n• Durasi Shift: Bebas Pulang (Tanpa 8 Jam)'
-                      : '🔒 ROOT QA BYPASS: NONAKTIF\nMode normal berjalan (AI SOP & Shift 8 Jam aktif).',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    height: 1.3,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: next
-              ? const Color(0xFF0F172A)
-              : const Color(0xFF1E293B),
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: next ? Colors.amberAccent : const Color(0xFF334155),
-              width: 1.2,
-            ),
-          ),
-        ),
-      );
-    }
-  }
-
   /// Dialog blokir Fake GPS. Return true = lanjut darurat (hasil ditandai).
   Future<bool?> _confirmMockLocationProceed() {
     return showDialog<bool>(
@@ -1003,8 +923,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       final isPulangMode = setup.tipeLaporan == 'Pulang';
       if (isPulangMode) {
         final lastCheckIn = StorageService.getLastCheckInTime();
-        final isQaBypass = StorageService.isSpvQaBypassActive();
-        if (lastCheckIn == null && !isQaBypass) {
+        if (lastCheckIn == null) {
           _isProcessingAI = false;
           _captureStep = 0;
           showDialog(
@@ -1046,13 +965,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           return;
         }
 
-        final isEligible =
-            isQaBypass ||
-            (lastCheckIn != null &&
-                AbsensiSetupService.isEligibleForAutoPulang(
-                  shift: setup.effectiveJadwalShift,
-                  checkInTime: lastCheckIn,
-                ));
+        final isEligible = AbsensiSetupService.isEligibleForAutoPulang(
+          shift: setup.effectiveJadwalShift,
+          checkInTime: lastCheckIn,
+        );
 
         // 1. Cek Kelayakan Pulang (jam akhir shift sudah lewat)
         if (!isEligible) {
@@ -1060,7 +976,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           _captureStep = 0;
           final nowVerified = SecureTimeService.getVerifiedTime().accurateTime
               .toLocal();
-          final refTime = lastCheckIn ?? nowVerified;
+          final refTime = lastCheckIn;
           final gate = AbsensiSetupService.pulangAllowedFrom(
             shift: setup.effectiveJadwalShift,
             checkInTime: refTime,
@@ -1133,8 +1049,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       } else {
         // MODE MASUK: PROTEKSI ABSENSI MASUK GANDA (DOUBLE CHECK-IN GUARD)
         final lastCheckIn = StorageService.getLastCheckInTime();
-        final isQaBypass = StorageService.isSpvQaBypassActive();
-        if (lastCheckIn != null && !isQaBypass) {
+        if (lastCheckIn != null) {
           final isEligible = AbsensiSetupService.isEligibleForAutoPulang(
             shift: setup.effectiveJadwalShift,
             checkInTime: lastCheckIn,
@@ -1213,7 +1128,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
         // Shift yang mulai > 2 jam lalu biasanya shift basi dari hari sebelumnya;
         // kalau dibiarkan, absen Masuk tercatat Terlambat.
-        if (!isQaBypass && !StorageService.isDemoBypassActive()) {
+        if (!StorageService.isDemoBypassActive()) {
           final now = SecureTimeService.getVerifiedTime().accurateTime
               .toLocal();
           final selectedShift = setup.effectiveJadwalShift;
@@ -2590,15 +2505,6 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                           ),
                         ),
 
-                        // Secret tap 5x detector untuk SPV QA Bypass Mode
-                        Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onTap: _handleSecretQaTap,
-                            child: const SizedBox(height: 36),
-                          ),
-                        ),
-
                         // Flash Toggle Button (Off -> Auto -> On -> Torch Senter)
                         Semantics(
                           label: 'Pengaturan lampu kilat kamera',
@@ -2914,19 +2820,10 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
     final shift = absSetup.effectiveJadwalShift;
     final shiftShort = shift.split('(').first.trim();
 
-    final isQaBypass = StorageService.isSpvQaBypassActive();
     String label;
     Color accentColor;
 
-    if (isQaBypass) {
-      final isPulang = absSetup.tipeLaporan == 'Pulang';
-      label = isPulang
-          ? '⚡ Pulang : $shiftShort (QA)'
-          : '⚡ Masuk : $shiftShort (QA)';
-      accentColor = isPulang
-          ? const Color(0xFF38BDF8)
-          : const Color(0xFF4ADE80);
-    } else if (isCheckedInActive &&
+    if (isCheckedInActive &&
         lastCheckIn != null &&
         now.isAfter(lastCheckIn)) {
       final diff = now.difference(lastCheckIn);
@@ -2971,17 +2868,15 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
 
     final isModePulangTap =
         absSetup.tipeLaporan == 'Pulang' &&
-        (isQaBypass ||
-            (isCheckedInActive &&
-                lastCheckIn != null &&
-                AbsensiSetupService.isEligibleForAutoPulang(
-                  shift: shift,
-                  checkInTime: lastCheckIn,
-                  currentTime: now,
-                )));
+        isCheckedInActive &&
+        lastCheckIn != null &&
+        AbsensiSetupService.isEligibleForAutoPulang(
+          shift: shift,
+          checkInTime: lastCheckIn,
+          currentTime: now,
+        );
 
     return GestureDetector(
-      onLongPress: _toggleSpvQaBypass,
       onTap: () {
         if (isModePulangTap) {
           DailyPulangBottomSheet.show(context).then((saved) {

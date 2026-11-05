@@ -76,15 +76,15 @@ void main() {
 
     test('Manado user login auto-locks branch to KC Manado', () async {
       final success = await AuthRepository.instance.loginWithPassword(
-        identity: 'farhan lakoro',
-        password: 'flakoro05',
+        identity: 'ryan@pma.com',
+        password: 'teknisi123',
       );
 
       expect(success, isTrue);
       final user = AuthRepository.instance.currentUser;
       expect(user, isNotNull);
-      expect(user!.role, equals(UserRole.supervisor));
-      expect(user.nama, equals('Farhan Lakoro'));
+      expect(user!.role, equals(UserRole.petugas));
+      expect(user.nama, equals('Ryan Lumasuge'));
       expect(user.cabangName, equals('KC Manado'));
       expect(BranchService.instance.currentBranch, equals(AppBranch.manado));
     });
@@ -103,11 +103,11 @@ void main() {
       expect(user.cabangName, equals('KC Manado'));
       expect(BranchService.instance.currentBranch, equals(AppBranch.manado));
 
-      final farhanOk = await AuthRepository.instance.loginWithPassword(
-        identity: 'farhan@pma.com',
-        password: 'flakoro05',
+      final juniferOk = await AuthRepository.instance.loginWithPassword(
+        identity: 'junifer@pma.com',
+        password: 'teknisi123',
       );
-      expect(farhanOk, isTrue);
+      expect(juniferOk, isTrue);
       expect(BranchService.instance.currentBranch, equals(AppBranch.manado));
     });
 

@@ -28,33 +28,22 @@ class StorageService {
   static const String _keyLastTechnicianName = 'bss_last_technician_name_v1';
   static const String _keyLastCheckInTime = 'bss_last_check_in_time_v1';
   static const String _keyHasSeenTutorial = 'bss_has_seen_tutorial_v1';
-  static const String _keySpvQaBypassMode = 'bss_spv_qa_bypass_mode_v1';
   static const String _keyCameraTimerSeconds = 'bss_camera_timer_seconds_v1';
   static const String _keyThemeMode = 'bss_theme_mode_v1';
   static const String _keyKnownPendingTaskIds = 'bss_known_pending_task_ids_v1';
   static const String _keySpvTechShifts = 'bss_spv_tech_shifts_v1';
 
-  /// Mode QA / Developer SPV Farhan: bypass AI Vision (Auto-Ijo) dan durasi kerja 8 jam untuk testing.
-  static bool isSpvQaBypassActive() {
-    return _prefs?.getBool(_keySpvQaBypassMode) ?? false;
-  }
-
-  static Future<void> setSpvQaBypassMode(bool enabled) async {
-    await init();
-    await _prefs?.setBool(_keySpvQaBypassMode, enabled);
-  }
-
-  /// Mode Demo / SPV Bypass: bypass timer durasi kerja minimal 8 jam / 4 jam untuk testing & demo.
+  /// Mode Demo: bypass timer durasi kerja minimal 8 jam / 4 jam untuk testing & demo.
   static bool isDemoBypassActive() {
-    final isEnv = const bool.fromEnvironment('BSS_DEMO_MODE', defaultValue: false);
-    return isEnv || isSpvQaBypassActive();
+    return const bool.fromEnvironment('BSS_DEMO_MODE', defaultValue: false);
   }
-
 
   static SharedPreferences? _prefs;
 
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    // Sisa pref bypass QA dari versi lama dibersihkan sekali di sini.
+    await _prefs?.remove('bss_spv_qa_bypass_mode_v1');
   }
 
   // --- GENERIC KEY VALUE HELPERS ---
@@ -299,10 +288,11 @@ class StorageService {
 
       const legacyModels = {
         'gemini-3.7-flash-high',
-        // 2026-10-23: 3.6-flash kena kuota free tier cuma 20 request/hari,
-        // jadi pindah ke 3.1-flash-lite (diukur 3,2 dtk untuk foto 420px).
+        // 2026-10-23: 3.6-flash kena kuota free tier cuma 20 request/hari.
+        // 2026-11-05: 3.1-flash-lite terus 503 (high demand), pindah ke
+        // AiVisionConfig.defaultCustomModel.
         'gemini-3.6-flash',
-        'gemini-3-flash-preview',
+        'gemini-3.1-flash-lite',
         'google/gemini-3.1-flash-lite',
         'agy/gemini-3.1-flash-lite',
         'ollama-cloud/gemma4:31b',

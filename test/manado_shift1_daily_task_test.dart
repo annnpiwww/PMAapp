@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bssparking_timemark/data/models/daily_task_model.dart';
+import 'package:bssparking_timemark/data/models/user_model.dart';
 import 'package:bssparking_timemark/data/repositories/auth_repository.dart';
 import 'package:bssparking_timemark/data/services/absensi_setup_service.dart';
 import 'package:bssparking_timemark/data/services/branch_service.dart';
@@ -16,9 +17,17 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await StorageService.init();
     await BranchService.instance.setBranch(AppBranch.manado);
-    await AuthRepository.instance.loginWithPassword(
-      identity: 'farhan lakoro',
-      password: 'flakoro05',
+    await AuthRepository.instance.login(
+      UserModel(
+        id: 'usr_farhan_lakoro',
+        nama: 'Farhan Lakoro',
+        npp: 'BSS-SPV-01',
+        email: 'farhan.lakoro@bssparking.com',
+        role: UserRole.supervisor,
+        posId: 'POS-01',
+        posName: 'Pos Gate Utama',
+        cabangName: 'KC Manado',
+      ),
     );
   });
 

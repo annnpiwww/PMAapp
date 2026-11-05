@@ -57,20 +57,8 @@ class AuthRepository extends ChangeNotifier {
         if (items.isNotEmpty) {
           final record = items.first as Map<String, dynamic>;
           final dbPassword = (record['password'] as String? ?? '').trim();
-          final userName = (record['username'] as String? ?? '').toLowerCase();
-          final userNama = (record['nama'] as String? ?? '').toLowerCase();
 
-          bool isPasswordMatch = dbPassword.toLowerCase() == cleanPass.toLowerCase();
-          if (!isPasswordMatch) {
-            // Dukungan alias password supervisor Farhan & demo
-            final isFarhan = userName == 'farhan' || userNama.contains('farhan');
-            if (isFarhan &&
-                (cleanPass.toLowerCase() == 'flakoro05' ||
-                    cleanPass.toLowerCase() == 'spv123' ||
-                    cleanPass.toLowerCase() == 'farhan123')) {
-              isPasswordMatch = true;
-            }
-          }
+          final isPasswordMatch = dbPassword.toLowerCase() == cleanPass.toLowerCase();
 
           if (isPasswordMatch) {
             final roleStr = (record['role'] as String? ?? 'teknisi').toLowerCase();
@@ -120,10 +108,6 @@ class AuthRepository extends ChangeNotifier {
     // saat terjadi kendala koneksi, mati lampu, atau basement tanpa sinyal di release APK & Vercel.
     final hardcodedAccounts = [
       // --- KC Manado Accounts ---
-      {'user': 'farhan lakoro', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
-      {'user': 'farhan@pma.com', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
-      {'user': 'farhan@bssparking.id', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
-      {'user': 'farhan', 'pass': 'flakoro05', 'role': UserRole.supervisor, 'name': 'Farhan Lakoro', 'branch': AppBranch.manado},
 
       {'user': 'ryan lumasuge', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
       {'user': 'ryan@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
@@ -246,15 +230,9 @@ class AuthRepository extends ChangeNotifier {
     }
 
     for (final acc in identityMatches) {
-      final accUser = (acc['user'] as String).toLowerCase();
       final accPass = (acc['pass'] as String).toLowerCase();
 
-      final cleanPassLower = cleanPass.toLowerCase();
-      final matchesPassword = accPass == cleanPassLower ||
-          (accUser.contains('farhan') &&
-              (cleanPassLower == 'flakoro05' ||
-                  cleanPassLower == 'spv123' ||
-                  cleanPassLower == 'farhan123'));
+      final matchesPassword = accPass == cleanPass.toLowerCase();
 
       if (matchesPassword) {
         final role = acc['role'] as UserRole;

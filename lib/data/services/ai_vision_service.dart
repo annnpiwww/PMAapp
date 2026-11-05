@@ -314,25 +314,6 @@ class AiVisionService {
     final config = customConfig ?? getConfig();
     final criteria = filterCriteriaByConfig(template.sopCriteria, config);
 
-    // Root QA SPV Bypass (Auto-Ijo untuk Testing Farhan Lakoro)
-    // SEC-02: bypass hanya diizinkan pada debug build; di release diblokir & di-log.
-    if (StorageService.isSpvQaBypassActive()) {
-      assert(kDebugMode, 'SPV QA bypass must only be active in debug builds');
-      if (!kDebugMode) {
-        debugPrint('[SECURITY][SEC-02] SPV QA bypass attempt blocked in release mode');
-      } else {
-        return AiVerificationResult(
-          status: VerificationStatus.sesuai,
-          alasan: '⚡ Root QA SPV: AI Absensi dibypass otomatis (Mode Testing Farhan Lakoro).',
-          poinGagal: [],
-          poinLolos: criteria.map(SopCriteriaHelper.toPositiveStatement).toList(),
-          confidenceScore: 1.0,
-          providerName: 'Root QA Engine (SPV Farhan)',
-          isFallback: false,
-        );
-      }
-    }
-
     if (forceSimulateFailure) {
       return AiVerificationResult(
         status: VerificationStatus.tidakSesuai,
