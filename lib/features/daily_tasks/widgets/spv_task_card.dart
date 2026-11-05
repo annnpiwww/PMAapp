@@ -50,9 +50,9 @@ class SpvTaskCard extends StatelessWidget {
     final hasDeskripsi = deskripsiText.isNotEmpty;
     final trimmedPosName = task.posName.trim();
     final metaText = [
-      if (trimmedPosName.isNotEmpty && trimmedPosName != posPillText) trimmedPosName,
       if (task.labelPelaksana.trim().isNotEmpty) task.labelPelaksana.trim(),
       if (_dateLine(isDone).trim().isNotEmpty) _dateLine(isDone).trim(),
+      if (trimmedPosName.isNotEmpty && trimmedPosName != posPillText) trimmedPosName,
     ].join(' · ');
 
     return Semantics(
@@ -87,126 +87,154 @@ class SpvTaskCard extends StatelessWidget {
             Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: isDone ? () => CompletedDailyTaskModal.show(context, task) : null,
+                onTap: isDone ? () => CompletedDailyTaskModal.show(context, task) : onToggleExpand,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+                  padding: const EdgeInsets.fromLTRB(12, 4, 4, 6),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          if (hasPos) ...[
-                            Semantics(
-                              container: true,
-                              label: 'Lokasi $posPillText',
-                              excludeSemantics: true,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: isDark ? 0.30 : 0.10),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  posPillText,
-                                  style: TextStyle(
-                                    fontFamily: 'PlusJakartaSans',
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.3,
-                                    color: isDark ? AppColors.textDarkPrimary : AppColors.primary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          Expanded(
-                            child: Text(
-                              task.judul,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                height: 1.3,
-                                color: titleColor,
-                              ),
-                            ),
-                          ),
-                          _kebabMenu(hasNotes, isDone, mutedColor),
-                        ],
-                      ),
-                      if (hasDeskripsi) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          deskripsiText,
-                          maxLines: isExpanded ? null : 1,
-                          overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontSize: 12,
-                            color: mutedColor,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 2),
-                      _metaLine(Icons.place_outlined, metaText, metaColor),
-                      if (hasNotes && isExpanded) ...[
-                        const SizedBox(height: 2),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: isDark ? AppColors.darkBackground : AppColors.surfaceContainerLow,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.cardBorder),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Catatan Teknisi:',
-                                style: TextStyle(
-                                  fontFamily: 'PlusJakartaSans',
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: metaColor,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                task.catatanTeknisi!.trim(),
-                                style: TextStyle(
-                                  fontFamily: 'PlusJakartaSans',
-                                  fontSize: 12,
-                                  fontStyle: FontStyle.italic,
-                                  color: titleColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 2),
-                      SizedBox(
-                        height: 44,
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 40),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Flexible(child: _statusPill(status)),
+                            if (hasPos) ...[
+                              Semantics(
+                                container: true,
+                                label: 'Lokasi $posPillText',
+                                excludeSemantics: true,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: isDark ? 0.30 : 0.10),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    posPillText,
+                                    style: TextStyle(
+                                      fontFamily: 'PlusJakartaSans',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.3,
+                                      color: isDark ? AppColors.textDarkPrimary : AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Expanded(
+                              child: Text(
+                                task.judul,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'PlusJakartaSans',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.3,
+                                  color: titleColor,
+                                ),
+                              ),
+                            ),
+                            _kebabMenu(hasNotes, isDone, mutedColor),
+                          ],
+                        ),
+                      ),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 36),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Flexible(
+                              child: _statusPill(status),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text.rich(
+                                TextSpan(
+                                  children: [
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(right: 4),
+                                        child: Icon(Icons.person_outline_rounded, size: 14, color: metaColor),
+                                      ),
+                                    ),
+                                    TextSpan(text: metaText),
+                                  ],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'PlusJakartaSans',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: metaColor,
+                                ),
+                              ),
+                            ),
                             if (!isDone && onHandover != null) ...[
-                              const Spacer(),
+                              const SizedBox(width: 6),
                               _handoverButton(),
                             ] else if (isDone) ...[
-                              const Spacer(),
+                              const SizedBox(width: 6),
                               _buktiButton(context),
                             ],
                           ],
                         ),
                       ),
+                      if (isExpanded) ...[
+                        if (hasDeskripsi) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            deskripsiText,
+                            maxLines: null,
+                            style: TextStyle(
+                              fontFamily: 'PlusJakartaSans',
+                              fontSize: 12,
+                              color: mutedColor,
+                            ),
+                          ),
+                        ],
+                        if (hasNotes) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.darkBackground : AppColors.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.cardBorder),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Catatan Teknisi:',
+                                  style: TextStyle(
+                                    fontFamily: 'PlusJakartaSans',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: metaColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  task.catatanTeknisi!.trim(),
+                                  style: TextStyle(
+                                    fontFamily: 'PlusJakartaSans',
+                                    fontSize: 12,
+                                    fontStyle: FontStyle.italic,
+                                    color: titleColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
                     ],
                   ),
                 ),
@@ -281,28 +309,6 @@ class SpvTaskCard extends StatelessWidget {
     return '${_dayNames[target.weekday - 1]}, ${target.day} ${_monthNames[target.month - 1]}';
   }
 
-  Widget _metaLine(IconData icon, String text, Color color) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: color,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _statusPill(_CardStatus status) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -337,35 +343,38 @@ class SpvTaskCard extends StatelessWidget {
   }
 
   Widget _kebabMenu(bool hasNotes, bool isDone, Color mutedColor) {
-    return SizedBox(
-      width: 44,
-      height: 44,
-      child: PopupMenuButton<String>(
-        tooltip: 'Pilihan menu tugas',
-        padding: EdgeInsets.zero,
-        iconSize: 18,
-        icon: Icon(Icons.more_vert_rounded, color: mutedColor),
-        onSelected: (value) {
-          switch (value) {
-            case 'alihkan':
-              onHandover?.call();
-              break;
-            case 'catatan':
-              onToggleExpand();
-              break;
-            case 'hapus':
-              onDelete?.call();
-              break;
-          }
-        },
-        itemBuilder: (context) => [
-          if (!isDone && onHandover != null)
-            _menuItem('alihkan', Icons.swap_horiz_rounded, 'Alihkan Tugas'),
-          if (hasNotes)
-            _menuItem('catatan', Icons.notes_rounded, isExpanded ? 'Tutup Catatan' : 'Lihat Catatan'),
-          if (!isDone && onDelete != null)
-            _menuItem('hapus', Icons.delete_outline_rounded, 'Hapus Tugas', danger: true),
-        ],
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: PopupMenuButton<String>(
+          tooltip: 'Pilihan menu tugas',
+          padding: EdgeInsets.zero,
+          iconSize: 18,
+          icon: Icon(Icons.more_vert_rounded, color: mutedColor),
+          onSelected: (value) {
+            switch (value) {
+              case 'alihkan':
+                onHandover?.call();
+                break;
+              case 'catatan':
+                onToggleExpand();
+                break;
+              case 'hapus':
+                onDelete?.call();
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            if (!isDone && onHandover != null)
+              _menuItem('alihkan', Icons.swap_horiz_rounded, 'Alihkan Tugas'),
+            if (hasNotes)
+              _menuItem('catatan', Icons.notes_rounded, isExpanded ? 'Tutup Catatan' : 'Lihat Catatan'),
+            if (!isDone && onDelete != null)
+              _menuItem('hapus', Icons.delete_outline_rounded, 'Hapus Tugas', danger: true),
+          ],
+        ),
       ),
     );
   }
@@ -433,6 +442,7 @@ class SpvTaskCard extends StatelessWidget {
   }
 
   Widget _buktiButton(BuildContext context) {
+    final label = task.fotoBuktiUrls.isNotEmpty ? 'Bukti (${task.fotoBuktiUrls.length})' : 'Bukti';
     return Semantics(
       button: true,
       label: 'Lihat bukti',
@@ -455,10 +465,10 @@ class SpvTaskCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.photo_library_outlined, size: 14, color: AppColors.success),
-                      const SizedBox(width: 5),
+                      const Icon(Icons.image_outlined, size: 16, color: AppColors.success),
+                      const SizedBox(width: 4),
                       Text(
-                        task.fotoBuktiUrls.isNotEmpty ? 'Bukti (${task.fotoBuktiUrls.length})' : 'Lihat Bukti',
+                        label,
                         style: const TextStyle(
                           fontFamily: 'PlusJakartaSans',
                           fontSize: 12,

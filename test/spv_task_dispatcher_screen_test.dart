@@ -144,11 +144,71 @@ Future<void> _seed(List<DailyTaskModel> tasks) async {
   await AuthRepository.instance.login(_supervisor());
 }
 
+List<DailyTaskModel> _sixRealisticTasks() => [
+      _task(
+        id: 't1',
+        teknisi: 'Ryan Lumasuge',
+        posTag: 'PKM',
+        posName: 'Pos Kasir Masuk Utama Megamas',
+        judul: 'Pemasangan lampu LED dan instalasi kelistrikan booth kasir',
+        deskripsi: 'Pergantian lampu sorot depan dan pengecekan saklar panel utama pos',
+        peserta: 'Raldy Sangkop',
+      ),
+      _task(
+        id: 't2',
+        teknisi: 'Alessandro Sulistyo',
+        posTag: 'PBM',
+        posName: 'Pos Barat Megamas Manado',
+        judul: 'Maintenance printer thermal kasir & cek suplai roll kertas',
+        deskripsi: 'Pembersihan head printer kasir dan pengujian cetak struk parkir',
+        status: TaskStatus.completed,
+        jamSelesai: '09:49',
+        kategori: 'maintenance',
+        fotoBuktiUrls: const ['https://example.com/b1.jpg', 'https://example.com/b2.jpg'],
+      ),
+      _task(
+        id: 't3',
+        teknisi: 'Raldy Sangkop',
+        posTag: 'MTC',
+        posName: 'Gate Keluar Kawasan Megamas',
+        judul: 'Cek sensor loop kendaraan dan kalibrasi detektor logam',
+        deskripsi: 'Penyetelan sensitivitas sensor tanam loop detektor kendaraan roda 4',
+      ),
+      _task(
+        id: 't4',
+        teknisi: 'Junifer Manua',
+        posTag: 'PBM',
+        posName: 'Pos Barrier Masuk 2',
+        judul: 'Perbaikan mekanikal barrier gate motor arm servo',
+        deskripsi: 'Pelumasan gear dan penggantian per pegas penyeimbang palang otomatis',
+        status: TaskStatus.completed,
+        jamSelesai: '11:00',
+        fotoBuktiUrls: const ['https://example.com/b3.jpg'],
+      ),
+      _task(
+        id: 't5',
+        teknisi: 'Ryan Lumasuge',
+        posTag: 'CCTV',
+        posName: 'Tower Pantau Lapangan Parkir',
+        judul: 'Pembersihan lensa kamera pengawas PTZ dan koneksi POE',
+        deskripsi: 'Pembersihan kubah kamera outdoor dari debu dan tes sinyal video NVR',
+      ),
+      _task(
+        id: 't6',
+        teknisi: 'Alessandro Sulistyo',
+        posTag: 'GND',
+        posName: 'Panel Distribusi Listrik Timur',
+        judul: 'Inspeksi grounding barrier dan surge arrester penangkal petir',
+        deskripsi: 'Pengukuran nilai tahanan tanah dan pengencangan baut terminal busbar',
+      ),
+    ];
+
 Widget _app({
   bool dark = false,
   double textScale = 1.0,
   double height = 640,
   GlobalKey? boundaryKey,
+  bool pushed = false,
 }) {
   final builder = boundaryKey == null
       ? null
@@ -176,7 +236,14 @@ Widget _app({
         size: Size(360, height),
         textScaler: TextScaler.linear(textScale),
       ),
-      child: const SpvTaskDispatcherScreen(),
+      child: pushed
+          ? Navigator(
+              onGenerateInitialRoutes: (navigator, initialRoute) => [
+                MaterialPageRoute(builder: (_) => const Scaffold(body: SizedBox.shrink())),
+                MaterialPageRoute(builder: (_) => const SpvTaskDispatcherScreen()),
+              ],
+            )
+          : const SpvTaskDispatcherScreen(),
     ),
   );
 }
@@ -188,13 +255,20 @@ Future<void> _pumpScreen(
   double height = 1100,
   bool captureShadows = false,
   GlobalKey? boundaryKey,
+  bool pushed = false,
 }) async {
   debugDisableShadows = !captureShadows;
   tester.view.physicalSize = Size(360 * 2, height * 2);
   tester.view.devicePixelRatio = 2.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  await tester.pumpWidget(_app(dark: dark, textScale: textScale, height: height, boundaryKey: boundaryKey));
+  await tester.pumpWidget(_app(
+    dark: dark,
+    textScale: textScale,
+    height: height,
+    boundaryKey: boundaryKey,
+    pushed: pushed,
+  ));
   await tester.pumpAndSettle();
 }
 
@@ -254,9 +328,9 @@ void main() {
       expect(find.byType(SpvTechFilterStrip), findsOneWidget);
       expect(find.text('Semua Teknisi'), findsOneWidget);
       expect(find.byType(SpvTaskCard), findsNWidgets(4));
+      expect(find.byType(FloatingActionButton), findsOneWidget);
       expect(find.text('Buat Tugas'), findsOneWidget);
       expect(find.text('Pantau & kelola tugas teknisi dengan mudah'), findsNothing);
-      expect(find.byType(FloatingActionButton), findsNothing);
       expect(find.text('Menunggu Alih'), findsNothing);
     });
   });
@@ -381,31 +455,63 @@ void main() {
       final context = tester.element(find.byType(SpvTaskDispatcherScreen));
       expect(ThemeService.isDarkMode(context), isTrue);
     });
+    testWidgets('header with back button at 360dp width shows full title and at least 5 cards fit on 360x800', (tester) async {
+      await _loadAppFonts(tester);
+      await _seed(_sixRealisticTasks());
+      await _pumpScreen(tester, height: 800, pushed: true);
+
+      expect(find.byTooltip('Kembali'), findsOneWidget);
+
+      final textPainter = TextPainter(
+        text: const TextSpan(
+          text: 'Daily Task',
+          style: TextStyle(
+            fontFamily: 'PlusJakartaSans',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final renderedSize = tester.getSize(find.text('Daily Task'));
+      expect(renderedSize.width, greaterThanOrEqualTo(textPainter.width));
+      final renderParagraph = tester.renderObject<RenderParagraph>(find.text('Daily Task'));
+      expect(renderParagraph.didExceedMaxLines, isFalse);
+
+      final cardFinders = find.byType(SpvTaskCard);
+      expect(cardFinders, findsWidgets);
+      for (var i = 0; i < 5; i++) {
+        final cardRect = tester.getRect(cardFinders.at(i));
+        expect(cardRect.top, greaterThanOrEqualTo(0.0), reason: 'Card $i top is off-screen');
+        expect(cardRect.bottom, lessThanOrEqualTo(800.0), reason: 'Card $i bottom is off-screen (${cardRect.bottom})');
+      }
+    });
   });
 
   group('Screenshot Capture', () {
     testWidgets('dispatcher list light', (tester) async {
-      await _seed(_sampleTasks());
+      await _seed(_sixRealisticTasks());
       await _loadAppFonts(tester);
       final key = GlobalKey();
-      await _pumpScreen(tester, height: 640, captureShadows: true, boundaryKey: key);
+      await _pumpScreen(tester, height: 800, captureShadows: true, boundaryKey: key, pushed: true);
       await _capture(tester, key, 'docs/screenshots/spv_dispatcher_redesign_list_light.png');
     });
 
     testWidgets('dispatcher list dark', (tester) async {
       ThemeService.themeModeNotifier.value = ThemeMode.dark;
-      await _seed(_sampleTasks());
+      await _seed(_sixRealisticTasks());
       await _loadAppFonts(tester);
       final key = GlobalKey();
-      await _pumpScreen(tester, dark: true, height: 640, captureShadows: true, boundaryKey: key);
+      await _pumpScreen(tester, dark: true, height: 800, captureShadows: true, boundaryKey: key, pushed: true);
       await _capture(tester, key, 'docs/screenshots/spv_dispatcher_redesign_list_dark.png');
     });
 
     testWidgets('dispatcher create sheet light', (tester) async {
-      await _seed(_sampleTasks());
+      await _seed(_sixRealisticTasks());
       await _loadAppFonts(tester);
       final key = GlobalKey();
-      await _pumpScreen(tester, height: 640, captureShadows: true, boundaryKey: key);
+      await _pumpScreen(tester, height: 800, captureShadows: true, boundaryKey: key, pushed: true);
       await tester.tap(find.text('Buat Tugas'));
       await tester.pumpAndSettle();
       await _capture(tester, key, 'docs/screenshots/spv_dispatcher_redesign_sheet_light.png');

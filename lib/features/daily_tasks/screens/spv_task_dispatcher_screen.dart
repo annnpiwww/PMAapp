@@ -983,6 +983,25 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
 
     return Scaffold(
       backgroundColor: bgScaffold,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showBeriTugasBottomSheet(isDark),
+        tooltip: 'Buat tugas baru',
+        icon: const Icon(Icons.add_rounded, size: 20),
+        label: const Text(
+          'Buat Tugas',
+          style: TextStyle(
+            fontFamily: 'PlusJakartaSans',
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        backgroundColor: isDark ? AppColors.primaryLight : AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -1027,41 +1046,6 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          Semantics(
-            button: true,
-            label: 'Buat tugas baru',
-            child: Tooltip(
-              message: 'Buat tugas baru',
-              child: InkWell(
-                onTap: () => _showBeriTugasBottomSheet(isDark),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add_rounded, size: 18, color: AppColors.primary),
-                      SizedBox(width: 4),
-                      Text(
-                        'Buat Tugas',
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ),
@@ -1815,7 +1799,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
       children: [
         if (_isLoading)
           _buildSkeletonList(isDark)
