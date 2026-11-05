@@ -11,7 +11,13 @@ import 'storage_service.dart';
 import 'branch_service.dart';
 import 'daily_task_service.dart';
 
-enum RemoteWriteResult { ok, invalidCredentials, notSupervisor, offline, failed }
+enum RemoteWriteResult {
+  ok,
+  invalidCredentials,
+  notSupervisor,
+  offline,
+  failed,
+}
 
 String _appBranchToKey(AppBranch b) {
   switch (b) {
@@ -57,16 +63,16 @@ class PosLocation {
   });
 
   Map<String, dynamic> toJson() => {
-        'posId': posId,
-        'posName': posName,
-        'cabangName': cabangName,
-        'fullAddress': fullAddress,
-        'locationTag': locationTag,
-        'tagColorValue': tagColor.toARGB32(),
-        'lat': lat,
-        'lng': lng,
-        if (explicitBranch != null) 'branch': _appBranchToKey(explicitBranch!),
-      };
+    'posId': posId,
+    'posName': posName,
+    'cabangName': cabangName,
+    'fullAddress': fullAddress,
+    'locationTag': locationTag,
+    'tagColorValue': tagColor.toARGB32(),
+    'lat': lat,
+    'lng': lng,
+    if (explicitBranch != null) 'branch': _appBranchToKey(explicitBranch!),
+  };
 
   factory PosLocation.fromJson(Map<String, dynamic> json) {
     return PosLocation(
@@ -83,16 +89,16 @@ class PosLocation {
   }
 
   Map<String, dynamic> toRemoteJson() => {
-        'pos_id': posId,
-        'pos_name': posName,
-        'cabang_name': cabangName,
-        'full_address': fullAddress,
-        'location_tag': locationTag,
-        'tag_color': tagColor.toARGB32(),
-        'branch': _appBranchToKey(explicitBranch ?? branch),
-        'lat': lat,
-        'lng': lng,
-      };
+    'pos_id': posId,
+    'pos_name': posName,
+    'cabang_name': cabangName,
+    'full_address': fullAddress,
+    'location_tag': locationTag,
+    'tag_color': tagColor.toARGB32(),
+    'branch': _appBranchToKey(explicitBranch ?? branch),
+    'lat': lat,
+    'lng': lng,
+  };
 
   factory PosLocation.fromRemoteJson(Map<String, dynamic> json) {
     return PosLocation(
@@ -153,7 +159,8 @@ class PosLocation {
     final tag = locationTag.trim().toUpperCase();
     final name = cabangName.toLowerCase();
     final id = posId.toUpperCase();
-    final hasHoMarker = name.contains('ho makassar') ||
+    final hasHoMarker =
+        name.contains('ho makassar') ||
         name.contains('head office') ||
         id.contains('-HO-');
     final hasBaliMarker = name.contains('bali') || id.contains('DPS');
@@ -229,7 +236,8 @@ class LocationService {
       posId: 'POS-PBM-01',
       posName: 'Pasar Bersehati Manado',
       cabangName: 'KC BSG',
-      fullAddress: 'Jl. Nusantara No.17, Calaca, Wenang, Kota Manado, Sulawesi Utara',
+      fullAddress:
+          'Jl. Nusantara No.17, Calaca, Wenang, Kota Manado, Sulawesi Utara',
       locationTag: 'PBM',
       tagColor: Color(0xFFF59E0B),
       lat: 1.4980709,
@@ -249,7 +257,8 @@ class LocationService {
       posId: 'POS-MPP-01',
       posName: 'Mall Pelayanan Publik',
       cabangName: 'KC BSG',
-      fullAddress: 'Jl. Piere Tendean, Sario Tumpaan, Sario, Kota Manado, Sulawesi Utara 95114',
+      fullAddress:
+          'Jl. Piere Tendean, Sario Tumpaan, Sario, Kota Manado, Sulawesi Utara 95114',
       locationTag: 'MPP',
       tagColor: Color(0xFFF59E0B),
       lat: 1.4689489,
@@ -259,7 +268,8 @@ class LocationService {
       posId: 'POS-NBM-01',
       posName: 'New Bendar Manado',
       cabangName: 'KC BSG',
-      fullAddress: 'President Shopping Center, Jl. Walanda Maramis, Pinaesaan, Wenang, Kota Manado, Sulawesi Utara',
+      fullAddress:
+          'President Shopping Center, Jl. Walanda Maramis, Pinaesaan, Wenang, Kota Manado, Sulawesi Utara',
       locationTag: 'NBM',
       tagColor: Color(0xFFF59E0B),
       lat: 1.4934467,
@@ -269,7 +279,8 @@ class LocationService {
       posId: 'POS-PPM-01',
       posName: 'Pasar Pinasungkulan Manado',
       cabangName: 'KC BSG',
-      fullAddress: 'Jl. Pasar Karombasan, Karombasan Utara, Wanea, Kota Manado, Sulawesi Utara',
+      fullAddress:
+          'Jl. Pasar Karombasan, Karombasan Utara, Wanea, Kota Manado, Sulawesi Utara',
       locationTag: 'PPM',
       tagColor: Color(0xFFF59E0B),
       lat: 1.4567512,
@@ -279,7 +290,8 @@ class LocationService {
       posId: 'POS-TBM-01',
       posName: 'Toko Bintang Manado',
       cabangName: 'KC BSG',
-      fullAddress: 'Jl. A.A. Maramis No.291, Paniki Bawah, Kec. Mapanget, Kota Manado, Sulawesi Utara',
+      fullAddress:
+          'Jl. A.A. Maramis No.291, Paniki Bawah, Kec. Mapanget, Kota Manado, Sulawesi Utara',
       locationTag: 'TBM',
       tagColor: Color(0xFFF59E0B),
       lat: 1.5030,
@@ -289,7 +301,8 @@ class LocationService {
       posId: 'POS-MGAM-01',
       posName: 'Mie Gacoan AA Maramis',
       cabangName: 'KC BSG',
-      fullAddress: 'Jl. A.A. Maramis, Paniki Bawah, Kec. Mapanget, Kota Manado, Sulawesi Utara',
+      fullAddress:
+          'Jl. A.A. Maramis, Paniki Bawah, Kec. Mapanget, Kota Manado, Sulawesi Utara',
       locationTag: 'MGAM',
       tagColor: Color(0xFFF59E0B),
       lat: 1.5059531,
@@ -299,7 +312,8 @@ class LocationService {
       posId: 'POS-MGMM-01',
       posName: 'Mie Gacoan AirMadidi',
       cabangName: 'KC BSG',
-      fullAddress: 'CXCP+V34, Airmadidi Atas, Kec. Airmadidi, Kabupaten Minahasa Utara, Sulawesi Utara',
+      fullAddress:
+          'CXCP+V34, Airmadidi Atas, Kec. Airmadidi, Kabupaten Minahasa Utara, Sulawesi Utara',
       locationTag: 'MGMM',
       tagColor: Color(0xFFF59E0B),
       lat: 1.4221375,
@@ -309,7 +323,8 @@ class LocationService {
       posId: 'POS-MGBP-01',
       posName: 'Mie Gacoan Babe Palar',
       cabangName: 'KC BSG',
-      fullAddress: 'Jl. Babe Palar No.81, Madidir Ure, Kec. Maesa, Kota Bitung, Sulawesi Utara',
+      fullAddress:
+          'Jl. Babe Palar No.81, Madidir Ure, Kec. Maesa, Kota Bitung, Sulawesi Utara',
       locationTag: 'MGBP',
       tagColor: Color(0xFFF59E0B),
       lat: 1.4429952,
@@ -319,7 +334,8 @@ class LocationService {
       posId: 'POS-MGTO-01',
       posName: 'Mie Gacoan Tomohon',
       cabangName: 'KC BSG',
-      fullAddress: 'Jl. Raya Tomohon, Talete Satu, Kec. Tomohon Tengah, Kota Tomohon, Sulawesi Utara',
+      fullAddress:
+          'Jl. Raya Tomohon, Talete Satu, Kec. Tomohon Tengah, Kota Tomohon, Sulawesi Utara',
       locationTag: 'MGTO',
       tagColor: Color(0xFFF59E0B),
       lat: 1.3285085,
@@ -329,7 +345,8 @@ class LocationService {
       posId: 'POS-MGKB-01',
       posName: 'Mie Gacoan Kotamobagu',
       cabangName: 'KC BSG',
-      fullAddress: 'P7JX+JXX, Molinow, Kec. Kotamobagu Barat, Kota Kotamobagu, Sulawesi Utara',
+      fullAddress:
+          'P7JX+JXX, Molinow, Kec. Kotamobagu Barat, Kota Kotamobagu, Sulawesi Utara',
       locationTag: 'MGKB',
       tagColor: Color(0xFFF59E0B),
       lat: 0.7316125,
@@ -339,7 +356,8 @@ class LocationService {
       posId: 'POS-MGNW-01',
       posName: 'Mie Gacoan Nani Wartabone',
       cabangName: 'KC BSG',
-      fullAddress: 'Jl. Nani Wartabone No.05, Heledulaa Selatan, Kec. Kota Timur, Kota Gorontalo, Gorontalo',
+      fullAddress:
+          'Jl. Nani Wartabone No.05, Heledulaa Selatan, Kec. Kota Timur, Kota Gorontalo, Gorontalo',
       locationTag: 'MGNW',
       tagColor: Color(0xFFF59E0B),
       lat: 0.5397008,
@@ -359,7 +377,8 @@ class LocationService {
       posId: 'POS-MGLG-01',
       posName: 'Mie Gacoan Limboto Gorontalo',
       cabangName: 'KC BSG',
-      fullAddress: 'JXCG+6M2, Jl. Jenderal Sudirman, Hunggaluwa, Kec. Limboto, Kabupaten Gorontalo, Gorontalo',
+      fullAddress:
+          'JXCG+6M2, Jl. Jenderal Sudirman, Hunggaluwa, Kec. Limboto, Kabupaten Gorontalo, Gorontalo',
       locationTag: 'MGLG',
       tagColor: Color(0xFFF59E0B),
       lat: 0.6205125,
@@ -647,13 +666,23 @@ class LocationService {
   static LocationResult? _cachedLocationResult;
   static DateTime? _lastLocationFetchTime;
 
-  static bool get isLastLocationMocked => _cachedLocationResult?.isMockLocation ?? false;
+  static bool get isLastLocationMocked =>
+      _cachedLocationResult?.isMockLocation ?? false;
   static LocationResult? get lastLocationResult => _cachedLocationResult;
 
   @visibleForTesting
   static http.Client? clientOverride;
 
   static http.Client get _client => clientOverride ?? http.Client();
+
+  @visibleForTesting
+  static Future<List<geo.Location>> Function(String address)?
+  nativeGeocodeLookupOverride;
+
+  @visibleForTesting
+  static bool? isWebOverride;
+
+  static bool get _isWeb => isWebOverride ?? kIsWeb;
 
   @visibleForTesting
   static void setCachedLocationForTesting(LocationResult? result) {
@@ -666,6 +695,86 @@ class LocationService {
     _cachedLocationResult = null;
     _lastLocationFetchTime = null;
     clientOverride = null;
+    nativeGeocodeLookupOverride = null;
+    isWebOverride = null;
+  }
+
+  static bool _isValidIndonesiaCoords(double lat, double lng) {
+    if (lat == 0.0 && lng == 0.0) return false;
+    if (lat < -11.0 || lat > 6.0 || lng < 95.0 || lng > 141.0) return false;
+    return true;
+  }
+
+  static Future<({double lat, double lng})?> geocodeAddress(
+    String address,
+    AppBranch branch,
+  ) async {
+    final trimmed = address.trim();
+    if (trimmed.isEmpty) return null;
+
+    String query = trimmed;
+    final lower = query.toLowerCase();
+    switch (branch) {
+      case AppBranch.manado:
+        if (!lower.contains('manado')) {
+          query = '$query, Manado, Sulawesi Utara';
+        }
+        break;
+      case AppBranch.bali:
+        if (!lower.contains('bali')) {
+          query = '$query, Bali';
+        }
+        break;
+      case AppBranch.ho:
+        if (!lower.contains('makassar')) {
+          query = '$query, Makassar, Sulawesi Selatan';
+        }
+        break;
+    }
+
+    try {
+      if (_isWeb) {
+        final encoded = Uri.encodeComponent(query);
+        final url = Uri.parse(
+          'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=id&q=$encoded',
+        );
+        final response = await _client
+            .get(url, headers: {'User-Agent': 'bssparking_timemark/1.0'})
+            .timeout(const Duration(seconds: 8));
+        if (response.statusCode != 200) return null;
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is! List || decoded.isEmpty) return null;
+        final first = decoded.first;
+        if (first is! Map) return null;
+        final latStr = first['lat']?.toString();
+        final lonStr = first['lon']?.toString();
+        if (latStr == null || lonStr == null) return null;
+        final lat = double.tryParse(latStr);
+        final lng = double.tryParse(lonStr);
+        if (lat == null || lng == null) return null;
+        if (!_isValidIndonesiaCoords(lat, lng)) return null;
+        return (lat: lat, lng: lng);
+      } else {
+        final List<geo.Location> locations;
+        if (nativeGeocodeLookupOverride != null) {
+          locations = await nativeGeocodeLookupOverride!(
+            query,
+          ).timeout(const Duration(seconds: 8));
+        } else {
+          locations = await geo.Geocoding()
+              .locationFromAddress(query)
+              .timeout(const Duration(seconds: 8));
+        }
+        if (locations.isEmpty) return null;
+        final first = locations.first;
+        final lat = first.latitude;
+        final lng = first.longitude;
+        if (!_isValidIndonesiaCoords(lat, lng)) return null;
+        return (lat: lat, lng: lng);
+      }
+    } catch (_) {
+      return null;
+    }
   }
 
   static const String keySeedCoordsMigration = 'bss_location_seed_coords_v3';
@@ -720,20 +829,23 @@ class LocationService {
     final isMigrated = StorageService.getBool(keySeedCoordsMigration) ?? false;
     final seedMap = {for (final s in _defaultSeed) s.posId: s};
     final seedTagMap = {
-      for (final s in _defaultSeed) s.locationTag.toUpperCase(): s
+      for (final s in _defaultSeed) s.locationTag.toUpperCase(): s,
     };
 
     bool needsSave = !isMigrated;
     _locations = _locations.map((loc) {
-      final seed = seedMap[loc.posId] ??
+      final seed =
+          seedMap[loc.posId] ??
           seedTagMap[loc.locationTag.trim().toUpperCase()];
       if (seed != null && _manadoSeedIds.contains(seed.posId)) {
         // Deteksi self-healing: jika lokasi masih menggunakan koordinat lama salah
         // (MGBP di Manado, TBM di dekat PBM Pasar 45, atau koordinat lama PBM/PKM)
         final tag = loc.locationTag.trim().toUpperCase();
-        final isOldMgbp = tag == 'MGBP' &&
+        final isOldMgbp =
+            tag == 'MGBP' &&
             (loc.lng < 125.0 || (loc.lat - 1.472).abs() < 0.005);
-        final isOldTbm = tag == 'TBM' &&
+        final isOldTbm =
+            tag == 'TBM' &&
             (loc.lng < 124.88 || (loc.lat - 1.492).abs() < 0.005);
         final isOldPbm = tag == 'PBM' && (loc.lat - 1.493055).abs() < 0.002;
         final isOldPkm = tag == 'PKM' && (loc.lat - 1.494722).abs() < 0.002;
@@ -762,12 +874,13 @@ class LocationService {
     _ensureInitialized();
     final seedMap = {for (final s in _defaultSeed) s.posId: s};
     final seedTagMap = {
-      for (final s in _defaultSeed) s.locationTag.trim().toUpperCase(): s
+      for (final s in _defaultSeed) s.locationTag.trim().toUpperCase(): s,
     };
 
     _locations = _locations.map((loc) {
       if (!loc.matchesBranch(branch)) return loc;
-      final seed = seedMap[loc.posId] ??
+      final seed =
+          seedMap[loc.posId] ??
           seedTagMap[loc.locationTag.trim().toUpperCase()];
       if (seed != null) {
         return loc.copyWith(
@@ -798,7 +911,9 @@ class LocationService {
   /// Mengambil daftar lokasi yang secara ketat terisolasi untuk cabang tertentu
   static List<PosLocation> getLocationsByBranch(AppBranch branch) {
     _ensureInitialized();
-    return List.unmodifiable(_locations.where((p) => p.matchesBranch(branch)).toList());
+    return List.unmodifiable(
+      _locations.where((p) => p.matchesBranch(branch)).toList(),
+    );
   }
 
   /// Lokasi aktif saat ini untuk cabang yang sedang dipilih
@@ -822,7 +937,9 @@ class LocationService {
 
     // 2. Fallback ke default location tag cabang (PBM untuk Manado, PBKD untuk Bali)
     final defaultTag = branch.defaultLocationTag;
-    final defaultPos = branchList.where((p) => p.locationTag.toUpperCase() == defaultTag).firstOrNull;
+    final defaultPos = branchList
+        .where((p) => p.locationTag.toUpperCase() == defaultTag)
+        .firstOrNull;
     if (defaultPos != null) return defaultPos;
 
     // 3. Fallback: lokasi pertama di cabang ini
@@ -836,7 +953,9 @@ class LocationService {
     final currentBranch = BranchService.instance.currentBranch;
     // Jika pos yang diset tidak cocok dengan cabang yang sedang aktif, tolak
     if (!pos.matchesBranch(currentBranch)) {
-      debugPrint('[LocationService] Guard: Pos ${pos.locationTag} (${pos.cabangName}) tidak cocok dengan cabang aktif ${currentBranch.name}');
+      debugPrint(
+        '[LocationService] Guard: Pos ${pos.locationTag} (${pos.cabangName}) tidak cocok dengan cabang aktif ${currentBranch.name}',
+      );
       return;
     }
     final list = List<PosLocation>.from(_locations);
@@ -868,9 +987,21 @@ class LocationService {
     final targetBranch = branch ?? BranchService.instance.currentBranch;
     final list = getLocationsByBranch(targetBranch);
     const stopWords = {
-      'pos', 'gate', 'maintenance', 'sop', 'tugas', 'cek',
-      'titik', 'unit', 'keluar', 'masuk', 'manado', 'bali',
-      'kc', 'bss', 'lokasi',
+      'pos',
+      'gate',
+      'maintenance',
+      'sop',
+      'tugas',
+      'cek',
+      'titik',
+      'unit',
+      'keluar',
+      'masuk',
+      'manado',
+      'bali',
+      'kc',
+      'bss',
+      'lokasi',
     };
 
     // 1. Exact match pada locationTag, posName, atau posId di cabang target
@@ -975,13 +1106,21 @@ class LocationService {
 
     // 4. Jika posTag atau posName diisi tetapi belum ada di daftar pos (lokasi baru dari SPV, misal 'MTC'),
     // daftarkan secara dinamis ke cabang yang sesuai agar langsung terpilih di dropdown dan bisa dikerjakan
-    final targetRaw = (posTag != null && posTag.trim().isNotEmpty && posTag.trim() != '-')
+    final targetRaw =
+        (posTag != null && posTag.trim().isNotEmpty && posTag.trim() != '-')
         ? posTag.trim()
-        : (posName != null && posName.trim().isNotEmpty && posName.trim() != '-' ? posName.trim() : null);
+        : (posName != null && posName.trim().isNotEmpty && posName.trim() != '-'
+              ? posName.trim()
+              : null);
 
-    if (targetRaw != null && targetRaw.isNotEmpty && targetRaw.toLowerCase() != 'umum') {
+    if (targetRaw != null &&
+        targetRaw.isNotEmpty &&
+        targetRaw.toLowerCase() != 'umum') {
       final cleanTag = targetRaw.toUpperCase();
-      final cleanName = (posName != null && posName.trim().isNotEmpty && posName.trim() != '-')
+      final cleanName =
+          (posName != null &&
+              posName.trim().isNotEmpty &&
+              posName.trim() != '-')
           ? posName.trim()
           : targetRaw;
 
@@ -1013,7 +1152,10 @@ class LocationService {
     _locations = list;
     await StorageService.saveLocations(_locations);
     final targetBranch = pos.branch;
-    await StorageService.setString('active_pos_id_${targetBranch.code}', pos.posId);
+    await StorageService.setString(
+      'active_pos_id_${targetBranch.code}',
+      pos.posId,
+    );
     clearLocationCache();
 
     // Enqueue for remote import and fire-and-forget flush
@@ -1036,7 +1178,10 @@ class LocationService {
       _locations = list;
       await StorageService.saveLocations(_locations);
       final targetBranch = pos.branch;
-      await StorageService.setString('active_pos_id_${targetBranch.code}', pos.posId);
+      await StorageService.setString(
+        'active_pos_id_${targetBranch.code}',
+        pos.posId,
+      );
       clearLocationCache();
     }
   }
@@ -1058,13 +1203,15 @@ class LocationService {
         '${DailyTaskService.baseUrl}/rest/v1/pos_locations?select=*&active=eq.true',
       );
       final client = _client;
-      final res = await client.get(
-        uri,
-        headers: {
-          'apikey': DailyTaskService.anonKey,
-          'Authorization': 'Bearer ${DailyTaskService.anonKey}',
-        },
-      ).timeout(const Duration(seconds: 8));
+      final res = await client
+          .get(
+            uri,
+            headers: {
+              'apikey': DailyTaskService.anonKey,
+              'Authorization': 'Bearer ${DailyTaskService.anonKey}',
+            },
+          )
+          .timeout(const Duration(seconds: 8));
 
       if (res.statusCode != 200) {
         return false;
@@ -1082,7 +1229,10 @@ class LocationService {
 
       final currentList = List<PosLocation>.from(_locations);
       final localOnly = currentList
-          .where((loc) => !remoteIds.contains(loc.posId) && !seedIds.contains(loc.posId))
+          .where(
+            (loc) =>
+                !remoteIds.contains(loc.posId) && !seedIds.contains(loc.posId),
+          )
           .toList();
 
       final queue = StorageService.getLocationImportQueue();
@@ -1132,15 +1282,17 @@ class LocationService {
         final uri = Uri.parse(
           '${DailyTaskService.baseUrl}/functions/v1/pos-locations',
         );
-        final res = await client.post(
-          uri,
-          headers: {
-            'apikey': DailyTaskService.anonKey,
-            'Authorization': 'Bearer ${DailyTaskService.anonKey}',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode(body),
-        ).timeout(const Duration(seconds: 8));
+        final res = await client
+            .post(
+              uri,
+              headers: {
+                'apikey': DailyTaskService.anonKey,
+                'Authorization': 'Bearer ${DailyTaskService.anonKey}',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode(body),
+            )
+            .timeout(const Duration(seconds: 8));
 
         if (res.statusCode == 200) {
           final chunkIds = chunk.map((c) => c.posId).toSet();
@@ -1174,15 +1326,17 @@ class LocationService {
         'location': pos.toRemoteJson(),
       };
 
-      final res = await client.post(
-        uri,
-        headers: {
-          'apikey': DailyTaskService.anonKey,
-          'Authorization': 'Bearer ${DailyTaskService.anonKey}',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 8));
+      final res = await client
+          .post(
+            uri,
+            headers: {
+              'apikey': DailyTaskService.anonKey,
+              'Authorization': 'Bearer ${DailyTaskService.anonKey}',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 8));
 
       if (res.statusCode == 200) {
         _ensureInitialized();
@@ -1209,7 +1363,8 @@ class LocationService {
     } on TimeoutException {
       return RemoteWriteResult.offline;
     } on http.ClientException catch (e) {
-      if (e.message.contains('SocketException') || e.message.contains('Network')) {
+      if (e.message.contains('SocketException') ||
+          e.message.contains('Network')) {
         return RemoteWriteResult.offline;
       }
       return RemoteWriteResult.failed;
@@ -1235,15 +1390,17 @@ class LocationService {
         'pos_id': posId,
       };
 
-      final res = await client.post(
-        uri,
-        headers: {
-          'apikey': DailyTaskService.anonKey,
-          'Authorization': 'Bearer ${DailyTaskService.anonKey}',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 8));
+      final res = await client
+          .post(
+            uri,
+            headers: {
+              'apikey': DailyTaskService.anonKey,
+              'Authorization': 'Bearer ${DailyTaskService.anonKey}',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 8));
 
       if (res.statusCode == 200) {
         _ensureInitialized();
@@ -1265,7 +1422,8 @@ class LocationService {
     } on TimeoutException {
       return RemoteWriteResult.offline;
     } on http.ClientException catch (e) {
-      if (e.message.contains('SocketException') || e.message.contains('Network')) {
+      if (e.message.contains('SocketException') ||
+          e.message.contains('Network')) {
         return RemoteWriteResult.offline;
       }
       return RemoteWriteResult.failed;
@@ -1311,7 +1469,9 @@ class LocationService {
   }
 
   /// Get real device hardware GPS position in real-time with instant cache
-  static Future<LocationResult> getCurrentLocation({bool simulateGpsOff = false}) async {
+  static Future<LocationResult> getCurrentLocation({
+    bool simulateGpsOff = false,
+  }) async {
     final pos = currentPos;
 
     if (simulateGpsOff) {
@@ -1363,7 +1523,8 @@ class LocationService {
           // Jika fresh fix timeout, tetap gunakan lastKnown jika ada
         }
 
-        if (position != null && (position.latitude != 0.0 || position.longitude != 0.0)) {
+        if (position != null &&
+            (position.latitude != 0.0 || position.longitude != 0.0)) {
           String realAddress = pos.fullAddress;
           if (_cachedLocationResult == null ||
               calculateDistanceInMeters(
@@ -1371,7 +1532,8 @@ class LocationService {
                     position.longitude,
                     _cachedLocationResult!.lat,
                     _cachedLocationResult!.lng,
-                  ) > 50) {
+                  ) >
+                  50) {
             try {
               if (!kIsWeb) {
                 final placemarks = await geo.Geocoding()
@@ -1381,7 +1543,9 @@ class LocationService {
                     )
                     .timeout(const Duration(seconds: 3));
                 if (placemarks.isNotEmpty) {
-                  final formatted = formatCleanAddressFromPlacemark(placemarks.first);
+                  final formatted = formatCleanAddressFromPlacemark(
+                    placemarks.first,
+                  );
                   if (formatted.isNotEmpty) {
                     realAddress = formatted;
                   }
@@ -1431,7 +1595,11 @@ class LocationService {
       locationTag: pos.locationTag,
       tagColor: pos.tagColor,
     );
-    assert(_cachedLocationResult!.isFallback && _cachedLocationResult!.isDefaultFallback, 'SEC-03: fallback must be flagged isFallback=true');
+    assert(
+      _cachedLocationResult!.isFallback &&
+          _cachedLocationResult!.isDefaultFallback,
+      'SEC-03: fallback must be flagged isFallback=true',
+    );
     // Catat waktu tapi jangan blokir fetch berikutnya jika masih fallback
     _lastLocationFetchTime = DateTime.now();
     return _cachedLocationResult!;
@@ -1448,7 +1616,8 @@ class LocationService {
     final dLat = _degToRad(lat2 - lat1);
     final dLon = _degToRad(lon2 - lon1);
 
-    final a = sin(dLat / 2) * sin(dLat / 2) +
+    final a =
+        sin(dLat / 2) * sin(dLat / 2) +
         cos(_degToRad(lat1)) *
             cos(_degToRad(lat2)) *
             sin(dLon / 2) *
@@ -1478,8 +1647,12 @@ class LocationService {
     final targetBranch = branch ?? BranchService.instance.currentBranch;
     final list = getLocationsByBranch(targetBranch);
     final ranked = list.map((loc) {
-      final dist =
-          calculateDistanceInMeters(userLat, userLng, loc.lat, loc.lng);
+      final dist = calculateDistanceInMeters(
+        userLat,
+        userLng,
+        loc.lat,
+        loc.lng,
+      );
       return {
         'location': loc,
         'distanceMeters': dist,
@@ -1487,8 +1660,11 @@ class LocationService {
       };
     }).toList();
 
-    ranked.sort((a, b) =>
-        (a['distanceMeters'] as double).compareTo(b['distanceMeters'] as double));
+    ranked.sort(
+      (a, b) => (a['distanceMeters'] as double).compareTo(
+        b['distanceMeters'] as double,
+      ),
+    );
 
     return ranked;
   }
@@ -1503,12 +1679,15 @@ class LocationService {
     final subThoroughfare = (place.subThoroughfare ?? '').trim();
     final lowerSubLoc = (place.subLocality ?? '').trim().toLowerCase();
     final lowerLoc = (place.locality ?? '').trim().toLowerCase();
-    final lowerSubDist = (place.subAdministrativeArea ?? '').trim().toLowerCase();
+    final lowerSubDist = (place.subAdministrativeArea ?? '')
+        .trim()
+        .toLowerCase();
     final lowerAdmin = (place.administrativeArea ?? '').trim().toLowerCase();
 
     if (thoroughfare.isNotEmpty) {
       final tLower = thoroughfare.toLowerCase();
-      final isGeneric = tLower.contains('indonesia') ||
+      final isGeneric =
+          tLower.contains('indonesia') ||
           tLower.contains('sulawesi') ||
           (lowerSubLoc.isNotEmpty && tLower == lowerSubLoc) ||
           (lowerLoc.isNotEmpty && tLower == lowerLoc) ||
@@ -1516,7 +1695,9 @@ class LocationService {
           (lowerAdmin.isNotEmpty && tLower == lowerAdmin);
 
       if (!isGeneric) {
-        final road = subThoroughfare.isNotEmpty ? '$thoroughfare No. $subThoroughfare' : thoroughfare;
+        final road = subThoroughfare.isNotEmpty
+            ? '$thoroughfare No. $subThoroughfare'
+            : thoroughfare;
         components.add(road);
       }
     }
@@ -1551,7 +1732,8 @@ class LocationService {
 
     // Fallback jika komponen kosong: gunakan street atau name yang dibersihkan
     if (components.isEmpty) {
-      final fallbackRaw = (place.street?.isNotEmpty == true ? place.street : place.name) ?? '';
+      final fallbackRaw =
+          (place.street?.isNotEmpty == true ? place.street : place.name) ?? '';
       return cleanAddressString(fallbackRaw);
     }
 
@@ -1571,7 +1753,9 @@ class LocationService {
         .trim();
 
     // 2. Normalisasi whitespace
-    text = text.replaceAll(RegExp(r'[\r\n\t]+'), ' ').replaceAll(RegExp(r'\s+'), ' ');
+    text = text
+        .replaceAll(RegExp(r'[\r\n\t]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ');
 
     // 2b. Pisahkan keyword wilayah jika belum dipisah koma agar tidak tergabung dalam 1 kalimat panjang
     text = text.replaceAllMapped(
@@ -1584,7 +1768,10 @@ class LocationService {
 
     // 3. Pecah berdasarkan koma, titik koma, atau titik pemisah kalimat (kecuali singkatan Jl., No., Kec., dsb.)
     final rawTokens = text.split(
-      RegExp(r'[,;]|(?<!\b(?:jl|no|kec|kel|rt|rw|dr|ir|pt|cv))\.\s+', caseSensitive: false),
+      RegExp(
+        r'[,;]|(?<!\b(?:jl|no|kec|kel|rt|rw|dr|ir|pt|cv))\.\s+',
+        caseSensitive: false,
+      ),
     );
     final resultParts = <String>[];
     final seen = <String>{};
@@ -1609,8 +1796,13 @@ class LocationService {
 
       // Hapus token lama jika token baru ini superset yang lebih lengkap
       resultParts.removeWhere((existing) {
-        final existingNorm = existing.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
-        if (norm.length > 5 && norm.contains(existingNorm) && norm != existingNorm) {
+        final existingNorm = existing.toLowerCase().replaceAll(
+          RegExp(r'\s+'),
+          ' ',
+        );
+        if (norm.length > 5 &&
+            norm.contains(existingNorm) &&
+            norm != existingNorm) {
           seen.remove(existingNorm);
           return true;
         }
