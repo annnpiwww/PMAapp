@@ -66,6 +66,116 @@ class MaintenanceChecklistScreen extends StatefulWidget {
     this.manlessRole = 'IN',
   });
 
+  static List<({String label, IconData icon, String saran})> detectAiIssues(
+    String alasan,
+  ) {
+    final alasanLower = alasan.toLowerCase();
+    final masalah = <({String label, IconData icon, String saran})>[];
+
+    bool isMatchNegated(String fullText, Match match, String kw) {
+      final before = fullText.substring(0, match.start);
+      final clauseBefore = before
+          .split(RegExp(r'[,;.!]|(?:\b(?:namun|tetapi|tapi)\b)'))
+          .last;
+      final words = clauseBefore
+          .trim()
+          .split(RegExp(r'\s+'))
+          .where((w) => w.isNotEmpty)
+          .toList();
+
+      for (int i = 0; i < words.length; i++) {
+        final w = words[i];
+        if ((w == 'tanpa' || w == 'bebas') && (words.length - (i + 1)) <= 3) {
+          return true;
+        }
+        if (w == 'tidak' &&
+            i + 1 < words.length &&
+            words[i + 1] == 'ada' &&
+            (words.length - (i + 2)) <= 3) {
+          return true;
+        }
+      }
+
+      if (kw == 'tidak ada') {
+        final after = fullText.substring(match.end);
+        final clauseAfter = after
+            .split(RegExp(r'[,;.!]|(?:\b(?:namun|tetapi|tapi)\b)'))
+            .first;
+        if (RegExp(
+          r'^\s*(?:[^\s,;.]+\s+){0,2}(?:karat|rusak|kerusakan|debu|kotor|kotoran|noda|sampah|berlumut|kelupas|robek|pecah|retak|patah|kendor|longgar|bocor|penyok|masalah|kendala|temuan)\b',
+        ).hasMatch(clauseAfter)) {
+          return true;
+        }
+      }
+      if (kw == 'sudut' || kw == 'posisi') {
+        if (RegExp(r'\b(?:di|pada|area|bagian)\s+$').hasMatch(before)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    void deteksi(
+      String kataKunci,
+      String label,
+      IconData icon,
+      String saran,
+    ) {
+      for (final kw in kataKunci.split('|')) {
+        for (final m in RegExp(RegExp.escape(kw)).allMatches(alasanLower)) {
+          if (!isMatchNegated(alasanLower, m, kw)) {
+            masalah.add((label: label, icon: icon, saran: saran));
+            return;
+          }
+        }
+      }
+    }
+
+    deteksi(
+      'kelupas|robek|pecah|retak|patah|kendor|longgar|karat|bocor|rusak|penyok',
+      'Ada Kerusakan Fisik',
+      Icons.build_circle_outlined,
+      'Foto dari dekat bagian yang rusak, lalu catat di Kendala Fisik dan tandai perlu diganti.',
+    );
+    deteksi(
+      'tidak ada|hilang|belum terpasang|tidak lengkap|kurang lengkap|jumlah tidak sesuai',
+      'Barang Tidak Lengkap',
+      Icons.inventory_2_outlined,
+      'Pastikan posisi barangnya, kalau memang tidak ada tandai Barang Tidak Terpasang.',
+    );
+    deteksi(
+      'kotor|debu|serbuk|noda|berlumut|sampah',
+      'Perlu Pembersihan',
+      Icons.cleaning_services_outlined,
+      'Bersihkan dulu bagian yang berdebu atau kotor, lalu ambil foto ulang.',
+    );
+    deteksi(
+      'blur|fokus|buram|goyang|kabur',
+      'Foto Kurang Fokus',
+      Icons.error_outline_rounded,
+      'Tahan HP dengan mantap dan tap layar agar fokus, lalu foto ulang.',
+    );
+    deteksi(
+      'gelap|cahaya|redup|silau|sorot',
+      'Pencahayaan Kurang',
+      Icons.wb_sunny_outlined,
+      'Cari pencahayaan yang cukup atau nyalakan lampu agar seluruh bagian terlihat jelas.',
+    );
+    deteksi(
+      'jarak|jauh|dekat',
+      'Jarak Terlalu Jauh',
+      Icons.straighten_rounded,
+      'Atur jarak foto supaya seluruh bagian masuk frame, jangan terlalu jauh atau dekat.',
+    );
+    deteksi(
+      'posisi|sudut|miring|terpotong',
+      'Sudut Belum Pas',
+      Icons.crop_rotate_rounded,
+      'Ambil dari sudut yang pas (depan atau atas) agar bagian penting terlihat penuh.',
+    );
+    return masalah;
+  }
+
   @override
   State<MaintenanceChecklistScreen> createState() =>
       _MaintenanceChecklistScreenState();
@@ -484,19 +594,21 @@ class _MaintenanceChecklistScreenState
             ),
             SopPoint(
               id: 'bar_${i}_07',
-              label: '${pfx}Pengukuran Voltase Listrik (Avometer)',
-              deskripsi: 'Foto avometer menunjukkan voltase normal 220V/24V',
+              label: '${pfx}Stiker Receiver Barrier Gate',
+              deskripsi:
+                  'Stiker receiver barrier gate terlihat jelas, utuh, dan tidak rusak',
             ),
             SopPoint(
               id: 'bar_${i}_08',
-              label: '${pfx}Casing Sensor Receiver Anti Air',
-              deskripsi: 'Photocell rapat bebas celah masuknya air hujan',
+              label: '${pfx}Tiang CCTV & Housing',
+              deskripsi:
+                  'Tiang CCTV kokoh, housing kamera bersih, dan bracket kencang',
             ),
             SopPoint(
               id: 'bar_${i}_09',
-              label: '${pfx}Tiang CCTV & Speed Bump Gate',
+              label: '${pfx}Speedbump Gate',
               deskripsi:
-                  'Tiang CCTV kokoh & karet speed bump terpasang dinabolt kuat, tidak ada yang terlepas',
+                  'Karet speed bump terpasang kuat dan tidak ada yang terlepas',
             ),
           ]);
           break;
@@ -564,7 +676,7 @@ class _MaintenanceChecklistScreenState
               id: 'pos_${i}_02',
               label: '${pfx}Kerapian Jalur Kabel Stopkontak',
               deskripsi:
-                  'Kabel terikat rapi menggunakan Spiral Flexibel/kabel ties, colokan adaptor kencang',
+                  'Jalur kabel tertata rapi, tidak semrawut, dan colokan adaptor kencang',
             ),
             SopPoint(
               id: 'pos_${i}_03',
@@ -666,28 +778,28 @@ class _MaintenanceChecklistScreenState
         ),
         SopPoint(
           id: 'srv_1_04',
-          label: '${pfx}Pembersihan Debu CPU & Pasta Processor',
+          label: '${pfx}Pembersihan Debu CPU & Kipas Heatsink',
           deskripsi:
-              'Pasta pendingin prosesor baru sudah dioleskan (tidak kering) dan kipas CPU bersih dari debu',
+              'Kipas dan heatsink bersih dari debu serta motherboard bersih',
           checkpoints: const [
             'Buka penutup casing CPU komputer',
-            'Kipas, motherboard, dan power supply bersih dari debu',
-            'Pasta pendingin prosesor baru dioleskan di atas heatsink (tidak kering)',
+            'Kipas dan heatsink bersih dari debu',
+            'Motherboard dan power supply bersih dari debu',
           ],
           panduanFoto:
-              'Foto bagian dalam casing CPU memperlihatkan kebersihan motherboard & pasta processor.',
+              'Foto bagian dalam casing CPU memperlihatkan kipas, heatsink, dan motherboard bersih dari debu.',
         ),
         SopPoint(
           id: 'srv_1_05',
           label: '${pfx}Port USB & Kerapian Kabel Belakang CPU',
           deskripsi:
-              'Kabel terikat cable ties/Spiral Flexibel, port USB scanner terhubung kencang',
+              'Kabel belakang CPU tertata rapi, tidak semrawut, port USB scanner terhubung kencang',
           checkpoints: const [
-            'Jalur kabel belakang CPU (power, LAN, VGA/HDMI) terikat rapi',
+            'Jalur kabel belakang CPU (power, LAN, VGA/HDMI) tertata rapi, tidak semrawut',
             'Perangkat USB (scanner, tap reader) terhubung kencang di port USB',
           ],
           panduanFoto:
-              'Foto panel belakang CPU memperlihatkan kerapian ikatan kabel & port USB.',
+              'Foto panel belakang CPU memperlihatkan kerapian jalur kabel & port USB.',
         ),
         SopPoint(
           id: 'srv_1_06',
@@ -744,27 +856,28 @@ class _MaintenanceChecklistScreenState
         ),
         SopPoint(
           id: 'srv_1_04',
-          label: '${pfx}Pembersihan Debu CPU & Pasta Processor',
+          label: '${pfx}Pembersihan Debu CPU & Kipas Heatsink',
           deskripsi:
-              'Bagian dalam casing CPU bersih, kipas CPU dan motherboard bebas debu',
+              'Kipas dan heatsink bersih dari debu serta motherboard bebas debu',
           checkpoints: const [
             'Buka penutup casing CPU komputer',
-            'Kipas, motherboard, dan kisi heatsink bersih dari debu',
+            'Kipas dan heatsink bersih dari debu',
+            'Motherboard dan power supply bersih dari debu',
           ],
           panduanFoto:
-              'Foto bagian dalam casing CPU memperlihatkan kebersihan motherboard & kipas CPU.',
+              'Foto bagian dalam casing CPU memperlihatkan kipas, heatsink, dan motherboard bersih dari debu.',
         ),
         SopPoint(
           id: 'srv_1_05',
           label: '${pfx}Port USB & Kerapian Kabel Belakang CPU',
           deskripsi:
-              'Kabel terikat cable ties/Spiral Flexibel, port USB scanner terhubung kencang',
+              'Kabel belakang CPU tertata rapi, tidak semrawut, port USB scanner terhubung kencang',
           checkpoints: const [
-            'Jalur kabel belakang CPU (power, LAN, VGA/HDMI) terikat rapi',
+            'Jalur kabel belakang CPU (power, LAN, VGA/HDMI) tertata rapi, tidak semrawut',
             'Perangkat USB (scanner, tap reader) terhubung kencang di port USB',
           ],
           panduanFoto:
-              'Foto panel belakang CPU memperlihatkan kerapian ikatan kabel & port USB.',
+              'Foto panel belakang CPU memperlihatkan kerapian jalur kabel & port USB.',
         ),
         SopPoint(
           id: 'srv_1_06',
@@ -826,27 +939,27 @@ class _MaintenanceChecklistScreenState
       ),
       SopPoint(
         id: 'srv_${idx}_04',
-        label: '${pfxKasir}Pembersihan Debu CPU & Pasta Processor',
-        deskripsi: 'Kebersihan motherboard CPU kasir dan kipas bebas debu',
+        label: '${pfxKasir}Pembersihan Debu CPU & Kipas Heatsink',
+        deskripsi: 'Kipas dan heatsink bersih dari debu serta motherboard bersih',
         checkpoints: const [
           'Buka penutup casing CPU komputer kasir',
-          'Kipas, motherboard, dan power supply bersih dari debu',
-          'Pasta pendingin prosesor baru dioleskan jika kering',
+          'Kipas dan heatsink bersih dari debu',
+          'Motherboard dan power supply bersih dari debu',
         ],
         panduanFoto:
-            'Foto bagian dalam CPU kasir memperlihatkan kebersihan motherboard.',
+            'Foto bagian dalam CPU kasir memperlihatkan kipas, heatsink, dan motherboard bersih dari debu.',
       ),
       SopPoint(
         id: 'srv_${idx}_05',
         label: '${pfxKasir}Port USB & Kerapian Kabel Belakang CPU',
         deskripsi:
-            'Port USB printer/scanner kasir terpasang kencang & kabel rapi',
+            'Port USB printer/scanner kasir terpasang kencang & jalur kabel tertata rapi, tidak semrawut',
         checkpoints: const [
-          'Kabel printer, scanner, LAN, dan power kasir terikat rapi',
+          'Kabel printer, scanner, LAN, dan power kasir tertata rapi, tidak semrawut',
           'Konektor USB perangkat kasir terhubung kencang tanpa longgar',
         ],
         panduanFoto:
-            'Foto panel belakang CPU kasir memperlihatkan kerapian ikatan kabel & port USB.',
+            'Foto panel belakang CPU kasir memperlihatkan kerapian jalur kabel & port USB.',
       ),
       SopPoint(
         id: 'srv_${idx}_06',
@@ -863,14 +976,7 @@ class _MaintenanceChecklistScreenState
   }
 
   Future<void> _save() async {
-    final list = StorageService.getMaintenanceSubmissions() ?? [];
-    final idx = list.indexWhere((e) => e.id == _submission.id);
-    if (idx >= 0) {
-      list[idx] = _submission;
-    } else {
-      list.insert(0, _submission);
-    }
-    await StorageService.saveMaintenanceSubmissions(list);
+    await StorageService.upsertMaintenanceSubmission(_submission);
     if (_submission.isComplete) unawaited(MaintenanceLogService.syncLocal());
   }
 
@@ -1182,63 +1288,9 @@ class _MaintenanceChecklistScreenState
         // SEKALIGUS saran perbaikan (biar tidak ada dua logika terpisah).
         // Hanya dijalankan untuk poin bermasalah, supaya alasan "sesuai" seperti
         // "kipas bebas debu" tidak salah muncul jadi chip temuan.
-        final alasanLower = result.alasan.toLowerCase();
-        final masalah = <({String label, IconData icon, String saran})>[];
-        void deteksi(
-          String kataKunci,
-          String label,
-          IconData icon,
-          String saran,
-        ) {
-          if (kataKunci.split('|').any(alasanLower.contains)) {
-            masalah.add((label: label, icon: icon, saran: saran));
-          }
-        }
-
-        if (butuhPerbaikan) {
-          deteksi(
-            'kelupas|robek|pecah|retak|patah|kendor|longgar|karat|bocor|rusak|penyok',
-            'Ada Kerusakan Fisik',
-            Icons.build_circle_outlined,
-            'Foto dari dekat bagian yang rusak, lalu catat di Kendala Fisik dan tandai perlu diganti.',
-          );
-          deteksi(
-            'tidak ada|hilang|belum terpasang|tidak lengkap|kurang lengkap|jumlah tidak sesuai',
-            'Barang Tidak Lengkap',
-            Icons.inventory_2_outlined,
-            'Pastikan posisi barangnya, kalau memang tidak ada tandai Barang Tidak Terpasang.',
-          );
-          deteksi(
-            'kotor|debu|serbuk|noda|berlumut|sampah',
-            'Perlu Pembersihan',
-            Icons.cleaning_services_outlined,
-            'Bersihkan dulu bagian yang berdebu atau kotor, lalu ambil foto ulang.',
-          );
-          deteksi(
-            'blur|fokus|buram|goyang|kabur',
-            'Foto Kurang Fokus',
-            Icons.error_outline_rounded,
-            'Tahan HP dengan mantap dan tap layar agar fokus, lalu foto ulang.',
-          );
-          deteksi(
-            'gelap|cahaya|redup|silau|sorot',
-            'Pencahayaan Kurang',
-            Icons.wb_sunny_outlined,
-            'Cari pencahayaan yang cukup atau nyalakan lampu agar seluruh bagian terlihat jelas.',
-          );
-          deteksi(
-            'jarak|jauh|dekat',
-            'Jarak Terlalu Jauh',
-            Icons.straighten_rounded,
-            'Atur jarak foto supaya seluruh bagian masuk frame, jangan terlalu jauh atau dekat.',
-          );
-          deteksi(
-            'posisi|sudut|miring|terpotong',
-            'Sudut Belum Pas',
-            Icons.crop_rotate_rounded,
-            'Ambil dari sudut yang pas (depan atau atas) agar bagian penting terlihat penuh.',
-          );
-        }
+        final masalah = butuhPerbaikan
+            ? MaintenanceChecklistScreen.detectAiIssues(result.alasan)
+            : <({String label, IconData icon, String saran})>[];
 
         final List<Widget> aiChips = masalah
             .map(
@@ -2592,17 +2644,47 @@ class _MaintenanceChecklistScreenState
     final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
     final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
 
+    final fullAppBarTitle =
+        widget.template.jenis == TemplateCategory.maintServer
+        ? (_isEffectiveOnlyKasir
+              ? 'Maintenance: Kasir'
+              : 'Maintenance: Server & Kasir')
+        : (widget.template.jenis == TemplateCategory.maintManless
+              ? '${widget.template.nama}$_manlessRoleSuffix'
+              : widget.template.nama);
+    final strippedTitle = fullAppBarTitle
+        .replaceFirst(
+          RegExp(
+            r'^(?:Checklist\s+)?Maintenance\s*[:\-–—]?\s*',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .trim();
+    final shortAppBarTitle = strippedTitle.isEmpty
+        ? fullAppBarTitle
+        : strippedTitle;
+
     return Scaffold(
       backgroundColor: bgScaffold,
       appBar: AppBar(
-        title: Text(
-          widget.template.jenis == TemplateCategory.maintServer
-              ? (_isEffectiveOnlyKasir
-                    ? 'Maintenance: Kasir'
-                    : 'Maintenance: Server & Kasir')
-              : (widget.template.jenis == TemplateCategory.maintManless
-                    ? '${widget.template.nama}$_manlessRoleSuffix'
-                    : widget.template.nama),
+        titleSpacing: 4,
+        title: Semantics(
+          label: fullAppBarTitle,
+          child: Tooltip(
+            message: fullAppBarTitle,
+            excludeFromSemantics: true,
+            child: Text(
+              shortAppBarTitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+              ),
+            ),
+          ),
         ),
         actions: [
           IconButton(

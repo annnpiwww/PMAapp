@@ -71,7 +71,7 @@ class MaintenanceLogEntry {
     this.branch = 'MDO',
   });
 
-  bool get hasTemuan => temuan.isNotEmpty;
+  bool get hasTemuan => temuan.any((t) => t.status == 'tidak_sesuai');
 
   factory MaintenanceLogEntry.fromJson(Map<String, dynamic> json) {
     final rawTemuan = json['temuan'];
@@ -148,14 +148,14 @@ class MaintenanceLogEntry {
     String? templateName,
     String? branch,
   }) {
-    final y = s.createdAt.year.toString().padLeft(4, '0');
-    final m = s.createdAt.month.toString().padLeft(2, '0');
-    final d = s.createdAt.day.toString().padLeft(2, '0');
+    final completionTime = s.updatedAt;
+    final y = completionTime.year.toString().padLeft(4, '0');
+    final m = completionTime.month.toString().padLeft(2, '0');
+    final d = completionTime.day.toString().padLeft(2, '0');
     final tanggal = '$y-$m-$d';
 
-    final jamTime = s.updatedAt;
-    final hh = jamTime.hour.toString().padLeft(2, '0');
-    final mm = jamTime.minute.toString().padLeft(2, '0');
+    final hh = completionTime.hour.toString().padLeft(2, '0');
+    final mm = completionTime.minute.toString().padLeft(2, '0');
     final jamSelesai = '$hh:$mm';
 
     final temuanList = _extractTemuan(points);

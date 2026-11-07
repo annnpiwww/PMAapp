@@ -45,7 +45,7 @@ class TemplateRepository extends ChangeNotifier {
       aiMode: AiMode.perPoint,
       sopCriteria: [
         'Printer pos bersih (head, roller, dan tempat kertas)',
-        'Kabel terikat rapi dan colokan stopkontak kencang',
+        'Jalur kabel tertata rapi, tidak semrawut, dan colokan stopkontak kencang',
         'Item dalam pos lengkap (monitor, keyboard, mouse, scanner, printer, kipas angin)',
         'Aplikasi kasir ready online',
         'Baling-baling dan cover penutup kipas angin bersih',
@@ -69,13 +69,13 @@ class TemplateRepository extends ChangeNotifier {
         const SopPoint(
           id: 'pos_02',
           label: 'Kerapian Jalur Kabel & Stopkontak',
-          deskripsi: 'Kabel terikat rapi dan colokan adaptor kencang',
+          deskripsi: 'Jalur kabel tertata rapi, tidak semrawut, dan colokan adaptor kencang',
           checkpoints: [
-            'Kabel terikat rapi pakai spiral flexibel atau kabel ties',
+            'Jalur kabel tertata rapi, tidak semrawut',
             'Tidak ada kabel terkelupas atau sambungan terbuka',
             'Colokan adaptor kencang dan tidak goyang',
           ],
-          panduanFoto: 'Foto area stopkontak dan kabel bawah meja, pastikan kabel terikat rapi dan colokan kencang.',
+          panduanFoto: 'Foto area stopkontak dan kabel bawah meja, pastikan jalur kabel tertata rapi dan colokan kencang.',
         ),
         const SopPoint(
           id: 'pos_03',
@@ -399,8 +399,8 @@ class TemplateRepository extends ChangeNotifier {
         'Storage Drive C: >20GB dan folder temp bersih',
         'Windows Update, Antivirus, dan Windows Firewall status OFF',
         'Fungsi keyboard dan mouse normal (bukti tes Notepad / KeyTest)',
-        'Debu casing CPU bersih dan pasta processor baru',
-        'Kabel belakang CPU rapi dan port USB terhubung kencang',
+        'Kipas dan heatsink bersih dari debu',
+        'Kabel belakang CPU tertata rapi, tidak semrawut, dan port USB terhubung kencang',
         'Koneksi jaringan server stabil tanpa RTO (ping loss 0%)',
       ],
       sopPoints: [
@@ -436,23 +436,23 @@ class TemplateRepository extends ChangeNotifier {
         ),
         const SopPoint(
           id: 'srv_04',
-          label: 'Pembersihan Debu CPU & Pasta Processor',
-          deskripsi: 'Bagian dalam casing CPU bersih, kipas dan motherboard bebas debu tebal',
+          label: 'Pembersihan Debu CPU & Kipas Heatsink',
+          deskripsi: 'Bagian dalam casing CPU bersih, kipas dan heatsink bersih dari debu',
           checkpoints: [
             'Buka penutup samping casing CPU komputer',
-            'Kipas processor, motherboard, dan heatsink bersih dari tumpukan debu',
+            'Kipas dan heatsink bersih dari debu',
           ],
-          panduanFoto: 'Foto bagian dalam casing CPU memperlihatkan kipas dan motherboard bersih dari debu.',
+          panduanFoto: 'Foto bagian dalam casing CPU memperlihatkan kipas, heatsink, dan motherboard bersih dari debu.',
         ),
         const SopPoint(
           id: 'srv_05',
           label: 'Port USB & Kerapian Kabel Belakang CPU',
-          deskripsi: 'Kabel belakang CPU terikat rapi dan port USB terpasang kencang',
+          deskripsi: 'Kabel belakang CPU tertata rapi, tidak semrawut, dan port USB terpasang kencang',
           checkpoints: [
-            'Kabel belakang CPU (power, LAN, monitor) terikat rapi pakai cable tie/spiral',
+            'Kabel belakang CPU (power, LAN, monitor) tertata rapi, tidak semrawut',
             'Kabel USB scanner, reader, dan printer terpasang kencang di port USB',
           ],
-          panduanFoto: 'Foto panel belakang CPU memperlihatkan kerapian kabel terikat & colokan USB.',
+          panduanFoto: 'Foto panel belakang CPU memperlihatkan kerapian jalur kabel & colokan USB.',
         ),
         const SopPoint(
           id: 'srv_06',

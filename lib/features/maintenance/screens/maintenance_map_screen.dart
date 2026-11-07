@@ -8,7 +8,7 @@ import '../../../data/services/location_service.dart';
 import '../../../data/services/maintenance_log_service.dart';
 import 'maintenance_location_detail_screen.dart';
 
-/// Palet warna UI operasional light untuk Maintenance Map & Detail.
+/// Palet warna UI operasional (Light & Dark aware via Theme colorScheme) untuk Maintenance Map & Detail.
 class MaintenanceMapPalette {
   static const Color bg = Color(0xFFF8FAFC);
   static const Color surface = Color(0xFFFFFFFF);
@@ -41,6 +41,54 @@ class MaintenanceMapPalette {
   static const Color pending = Color(0xFF475569);
   static const Color pendingBg = Color(0xFFF1F5F9);
   static const Color pendingGray = pending;
+
+  static bool _isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  static Color bgOf(BuildContext context) =>
+      _isDark(context) ? Theme.of(context).scaffoldBackgroundColor : bg;
+
+  static Color surfaceOf(BuildContext context) =>
+      _isDark(context) ? Theme.of(context).colorScheme.surface : surface;
+
+  static Color surfaceRaisedOf(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF334155) : surfaceRaised;
+
+  static Color dividerOf(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF334155) : divider;
+
+  static Color textPrimaryOf(BuildContext context) =>
+      _isDark(context) ? Theme.of(context).colorScheme.onSurface : textPrimary;
+
+  static Color textSecondaryOf(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF94A3B8) : textSecondary;
+
+  static Color primaryOf(BuildContext context) =>
+      _isDark(context) ? Theme.of(context).colorScheme.primary : primary;
+
+  static Color findingBgOf(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF451A03) : findingBg;
+
+  static Color findingTextOf(BuildContext context) =>
+      _isDark(context) ? const Color(0xFFFBBF24) : findingText;
+
+  static Color safeBgOf(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF064E3B) : safeBg;
+
+  static Color safeTextOf(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF4ADE80) : safeText;
+
+  static Color urgentBgOf(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF450A0A) : urgentBg;
+
+  static Color urgentTextOf(BuildContext context) =>
+      _isDark(context) ? const Color(0xFFF87171) : urgentText;
+
+  static Color pendingOf(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF94A3B8) : pending;
+
+  static Color pendingBgOf(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF334155) : pendingBg;
 }
 
 /// Representasi satu temuan individual dari sebuah lokasi POS.
@@ -176,6 +224,7 @@ class MaintenanceMapScreen extends StatefulWidget {
         if (pLogs.isNotEmpty) {
           final top = pLogs.first;
           for (final t in top.temuan) {
+            if (t.status != 'tidak_sesuai') continue;
             items.add(MaintenanceTemuanItem(
               status: s,
               log: top,
@@ -190,6 +239,7 @@ class MaintenanceMapScreen extends StatefulWidget {
           if (pLogs.isNotEmpty) {
             final top = pLogs.first;
             for (final t in top.temuan) {
+              if (t.status != 'tidak_sesuai') continue;
               items.add(MaintenanceTemuanItem(
                 status: s,
                 log: top,
@@ -594,10 +644,19 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
         final p = MaintenanceLogService.phaseForDate(DateTime.now());
         final tCount = s
             .logsForPhase(p)
-            .fold<int>(0, (sum, l) => sum + l.temuan.length);
+            .fold<int>(
+              0,
+              (sum, l) =>
+                  sum +
+                  l.temuan.where((t) => t.status == 'tidak_sesuai').length,
+            );
         return tCount > 0 ? '$tCount Temuan' : 'Temuan';
       } else {
-        final tCount = s.logs.fold<int>(0, (sum, l) => sum + l.temuan.length);
+        final tCount = s.logs.fold<int>(
+          0,
+          (sum, l) =>
+              sum + l.temuan.where((t) => t.status == 'tidak_sesuai').length,
+        );
         return tCount > 0 ? '$tCount Temuan' : 'Temuan';
       }
     }
@@ -694,33 +753,40 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bgColor = MaintenanceMapPalette.bgOf(context);
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final primaryColor = MaintenanceMapPalette.primaryOf(context);
+
     return Scaffold(
-      backgroundColor: MaintenanceMapPalette.bg,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: MaintenanceMapPalette.surface,
+        backgroundColor: surfaceColor,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back,
-            color: MaintenanceMapPalette.textPrimary,
+            color: textPrimaryColor,
           ),
           onPressed: () => Navigator.maybePop(context),
         ),
-        title: const Text(
+        titleSpacing: 4,
+        title: Text(
           'Map Maintenance',
           style: TextStyle(
             fontFamily: 'PlusJakartaSans',
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: MaintenanceMapPalette.textPrimary,
+            color: textPrimaryColor,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.refresh_rounded,
-              color: MaintenanceMapPalette.textPrimary,
+              color: textPrimaryColor,
             ),
             tooltip: 'Perbarui data',
             onPressed: _loadMonthData,
@@ -731,12 +797,10 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
         children: [
           // Loading indicator
           if (_isLoading)
-            const LinearProgressIndicator(
+            LinearProgressIndicator(
               minHeight: 2,
               backgroundColor: Colors.transparent,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                MaintenanceMapPalette.primary,
-              ),
+              valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
             ),
 
           // Offline banner
@@ -786,10 +850,10 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                           vertical: 14,
                         ),
                         decoration: BoxDecoration(
-                          color: MaintenanceMapPalette.surface,
+                          color: surfaceColor,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: MaintenanceMapPalette.divider,
+                            color: dividerColor,
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -805,11 +869,11 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                             Text(
                               'Tidak ada lokasi ${_statusRankLabel(_selectedStatusRank!)} di $_selectedWilayah',
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'PlusJakartaSans',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: MaintenanceMapPalette.textPrimary,
+                                color: textPrimaryColor,
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -827,13 +891,13 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                                 ),
                                 minimumSize: const Size(44, 36),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'Tampilkan semua',
                                 style: TextStyle(
                                   fontFamily: 'PlusJakartaSans',
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: MaintenanceMapPalette.primary,
+                                  color: primaryColor,
                                 ),
                               ),
                             ),
@@ -869,15 +933,17 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   }
 
   Widget _buildOfflineBanner() {
+    final findingBg = MaintenanceMapPalette.findingBgOf(context);
+    final findingText = MaintenanceMapPalette.findingTextOf(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: MaintenanceMapPalette.findingBg,
+      color: findingBg,
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.cloud_off_rounded,
             size: 16,
-            color: MaintenanceMapPalette.findingText,
+            color: findingText,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -885,11 +951,11 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
               _lastFetchTime != null
                   ? 'Offline, menampilkan data lokal · Update ${_formatJamMenit(_lastFetchTime!)}'
                   : 'Offline, menampilkan data lokal',
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'PlusJakartaSans',
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: MaintenanceMapPalette.findingText,
+                color: findingText,
               ),
             ),
           ),
@@ -899,13 +965,13 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               minimumSize: const Size(44, 32),
             ),
-            child: const Text(
+            child: Text(
               'Coba lagi',
               style: TextStyle(
                 fontFamily: 'PlusJakartaSans',
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: MaintenanceMapPalette.findingText,
+                color: findingText,
               ),
             ),
           ),
@@ -915,14 +981,21 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   }
 
   Widget _buildTopFilterBar() {
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
+    final primaryColor = MaintenanceMapPalette.primaryOf(context);
+
     return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: const BoxDecoration(
-        color: MaintenanceMapPalette.surface,
+      constraints: const BoxConstraints(minHeight: 48),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: surfaceColor,
         border: Border(
           bottom: BorderSide(
-            color: MaintenanceMapPalette.divider,
+            color: dividerColor,
             width: 0.5,
           ),
         ),
@@ -931,11 +1004,11 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
         children: [
           _buildCompactMonthSwitcher(),
           const SizedBox(width: 6),
-          const SizedBox(
+          SizedBox(
             height: 20,
             child: VerticalDivider(
               width: 1,
-              color: MaintenanceMapPalette.divider,
+              color: dividerColor,
             ),
           ),
           const SizedBox(width: 6),
@@ -953,19 +1026,22 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Container(
-                        height: 32,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        constraints: const BoxConstraints(minHeight: 32),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: MaintenanceMapPalette.surfaceRaised,
+                          color: surfaceRaisedColor,
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.place_outlined,
                               size: 16,
-                              color: MaintenanceMapPalette.primary,
+                              color: primaryColor,
                             ),
                             const SizedBox(width: 6),
                             Flexible(
@@ -973,19 +1049,19 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                                 _selectedWilayah,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: 'PlusJakartaSans',
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: MaintenanceMapPalette.textPrimary,
+                                  color: textPrimaryColor,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Icon(
+                            Icon(
                               Icons.expand_more_rounded,
                               size: 18,
-                              color: MaintenanceMapPalette.textSecondary,
+                              color: textSecondaryColor,
                             ),
                           ],
                         ),
@@ -1007,8 +1083,15 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
       context: context,
       builder: (ctx) {
         final screenHeight = MediaQuery.sizeOf(ctx).height;
+        final surfaceColor = MaintenanceMapPalette.surfaceOf(ctx);
+        final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(ctx);
+        final dividerColor = MaintenanceMapPalette.dividerOf(ctx);
+        final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(ctx);
+        final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(ctx);
+        final primaryColor = MaintenanceMapPalette.primaryOf(ctx);
+
         return Dialog(
-          backgroundColor: MaintenanceMapPalette.surface,
+          backgroundColor: surfaceColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -1028,30 +1111,30 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
                   child: Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Pilih wilayah',
                           style: TextStyle(
                             fontFamily: 'PlusJakartaSans',
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            color: MaintenanceMapPalette.textPrimary,
+                            color: textPrimaryColor,
                           ),
                         ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close, size: 20),
                         tooltip: 'Tutup',
-                        color: MaintenanceMapPalette.textSecondary,
+                        color: textSecondaryColor,
                         onPressed: () => Navigator.pop(ctx),
                       ),
                     ],
                   ),
                 ),
-                const Divider(
+                Divider(
                   height: 1,
                   thickness: 0.5,
-                  color: MaintenanceMapPalette.divider,
+                  color: dividerColor,
                 ),
                 Flexible(
                   child: ListView.builder(
@@ -1066,8 +1149,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
 
                       return Material(
                         color: isSelected
-                            ? MaintenanceMapPalette.primary
-                                .withValues(alpha: 0.08)
+                            ? primaryColor.withValues(alpha: 0.08)
                             : Colors.transparent,
                         child: InkWell(
                           onTap: () => Navigator.pop(ctx, w),
@@ -1090,8 +1172,8 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                                             ? FontWeight.w700
                                             : FontWeight.w500,
                                         color: isSelected
-                                            ? MaintenanceMapPalette.primary
-                                            : MaintenanceMapPalette.textPrimary,
+                                            ? primaryColor
+                                            : textPrimaryColor,
                                       ),
                                     ),
                                   ),
@@ -1101,27 +1183,25 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color:
-                                          MaintenanceMapPalette.surfaceRaised,
+                                      color: surfaceRaisedColor,
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
                                       '$count',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontFamily: 'PlusJakartaSans',
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
-                                        color:
-                                            MaintenanceMapPalette.textSecondary,
+                                        color: textSecondaryColor,
                                       ),
                                     ),
                                   ),
                                   if (isSelected) ...[
                                     const SizedBox(width: 8),
-                                    const Icon(
+                                    Icon(
                                       Icons.check_rounded,
                                       size: 18,
-                                      color: MaintenanceMapPalette.primary,
+                                      color: primaryColor,
                                     ),
                                   ],
                                 ],
@@ -1149,34 +1229,43 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   }
 
   Widget _buildCompactMonthSwitcher() {
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
+    final primaryColor = MaintenanceMapPalette.primaryOf(context);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
           icon: const Icon(Icons.chevron_left),
           iconSize: 18,
-          color: MaintenanceMapPalette.textPrimary,
+          color: textPrimaryColor,
           tooltip: 'Bulan sebelumnya',
+          visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
+          style: IconButton.styleFrom(
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            minimumSize: const Size(32, 44),
+            padding: EdgeInsets.zero,
+          ),
           constraints: const BoxConstraints(minWidth: 32, minHeight: 44),
           onPressed: _previousMonth,
         ),
-        const Icon(
+        Icon(
           Icons.calendar_today_rounded,
-          size: 14,
-          color: MaintenanceMapPalette.primary,
+          size: 13,
+          color: primaryColor,
         ),
         const SizedBox(width: 4),
         Text(
           _formatBulanTahunShort(_selectedMonth),
           maxLines: 1,
-          overflow: TextOverflow.ellipsis,
           softWrap: false,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'PlusJakartaSans',
-            fontSize: 13,
+            fontSize: 12.5,
             fontWeight: FontWeight.w600,
-            color: MaintenanceMapPalette.textPrimary,
+            color: textPrimaryColor,
           ),
         ),
         Semantics(
@@ -1186,10 +1275,16 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
             icon: const Icon(Icons.chevron_right),
             iconSize: 18,
             color: _canGoNextMonth
-                ? MaintenanceMapPalette.textPrimary
-                : MaintenanceMapPalette.textSecondary.withValues(alpha: 0.38),
+                ? textPrimaryColor
+                : textSecondaryColor.withValues(alpha: 0.38),
             tooltip: _canGoNextMonth ? 'Bulan berikutnya' : null,
+            visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              minimumSize: const Size(32, 44),
+              padding: EdgeInsets.zero,
+            ),
             constraints: const BoxConstraints(minWidth: 32, minHeight: 44),
             onPressed: _canGoNextMonth ? _nextMonth : null,
           ),
@@ -1228,13 +1323,21 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
         ? 'Fase $currentPhase · Tgl ${_phaseDateRange(currentPhase, _selectedMonth.year, _selectedMonth.month)} · ${MaintenanceLogService.phaseNames[currentPhase] ?? ''}'
         : 'Rekap 4 Fase · Seluruh fase bulan ini';
 
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
+    final primaryColor = MaintenanceMapPalette.primaryOf(context);
+    final pendingColor = MaintenanceMapPalette.pendingOf(context);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: const BoxDecoration(
-        color: MaintenanceMapPalette.surface,
+      decoration: BoxDecoration(
+        color: surfaceColor,
         border: Border(
           bottom: BorderSide(
-            color: MaintenanceMapPalette.divider,
+            color: dividerColor,
             width: 1,
           ),
         ),
@@ -1251,22 +1354,22 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'PlusJakartaSans',
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: MaintenanceMapPalette.textPrimary,
+                    color: textPrimaryColor,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 '$posDone/$totalFiltered lokasi',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'PlusJakartaSans',
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: MaintenanceMapPalette.textSecondary,
+                  color: textSecondaryColor,
                 ),
               ),
             ],
@@ -1280,10 +1383,8 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
               child: LinearProgressIndicator(
                 value: progress,
                 minHeight: 4,
-                backgroundColor: MaintenanceMapPalette.surfaceRaised,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  MaintenanceMapPalette.primary,
-                ),
+                backgroundColor: surfaceRaisedColor,
+                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
               ),
             ),
           ),
@@ -1295,7 +1396,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                 child: _buildPhaseStripStatTile(
                   rank: 0,
                   count: belumCount,
-                  color: MaintenanceMapPalette.pending,
+                  color: pendingColor,
                   label: 'Belum',
                 ),
               ),
@@ -1305,7 +1406,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                   rank: 1,
                   count: temuanCount,
                   color: MaintenanceMapPalette.findingIcon,
-                  label: 'Ada temuan',
+                  label: 'Temuan',
                 ),
               ),
               const SizedBox(width: 8),
@@ -1331,6 +1432,11 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     required String label,
   }) {
     final isSelected = _selectedStatusRank == rank;
+    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
+
     return Semantics(
       button: true,
       selected: isSelected,
@@ -1338,7 +1444,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
       child: Material(
         color: isSelected
             ? color.withValues(alpha: 0.12)
-            : MaintenanceMapPalette.surfaceRaised,
+            : surfaceRaisedColor,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () {
@@ -1354,7 +1460,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isSelected ? color : MaintenanceMapPalette.divider,
+                color: isSelected ? color : dividerColor,
                 width: isSelected ? 1.5 : 1.0,
               ),
             ),
@@ -1364,12 +1470,12 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
               children: [
                 Text(
                   '$count',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'PlusJakartaSans',
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: MaintenanceMapPalette.textPrimary,
-                    fontFeatures: [FontFeature.tabularFigures()],
+                    color: textPrimaryColor,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1387,16 +1493,17 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                     Flexible(
                       child: Text(
                         label,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: 'PlusJakartaSans',
                           fontSize: 12,
+                          height: 1.15,
                           fontWeight:
                               isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isSelected
-                              ? MaintenanceMapPalette.textPrimary
-                              : MaintenanceMapPalette.textSecondary,
+                              ? textPrimaryColor
+                              : textSecondaryColor,
                         ),
                       ),
                     ),
@@ -1558,6 +1665,9 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     final isUrgent = urgentPosIds.contains(s.location.posId);
     final items = temuanByPos[s.location.posId] ?? const [];
     final temuanCount = items.length;
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final primaryColor = MaintenanceMapPalette.primaryOf(context);
 
     Color borderColor;
     IconData icon;
@@ -1603,10 +1713,10 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                   height: 28,
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: MaintenanceMapPalette.surface,
+                    color: surfaceColor,
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: selected ? MaintenanceMapPalette.primary : borderColor,
+                      color: selected ? primaryColor : borderColor,
                       width: selected ? 2.0 : 1.5,
                     ),
                     boxShadow: [
@@ -1627,11 +1737,11 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                           s.location.locationTag,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'PlusJakartaSans',
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: MaintenanceMapPalette.textPrimary,
+                            color: textPrimaryColor,
                           ),
                         ),
                       ),
@@ -1669,6 +1779,8 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
       0,
       (sum, m) => sum + (temuanByPos[m.location.posId]?.length ?? 0),
     );
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
 
     Color clusterBorderColor;
     if (cluster.maxSeverity == 3) {
@@ -1676,7 +1788,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     } else if (cluster.maxSeverity == 2) {
       clusterBorderColor = MaintenanceMapPalette.findingIcon;
     } else if (cluster.maxSeverity == 1) {
-      clusterBorderColor = MaintenanceMapPalette.pending;
+      clusterBorderColor = MaintenanceMapPalette.pendingOf(context);
     } else {
       clusterBorderColor = MaintenanceMapPalette.safeGreen;
     }
@@ -1729,7 +1841,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: MaintenanceMapPalette.surface,
+                    color: surfaceColor,
                     shape: BoxShape.circle,
                     border: Border.all(color: clusterBorderColor, width: 2.0),
                     boxShadow: const [
@@ -1743,11 +1855,11 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                   alignment: Alignment.center,
                   child: Text(
                     '$n',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'PlusJakartaSans',
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: MaintenanceMapPalette.textPrimary,
+                      color: textPrimaryColor,
                     ),
                   ),
                 ),
@@ -1769,13 +1881,17 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   }
 
   void _showClusterMembersSheet(List<PosMaintenanceStatus> members) {
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: MaintenanceMapPalette.surface,
+      backgroundColor: surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) {
+        final dividerColor = MaintenanceMapPalette.dividerOf(ctx);
+        final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(ctx);
+        final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(ctx);
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1789,7 +1905,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: MaintenanceMapPalette.divider,
+                      color: dividerColor,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -1799,11 +1915,11 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Text(
                     '${members.length} Lokasi Terpilih',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'PlusJakartaSans',
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: MaintenanceMapPalette.textPrimary,
+                      color: textPrimaryColor,
                     ),
                   ),
                 ),
@@ -1811,10 +1927,10 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: members.length,
-                    separatorBuilder: (context, index) => const Divider(
+                    separatorBuilder: (context, index) => Divider(
                       height: 1,
                       thickness: 0.5,
-                      color: MaintenanceMapPalette.divider,
+                      color: dividerColor,
                     ),
                     itemBuilder: (ctx, i) {
                       final m = members[i];
@@ -1835,24 +1951,24 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                         ),
                         title: Text(
                           '${m.location.locationTag} · ${MaintenanceMapScreen.shortName(m.location)}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'PlusJakartaSans',
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: MaintenanceMapPalette.textPrimary,
+                            color: textPrimaryColor,
                           ),
                         ),
                         subtitle: Text(
                           _statusLabel(m),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'PlusJakartaSans',
                             fontSize: 12,
-                            color: MaintenanceMapPalette.textSecondary,
+                            color: textSecondaryColor,
                           ),
                         ),
-                        trailing: const Icon(
+                        trailing: Icon(
                           Icons.chevron_right,
-                          color: MaintenanceMapPalette.textSecondary,
+                          color: textSecondaryColor,
                         ),
                         onTap: () {
                           Navigator.pop(ctx);
@@ -1872,14 +1988,18 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   }
 
   Widget _buildZoomControlsPill() {
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+
     return Container(
       width: 40,
       height: 88,
       decoration: BoxDecoration(
-        color: MaintenanceMapPalette.surface,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: MaintenanceMapPalette.divider,
+          color: dividerColor,
           width: 1,
         ),
         boxShadow: const [
@@ -1906,21 +2026,21 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                       _mapController.camera.zoom + 1,
                     );
                   },
-                  child: const Center(
+                  child: Center(
                     child: Icon(
                       Icons.add,
                       size: 18,
-                      color: MaintenanceMapPalette.textPrimary,
+                      color: textPrimaryColor,
                     ),
                   ),
                 ),
               ),
             ),
           ),
-          const Divider(
+          Divider(
             height: 1,
             thickness: 0.8,
-            color: MaintenanceMapPalette.divider,
+            color: dividerColor,
           ),
           Expanded(
             child: Material(
@@ -1936,11 +2056,11 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                       _mapController.camera.zoom - 1,
                     );
                   },
-                  child: const Center(
+                  child: Center(
                     child: Icon(
                       Icons.remove,
                       size: 18,
-                      color: MaintenanceMapPalette.textPrimary,
+                      color: textPrimaryColor,
                     ),
                   ),
                 ),
@@ -1957,6 +2077,10 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     required String tooltip,
     required VoidCallback onTap,
   }) {
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+
     return Material(
       color: Colors.transparent,
       child: Tooltip(
@@ -1972,10 +2096,10 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: MaintenanceMapPalette.surface,
+                color: surfaceColor,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: MaintenanceMapPalette.divider,
+                  color: dividerColor,
                   width: 1,
                 ),
                 boxShadow: const [
@@ -1989,7 +2113,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
               child: Icon(
                 icon,
                 size: 18,
-                color: MaintenanceMapPalette.textPrimary,
+                color: textPrimaryColor,
               ),
             ),
           ),
@@ -2024,6 +2148,12 @@ class MaintenanceBelumRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentPhase = MaintenanceLogService.phaseForDate(DateTime.now());
     final shortName = MaintenanceMapScreen.shortName(status.location);
+    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
+    final pendingColor = MaintenanceMapPalette.pendingOf(context);
+    final pendingBgColor = MaintenanceMapPalette.pendingBgOf(context);
 
     final address = status.location.fullAddress.trim();
     final addressLine = address.isNotEmpty
@@ -2035,17 +2165,17 @@ class MaintenanceBelumRow extends StatelessWidget {
       trailingBadge = Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: MaintenanceMapPalette.pendingBg,
+          color: pendingBgColor,
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
           'Fase $currentPhase',
           maxLines: 1,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'PlusJakartaSans',
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: MaintenanceMapPalette.pending,
+            color: pendingColor,
           ),
         ),
       );
@@ -2060,27 +2190,25 @@ class MaintenanceBelumRow extends StatelessWidget {
       trailingBadge = Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: MaintenanceMapPalette.pendingBg,
+          color: pendingBgColor,
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
           missingLabel,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'PlusJakartaSans',
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: MaintenanceMapPalette.pending,
+            color: pendingColor,
           ),
         ),
       );
     }
 
     return Material(
-      color: isSelected
-          ? MaintenanceMapPalette.surfaceRaised
-          : Colors.transparent,
+      color: isSelected ? surfaceRaisedColor : Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Container(
@@ -2089,13 +2217,13 @@ class MaintenanceBelumRow extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(
               left: isSelected
-                  ? const BorderSide(
-                      color: MaintenanceMapPalette.pending,
+                  ? BorderSide(
+                      color: pendingColor,
                       width: 3,
                     )
                   : BorderSide.none,
-              bottom: const BorderSide(
-                color: MaintenanceMapPalette.divider,
+              bottom: BorderSide(
+                color: dividerColor,
                 width: 0.5,
               ),
             ),
@@ -2106,15 +2234,15 @@ class MaintenanceBelumRow extends StatelessWidget {
               Container(
                 width: 32,
                 height: 32,
-                decoration: const BoxDecoration(
-                  color: MaintenanceMapPalette.pendingBg,
+                decoration: BoxDecoration(
+                  color: pendingBgColor,
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: const Icon(
+                child: Icon(
                   Icons.schedule_rounded,
                   size: 16,
-                  color: MaintenanceMapPalette.pending,
+                  color: pendingColor,
                 ),
               ),
               const SizedBox(width: 10),
@@ -2131,11 +2259,11 @@ class MaintenanceBelumRow extends StatelessWidget {
                             shortName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: 'PlusJakartaSans',
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: MaintenanceMapPalette.textPrimary,
+                              color: textPrimaryColor,
                             ),
                           ),
                         ),
@@ -2147,20 +2275,20 @@ class MaintenanceBelumRow extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: MaintenanceMapPalette.surfaceRaised,
+                              color: surfaceRaisedColor,
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                color: MaintenanceMapPalette.divider,
+                                color: dividerColor,
                                 width: 0.5,
                               ),
                             ),
                             child: Text(
                               status.location.locationTag,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'PlusJakartaSans',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: MaintenanceMapPalette.textSecondary,
+                                color: textSecondaryColor,
                               ),
                             ),
                           ),
@@ -2172,11 +2300,11 @@ class MaintenanceBelumRow extends StatelessWidget {
                       addressLine,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'PlusJakartaSans',
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
-                        color: MaintenanceMapPalette.textSecondary,
+                        color: textSecondaryColor,
                       ),
                     ),
                   ],
@@ -2195,10 +2323,10 @@ class MaintenanceBelumRow extends StatelessWidget {
                     width: 36,
                     height: 36,
                     alignment: Alignment.center,
-                    child: const Icon(
+                    child: Icon(
                       Icons.chevron_right,
                       size: 18,
-                      color: MaintenanceMapPalette.textSecondary,
+                      color: textSecondaryColor,
                     ),
                   ),
                 ),
@@ -2232,6 +2360,12 @@ class MaintenanceTemuanRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = item.temuan;
     final log = item.log;
+    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
+    final urgentBgColor = MaintenanceMapPalette.urgentBgOf(context);
+    final urgentTextColor = MaintenanceMapPalette.urgentTextOf(context);
 
     IconData severityIcon;
     Color severityIconColor;
@@ -2242,21 +2376,21 @@ class MaintenanceTemuanRow extends StatelessWidget {
     if (t.urgent) {
       severityIcon = Icons.error_rounded;
       severityIconColor = MaintenanceMapPalette.urgentIcon;
-      iconCircleBg = MaintenanceMapPalette.urgentBg;
+      iconCircleBg = urgentBgColor;
       severityStatusText = 'Urgent';
       barColor = MaintenanceMapPalette.urgentRed;
     } else if (t.status == 'tidak_sesuai') {
       severityIcon = Icons.warning_amber_rounded;
       severityIconColor = MaintenanceMapPalette.findingIcon;
-      iconCircleBg = MaintenanceMapPalette.findingBg;
+      iconCircleBg = MaintenanceMapPalette.findingBgOf(context);
       severityStatusText = 'Tidak sesuai';
       barColor = MaintenanceMapPalette.findingIcon;
     } else {
       severityIcon = Icons.help_outline_rounded;
-      severityIconColor = MaintenanceMapPalette.pending;
-      iconCircleBg = MaintenanceMapPalette.pendingBg;
+      severityIconColor = MaintenanceMapPalette.pendingOf(context);
+      iconCircleBg = MaintenanceMapPalette.pendingBgOf(context);
       severityStatusText = 'Perlu cek';
-      barColor = MaintenanceMapPalette.pending;
+      barColor = MaintenanceMapPalette.pendingOf(context);
     }
 
     final dateStr = MaintenanceMapScreen.formatTanggalShort(log.tanggal);
@@ -2274,9 +2408,7 @@ class MaintenanceTemuanRow extends StatelessWidget {
         '$severityStatusText, $line1, ${hasLine2 ? '$line2, ' : ''}$line3';
 
     return Material(
-      color: isSelected
-          ? MaintenanceMapPalette.surfaceRaised
-          : Colors.transparent,
+      color: isSelected ? surfaceRaisedColor : Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Semantics(
@@ -2291,8 +2423,8 @@ class MaintenanceTemuanRow extends StatelessWidget {
                     ? BorderSide(color: barColor, width: 3)
                     : BorderSide.none,
                 bottom: showDivider
-                    ? const BorderSide(
-                        color: MaintenanceMapPalette.divider,
+                    ? BorderSide(
+                        color: dividerColor,
                         width: 0.5,
                       )
                     : BorderSide.none,
@@ -2324,11 +2456,11 @@ class MaintenanceTemuanRow extends StatelessWidget {
                         line1,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'PlusJakartaSans',
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: MaintenanceMapPalette.textPrimary,
+                          color: textPrimaryColor,
                         ),
                       ),
                       if (hasLine2) ...[
@@ -2337,11 +2469,11 @@ class MaintenanceTemuanRow extends StatelessWidget {
                           line2,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'PlusJakartaSans',
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
-                            color: MaintenanceMapPalette.textSecondary,
+                            color: textSecondaryColor,
                           ),
                         ),
                       ],
@@ -2350,11 +2482,11 @@ class MaintenanceTemuanRow extends StatelessWidget {
                         line3,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'PlusJakartaSans',
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
-                          color: MaintenanceMapPalette.textSecondary,
+                          color: textSecondaryColor,
                         ),
                       ),
                     ],
@@ -2366,17 +2498,17 @@ class MaintenanceTemuanRow extends StatelessWidget {
                     height: 20,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     decoration: BoxDecoration(
-                      color: MaintenanceMapPalette.urgentBg,
+                      color: urgentBgColor,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     alignment: Alignment.center,
-                    child: const Text(
+                    child: Text(
                       'Urgent',
                       style: TextStyle(
                         fontFamily: 'PlusJakartaSans',
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: MaintenanceMapPalette.urgentText,
+                        color: urgentTextColor,
                       ),
                     ),
                   ),
@@ -2392,10 +2524,10 @@ class MaintenanceTemuanRow extends StatelessWidget {
                       width: 36,
                       height: 36,
                       alignment: Alignment.center,
-                      child: const Icon(
+                      child: Icon(
                         Icons.chevron_right,
                         size: 18,
-                        color: MaintenanceMapPalette.textSecondary,
+                        color: textSecondaryColor,
                       ),
                     ),
                   ),
@@ -2436,7 +2568,13 @@ class MaintenanceLocationRow extends StatelessWidget {
         : status.isAllPhasesDone;
 
     final latestLog = relevantLogs.isNotEmpty ? relevantLogs.first : null;
-    final temuanCount = latestLog != null ? latestLog.temuan.length : 0;
+    final temuanCount = latestLog != null
+        ? latestLog.temuan.where((t) => t.status == 'tidak_sesuai').length
+        : 0;
+    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
 
     Color statusColor;
     Color statusBg;
@@ -2444,18 +2582,18 @@ class MaintenanceLocationRow extends StatelessWidget {
     String trailingLabel;
 
     if (!isDone) {
-      statusColor = MaintenanceMapPalette.pending;
-      statusBg = MaintenanceMapPalette.pendingBg;
+      statusColor = MaintenanceMapPalette.pendingOf(context);
+      statusBg = MaintenanceMapPalette.pendingBgOf(context);
       statusIcon = Icons.schedule_rounded;
       trailingLabel = 'Belum';
     } else if (temuanCount > 0) {
-      statusColor = MaintenanceMapPalette.findingText;
-      statusBg = MaintenanceMapPalette.findingBg;
+      statusColor = MaintenanceMapPalette.findingTextOf(context);
+      statusBg = MaintenanceMapPalette.findingBgOf(context);
       statusIcon = Icons.warning_rounded;
       trailingLabel = '$temuanCount Temuan';
     } else {
-      statusColor = MaintenanceMapPalette.safeText;
-      statusBg = MaintenanceMapPalette.safeBg;
+      statusColor = MaintenanceMapPalette.safeTextOf(context);
+      statusBg = MaintenanceMapPalette.safeBgOf(context);
       statusIcon = Icons.check_circle_rounded;
       trailingLabel = 'Aman';
     }
@@ -2469,10 +2607,10 @@ class MaintenanceLocationRow extends StatelessWidget {
         child: Container(
           constraints: const BoxConstraints(minHeight: 64),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: MaintenanceMapPalette.divider,
+                color: dividerColor,
                 width: 0.5,
               ),
             ),
@@ -2506,11 +2644,11 @@ class MaintenanceLocationRow extends StatelessWidget {
                             shortName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: 'PlusJakartaSans',
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: MaintenanceMapPalette.textPrimary,
+                              color: textPrimaryColor,
                             ),
                           ),
                         ),
@@ -2522,20 +2660,20 @@ class MaintenanceLocationRow extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: MaintenanceMapPalette.surfaceRaised,
+                              color: surfaceRaisedColor,
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                color: MaintenanceMapPalette.divider,
+                                color: dividerColor,
                                 width: 0.5,
                               ),
                             ),
                             child: Text(
                               status.location.locationTag,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'PlusJakartaSans',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: MaintenanceMapPalette.textSecondary,
+                                color: textSecondaryColor,
                               ),
                             ),
                           ),
@@ -2549,11 +2687,11 @@ class MaintenanceLocationRow extends StatelessWidget {
                       '${status.wilayah} · ${status.location.fullAddress}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'PlusJakartaSans',
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
-                        color: MaintenanceMapPalette.textSecondary,
+                        color: textSecondaryColor,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -2561,10 +2699,10 @@ class MaintenanceLocationRow extends StatelessWidget {
                     // Meta: calendar + date + 'oleh teknisi'
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.calendar_today_rounded,
                           size: 12,
-                          color: MaintenanceMapPalette.textSecondary,
+                          color: textSecondaryColor,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
@@ -2574,11 +2712,11 @@ class MaintenanceLocationRow extends StatelessWidget {
                                 : 'Belum ada laporan bulan ini',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: 'PlusJakartaSans',
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
-                              color: MaintenanceMapPalette.textSecondary,
+                              color: textSecondaryColor,
                             ),
                           ),
                         ),
@@ -2617,10 +2755,10 @@ class MaintenanceLocationRow extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(
+                      Icon(
                         Icons.chevron_right,
                         size: 14,
-                        color: MaintenanceMapPalette.textSecondary,
+                        color: textSecondaryColor,
                       ),
                     ],
                   ),
@@ -2632,7 +2770,7 @@ class MaintenanceLocationRow extends StatelessWidget {
                       final done = status.isPhaseDone(p);
                       final temuan = status.hasPhaseTemuan(p);
                       final dotColor = !done
-                          ? MaintenanceMapPalette.pending
+                          ? MaintenanceMapPalette.pendingOf(context)
                           : (temuan
                               ? MaintenanceMapPalette.findingIcon
                               : MaintenanceMapPalette.safeIcon);

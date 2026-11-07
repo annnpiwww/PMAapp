@@ -112,27 +112,32 @@ class _MaintenanceLocationDetailScreenState
     final phaseLogs = widget.status.logsForPhase(_selectedPhase);
     final temuanCount =
         phaseLogs.isNotEmpty ? phaseLogs.first.temuan.length : 0;
+    final bgColor = MaintenanceMapPalette.bgOf(context);
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
+    final primaryColor = MaintenanceMapPalette.primaryOf(context);
 
     return Scaffold(
-      backgroundColor: MaintenanceMapPalette.bg,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: MaintenanceMapPalette.surface,
+        backgroundColor: surfaceColor,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back,
-            color: MaintenanceMapPalette.textPrimary,
+            color: textPrimaryColor,
           ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Detail Lokasi',
           style: TextStyle(
             fontFamily: 'PlusJakartaSans',
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: MaintenanceMapPalette.textPrimary,
+            color: textPrimaryColor,
           ),
         ),
       ),
@@ -153,13 +158,13 @@ class _MaintenanceLocationDetailScreenState
               pinned: true,
               delegate: _TabBarDelegate(
                 Container(
-                  color: MaintenanceMapPalette.surface,
+                  color: surfaceColor,
                   child: TabBar(
                     controller: _tabController,
-                    indicatorColor: MaintenanceMapPalette.primary,
+                    indicatorColor: primaryColor,
                     indicatorWeight: 2,
-                    labelColor: MaintenanceMapPalette.textPrimary,
-                    unselectedLabelColor: MaintenanceMapPalette.textSecondary,
+                    labelColor: textPrimaryColor,
+                    unselectedLabelColor: textSecondaryColor,
                     labelStyle: const TextStyle(
                       fontFamily: 'PlusJakartaSans',
                       fontSize: 14,
@@ -194,15 +199,21 @@ class _MaintenanceLocationDetailScreenState
   Widget _buildHeaderBlock() {
     final s = widget.status;
     final latestLog = s.logs.isNotEmpty ? s.logs.first : null;
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
+    final primaryColor = MaintenanceMapPalette.primaryOf(context);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: MaintenanceMapPalette.surface,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: MaintenanceMapPalette.divider,
+          color: dividerColor,
           width: 0.8,
         ),
       ),
@@ -218,11 +229,11 @@ class _MaintenanceLocationDetailScreenState
                   s.location.posName,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'PlusJakartaSans',
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: MaintenanceMapPalette.textPrimary,
+                    color: textPrimaryColor,
                   ),
                 ),
               ),
@@ -232,20 +243,20 @@ class _MaintenanceLocationDetailScreenState
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: MaintenanceMapPalette.surfaceRaised,
+                    color: surfaceRaisedColor,
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: MaintenanceMapPalette.divider,
+                      color: dividerColor,
                       width: 0.8,
                     ),
                   ),
                   child: Text(
                     s.location.locationTag,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'PlusJakartaSans',
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: MaintenanceMapPalette.primary,
+                      color: primaryColor,
                     ),
                   ),
                 ),
@@ -257,10 +268,10 @@ class _MaintenanceLocationDetailScreenState
           // Address (Row 1)
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.location_on_outlined,
                 size: 15,
-                color: MaintenanceMapPalette.textSecondary,
+                color: textSecondaryColor,
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -268,11 +279,11 @@ class _MaintenanceLocationDetailScreenState
                   '${s.wilayah} · ${s.location.fullAddress}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'PlusJakartaSans',
                     fontSize: 13,
                     fontWeight: FontWeight.w400,
-                    color: MaintenanceMapPalette.textSecondary,
+                    color: textSecondaryColor,
                   ),
                 ),
               ),
@@ -283,10 +294,10 @@ class _MaintenanceLocationDetailScreenState
           // Teknisi (Row 2)
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.person_outline,
                 size: 15,
-                color: MaintenanceMapPalette.textSecondary,
+                color: textSecondaryColor,
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -294,11 +305,11 @@ class _MaintenanceLocationDetailScreenState
                   'Teknisi: ${latestLog?.teknisiNama ?? '-'}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'PlusJakartaSans',
                     fontSize: 13,
                     fontWeight: FontWeight.w400,
-                    color: MaintenanceMapPalette.textSecondary,
+                    color: textSecondaryColor,
                   ),
                 ),
               ),
@@ -309,10 +320,10 @@ class _MaintenanceLocationDetailScreenState
           // Date & Time (Row 3)
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.access_time,
                 size: 15,
-                color: MaintenanceMapPalette.textSecondary,
+                color: textSecondaryColor,
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -320,11 +331,11 @@ class _MaintenanceLocationDetailScreenState
                   latestLog != null
                       ? '${MaintenanceMapScreen.formatTanggalShort(latestLog.tanggal)} · ${latestLog.jamSelesai}'
                       : 'Belum ada laporan bulan ini',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'PlusJakartaSans',
                     fontSize: 13,
                     fontWeight: FontWeight.w400,
-                    color: MaintenanceMapPalette.textSecondary,
+                    color: textSecondaryColor,
                   ),
                 ),
               ),
@@ -336,30 +347,29 @@ class _MaintenanceLocationDetailScreenState
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => _openInMaps(s.location.lat, s.location.lng),
-              icon: const Icon(
+              icon: Icon(
                 Icons.map_outlined,
                 size: 16,
-                color: MaintenanceMapPalette.primary,
+                color: primaryColor,
               ),
-              label: const Text(
+              label: Text(
                 'Buka di Maps',
                 style: TextStyle(
                   fontFamily: 'PlusJakartaSans',
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: MaintenanceMapPalette.primary,
+                  color: primaryColor,
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(
-                  color: MaintenanceMapPalette.primary,
+                side: BorderSide(
+                  color: primaryColor,
                   width: 1,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                minimumSize: const Size(double.infinity, 40),
-                maximumSize: const Size(double.infinity, 40),
+                minimumSize: const Size(double.infinity, 44),
               ),
             ),
           ],
@@ -369,6 +379,14 @@ class _MaintenanceLocationDetailScreenState
   }
 
   Widget _buildPhaseStepper() {
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
+    final primaryColor = MaintenanceMapPalette.primaryOf(context);
+    final pendingColor = MaintenanceMapPalette.pendingOf(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
@@ -383,7 +401,7 @@ class _MaintenanceLocationDetailScreenState
           String statusText;
 
           if (!isDone) {
-            statusColor = MaintenanceMapPalette.pending;
+            statusColor = pendingColor;
             statusIcon = Icons.schedule_rounded;
             statusText = 'Belum';
           } else if (hasTemuan) {
@@ -409,14 +427,10 @@ class _MaintenanceLocationDetailScreenState
                   padding:
                       const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? MaintenanceMapPalette.surfaceRaised
-                        : MaintenanceMapPalette.surface,
+                    color: isSelected ? surfaceRaisedColor : surfaceColor,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isSelected
-                          ? MaintenanceMapPalette.primary
-                          : MaintenanceMapPalette.divider,
+                      color: isSelected ? primaryColor : dividerColor,
                       width: isSelected ? 1.5 : 0.8,
                     ),
                   ),
@@ -428,19 +442,17 @@ class _MaintenanceLocationDetailScreenState
                           fontFamily: 'PlusJakartaSans',
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: isSelected
-                              ? MaintenanceMapPalette.primary
-                              : MaintenanceMapPalette.textPrimary,
+                          color: isSelected ? primaryColor : textPrimaryColor,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         _phaseDateRange(p),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'PlusJakartaSans',
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
-                          color: MaintenanceMapPalette.textSecondary,
+                          color: textSecondaryColor,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -480,32 +492,37 @@ class _MaintenanceLocationDetailScreenState
     final isDone = phaseLogs.isNotEmpty;
     final topLog = isDone ? phaseLogs.first : null;
     final temuanCount = topLog != null ? topLog.temuan.length : 0;
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
 
     String badgeText;
     Color badgeBg;
     Color badgeTextColor;
     if (!isDone) {
       badgeText = 'Belum dikerjakan';
-      badgeBg = MaintenanceMapPalette.pendingBg;
-      badgeTextColor = MaintenanceMapPalette.pending;
+      badgeBg = MaintenanceMapPalette.pendingBgOf(context);
+      badgeTextColor = MaintenanceMapPalette.pendingOf(context);
     } else if (temuanCount > 0) {
       badgeText = '$temuanCount Temuan';
-      badgeBg = MaintenanceMapPalette.findingBg;
-      badgeTextColor = MaintenanceMapPalette.findingText;
+      badgeBg = MaintenanceMapPalette.findingBgOf(context);
+      badgeTextColor = MaintenanceMapPalette.findingTextOf(context);
     } else {
       badgeText = 'Aman';
-      badgeBg = MaintenanceMapPalette.safeBg;
-      badgeTextColor = MaintenanceMapPalette.safeText;
+      badgeBg = MaintenanceMapPalette.safeBgOf(context);
+      badgeTextColor = MaintenanceMapPalette.safeTextOf(context);
     }
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: MaintenanceMapPalette.surface,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: MaintenanceMapPalette.divider,
+          color: dividerColor,
           width: 0.8,
         ),
       ),
@@ -515,7 +532,7 @@ class _MaintenanceLocationDetailScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Flexible(
+              Flexible(
                 child: Text(
                   'Hasil Inspeksi',
                   maxLines: 1,
@@ -524,7 +541,7 @@ class _MaintenanceLocationDetailScreenState
                     fontFamily: 'PlusJakartaSans',
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: MaintenanceMapPalette.textPrimary,
+                    color: textPrimaryColor,
                   ),
                 ),
               ),
@@ -551,11 +568,11 @@ class _MaintenanceLocationDetailScreenState
             const SizedBox(height: 8),
             Text(
               '${topLog.sesuaiPoin} / ${topLog.totalPoin}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'PlusJakartaSans',
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: MaintenanceMapPalette.textPrimary,
+                color: textPrimaryColor,
               ),
             ),
             const SizedBox(height: 6),
@@ -566,7 +583,7 @@ class _MaintenanceLocationDetailScreenState
                     ? 0.0
                     : (topLog.sesuaiPoin / topLog.totalPoin),
                 minHeight: 4,
-                backgroundColor: MaintenanceMapPalette.surfaceRaised,
+                backgroundColor: surfaceRaisedColor,
                 valueColor: const AlwaysStoppedAnimation<Color>(
                   MaintenanceMapPalette.safeIcon,
                 ),
@@ -581,11 +598,11 @@ class _MaintenanceLocationDetailScreenState
                     'S Sesuai: ${topLog.sesuaiPoin}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'PlusJakartaSans',
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: MaintenanceMapPalette.safeText,
+                      color: MaintenanceMapPalette.safeTextOf(context),
                     ),
                   ),
                 ),
@@ -600,8 +617,8 @@ class _MaintenanceLocationDetailScreenState
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       color: (topLog.totalPoin - topLog.sesuaiPoin > 0)
-                          ? MaintenanceMapPalette.findingText
-                          : MaintenanceMapPalette.textSecondary,
+                          ? MaintenanceMapPalette.findingTextOf(context)
+                          : textSecondaryColor,
                     ),
                   ),
                 ),
@@ -609,13 +626,13 @@ class _MaintenanceLocationDetailScreenState
             ),
           ] else ...[
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Belum dikerjakan pada bulan ini',
               style: TextStyle(
                 fontFamily: 'PlusJakartaSans',
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
-                color: MaintenanceMapPalette.textSecondary,
+                color: textSecondaryColor,
               ),
             ),
           ],
@@ -629,11 +646,16 @@ class _MaintenanceLocationDetailScreenState
     final isDone = phaseLogs.isNotEmpty;
     final temuanList =
         isDone ? phaseLogs.first.temuan : const <MaintenanceTemuan>[];
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
 
     if (temuanList.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -644,23 +666,23 @@ class _MaintenanceLocationDetailScreenState
                   color: MaintenanceMapPalette.safeIcon,
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Semua poin sesuai',
                   style: TextStyle(
                     fontFamily: 'PlusJakartaSans',
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: MaintenanceMapPalette.safeText,
+                    color: MaintenanceMapPalette.safeTextOf(context),
                   ),
                 ),
               ] else ...[
-                const Text(
+                Text(
                   'Belum ada laporan bulan ini',
                   style: TextStyle(
                     fontFamily: 'PlusJakartaSans',
                     fontSize: 13,
                     fontWeight: FontWeight.w400,
-                    color: MaintenanceMapPalette.textSecondary,
+                    color: textSecondaryColor,
                   ),
                 ),
               ],
@@ -688,16 +710,16 @@ class _MaintenanceLocationDetailScreenState
         Color badgeTextColor;
         String badgeLabel;
         if (t.urgent) {
-          badgeBg = MaintenanceMapPalette.urgentBg;
-          badgeTextColor = MaintenanceMapPalette.urgentText;
+          badgeBg = MaintenanceMapPalette.urgentBgOf(context);
+          badgeTextColor = MaintenanceMapPalette.urgentTextOf(context);
           badgeLabel = 'Urgent';
         } else if (t.status == 'tidak_sesuai') {
-          badgeBg = MaintenanceMapPalette.findingBg;
-          badgeTextColor = MaintenanceMapPalette.findingText;
+          badgeBg = MaintenanceMapPalette.findingBgOf(context);
+          badgeTextColor = MaintenanceMapPalette.findingTextOf(context);
           badgeLabel = 'Tidak sesuai';
         } else {
-          badgeBg = MaintenanceMapPalette.pendingBg;
-          badgeTextColor = MaintenanceMapPalette.pending;
+          badgeBg = MaintenanceMapPalette.pendingBgOf(context);
+          badgeTextColor = MaintenanceMapPalette.pendingOf(context);
           badgeLabel = 'Perlu cek';
         }
 
@@ -705,10 +727,10 @@ class _MaintenanceLocationDetailScreenState
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: MaintenanceMapPalette.surface,
+            color: surfaceColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: MaintenanceMapPalette.divider,
+              color: dividerColor,
               width: 0.8,
             ),
           ),
@@ -722,17 +744,17 @@ class _MaintenanceLocationDetailScreenState
                     width: 24,
                     height: 24,
                     alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: MaintenanceMapPalette.surfaceRaised,
+                    decoration: BoxDecoration(
+                      color: surfaceRaisedColor,
                       shape: BoxShape.circle,
                     ),
                     child: Text(
                       '${index + 1}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'PlusJakartaSans',
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: MaintenanceMapPalette.textSecondary,
+                        color: textSecondaryColor,
                       ),
                     ),
                   ),
@@ -742,11 +764,11 @@ class _MaintenanceLocationDetailScreenState
                       t.label,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'PlusJakartaSans',
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: MaintenanceMapPalette.textPrimary,
+                        color: textPrimaryColor,
                       ),
                     ),
                   ),
@@ -788,11 +810,11 @@ class _MaintenanceLocationDetailScreenState
                     overflow: isExpanded
                         ? TextOverflow.visible
                         : TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'PlusJakartaSans',
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
-                      color: MaintenanceMapPalette.textSecondary,
+                      color: textSecondaryColor,
                     ),
                   ),
                 ),
@@ -806,18 +828,22 @@ class _MaintenanceLocationDetailScreenState
 
   Widget _buildRiwayatTab() {
     final logs = widget.status.logs;
+    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final dividerColor = MaintenanceMapPalette.dividerOf(context);
+    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
 
     if (logs.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Center(
           child: Text(
             'Belum ada laporan bulan ini',
             style: TextStyle(
               fontFamily: 'PlusJakartaSans',
               fontSize: 13,
               fontWeight: FontWeight.w400,
-              color: MaintenanceMapPalette.textSecondary,
+              color: textSecondaryColor,
             ),
           ),
         ),
@@ -832,21 +858,21 @@ class _MaintenanceLocationDetailScreenState
         final temuanCount = log.temuan.length;
 
         final badgeBg = temuanCount > 0
-            ? MaintenanceMapPalette.findingBg
-            : MaintenanceMapPalette.safeBg;
+            ? MaintenanceMapPalette.findingBgOf(context)
+            : MaintenanceMapPalette.safeBgOf(context);
         final badgeTextColor = temuanCount > 0
-            ? MaintenanceMapPalette.findingText
-            : MaintenanceMapPalette.safeText;
+            ? MaintenanceMapPalette.findingTextOf(context)
+            : MaintenanceMapPalette.safeTextOf(context);
         final badgeLabel = temuanCount > 0 ? '$temuanCount Temuan' : 'Aman';
 
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: MaintenanceMapPalette.surface,
+            color: surfaceColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: MaintenanceMapPalette.divider,
+              color: dividerColor,
               width: 0.8,
             ),
           ),
@@ -855,16 +881,20 @@ class _MaintenanceLocationDetailScreenState
             children: [
               Row(
                 children: [
-                  Text(
-                    '${MaintenanceMapScreen.formatTanggalShort(log.tanggal)} · ${log.jamSelesai}',
-                    style: const TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: MaintenanceMapPalette.textPrimary,
+                  Expanded(
+                    child: Text(
+                      '${MaintenanceMapScreen.formatTanggalShort(log.tanggal)} · ${log.jamSelesai}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: textPrimaryColor,
+                      ),
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -892,29 +922,33 @@ class _MaintenanceLocationDetailScreenState
                             MaintenanceLogService.phaseForTemplate(
                                 log.templateId)] ??
                         'Maintenance'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'PlusJakartaSans',
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: MaintenanceMapPalette.textSecondary,
+                  color: textSecondaryColor,
                 ),
               ),
               const SizedBox(height: 4),
               Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.person_outline,
                     size: 14,
-                    color: MaintenanceMapPalette.textSecondary,
+                    color: textSecondaryColor,
                   ),
                   const SizedBox(width: 4),
-                  Text(
-                    '${log.teknisiNama}${log.teknisiNpp.isNotEmpty ? ' (${log.teknisiNpp})' : ''}',
-                    style: const TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: MaintenanceMapPalette.textSecondary,
+                  Expanded(
+                    child: Text(
+                      '${log.teknisiNama}${log.teknisiNpp.isNotEmpty ? ' (${log.teknisiNpp})' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: textSecondaryColor,
+                      ),
                     ),
                   ),
                 ],
@@ -922,11 +956,11 @@ class _MaintenanceLocationDetailScreenState
               const SizedBox(height: 4),
               Text(
                 '${log.sesuaiPoin}/${log.totalPoin} sesuai',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'PlusJakartaSans',
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: MaintenanceMapPalette.textPrimary,
+                  color: textPrimaryColor,
                 ),
               ),
             ],
