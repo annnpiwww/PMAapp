@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/logger_service.dart';
 import '../../../core/utils/verification_code.dart';
 import '../../../core/utils/image_watermark_processor.dart';
 import '../../../core/widgets/verification_step_card.dart';
@@ -176,10 +177,11 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
       _selectedCameraIndex = 0;
       await _initializeControllerWithFallback(_selectedCameraIndex);
     } catch (e) {
+      LoggerService.error('Inisialisasi kamera error', error: e, tag: 'PointCameraView');
       if (mounted) {
         setState(() {
           _hasInitError = true;
-          _statusText = 'Kamera error: $e';
+          _statusText = 'Kamera gagal diinisialisasi. Pastikan izin kamera aktif lalu coba lagi.';
         });
       }
     }
@@ -792,10 +794,11 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
         Navigator.pop(context, result);
       }
     } catch (e) {
+      LoggerService.error('Pengambilan atau pemrosesan foto maintenance gagal', error: e, tag: 'PointCameraView');
       if (mounted) {
         setState(() {
           _isCapturing = false;
-          _statusText = 'Gagal: $e';
+          _statusText = 'Gagal memproses foto. Silakan ambil ulang.';
         });
       }
     }
@@ -823,157 +826,163 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
         children: [
           // Row 1: Back/Close, Location Tag, Title, AI status, Timer, Ratio, Flash
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               IconButton(
+                key: const Key('point_camera_back_button'),
                 icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(12),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 tooltip: 'Kembali',
                 onPressed: () => Navigator.pop(context),
               ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                decoration: BoxDecoration(
-                  color: _activeLocation.tagColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: _activeLocation.tagColor.withValues(alpha: 0.6),
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  _activeLocation.locationTag.isNotEmpty
-                      ? _activeLocation.locationTag
-                      : 'BSS',
-                  style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    color: _activeLocation.tagColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Flexible(
-                child: Text(
-                  'Maintenance',
-                  style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    color: Colors.white,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
               const SizedBox(width: 4),
-
-              // Shortcut AI Status (Online / Offline Mode Kilat)
-              GestureDetector(
-                onTap: _toggleAiMode,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-                  decoration: BoxDecoration(
-                    color: _isOfflineFastMode
-                        ? const Color(0xFFF59E0B).withValues(alpha: 0.25)
-                        : const Color(0xFF10B981).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: _isOfflineFastMode
-                          ? const Color(0xFFF59E0B)
-                          : const Color(0xFF10B981),
-                      width: 1.1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _isOfflineFastMode ? Icons.bolt_rounded : Icons.cloud_done_rounded,
-                        size: 12,
-                        color: _isOfflineFastMode ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+              Expanded(
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: _activeLocation.tagColor.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: _activeLocation.tagColor.withValues(alpha: 0.6),
+                          width: 1,
+                        ),
                       ),
-                      const SizedBox(width: 3),
-                      Text(
-                        _isOfflineFastMode ? 'Kilat' : 'AI Cloud',
+                      child: Text(
+                        _activeLocation.locationTag.isNotEmpty
+                            ? _activeLocation.locationTag
+                            : 'BSS',
                         style: TextStyle(
-                          fontSize: 9.5,
+                          fontFamily: 'PlusJakartaSans',
+                          color: _activeLocation.tagColor,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: _isOfflineFastMode ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-
-              // Timer Pill
-              GestureDetector(
-                onTap: _cycleTimer,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
-                  decoration: BoxDecoration(
-                    color: _timerSeconds > 0
-                        ? const Color(0xFFF59E0B).withValues(alpha: 0.25)
-                        : Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: _timerSeconds > 0
-                          ? const Color(0xFFF59E0B)
-                          : Colors.white30,
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.timer_rounded,
-                        size: 12,
-                        color: _timerSeconds > 0 ? const Color(0xFFF59E0B) : Colors.white70,
+                    const Text(
+                      'Maintenance',
+                      style: TextStyle(
+                        fontFamily: 'PlusJakartaSans',
+                        color: Colors.white,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(width: 2),
-                      Text(
-                        _timerSeconds == 0 ? 'Off' : '${_timerSeconds}s',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w700,
-                          color: _timerSeconds > 0 ? const Color(0xFFF59E0B) : Colors.white,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    // Shortcut AI Status (Online / Offline Mode Kilat)
+                    GestureDetector(
+                      onTap: _toggleAiMode,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          color: _isOfflineFastMode
+                              ? const Color(0xFFF59E0B).withValues(alpha: 0.25)
+                              : const Color(0xFF10B981).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _isOfflineFastMode
+                                ? const Color(0xFFF59E0B)
+                                : const Color(0xFF10B981),
+                            width: 1.1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _isOfflineFastMode ? Icons.bolt_rounded : Icons.cloud_done_rounded,
+                              size: 12,
+                              color: _isOfflineFastMode ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              _isOfflineFastMode ? 'Kilat' : 'AI Cloud',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                color: _isOfflineFastMode ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-
-              // Ratio Pill (3:4 / Full / 1:1)
-              GestureDetector(
-                onTap: _cycleRatio,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white30),
-                  ),
-                  child: Text(
-                    _selectedRatio == CameraRatioOption.full
-                        ? 'Full'
-                        : (_selectedRatio == CameraRatioOption.ratio43 ? '3:4' : '1:1'),
-                    style: const TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
                     ),
-                  ),
+
+                    // Timer Pill
+                    GestureDetector(
+                      onTap: _cycleTimer,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          color: _timerSeconds > 0
+                              ? const Color(0xFFF59E0B).withValues(alpha: 0.25)
+                              : Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _timerSeconds > 0
+                                ? const Color(0xFFF59E0B)
+                                : Colors.white30,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.timer_rounded,
+                              size: 12,
+                              color: _timerSeconds > 0 ? const Color(0xFFF59E0B) : Colors.white70,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              _timerSeconds == 0 ? 'Off' : '${_timerSeconds}s',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                color: _timerSeconds > 0 ? const Color(0xFFF59E0B) : Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Ratio Pill (3:4 / Full / 1:1)
+                    GestureDetector(
+                      onTap: _cycleRatio,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white30),
+                        ),
+                        child: Text(
+                          _selectedRatio == CameraRatioOption.full
+                              ? 'Full'
+                              : (_selectedRatio == CameraRatioOption.ratio43 ? '3:4' : '1:1'),
+                          style: const TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 2),
 
               // Flash Toggle
               IconButton(
+                key: const Key('point_camera_flash_button'),
                 icon: Icon(
                   _flashMode == FlashMode.off
                       ? Icons.flash_off_rounded
@@ -989,8 +998,9 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                           : Colors.amber),
                   size: 18,
                 ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(12),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                tooltip: 'Flash',
                 onPressed: _toggleFlash,
               ),
             ],

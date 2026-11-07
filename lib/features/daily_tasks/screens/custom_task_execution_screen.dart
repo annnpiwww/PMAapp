@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/logger_service.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/widgets/app_file_image.dart';
@@ -61,10 +63,15 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
       final dynamic decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return;
 
+      final savedCatatan = decoded['catatan']?.toString() ?? '';
+      if (savedCatatan.isNotEmpty) {
+        _catatanCtrl.text = savedCatatan;
+      }
+
       final rawPhotos = (decoded['photos'] as List?)?.map((e) => e.toString()).toList() ?? [];
       final validPhotos = <String>[];
       for (final p in rawPhotos) {
-        if (p.isNotEmpty && File(p).existsSync()) {
+        if (p.isNotEmpty && (kIsWeb || File(p).existsSync())) {
           validPhotos.add(p);
         }
       }
@@ -72,22 +79,16 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
       final rawVideos = (decoded['videos'] as List?)?.map((e) => e.toString()).toList() ?? [];
       final validVideos = <String>[];
       for (final v in rawVideos) {
-        if (v.isNotEmpty && File(v).existsSync()) {
+        if (v.isNotEmpty && (kIsWeb || File(v).existsSync())) {
           validVideos.add(v);
         }
       }
-
-      final savedCatatan = decoded['catatan']?.toString() ?? '';
 
       _localPhotoPaths.clear();
       _localPhotoPaths.addAll(validPhotos);
 
       _localVideoPaths.clear();
       _localVideoPaths.addAll(validVideos);
-
-      if (savedCatatan.isNotEmpty) {
-        _catatanCtrl.text = savedCatatan;
-      }
 
       if (validPhotos.isNotEmpty || validVideos.isNotEmpty || savedCatatan.isNotEmpty) {
         _isDraftRestored = true;
@@ -145,10 +146,10 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
         _saveDraft();
       }
     } catch (e) {
-      debugPrint('[CustomTaskExecution] Error take photo: $e');
+      LoggerService.error('Error take photo', error: e, tag: 'CustomTaskExecution');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal membuka kamera foto: $e')),
+          const SnackBar(content: Text('Gagal membuka kamera foto. Pastikan izin kamera aktif lalu coba lagi.')),
         );
       }
     }
@@ -168,10 +169,10 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
         _saveDraft();
       }
     } catch (e) {
-      debugPrint('[CustomTaskExecution] Error record video: $e');
+      LoggerService.error('Error record video', error: e, tag: 'CustomTaskExecution');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal membuka kamera video: $e')),
+          const SnackBar(content: Text('Gagal membuka kamera video. Pastikan izin kamera aktif lalu coba lagi.')),
         );
       }
     }
@@ -192,10 +193,10 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
         _saveDraft();
       }
     } catch (e) {
-      debugPrint('[CustomTaskExecution] Error pick gallery photos: $e');
+      LoggerService.error('Error pick gallery photos', error: e, tag: 'CustomTaskExecution');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal membuka galeri foto: $e')),
+          const SnackBar(content: Text('Gagal membuka galeri foto. Silakan coba lagi.')),
         );
       }
     }
@@ -212,10 +213,10 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
         _saveDraft();
       }
     } catch (e) {
-      debugPrint('[CustomTaskExecution] Error pick gallery video: $e');
+      LoggerService.error('Error pick gallery video', error: e, tag: 'CustomTaskExecution');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal membuka galeri video: $e')),
+          const SnackBar(content: Text('Gagal membuka galeri video. Silakan coba lagi.')),
         );
       }
     }
@@ -383,52 +384,70 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
           ),
           actions: [
             if (_localPhotoPaths.isNotEmpty && _localVideoPaths.isNotEmpty) ...[
-              TextButton(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  Navigator.of(context).pop(true);
-                },
-                child: Text(
-                  'Selesai',
-                  style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  HapticFeedback.lightImpact();
-                  await ShareHelper.shareToWhatsApp(
-                    text: reportText,
-                    imagePaths: _localVideoPaths,
-                  );
-                },
-                icon: const Icon(Icons.videocam_rounded, size: 15, color: Color(0xFF25D366)),
-                label: Text(
-                  'Kirim Video (${_localVideoPaths.length})',
-                  style: const TextStyle(color: Color(0xFF25D366), fontSize: 11.5, fontWeight: FontWeight.bold),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF25D366)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  HapticFeedback.lightImpact();
-                  await ShareHelper.shareToWhatsApp(
-                    text: reportText,
-                    imagePaths: _localPhotoPaths,
-                  );
-                },
-                icon: const Icon(Icons.photo_library_rounded, size: 15),
-                label: Text(
-                  'Kirim Foto (${_localPhotoPaths.length})',
-                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      HapticFeedback.lightImpact();
+                      final rootNav = Navigator.of(context);
+                      final dlgNav = Navigator.of(ctx);
+                      await ShareHelper.shareToWhatsApp(
+                        text: reportText,
+                        imagePaths: _localPhotoPaths,
+                      );
+                      dlgNav.pop();
+                      rootNav.pop(true);
+                    },
+                    icon: const Icon(Icons.photo_library_rounded, size: 16),
+                    label: Text(
+                      'Kirim Foto (${_localPhotoPaths.length})',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      HapticFeedback.lightImpact();
+                      final rootNav = Navigator.of(context);
+                      final dlgNav = Navigator.of(ctx);
+                      await ShareHelper.shareToWhatsApp(
+                        text: reportText,
+                        imagePaths: _localVideoPaths,
+                      );
+                      dlgNav.pop();
+                      rootNav.pop(true);
+                    },
+                    icon: const Icon(Icons.videocam_rounded, size: 16, color: Color(0xFF25D366)),
+                    label: Text(
+                      'Kirim Video (${_localVideoPaths.length})',
+                      style: const TextStyle(color: Color(0xFF25D366), fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF25D366)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      Navigator.of(context).pop(true);
+                    },
+                    child: Text(
+                      'Selesai (Nanti Saja)',
+                      style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                    ),
+                  ),
+                ],
               ),
             ] else ...[
               TextButton(
@@ -563,7 +582,10 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -581,7 +603,6 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
                       Text(
                         'Teknisi: ${widget.task.teknisiNama}',
                         style: TextStyle(fontSize: 11, color: textSub),
@@ -597,10 +618,13 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Bukti Dokumentasi Pekerjaan',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: textHead),
+                Expanded(
+                  child: Text(
+                    'Bukti Dokumentasi Pekerjaan',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: textHead),
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   '${_localPhotoPaths.length} Foto • ${_localVideoPaths.length} Video',
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.accent),

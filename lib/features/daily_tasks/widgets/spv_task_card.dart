@@ -442,6 +442,17 @@ class SpvTaskCard extends StatelessWidget {
   }
 
   Widget _buktiButton(BuildContext context) {
+    final hasVideo = task.fotoBuktiUrls.any((u) {
+      final l = u.toLowerCase();
+      return l.endsWith('.mp4') || l.endsWith('.mov') || l.endsWith('.mkv') || l.endsWith('.webm');
+    });
+    final hasPhoto = task.fotoBuktiUrls.any((u) {
+      final l = u.toLowerCase();
+      return !l.endsWith('.mp4') && !l.endsWith('.mov') && !l.endsWith('.mkv') && !l.endsWith('.webm');
+    });
+    final icon = (hasPhoto && hasVideo)
+        ? Icons.perm_media_outlined
+        : (hasVideo ? Icons.videocam_outlined : Icons.image_outlined);
     final label = task.fotoBuktiUrls.isNotEmpty ? 'Bukti (${task.fotoBuktiUrls.length})' : 'Bukti';
     return Semantics(
       button: true,
@@ -465,7 +476,7 @@ class SpvTaskCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.image_outlined, size: 16, color: AppColors.success),
+                      Icon(icon, size: 16, color: AppColors.success),
                       const SizedBox(width: 4),
                       Text(
                         label,

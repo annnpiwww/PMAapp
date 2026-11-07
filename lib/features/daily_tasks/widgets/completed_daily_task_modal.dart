@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/widgets/app_file_image.dart';
@@ -126,6 +127,41 @@ class _CompletedDailyTaskModalState extends State<CompletedDailyTaskModal> {
     } finally {
       if (mounted) {
         setState(() => _isDownloadingAll = false);
+      }
+    }
+  }
+
+  Future<void> _openVideo(String urlOrPath) async {
+    try {
+      final uri = Uri.tryParse(urlOrPath);
+      if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          return;
+        }
+      } else if (!kIsWeb) {
+        final fileUri = Uri.file(urlOrPath);
+        if (await canLaunchUrl(fileUri)) {
+          await launchUrl(fileUri, mode: LaunchMode.externalApplication);
+          return;
+        }
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak dapat membuka video bukti secara otomatis.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal membuka video.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }
@@ -583,6 +619,96 @@ class _CompletedDailyTaskModalState extends State<CompletedDailyTaskModal> {
                       );
                     },
                   ),
+
+                if (task.fotoBuktiUrls.any((u) => u.toLowerCase().endsWith('.mp4') || u.toLowerCase().endsWith('.mov') || u.toLowerCase().endsWith('.mkv'))) ...[
+                  const SizedBox(height: 18),
+                  Builder(
+                    builder: (context) {
+                      final videoList = task.fotoBuktiUrls
+                          .where((u) => u.toLowerCase().endsWith('.mp4') || u.toLowerCase().endsWith('.mov') || u.toLowerCase().endsWith('.mkv'))
+                          .toList();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Video Bukti Pengerjaan (${videoList.length})',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: textHead,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: videoList.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 8),
+                            itemBuilder: (ctx, vIdx) {
+                              final videoUrl = videoList[vIdx];
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: bgCard,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: borderCard),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.videocam_rounded, color: Color(0xFFEF4444), size: 20),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Video Bukti #${vIdx + 1}',
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: textHead,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            videoUrl,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(fontSize: 10.5, color: textSub),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    ElevatedButton.icon(
+                                      onPressed: () => _openVideo(videoUrl),
+                                      icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                                      label: const Text('Buka', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
 
                 const SizedBox(height: 24),
               ],

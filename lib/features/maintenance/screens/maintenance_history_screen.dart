@@ -61,22 +61,36 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
       _submissions.where((s) => s.isComplete).toList();
 
   Future<void> _deleteSubmission(String id) async {
+    final isDark = ThemeService.isDarkMode(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
+        title: Text(
           'Hapus Data Maintenance?',
-          style: TextStyle(fontFamily: 'PlusJakartaSans', fontWeight: FontWeight.w700),
+          style: TextStyle(
+            fontFamily: 'PlusJakartaSans',
+            fontWeight: FontWeight.w700,
+            color: isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary,
+          ),
         ),
-        content: const Text(
+        content: Text(
           'Data dan foto maintenance ini akan dihapus dari penyimpanan perangkat.',
-          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          style: TextStyle(
+            fontSize: 13,
+            color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Batal'),
+            child: Text(
+              'Batal',
+              style: TextStyle(
+                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              ),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -181,55 +195,63 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
           ),
           tabs: [
             Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('Draft Berjalan'),
-                  if (drafts.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.shade400,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${drafts.length}',
-                        style: const TextStyle(
-                          color: Color(0xFF1E293B),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Draft Berjalan'),
+                    if (drafts.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade400,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${drafts.length}',
+                          style: const TextStyle(
+                            color: Color(0xFF1E293B),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
             Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('Selesai 100%'),
-                  if (completed.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.success,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${completed.length}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Selesai 100%'),
+                    if (completed.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.success,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${completed.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ],
@@ -273,6 +295,11 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
     required String title,
     required String subtitle,
   }) {
+    final isDark = ThemeService.isDarkMode(context);
+    final iconCircleBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+    final titleColor = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
+    final subColor = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -281,8 +308,8 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
           children: [
             Container(
               padding: const EdgeInsets.all(18),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF1F5F9),
+              decoration: BoxDecoration(
+                color: iconCircleBg,
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, size: 44, color: AppColors.textMuted),
@@ -290,18 +317,18 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'PlusJakartaSans',
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+                color: titleColor,
               ),
             ),
             const SizedBox(height: 6),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 12.5, color: subColor),
             ),
           ],
         ),

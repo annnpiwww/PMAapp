@@ -50,7 +50,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
     for (final ms in maintList) {
       final validPhotos = <_GalleryPhotoItem>[];
       for (final p in ms.points) {
-        if (p.imagePath != null && (kIsWeb || File(p.imagePath!).existsSync())) {
+        if (p.imagePath != null &&
+            (kIsWeb ||
+                p.imagePath!.startsWith('data:image') ||
+                File(p.imagePath!).existsSync())) {
           validPhotos.add(
             _GalleryPhotoItem(
               imagePath: p.imagePath!,
@@ -80,7 +83,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
     // 2. Kelompokkan foto dari Absensi Submissions (per hari & kategori)
     final submissions = SubmissionRepository.instance.submissions
-        .where((s) => s.imagePath != null && (kIsWeb || File(s.imagePath!).existsSync()))
+        .where((s) =>
+            s.imagePath != null &&
+            (kIsWeb ||
+                s.imagePath!.startsWith('data:image') ||
+                File(s.imagePath!).existsSync()))
         .toList();
 
     final absensiGroupMap = <String, List<_GalleryPhotoItem>>{};
@@ -237,17 +244,45 @@ class _GalleryScreenState extends State<GalleryScreen> {
           appBar: AppBar(
             backgroundColor: isDark ? const Color(0xFF1E293B) : AppColors.primary,
             foregroundColor: Colors.white,
-        title: _isMultiSelect
-            ? Text(
-                '${_selectedImagePaths.length} Terpilih',
-                style: const TextStyle(fontFamily: 'PlusJakartaSans', fontWeight: FontWeight.w700, fontSize: 16),
-              )
-            : Text(
-                _showAllFlat ? 'Semua Foto' : 'Folder Foto',
-                style: const TextStyle(fontFamily: 'PlusJakartaSans', fontWeight: FontWeight.w700, fontSize: 16),
-              ),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _isMultiSelect
+                      ? '${_selectedImagePaths.length} Terpilih'
+                      : (_showAllFlat ? 'Semua Foto' : 'Folder Foto'),
+                  style: const TextStyle(fontFamily: 'PlusJakartaSans', fontWeight: FontWeight.w700, fontSize: 15),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (!_isMultiSelect)
+                  Text(
+                    _showAllFlat ? '${allPhotos.length} Foto' : '${albums.length} Folder',
+                    style: TextStyle(
+                      fontFamily: 'PlusJakartaSans',
+                      fontWeight: FontWeight.w500,
+                      fontSize: 10.5,
+                      color: Colors.white.withValues(alpha: 0.82),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
         actions: [
           if (!_isMultiSelect) ...[
+            // Toggle View Mode (Folder vs Flat Grid)
+            IconButton(
+              tooltip: _showAllFlat ? 'Lihat Folder' : 'Lihat Semua Foto',
+              icon: Icon(
+                _showAllFlat ? Icons.folder_copy_rounded : Icons.grid_view_rounded,
+                color: Colors.white,
+              ),
+              onPressed: () {
+                setState(() => _showAllFlat = !_showAllFlat);
+              },
+            ),
             if (allPhotos.isNotEmpty)
               TextButton.icon(
                 onPressed: () {
@@ -257,43 +292,19 @@ class _GalleryScreenState extends State<GalleryScreen> {
                     _selectedImagePaths.clear();
                   });
                 },
-                icon: const Icon(Icons.checklist_rounded, size: 18, color: AppColors.primary),
+                icon: const Icon(Icons.checklist_rounded, size: 18, color: Colors.white),
                 label: const Text(
                   'Pilih',
-                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 13),
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),
-            // Toggle View Mode (Folder vs Flat Grid)
-            IconButton(
-              tooltip: _showAllFlat ? 'Lihat Folder' : 'Lihat Semua Foto',
-              icon: Icon(
-                _showAllFlat ? Icons.folder_copy_rounded : Icons.grid_view_rounded,
-                color: AppColors.primary,
-              ),
-              onPressed: () {
-                setState(() => _showAllFlat = !_showAllFlat);
-              },
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 14),
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    _showAllFlat ? '${allPhotos.length} Foto' : '${albums.length} Folder',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            const SizedBox(width: 8),
           ] else ...[
             TextButton(
               onPressed: () {
@@ -310,7 +321,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 _selectedImagePaths.containsAll(allPhotos.map((p) => p.imagePath).toSet())
                     ? 'Batal Semua'
                     : 'Pilih Semua',
-                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 12.5),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12.5),
               ),
             ),
             TextButton(
@@ -320,9 +331,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   _selectedImagePaths.clear();
                 });
               },
-              child: const Text(
+              child: Text(
                 'Batal',
-                style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w700, fontSize: 12.5),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                ),
               ),
             ),
           ],
@@ -501,15 +516,19 @@ class _GalleryScreenState extends State<GalleryScreen> {
                             children: [
                               Icon(Icons.calendar_today_rounded, size: 11, color: textSecondary),
                               const SizedBox(width: 4),
-                              Text(
-                                TimemarkFormatter.formatIndonesianFullDate(album.date),
-                                style: const TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primary,
+                              Expanded(
+                                child: Text(
+                                  TimemarkFormatter.formatIndonesianFullDate(album.date),
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              const Spacer(),
+                              const SizedBox(width: 8),
                               Text(
                                 '${album.photos.length} Foto ❯',
                                 style: TextStyle(
@@ -578,18 +597,15 @@ class _GalleryScreenState extends State<GalleryScreen> {
               ),
         actions: [
           if (!_isMultiSelect)
-            TextButton.icon(
+            IconButton(
+              tooltip: 'Pilih Foto',
+              icon: const Icon(Icons.checklist_rounded, color: Colors.white),
               onPressed: () {
                 setState(() {
                   _isMultiSelect = true;
                   _selectedImagePaths.clear();
                 });
               },
-              icon: const Icon(Icons.checklist_rounded, size: 18, color: AppColors.primary),
-              label: const Text(
-                'Pilih',
-                style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 13),
-              ),
             )
           else ...[
             TextButton(
@@ -607,7 +623,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 _selectedImagePaths.containsAll(album.photos.map((p) => p.imagePath).toSet())
                     ? 'Batal Semua'
                     : 'Pilih Semua',
-                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 12.5),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12.5),
               ),
             ),
             TextButton(
@@ -617,9 +633,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   _selectedImagePaths.clear();
                 });
               },
-              child: const Text(
+              child: Text(
                 'Batal',
-                style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w700, fontSize: 12.5),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                ),
               ),
             ),
           ],
