@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../models/ai_vision_config.dart';
 import '../models/submission_model.dart';
 import '../models/template_model.dart';
+import '../repositories/auth_repository.dart';
 import 'storage_service.dart';
 import 'daily_task_service.dart';
 
@@ -115,6 +116,52 @@ class AiVerificationResult {
 }
 
 class SopCriteriaHelper {
+  static bool isNegatedOrPlaceholderCriterion(String raw) {
+    final lower = raw
+        .toLowerCase()
+        .replaceAll(RegExp(r'^[\s\-•*0-9.)]+'), '')
+        .replaceAll(RegExp(r'[.!;,\s]+$'), '')
+        .trim();
+    if (lower.isEmpty) return true;
+    const placeholders = {
+      '-',
+      '--',
+      'none',
+      'null',
+      'n/a',
+      'na',
+      'tidak ada',
+      'nihil',
+      'aman',
+      'bersih',
+      'sesuai',
+      'ok',
+      'normal',
+      'lengkap',
+      'baik',
+    };
+    if (placeholders.contains(lower)) return true;
+    final hasRequiredGroomingAttr = lower.contains('id card') ||
+        lower.contains('name tag') ||
+        lower.contains('lanyard') ||
+        lower.contains('yoyo') ||
+        lower.contains('seragam') ||
+        lower.contains('sepatu');
+    if (!hasRequiredGroomingAttr &&
+        (lower.startsWith('tidak ada ') ||
+            lower.startsWith('bebas ') ||
+            lower.startsWith('no ') ||
+            lower.startsWith('tanpa '))) {
+      return true;
+    }
+    if (RegExp(
+      r'\b(tidak\s+ada|bebas|tanpa|tidak|bukan|no|not|without)\b.*\b(debu|kotor|kotoran|karat|korosi|rusak|kerusakan|masalah|kendala|temuan|blur|buram|miring|goyang|kendor|lepas|kusut|retak|pecah|robek|kelupas)\b',
+    ).hasMatch(lower)) {
+      return true;
+    }
+    return false;
+  }
+
   static String toNegativeStatement(String criterion) {
     final lower = criterion.toLowerCase();
     if (lower.contains('jaket') ||
@@ -122,6 +169,14 @@ class SopCriteriaHelper {
         lower.contains('sweater')) {
       return 'Memakai jaket/hoodie di atas seragam, wajib dilepas';
     }
+    if ((lower.contains('blur') ||
+            lower.contains('miring') ||
+            lower.contains('tidak fokus') ||
+            lower.contains('goyang')) &&
+        (lower.contains('fokus') || lower.contains('foto'))) {
+      return 'Foto blur, miring, atau tidak fokus, wajib foto ulang';
+    }
+    if (isNegatedOrPlaceholderCriterion(criterion)) return '';
     if (lower.contains('blur') ||
         lower.contains('miring') ||
         lower.contains('tidak fokus') ||
@@ -168,19 +223,26 @@ class SopCriteriaHelper {
 class AiVisionService {
   static AiVisionConfig? _cachedConfig;
 
-  /// Proxy hanya dicoba sekali per sesi. Kalau browser memblokir preflight
-  /// atau function belum di-deploy, semua request berikutnya langsung ke
-  /// endpoint AI supaya tidak menambah delay tiap foto.
-  static bool _proxyUsable = true;
+  static const String kErrorApiKeyUnconfigured =
+      'API Key AI belum dikonfigurasi';
+  static const String kErrorConnectionFailed = 'Koneksi ke AI gagal';
+  static const String kErrorUnverifiablePhoto =
+      'Foto tidak dapat diverifikasi otomatis';
+  static const String kErrorInvalidJson = 'AI tidak mengembalikan JSON';
+
+  static const List<String> systemErrorReasonPrefixes = [
+    kErrorApiKeyUnconfigured,
+    kErrorConnectionFailed,
+    kErrorUnverifiablePhoto,
+    kErrorInvalidJson,
+  ];
 
   /// Seam test: ganti client HTTP tanpa jaringan sungguhan.
   @visibleForTesting
   static http.Client Function() clientFactory = http.Client.new;
 
   @visibleForTesting
-  static void resetProxyState() {
-    _proxyUsable = true;
-  }
+  static void resetProxyState() {}
 
   static String cleanTechnicianReason(String raw) {
     var text = raw.trim();
@@ -221,7 +283,7 @@ class AiVisionService {
     String firstSentence = '';
     for (final s in sentences) {
       final trimmed = s.replaceAll(RegExp(r'^[,\s.-]+'), '').trim();
-      if (trimmed.length >= 10) {
+      if (trimmed.length >= 4) {
         firstSentence = trimmed;
         break;
       }
@@ -440,14 +502,11 @@ class AiVisionService {
     String? hariKerja,
     String? tipeLaporan,
   }) async {
-    final effectiveApiKey = config.apiKey.trim().isNotEmpty
-        ? config.apiKey.trim()
-        : AiVisionConfig.defaultApiKey.trim();
-
-    if (effectiveApiKey.isEmpty) {
+    if (!AiVisionConfig.proxyEnabled) {
       return AiVerificationResult(
         status: VerificationStatus.perluCekManual,
-        alasan: 'API Key AI belum dikonfigurasi. Foto dialihkan untuk Cek Manual oleh Supervisor.',
+        alasan:
+            '$kErrorApiKeyUnconfigured. Foto dialihkan untuk Cek Manual oleh Supervisor.',
         poinGagal: ['API Key AI Belum Dikonfigurasi'],
         poinLolos: [],
         confidenceScore: 0.0,
@@ -455,7 +514,6 @@ class AiVisionService {
       );
     }
 
-    final uri = Uri.parse('${config.effectiveBaseUrl}/chat/completions');
     final formattedImage = imageBase64.startsWith('data:image')
         ? imageBase64
         : 'data:image/jpeg;base64,$imageBase64';
@@ -584,7 +642,6 @@ OUTPUT STRICT JSON ONLY:
     String errorMessage = '';
 
     const maxAttempts = 3;
-    var useProxy = AiVisionConfig.proxyEnabled && _proxyUsable;
     final proxyUri = Uri.parse(AiVisionConfig.proxyUrl);
     final backendAnonKey = DailyTaskService.anonKey;
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
@@ -599,15 +656,20 @@ OUTPUT STRICT JSON ONLY:
       final currentModel =
           candidateModels[attempt.clamp(0, candidateModels.length - 1)];
 
-      // Timeout per attempt: minimal mengikuti default terbaru (15s) walau
-      // config lama di perangkat menyimpan angka lebih kecil.
+      // Batasi timeout per attempt agar attempt 0 tidak menghabiskan seluruh budget 30s
+      // sebelum sempat mencoba candidateModels[1].
       final int requestedTimeout =
           config.timeoutSeconds > AiVisionConfig.perModelTimeoutSeconds
               ? config.timeoutSeconds
               : AiVisionConfig.perModelTimeoutSeconds;
+      final int maxAttemptSeconds =
+          attempt == 0 ? 10 : remaining.inSeconds;
+      final int effectiveSeconds = requestedTimeout < maxAttemptSeconds
+          ? requestedTimeout
+          : maxAttemptSeconds;
       final perModelTimeout = Duration(
-        seconds: requestedTimeout < remaining.inSeconds
-            ? requestedTimeout
+        seconds: effectiveSeconds < remaining.inSeconds
+            ? effectiveSeconds
             : remaining.inSeconds,
       );
 
@@ -647,58 +709,25 @@ OUTPUT STRICT JSON ONLY:
         }
 
         final bodyJson = jsonEncode(requestBody);
-
-        Future<http.Response> callDirect() => client
+        final sessionToken = AuthRepository.instance.sessionToken;
+        final response = await client
             .post(
-              uri,
+              proxyUri,
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer $effectiveApiKey',
+                'apikey': backendAnonKey,
+                'Authorization': 'Bearer $backendAnonKey',
+                if (sessionToken != null && sessionToken.isNotEmpty)
+                  'x-app-session': sessionToken,
               },
               body: bodyJson,
             )
             .timeout(perModelTimeout);
 
-        http.Response response;
-        if (useProxy) {
-          try {
-            response = await client
-                .post(
-                  proxyUri,
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': backendAnonKey,
-                    'Authorization': 'Bearer $backendAnonKey',
-                  },
-                  body: bodyJson,
-                )
-                .timeout(perModelTimeout);
-            // Proxy belum di-deploy / sedang error (Supabase sering balas
-            // 5xx saat cold start atau secret belum di-set) -> langsung ke
-            // endpoint AI supaya 503 proxy tidak mematikan verifikasi.
-            if (response.statusCode == 404 ||
-                response.statusCode == 501 ||
-                response.statusCode >= 500) {
-              debugPrint(
-                '[BSS-Vision] Proxy AI belum aktif (${response.statusCode}), pakai koneksi langsung.',
-              );
-              useProxy = false;
-              _proxyUsable = false;
-              response = await callDirect();
-            }
-          } catch (_) {
-            // Di browser, preflight CORS proxy yang belum ter-deploy gagal
-            // sebelum response diterima -> pakai koneksi langsung supaya
-            // verifikasi AI tidak ikut mati.
-            debugPrint(
-              '[BSS-Vision] Proxy AI tidak bisa dihubungi, pakai koneksi langsung.',
-            );
-            useProxy = false;
-            _proxyUsable = false;
-            response = await callDirect();
-          }
-        } else {
-          response = await callDirect();
+        if (response.statusCode == 401) {
+          errorMessage = 'Server error HTTP 401';
+          unawaited(AuthRepository.instance.handleUnauthorizedSession());
+          break;
         }
 
         if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -707,8 +736,12 @@ OUTPUT STRICT JSON ONLY:
           if (choices != null && choices.isNotEmpty) {
             final rawContent =
                 choices[0]['message']?['content'] as String? ?? '{}';
-            final parsedResult =
-                _parseAiJsonResponse(rawContent, criteria, config);
+            final parsedResult = _parseAiJsonResponse(
+              rawContent,
+              criteria,
+              config,
+              extraContext: extraContext,
+            );
             if (parsedResult != null) {
               return parsedResult.copyWith(
                 providerName: 'Google Gemini',
@@ -722,7 +755,8 @@ OUTPUT STRICT JSON ONLY:
         } else {
           errorMessage = 'Server error HTTP ${response.statusCode}';
           debugPrint('[BSS-Vision] HTTP ${response.statusCode} $currentModel: ${response.body.substring(0, response.body.length.clamp(0, 300))}');
-          final retryable = [429, 500, 502, 503, 504].contains(response.statusCode);
+          final retryable =
+              [404, 429, 500, 501, 502, 503, 504].contains(response.statusCode);
           if (retryable && attempt < maxAttempts - 1 && remaining.inSeconds > 5) {
             await Future.delayed(Duration(milliseconds: 400 * (attempt + 1)));
             continue;
@@ -757,7 +791,7 @@ OUTPUT STRICT JSON ONLY:
     if (errorMessage.isEmpty || errorMessage == 'null') {
       errorMessage = 'Koneksi terputus / Timeout';
     }
-    debugPrint('[BSS-Vision] FINAL FAIL ${config.effectiveModelName}: $errorMessage | url=${uri.toString()}');
+    debugPrint('[BSS-Vision] FINAL FAIL ${config.effectiveModelName}: $errorMessage | url=${proxyUri.toString()}');
 
     return AiVerificationResult(
       status: VerificationStatus.perluCekManual,
@@ -765,7 +799,7 @@ OUTPUT STRICT JSON ONLY:
       // penyebab singkat ikut dicantumkan supaya masalah jaringan/limit bisa
       // dilaporkan tanpa perlu buka console browser.
       alasan:
-          'Koneksi ke AI gagal${_shortErrorSuffix(errorMessage)}. Foto dialihkan untuk Cek Manual oleh Supervisor.',
+          '$kErrorConnectionFailed${_shortErrorSuffix(errorMessage)}. Foto dialihkan untuk Cek Manual oleh Supervisor.',
       poinGagal: ['Koneksi Server Vision Terganggu / Gagal'],
       poinLolos: [],
       confidenceScore: 0.0,
@@ -954,19 +988,98 @@ OUTPUT STRICT JSON ONLY:
 {"status":"sesuai"|"tidak_sesuai"|"perlu_cek_manual","confidenceScore":95,"alasan":"...","poinLolos":["..."],"poinGagal":["..."]}
 ''';
   }
+  static VerificationStatus _resolveStatusToken(String raw) {
+    final normalized = raw
+        .toLowerCase()
+        .replaceAll(RegExp(r'\([^)]*\)'), ' ')
+        .trim()
+        .replaceAll(RegExp(r'[\s\-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+
+    const exactSesuai = {
+      'sesuai',
+      'lolos',
+      'pass',
+      'passed',
+      'approve',
+      'approved',
+      'ok',
+      'aman',
+      'hijau',
+    };
+    const exactTidakSesuai = {
+      'tidak_sesuai',
+      'tidak_lolos',
+      'gagal',
+      'fail',
+      'failed',
+      'reject',
+      'rejected',
+      'merah',
+    };
+    const exactManual = {
+      'perlu_cek_manual',
+      'cek_manual',
+      'manual',
+      'ragu',
+      'kuning',
+    };
+
+    if (exactSesuai.contains(normalized)) return VerificationStatus.sesuai;
+    if (exactTidakSesuai.contains(normalized)) {
+      return VerificationStatus.tidakSesuai;
+    }
+    if (exactManual.contains(normalized)) {
+      return VerificationStatus.perluCekManual;
+    }
+
+    if (normalized.contains('perlu_cek_manual') ||
+        normalized.contains('cek_manual') ||
+        normalized.contains('manual')) {
+      return VerificationStatus.perluCekManual;
+    }
+    if (normalized.contains('tidak_sesuai') ||
+        normalized.contains('tidak_lolos') ||
+        normalized.contains('gagal') ||
+        normalized.contains('fail') ||
+        normalized.contains('reject') ||
+        normalized.contains('not_sesuai') ||
+        normalized.contains('not_pass')) {
+      return VerificationStatus.tidakSesuai;
+    }
+    if (normalized.contains('sesuai') ||
+        normalized.contains('lolos') ||
+        normalized.contains('pass') ||
+        normalized.contains('approve')) {
+      return VerificationStatus.sesuai;
+    }
+    return VerificationStatus.perluCekManual;
+  }
+
   static AiVerificationResult? parseAiJsonResponseForTest(
     String rawContent,
     List<String> criteria,
-    AiVisionConfig config,
-  ) {
-    return _parseAiJsonResponse(rawContent, criteria, config);
+    AiVisionConfig config, {
+    String? extraContext,
+    bool? isMaintenance,
+  }) {
+    return _parseAiJsonResponse(
+      rawContent,
+      criteria,
+      config,
+      extraContext: extraContext,
+      isMaintenance: isMaintenance,
+    );
   }
 
   static AiVerificationResult? _parseAiJsonResponse(
     String rawContent,
     List<String> criteria,
-    AiVisionConfig config,
-  ) {
+    AiVisionConfig config, {
+    String? extraContext,
+    bool? isMaintenance,
+  }) {
     try {
       String sanitized = rawContent.trim();
       if (sanitized.contains('```json')) {
@@ -993,21 +1106,8 @@ OUTPUT STRICT JSON ONLY:
 
       final jsonMap = jsonDecode(sanitized) as Map<String, dynamic>;
 
-      final rawStatus = (jsonMap['status'] as String? ?? '').toLowerCase();
-      VerificationStatus status;
-      if (rawStatus.contains('tidak') ||
-          rawStatus.contains('fail') ||
-          rawStatus.contains('reject') ||
-          rawStatus.contains('not_')) {
-        status = VerificationStatus.tidakSesuai;
-      } else if (rawStatus.contains('lolos') ||
-          rawStatus.contains('sesuai') ||
-          rawStatus.contains('pass') ||
-          rawStatus.contains('approve')) {
-        status = VerificationStatus.sesuai;
-      } else {
-        status = VerificationStatus.perluCekManual;
-      }
+      final rawStatus = jsonMap['status'] as String? ?? '';
+      VerificationStatus status = _resolveStatusToken(rawStatus);
 
       final rawAlasan = jsonMap['alasan'] as String? ??
           jsonMap['reason'] as String? ??
@@ -1019,11 +1119,15 @@ OUTPUT STRICT JSON ONLY:
           [];
       // Beberapa temuan AI yang beda (blur, miring, tidak fokus) bisa jatuh ke
       // kalimat SOP yang sama. Disaring dulu supaya kartu "Yang Perlu Diperbaiki"
-      // tidak menampilkan kalimat kembar.
+      // tidak menampilkan kalimat kembar, dan item kosong/negasi tidak memicu gagal palsu.
       final poinGagal = <String>[];
       final poinGagalUnik = <String>{};
       for (final e in rawPoinGagal) {
-        final kalimat = SopCriteriaHelper.toNegativeStatement(e.toString()).trim();
+        final rawItem = e.toString().trim();
+        if (SopCriteriaHelper.isNegatedOrPlaceholderCriterion(rawItem)) {
+          continue;
+        }
+        final kalimat = SopCriteriaHelper.toNegativeStatement(rawItem).trim();
         if (kalimat.isEmpty) continue;
         if (poinGagalUnik.add(kalimat.toLowerCase())) poinGagal.add(kalimat);
       }
@@ -1041,8 +1145,10 @@ OUTPUT STRICT JSON ONLY:
         conf = rawConf > 1.0 ? rawConf / 100.0 : rawConf.toDouble();
       }
 
-      // KRITERIA STRICT MUTLAK: Jika ada poin gagal (ID card tidak ada, salah seragam, dsb), status WAJIB tidakSesuai!
-      if (poinGagal.isNotEmpty) {
+      // KRITERIA STRICT MUTLAK: Jika ada poin gagal valid dan status bukan perluCekManual,
+      // status WAJIB tidakSesuai!
+      if (poinGagal.isNotEmpty &&
+          status != VerificationStatus.perluCekManual) {
         status = VerificationStatus.tidakSesuai;
       } else if (poinGagal.isEmpty && status == VerificationStatus.tidakSesuai) {
         poinGagal.add('Kriteria SOP belum terpenuhi');
@@ -1070,22 +1176,88 @@ OUTPUT STRICT JSON ONLY:
         briefingKategori: finalKategori,
       );
     } catch (_) {
-      return _parseFreeTextFallback(rawContent, criteria, config);
+      return _parseFreeTextFallback(
+        rawContent,
+        criteria,
+        config,
+        extraContext: extraContext,
+        isMaintenance: isMaintenance,
+      );
     }
+  }
+
+  static bool _isMaintenanceFallbackContext(
+    String lowerText,
+    List<String> criteria,
+  ) {
+    final joinedCriteria = criteria.join(' ').toLowerCase();
+    final hasGroomingCriteria = joinedCriteria.contains('seragam') ||
+        joinedCriteria.contains('id card') ||
+        joinedCriteria.contains('name tag') ||
+        joinedCriteria.contains('sepatu');
+    if (!hasGroomingCriteria && criteria.isNotEmpty) {
+      return true;
+    }
+    return RegExp(
+      r'\b(cpu|motherboard|heatsink|barrier|palang|manless|dispenser|printer|dynabolt|dinabolt|loop\s+detector|pos\s+kasir|booth|stopkontak|avometer)\b',
+    ).hasMatch(lowerText);
   }
 
   static AiVerificationResult? _parseFreeTextFallback(
     String rawContent,
     List<String> criteria,
-    AiVisionConfig config,
-  ) {
+    AiVisionConfig config, {
+    String? extraContext,
+    bool? isMaintenance,
+  }) {
+    // 1. Jika JSON terpotong (finish_reason=length), pulihkan field "status" dan "alasan"
+    final statusFieldMatch = RegExp(
+      r'"status"\s*:\s*"([^"]+)"',
+      caseSensitive: false,
+    ).firstMatch(rawContent);
+    if (statusFieldMatch != null) {
+      final recoveredStatus = _resolveStatusToken(statusFieldMatch.group(1)!);
+      final alasanMatch = RegExp(
+        r'"(?:alasan|reason)"\s*:\s*"([^"]*)',
+        caseSensitive: false,
+      ).firstMatch(rawContent);
+      final recoveredAlasan = alasanMatch != null &&
+              alasanMatch.group(1)!.trim().isNotEmpty
+          ? cleanTechnicianReason(alasanMatch.group(1)!)
+          : 'Evaluasi selesai';
+      return AiVerificationResult(
+        status: recoveredStatus,
+        alasan: recoveredAlasan,
+        poinGagal: recoveredStatus == VerificationStatus.tidakSesuai
+            ? const ['Kriteria SOP belum terpenuhi']
+            : const [],
+        poinLolos: recoveredStatus == VerificationStatus.sesuai
+            ? criteria.map(SopCriteriaHelper.toPositiveStatement).toList()
+            : const [],
+        confidenceScore: 0.75,
+        providerName: 'Google Gemini',
+        isFallback: true,
+      );
+    }
+
     final text = rawContent.toLowerCase();
     String reason = rawContent.trim();
     if (reason.length > 200) {
       reason = '${reason.substring(0, 200).trim()}...';
     }
 
-    // Kualitas foto jelek (blur/goyang/miring/gelap) = temuan MERAH, wajib foto ulang.
+    final isMaint = isMaintenance ??
+        (extraContext != null || _isMaintenanceFallbackContext(text, criteria));
+
+    // Hapus klausa kualitas yang dinegasi ("not blurry", "tidak blur", "tidak gelap", dll.)
+    // sebelum mencocokkan qualityKeywords.
+    final textWithoutNegatedQuality = text.replaceAll(
+      RegExp(
+        r'\b(not|no|never|without|tidak|bukan|tanpa|bebas)\s+(?:too\s+|very\s+|terlalu\s+|agak\s+|sedikit\s+|cukup\s+)?(motion[\s-]blurred|motion\s+blur|blurred|blurry|blur|buram|kabur|goyang|out[\s-]of[\s-]focus|unfocused|indistinct|tilted|crooked|slanted|not\s+level|dark|gelap|miring)\b',
+      ),
+      ' ',
+    );
+
     final qualityKeywords = [
       'motion-blurred',
       'motion blurred',
@@ -1093,19 +1265,40 @@ OUTPUT STRICT JSON ONLY:
       'blurred',
       'too blurry',
       'blurry',
+      'blur',
+      'buram',
+      'kabur',
+      'goyang',
       'out of focus',
       'out-of-focus',
       'unfocused',
+      'kurang fokus',
+      'tidak fokus',
       'indistinct',
       'tilted',
       'crooked',
       'slanted',
       'not level',
       'too dark',
+      'terlalu gelap',
+      'agak gelap',
+      'gelap',
+      'miring',
       'incomplete image',
     ];
 
-    if (qualityKeywords.any((kw) => text.contains(kw))) {
+    if (qualityKeywords.any((kw) => textWithoutNegatedQuality.contains(kw))) {
+      if (isMaint) {
+        return AiVerificationResult(
+          status: VerificationStatus.perluCekManual,
+          alasan: cleanTechnicianReason(reason),
+          poinGagal: const [],
+          poinLolos: const [],
+          confidenceScore: 0.6,
+          providerName: 'Google Gemini',
+          isFallback: true,
+        );
+      }
       return AiVerificationResult(
         status: VerificationStatus.tidakSesuai,
         alasan: 'Foto blur atau miring, wajib foto ulang',
@@ -1147,7 +1340,7 @@ OUTPUT STRICT JSON ONLY:
     if (isUnverifiable) {
       return AiVerificationResult(
         status: VerificationStatus.perluCekManual,
-        alasan: 'Foto tidak dapat diverifikasi otomatis: $reason',
+        alasan: '$kErrorUnverifiablePhoto: $reason',
         poinGagal: [],
         poinLolos: [],
         confidenceScore: 0.5,
@@ -1168,8 +1361,10 @@ OUTPUT STRICT JSON ONLY:
         if (cl.contains('seragam')) 'uniform',
         if (cl.contains('id card') || cl.contains('name tag')) 'name tag',
         if (cl.contains('id card') || cl.contains('name tag')) 'badge',
+        if (cl.contains('id card') || cl.contains('name tag') || cl.contains('jelas')) 'visible',
         if (cl.contains('sepatu')) 'shoes',
-        if (cl.contains('postur') || cl.contains('sikap')) 'posture',
+        if (cl.contains('postur') || cl.contains('sikap') || cl.contains('rapi')) 'posture',
+        if (cl.contains('rapi')) 'neat',
       ].where((s) => s.trim().isNotEmpty).toList();
 
       if (candidates.any((cand) => text.contains(cand))) {
@@ -1177,7 +1372,12 @@ OUTPUT STRICT JSON ONLY:
       }
     }
 
-    if (matchCount >= (criteria.length / 2).ceil() && criteria.isNotEmpty) {
+    final hasExplicitPositiveProse = RegExp(
+      r'\b(uniform\s+is\s+neat|photo\s+is\s+clear|all\s+criteria\s+met|semua\s+kriteria\s+terpenuhi)\b',
+    ).hasMatch(text);
+
+    if ((matchCount >= (criteria.length / 2).ceil() && criteria.isNotEmpty) ||
+        hasExplicitPositiveProse) {
       return AiVerificationResult(
         status: VerificationStatus.sesuai,
         alasan: reason,
@@ -1192,7 +1392,7 @@ OUTPUT STRICT JSON ONLY:
 
     return AiVerificationResult(
       status: VerificationStatus.perluCekManual,
-      alasan: 'AI tidak mengembalikan JSON terstruktur. Respons: $reason',
+      alasan: '$kErrorInvalidJson terstruktur. Respons: $reason',
       poinGagal: [],
       poinLolos: [],
       confidenceScore: 0.4,

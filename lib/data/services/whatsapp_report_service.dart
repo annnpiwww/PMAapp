@@ -6,6 +6,7 @@ import '../../core/utils/web_bytes/web_bytes.dart';
 import '../models/maintenance_submission.dart';
 import '../models/template_model.dart';
 import '../repositories/auth_repository.dart';
+import 'ai_vision_service.dart';
 import 'storage_service.dart';
 
 class WhatsAppReportService {
@@ -230,8 +231,10 @@ class WhatsAppReportService {
       return 'Kondisi pulau parkir';
     }
 
-    if (lower.contains('printer tiket') ||
-        lower.contains('pembersihan total printer')) {
+    if (lower.contains('printer tiket')) {
+      return 'Pembersihan printer tiket';
+    }
+    if (lower.contains('pembersihan total printer')) {
       return 'Pembersihan printer';
     }
     if (lower.contains('kebersihan dalam manless') ||
@@ -323,6 +326,9 @@ class WhatsAppReportService {
     if (l.contains('mode offline')) return false;
     if (l.contains('offline:')) return false;
     if (l.contains('foto tersimpan')) return false;
+    for (final prefix in AiVisionService.systemErrorReasonPrefixes) {
+      if (l.contains(prefix.toLowerCase())) return false;
+    }
     return true;
   }
 
@@ -1114,7 +1120,7 @@ class WhatsAppReportService {
     if (l.contains('pembersihan booth')) {
       return 'booth dalam keadaan bersih dan rapi';
     }
-    if (l.contains('pembersihan printer')) {
+    if (l.contains('pembersihan printer') && !l.contains('tiket')) {
       return 'printer booth bersih, head & roller bebas debu kertas';
     }
     if (l.contains('standarisasi item booth') || l.contains('harvard')) {
@@ -1205,7 +1211,7 @@ class WhatsAppReportService {
 
     // Manless
     if (l.contains('printer tiket')) {
-      return 'area roller dan head thermal bersih serta bebas debu';
+      return 'printer tiket manless bersih, mekanik lancar';
     }
     if (l.contains('dalam manless')) {
       return 'ruang dalam manless bersih dan kabel tertata rapi';
@@ -1243,6 +1249,13 @@ class WhatsAppReportService {
 
     return 'kondisi masih bersih dan terpasang kencang';
   }
+
+  @visibleForTesting
+  static String defaultObservationForTheme(String themeLabel) =>
+      _defaultObservationForTheme(themeLabel);
+
+  static bool _isOkPoint(MaintenancePointResult p) =>
+      !p.isTidakTerpasang && p.status != PointStatus.belumFoto && !_hasIssue(p);
 
   /// Format alasan hijau (sesuai):
   /// Mengembalikan hasil validasi AI Vision jika bermakna dan bukan kata generic "sesuai"/"ok".
@@ -1297,9 +1310,7 @@ class WhatsAppReportService {
     final issues = done
         .where((p) => p.status == PointStatus.tidakSesuai || _hasIssue(p))
         .toList();
-    final okPoints = done
-        .where((p) => p.status == PointStatus.sesuai && !_hasIssue(p))
-        .toList();
+    final okPoints = done.where(_isOkPoint).toList();
     // Poin yang barangnya tidak ada di lokasi: bukan temuan, tapi TIDAK BOLEH
     // dilaporkan sebagai "sesuai/terpasang".
     final naPoints = done.where((p) => p.isTidakTerpasang).toList();
@@ -1390,17 +1401,13 @@ class WhatsAppReportService {
         // Gate OUT tetap terbaca walau semua poin temanya aman.
         for (final groupUnits in unitGroups) {
           final okUnits = groupUnits
-              .where(
-                (u) => unitPointsMap[u]!.any(
-                  (p) => p.status == PointStatus.sesuai && !_hasIssue(p),
-                ),
-              )
+              .where((u) => unitPointsMap[u]!.any(_isOkPoint))
               .toList();
           if (okUnits.isEmpty) continue;
           buffer.writeln('   *Gate ${_gateDirection(okUnits.first)}*');
           final groupOkPoints = okUnits
               .expand((u) => unitPointsMap[u]!)
-              .where((p) => p.status == PointStatus.sesuai && !_hasIssue(p))
+              .where(_isOkPoint)
               .toList();
           final okAlasan = _findBestOkAlasan(groupOkPoints, fallback: defaultOk);
           buffer.writeln('   ✅ ${listLabel(okUnits)}: $okAlasan');
@@ -1409,11 +1416,7 @@ class WhatsAppReportService {
         // Multi-unit Smart Consolidated: Rangkum menjadi 1 baris ringkas per tipe unit!
         // Unit yang seluruh poinnya tidak terpasang tidak dihitung "aman".
         final okUnits = sortedUnits
-            .where(
-              (u) => unitPointsMap[u]!.any(
-                (p) => p.status == PointStatus.sesuai && !_hasIssue(p),
-              ),
-            )
+            .where((u) => unitPointsMap[u]!.any(_isOkPoint))
             .toList();
         final unitTypes = okUnits.map(_detectUnitType).toSet();
         if (okUnits.length == 1) {
@@ -1436,7 +1439,7 @@ class WhatsAppReportService {
             final groupUnits = entry.value;
             final groupOkPoints = groupUnits
                 .expand((u) => unitPointsMap[u]!)
-                .where((p) => p.status == PointStatus.sesuai && !_hasIssue(p))
+                .where(_isOkPoint)
                 .toList();
             final groupOkAlasan = _findBestOkAlasan(
               groupOkPoints,
@@ -1555,9 +1558,7 @@ class WhatsAppReportService {
           j++;
         }
 
-        final chunkOkPoints = okChunkPoints
-            .where((p) => p.status == PointStatus.sesuai && !_hasIssue(p))
-            .toList();
+        final chunkOkPoints = okChunkPoints.where(_isOkPoint).toList();
         if (chunkOkPoints.isNotEmpty) {
           final alasan = _findBestOkAlasan(chunkOkPoints, fallback: defaultOk);
           buffer.writeln('   ✅ ${listLabel(okChunkUnits)}: $alasan');
@@ -1659,12 +1660,7 @@ class WhatsAppReportService {
       buffer: buffer,
       no: 7,
       themeLabel: 'stiker receiver barrier gate',
-      relevant: filterByKeywords([
-        'stiker receiver',
-        'stiker barrier',
-        'receiver',
-        'stiker',
-      ]),
+      relevant: filterByKeywords(['stiker receiver', 'stiker barrier']),
     );
     _appendThematicModel1Line(
       buffer: buffer,

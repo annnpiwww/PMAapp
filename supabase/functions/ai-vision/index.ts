@@ -1,24 +1,14 @@
-// Proxy AI Vision — Supabase Edge Function.
-//
-// Tujuan: API key Gemini TIDAK ikut terpasang di APK / bundle web.
-// Client (app) tetap memanggil AI seperti biasa, hanya lewat fungsi ini.
-//
-// Deploy:
-//   1. Set secret di server:  supabase secrets set GEMINI_API_KEY=<key-bar>
-//      (opsional)             supabase secrets set APP_PROXY_SECRET=<shared-secret>
-//   2. Deploy:                supabase functions deploy ai-vision
-//
-// Catatan:
-// - Body request diteruskan apa adanya ke endpoint OpenAI-compatible Gemini,
-//   jadi format di sisi app tidak berubah sama sekali.
-// - CORS wajib: tanpa header ini, browser (web PWA) memblokir preflight.
-// - Kalau APP_PROXY_SECRET diset, header 'x-app-secret' wajib cocok.
+// Hardened AI Vision Proxy — Supabase Edge Function (SEC-03)
+// Contract: docs/contracts/app-session.md
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { verifySession } from '../_shared/session.ts';
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/openai';
-const MAX_BODY_BYTES = 12_000_000; // foto base64 + prompt
-const ALLOWED_MODELS = [
+const MAX_BODY_BYTES = 8_000_000;
+const MAX_TOKENS_CAP = 1024;
+
+export const ALLOWED_MODELS = [
   'gemini-3-flash-preview',
   'gemini-3.5-flash',
   'gemini-3.6-flash',
@@ -27,16 +17,21 @@ const ALLOWED_MODELS = [
   'gemini-flash-lite-latest',
   'gemini-3.1-flash-lite',
   'gemini-flash-lite',
-];
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash',
+] as const;
+
+const ALLOWED_MODEL_SET = new Set<string>(ALLOWED_MODELS);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-app-secret',
+  'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-app-session',
   'Access-Control-Max-Age': '86400',
 };
 
-function json(body: unknown, status: number) {
+function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -47,7 +42,51 @@ function json(body: unknown, status: number) {
   });
 }
 
-serve(async (req: Request) => {
+async function readBodyCapped(
+  req: Request,
+  maxBytes: number,
+): Promise<{ ok: true; text: string } | { ok: false; status: number; error: string }> {
+  if (!req.body) {
+    return { ok: false, status: 400, error: 'empty body' };
+  }
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        total += value.byteLength;
+        if (total > maxBytes) {
+          try {
+            await reader.cancel();
+          } catch {
+            // ignore stream cancel error
+          }
+          return { ok: false, status: 413, error: 'payload too large' };
+        }
+        chunks.push(value);
+      }
+    }
+  } catch {
+    return { ok: false, status: 400, error: 'invalid body stream' };
+  }
+
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    merged.set(c, offset);
+    offset += c.byteLength;
+  }
+  return { ok: true, text: new TextDecoder().decode(merged) };
+}
+
+export async function handleAiVision(
+  req: Request,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -55,53 +94,115 @@ serve(async (req: Request) => {
     return json({ error: 'method not allowed' }, 405);
   }
 
-  const apiKey = Deno.env.get('GEMINI_API_KEY');
-  if (!apiKey) {
-    return json({ error: 'GEMINI_API_KEY belum diset di server' }, 500);
-  }
-
-  const appSecret = Deno.env.get('APP_PROXY_SECRET');
-  if (appSecret && req.headers.get('x-app-secret') !== appSecret) {
+  // ENFORCE_SESSION rollout control:
+  // - When 'true': valid x-app-session required on every request.
+  // - Otherwise (compat mode for 2.0.132): present token must verify (bad token -> 401),
+  //   absent header proceeds without session check while still enforcing all body/model caps.
+  const enforceSession = Deno.env.get('ENFORCE_SESSION') === 'true';
+  const rawSessionHeader = req.headers.get('x-app-session');
+  if (rawSessionHeader !== null && rawSessionHeader.trim().length > 0) {
+    const session = await verifySession(req);
+    if (!session) {
+      return json({ error: 'unauthorized' }, 401);
+    }
+  } else if (enforceSession) {
     return json({ error: 'unauthorized' }, 401);
   }
 
-  const rawBody = await req.text();
-  if (rawBody.length > MAX_BODY_BYTES) {
+  // Reject missing or oversize content-length BEFORE reading body
+  const clHeader = req.headers.get('content-length');
+  if (!clHeader || !/^\d+$/.test(clHeader.trim())) {
+    return json({ error: 'content-length required' }, 411);
+  }
+  const declaredLength = Number(clHeader.trim());
+  if (!Number.isFinite(declaredLength) || declaredLength <= 0) {
+    return json({ error: 'invalid content-length' }, 400);
+  }
+  if (declaredLength > MAX_BODY_BYTES) {
     return json({ error: 'payload too large' }, 413);
   }
 
-  // Batasi model ke daftar yang diizinkan supaya client tidak bisa memakai
-  // proxy ini untuk model lain di luar kebutuhan app.
+  const bodyResult = await readBodyCapped(req, MAX_BODY_BYTES);
+  if (!bodyResult.ok) {
+    return json({ error: bodyResult.error }, bodyResult.status);
+  }
+
   let parsed: Record<string, unknown>;
   try {
-    parsed = JSON.parse(rawBody);
+    const decoded = JSON.parse(bodyResult.text);
+    if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) {
+      return json({ error: 'invalid json body' }, 400);
+    }
+    parsed = decoded as Record<string, unknown>;
   } catch {
     return json({ error: 'invalid json body' }, 400);
   }
-  const model = typeof parsed?.model === 'string' ? parsed.model : '';
-  if (!ALLOWED_MODELS.includes(model)) {
+
+  const model = typeof parsed.model === 'string' ? parsed.model.trim() : '';
+  if (!ALLOWED_MODEL_SET.has(model)) {
     return json({ error: 'model not allowed' }, 400);
   }
 
-  const callGemini = (key: string, body: string) =>
-    fetch(`${GEMINI_BASE}/chat/completions`, {
+  if (!Array.isArray(parsed.messages) || parsed.messages.length === 0) {
+    return json({ error: 'invalid messages' }, 400);
+  }
+
+  const clientMaxTokens =
+    typeof parsed.max_tokens === 'number' &&
+      Number.isFinite(parsed.max_tokens) &&
+      parsed.max_tokens > 0
+      ? Math.floor(parsed.max_tokens)
+      : MAX_TOKENS_CAP;
+  const maxTokens = Math.min(clientMaxTokens, MAX_TOKENS_CAP);
+
+  const clientTemp =
+    typeof parsed.temperature === 'number' && Number.isFinite(parsed.temperature)
+      ? parsed.temperature
+      : 0;
+  const temperature = Math.min(1, Math.max(0, clientTemp));
+
+  // Build clean upstream body: drop every other client field
+  const cleanPayload = {
+    model,
+    messages: parsed.messages,
+    max_tokens: maxTokens,
+    temperature,
+  };
+
+  const apiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!apiKey) {
+    console.error('ai-vision: missing GEMINI_API_KEY');
+    return json({ error: 'ai unavailable' }, 502);
+  }
+
+  const callGemini = (key: string, bodyObj: Record<string, unknown>) =>
+    fetchImpl(`${GEMINI_BASE}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`,
+        Authorization: `Bearer ${key}`,
       },
-      body,
+      body: JSON.stringify(bodyObj),
     });
 
   try {
-    let upstream = await callGemini(apiKey, rawBody);
+    let upstream = await callGemini(apiKey, cleanPayload);
 
-    // Model utama kena kuota/overload: coba sekali lagi pakai key cadangan
-    // (project lain, kuota terpisah) dan model cadangan.
     const fallbackKey = Deno.env.get('GEMINI_API_KEY_FALLBACK');
     if (fallbackKey && [429, 500, 502, 503, 504].includes(upstream.status)) {
-      const fallbackModel = Deno.env.get('GEMINI_FALLBACK_MODEL') ?? 'gemini-3.5-flash';
-      upstream = await callGemini(fallbackKey, JSON.stringify({ ...parsed, model: fallbackModel }));
+      const fallbackModelRaw = Deno.env.get('GEMINI_FALLBACK_MODEL') ?? 'gemini-3.5-flash';
+      const fallbackModel = ALLOWED_MODEL_SET.has(fallbackModelRaw)
+        ? fallbackModelRaw
+        : 'gemini-3.5-flash';
+      upstream = await callGemini(fallbackKey, {
+        ...cleanPayload,
+        model: fallbackModel,
+      });
+    }
+
+    if (!upstream.ok) {
+      console.error(`ai-vision upstream status: ${upstream.status}`);
+      return json({ error: 'ai unavailable' }, 502);
     }
 
     const text = await upstream.text();
@@ -113,7 +214,12 @@ serve(async (req: Request) => {
         'Cache-Control': 'no-store',
       },
     });
-  } catch (err) {
-    return json({ error: 'upstream error', detail: String(err) }, 502);
+  } catch {
+    console.error('ai-vision upstream fetch failed');
+    return json({ error: 'ai unavailable' }, 502);
   }
-});
+}
+
+if (!Deno.env.get('DENO_TESTING')) {
+  serve((req: Request) => handleAiVision(req));
+}

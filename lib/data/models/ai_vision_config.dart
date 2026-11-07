@@ -110,11 +110,11 @@ class AiVisionConfig {
   final int maxTokens;
   final double temperature;
 
-  /// API key di-inject saat build via --dart-define=BSS_AI_API_KEY=...
-  /// Jika tidak ada define, fallback ke default Google AI Studio (GAI) Free Tier key
+  /// API key opsional di-inject saat build via --dart-define=BSS_AI_API_KEY=...
+  /// Produksi memakai proxy Edge Function, sehingga key tidak ditanam di aplikasi.
   static const String defaultApiKey = String.fromEnvironment(
     'BSS_AI_API_KEY',
-    defaultValue: 'AQ.Ab8RN6' 'JWug2Q5a' 'OIfvgpmlD' '-sgTgeDF2' 'lbqJI1p-q' '5tXiFbWVw',
+    defaultValue: '',
   );
   static const String defaultCustomUrl =
       'https://generativelanguage.googleapis.com/v1beta/openai';
@@ -157,7 +157,7 @@ class AiVisionConfig {
     this.enableIdCardDetection = true,
     this.enableFormationCheck = true,
     this.enableCleanlinessCheck = true,
-    this.maxTokens = 150,
+    this.maxTokens = 350,
     this.temperature = 0.0,
   });
 

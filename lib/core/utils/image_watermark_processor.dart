@@ -70,9 +70,9 @@ class ImageWatermarkProcessor {
             if (isFrontCamera) {
               processed = imglib.flipHorizontal(processed);
             }
-            // Resize ke lebar 480px untuk payload AI ultra-ringan (~25KB)
-            final resized = imglib.copyResize(processed, width: 480);
-            final jpegBytes = imglib.encodeJpg(resized, quality: 60);
+            // Resize ke lebar 864px @ Q72 agar teks layar & komponen kecil terbaca AI Vision
+            final resized = imglib.copyResize(processed, width: 864);
+            final jpegBytes = imglib.encodeJpg(resized, quality: 72);
             return base64Encode(jpegBytes);
           }
         } catch (e) {
@@ -83,8 +83,8 @@ class ImageWatermarkProcessor {
       }
 
       // Platform NATIVE (Android / iOS):
-      // 420px width @ Q50 drops payload to ~25-35KB for lightning-fast network transmission on mobile 4G/3G
-      final codec = await ui.instantiateImageCodec(validBytes, targetWidth: 420);
+      // 864px width @ Q72 menjaga ketajaman teks layar, LED, dan komponen kecil untuk AI Vision
+      final codec = await ui.instantiateImageCodec(validBytes, targetWidth: 864);
       final frame = await codec.getNextFrame();
       final img = frame.image;
 
@@ -130,7 +130,7 @@ class ImageWatermarkProcessor {
         // Offload encoding ke background isolate agar UI thread 60fps mulus tanpa stutter
         final jpegBytes = await compute(
           _encodeRgbaToJpegIsolate,
-          _RgbaEncodePayload(finalImg.width, finalImg.height, rgbaBytes, 50),
+          _RgbaEncodePayload(finalImg.width, finalImg.height, rgbaBytes, 72),
         );
         if (jpegBytes.isNotEmpty) {
           return base64Encode(jpegBytes);
