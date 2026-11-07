@@ -1,0 +1,13 @@
+project_id = "sxsjixnnlzhjinzcyhjb"
+
+[functions.auth-login]
+verify_jwt = false
+
+[functions.ai-vision]
+verify_jwt = false
+
+[functions.pos-locations]
+verify_jwt = false
+
+[functions.daily-tasks]
+verify_jwt = false

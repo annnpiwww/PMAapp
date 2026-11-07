@@ -1,6 +1,11 @@
 import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../features/auth/screens/login_screen.dart';
 import '../models/user_model.dart';
 import '../services/storage_service.dart';
 import '../services/daily_task_service.dart';
@@ -10,268 +15,342 @@ class AuthRepository extends ChangeNotifier {
   static final AuthRepository instance = AuthRepository._internal();
   AuthRepository._internal();
 
+  static const String sessionTokenPrefsKey = 'bss_session_token_v1';
+  static const String offlineCredentialsPrefsKey = 'bss_offline_credentials_v1';
+  static const String sessionExpiredMessage = 'Sesi habis, silakan login ulang.';
+  static const String offlineOnlyPreviousLoginMessage =
+      'Login offline hanya untuk akun yang pernah login online di HP ini.';
+  static const String webOfflineUnsupportedMessage =
+      'Login gagal. Periksa koneksi internet Anda.';
+
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+
+  static final RegExp _validIdentityRegex = RegExp(r'^[a-zA-Z0-9 ._@-]+$');
+  static const int _pbkdfIterations = 10000;
+
+  @visibleForTesting
+  http.Client? httpClient;
+
+  @visibleForTesting
+  bool? isWebOverride;
+
+  bool get _isWeb => isWebOverride ?? kIsWeb;
+
   UserModel? _currentUser;
   UserModel? get currentUser => _currentUser;
   bool get isLoggedIn => _currentUser != null;
 
-  /// Login resmi via Supabase Backend (Online dengan offline session fallback)
+  String? _sessionToken;
+  String? get sessionToken => _sessionToken;
+
+  String? _lastErrorMessage;
+  String? get lastErrorMessage => _lastErrorMessage;
+
+  @visibleForTesting
+  void setSessionTokenForTesting(String? token) {
+    _sessionToken = token;
+  }
+
+  /// Decodes the `v1.<payloadB64>.<sigB64>` payload client-side to check `exp`.
+  static bool isTokenUnexpired(String? token, {DateTime? now}) {
+    if (token == null) return false;
+    final clean = token.trim();
+    final parts = clean.split('.');
+    if (parts.length != 3 || parts[0] != 'v1' || parts[1].isEmpty || parts[2].isEmpty) {
+      return false;
+    }
+    try {
+      final normalized = base64Url.normalize(parts[1]);
+      final payloadStr = utf8.decode(base64Url.decode(normalized));
+      final decoded = jsonDecode(payloadStr);
+      if (decoded is! Map<String, dynamic>) return false;
+      final exp = decoded['exp'];
+      if (exp is! num) return false;
+      final nowSec = (now ?? DateTime.now()).millisecondsSinceEpoch ~/ 1000;
+      return exp.toInt() > nowSec;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static String _hashPassword(String saltBase64, String password) {
+    List<int> data = utf8.encode('$saltBase64$password');
+    for (var i = 0; i < _pbkdfIterations; i++) {
+      data = sha256.convert(data).bytes;
+    }
+    return Digest(data).toString();
+  }
+
+  static bool _constantTimeEquals(String a, String b) {
+    final aBytes = utf8.encode(a);
+    final bBytes = utf8.encode(b);
+    if (aBytes.length != bBytes.length) return false;
+    var diff = 0;
+    for (var i = 0; i < aBytes.length; i++) {
+      diff |= aBytes[i] ^ bBytes[i];
+    }
+    return diff == 0;
+  }
+
+  Future<void> _saveOfflineCredential({
+    required String cleanIdentity,
+    required String cleanPassword,
+    required UserModel user,
+    required String token,
+  }) async {
+    if (_isWeb) return;
+    final prefs = await SharedPreferences.getInstance();
+    Map<String, dynamic> all = {};
+    final raw = prefs.getString(offlineCredentialsPrefsKey);
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) {
+          all = Map<String, dynamic>.from(decoded);
+        }
+      } catch (_) {}
+    }
+
+    final rand = Random.secure();
+    final saltBytes = List<int>.generate(16, (_) => rand.nextInt(256));
+    final saltBase64 = base64Encode(saltBytes);
+    final hash = _hashPassword(saltBase64, cleanPassword);
+
+    all[cleanIdentity] = {
+      'user': user.toJson(),
+      'salt': saltBase64,
+      'hash': hash,
+      'token': token,
+    };
+
+    await prefs.setString(offlineCredentialsPrefsKey, jsonEncode(all));
+  }
+
+  Future<bool> _tryOfflineLogin({
+    required String cleanIdentity,
+    required String cleanPassword,
+  }) async {
+    if (_isWeb) {
+      _lastErrorMessage = webOfflineUnsupportedMessage;
+      return false;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(offlineCredentialsPrefsKey);
+    if (raw == null || raw.isEmpty) {
+      _lastErrorMessage = offlineOnlyPreviousLoginMessage;
+      return false;
+    }
+
+    Map<String, dynamic> all;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        _lastErrorMessage = offlineOnlyPreviousLoginMessage;
+        return false;
+      }
+      all = decoded;
+    } catch (_) {
+      _lastErrorMessage = offlineOnlyPreviousLoginMessage;
+      return false;
+    }
+
+    final entry = all[cleanIdentity];
+    if (entry is! Map<String, dynamic>) {
+      _lastErrorMessage = offlineOnlyPreviousLoginMessage;
+      return false;
+    }
+
+    final salt = entry['salt'] as String?;
+    final storedHash = entry['hash'] as String?;
+    final userJson = entry['user'];
+    if (salt == null ||
+        salt.isEmpty ||
+        storedHash == null ||
+        storedHash.isEmpty ||
+        userJson is! Map) {
+      _lastErrorMessage = offlineOnlyPreviousLoginMessage;
+      return false;
+    }
+
+    final computedHash = _hashPassword(salt, cleanPassword);
+    if (!_constantTimeEquals(computedHash, storedHash)) {
+      _lastErrorMessage = 'Username atau password salah.';
+      return false;
+    }
+
+    final user = UserModel.fromJson(Map<String, dynamic>.from(userJson));
+    final branch = BranchService.determineBranch(
+      cabang: user.cabangName,
+      email: user.email,
+      username: cleanIdentity,
+      name: user.nama,
+      fallback: BranchService.instance.currentBranch,
+    );
+    await BranchService.instance.setBranch(branch);
+
+    final cachedToken = entry['token'] as String?;
+    if (cachedToken != null && isTokenUnexpired(cachedToken)) {
+      _sessionToken = cachedToken;
+      await prefs.setString(sessionTokenPrefsKey, cachedToken);
+    } else {
+      _sessionToken = null;
+      await prefs.remove(sessionTokenPrefsKey);
+    }
+
+    _currentUser = user;
+    await StorageService.saveUser(user);
+    await StorageService.saveLastTechnicianName(user.nama);
+    _lastErrorMessage = null;
+    notifyListeners();
+    return true;
+  }
+
+  /// Server-side login via Supabase Edge Function `auth-login` (with Android offline fallback)
   Future<bool> loginWithPassword({
     required String identity,
     required String password,
   }) async {
+    _lastErrorMessage = null;
     final cleanIdentity = identity.trim().toLowerCase();
     final cleanPass = password.trim();
-    if (cleanIdentity.isEmpty || cleanPass.isEmpty) return false;
+    if (cleanIdentity.isEmpty ||
+        cleanIdentity.length > 64 ||
+        !_validIdentityRegex.hasMatch(cleanIdentity) ||
+        cleanPass.isEmpty ||
+        cleanPass.length > 128) {
+      _lastErrorMessage = 'Username atau password salah.';
+      return false;
+    }
 
-    final userPrefix = cleanIdentity.contains('@') ? cleanIdentity.split('@').first : cleanIdentity;
-
-    // 1. Coba koneksi ke backend Supabase (table public.app_users)
     try {
-      // Hanya kecocokan persis: pencocokan potongan nama bisa menyeret user ke
-      // akun cabang lain (mis. 'alif' cocok ke Alif Candra/Bali).
-      final orFilters = <String>[
-        'username.ilike.$cleanIdentity',
-        'email.ilike.$cleanIdentity',
-        'nama.ilike.$cleanIdentity',
-        if (userPrefix.isNotEmpty && userPrefix != cleanIdentity) ...[
-          'username.ilike.$userPrefix',
-          'email.ilike.$userPrefix',
-        ],
-      ];
+      final uri = Uri.parse('${DailyTaskService.baseUrl}/functions/v1/auth-login');
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'apikey': DailyTaskService.anonKey,
+        'Authorization': 'Bearer ${DailyTaskService.anonKey}',
+      };
+      final body = jsonEncode({
+        'identity': cleanIdentity,
+        'password': cleanPass,
+      });
 
-      final uri = Uri.parse('${DailyTaskService.baseUrl}/rest/v1/app_users').replace(
-        queryParameters: {
-          'or': '(${orFilters.join(',')})',
-          'select': '*',
-          'limit': '1',
-        },
-      );
-      final res = await http.get(
-        uri,
-        headers: DailyTaskService.getHeaders,
-      ).timeout(const Duration(seconds: 8));
+      final client = httpClient;
+      final res = await (client != null
+              ? client.post(uri, headers: headers, body: body)
+              : http.post(uri, headers: headers, body: body))
+          .timeout(const Duration(seconds: 8));
 
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
-        final List items = decoded is List ? decoded : [];
-        if (items.isNotEmpty) {
-          final record = items.first as Map<String, dynamic>;
-          final dbPassword = (record['password'] as String? ?? '').trim();
-
-          final isPasswordMatch = dbPassword.toLowerCase() == cleanPass.toLowerCase();
-
-          if (isPasswordMatch) {
-            final roleStr = (record['role'] as String? ?? 'teknisi').toLowerCase();
-            final role = roleStr == 'spv' ? UserRole.supervisor : UserRole.petugas;
-            final name = record['nama'] as String? ?? record['name'] as String? ?? cleanIdentity;
-            final email = record['email'] as String? ?? cleanIdentity;
-            final cabangStr = record['cabang'] as String? ?? record['cabang_name'] as String?;
-            final branch = BranchService.determineBranch(
-              cabang: cabangStr,
-              email: email,
-              username: cleanIdentity,
-              name: name,
-              fallback: BranchService.instance.currentBranch,
-            );
-
-            await BranchService.instance.setBranch(branch);
-
-            final user = UserModel(
-              id: record['id'] as String? ?? 'usr_sb',
-              nama: name,
-              npp: '${role == UserRole.supervisor ? 'BSS-SPV' : 'BSS-TEK'}-${branch == AppBranch.manado ? '' : '${branch.code}-'}01',
-              email: email,
-              role: role,
-              posId: branch == AppBranch.manado ? 'POS-01' : 'POS-${branch.code}-01',
-              posName: branch == AppBranch.manado ? 'Pos Gate Utama' : branch.defaultLocationTag,
-              cabangName: branch.name,
-            );
-
-            DailyTaskService.setAuthToken('sb_token_${user.id}');
-            _currentUser = user;
-            await StorageService.saveUser(user);
-            await StorageService.saveLastTechnicianName(name);
-            notifyListeners();
-            return true;
-          } else {
-            debugPrint('[AuthRepository] Password mismatch untuk user: $cleanIdentity');
-          }
+        if (decoded is! Map<String, dynamic>) {
+          _lastErrorMessage = 'Username atau password salah.';
+          return false;
         }
-      } else {
-        debugPrint('[AuthRepository] Supabase login query status: ${res.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('[AuthRepository] Online login error, checking fallback: $e');
-    }
+        final token = (decoded['token'] as String? ?? '').trim();
+        final record = decoded['user'];
+        if (token.isEmpty || record is! Map<String, dynamic>) {
+          _lastErrorMessage = 'Username atau password salah.';
+          return false;
+        }
 
-    // 2. Offline Fallback: Akun lokal tetap aktif untuk memastikan aplikasi bisa login
-    // saat terjadi kendala koneksi, mati lampu, atau basement tanpa sinyal di release APK & Vercel.
-    final hardcodedAccounts = [
-      // --- KC Manado Accounts ---
+        final roleStr = (record['role'] as String? ?? 'technician').toLowerCase();
+        final role = (roleStr == 'spv' ||
+                roleStr == 'supervisor' ||
+                roleStr == 'ho' ||
+                roleStr == 'headoffice')
+            ? UserRole.supervisor
+            : UserRole.petugas;
+        final usernameStr = record['username'] as String? ?? cleanIdentity;
+        final name = record['nama'] as String? ?? record['name'] as String? ?? usernameStr;
+        final email = record['email'] as String? ?? cleanIdentity;
+        final cabangStr = record['cabang'] as String? ?? record['cabang_name'] as String?;
+        final branch = BranchService.determineBranch(
+          cabang: cabangStr,
+          email: email,
+          username: usernameStr,
+          name: name,
+          fallback: BranchService.instance.currentBranch,
+        );
 
-      {'user': 'ryan lumasuge', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
-      {'user': 'ryan@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
-      {'user': 'ryan@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
-      {'user': 'ryan', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Ryan Lumasuge', 'branch': AppBranch.manado},
-
-      {'user': 'raldy sangkop', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
-      {'user': 'raldy@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
-      {'user': 'raldy@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
-      {'user': 'raldy', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Raldy Sangkop', 'branch': AppBranch.manado},
-
-      {'user': 'junifer manua', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
-      {'user': 'junifer@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
-      {'user': 'junifer@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
-      {'user': 'junifer', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Junifer Manua', 'branch': AppBranch.manado},
-
-      {'user': 'alessandro sulistyo', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
-      {'user': 'ale@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
-      {'user': 'alessandro@bssparking.id', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
-      {'user': 'ale', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alessandro Sulistyo', 'branch': AppBranch.manado},
-
-      // --- KC Bali Accounts ---
-      // SPV: Indra Yohana
-      {'user': 'indra@pma.com', 'pass': 'spvbali', 'role': UserRole.supervisor, 'name': 'Indra Yohana', 'branch': AppBranch.bali},
-      {'user': 'indra', 'pass': 'spvbali', 'role': UserRole.supervisor, 'name': 'Indra Yohana', 'branch': AppBranch.bali},
-      {'user': 'i putu indra yohana', 'pass': 'spvbali', 'role': UserRole.supervisor, 'name': 'Indra Yohana', 'branch': AppBranch.bali},
-
-      // Teknisi 1: Putu Hyan Parta Wijaya
-      {'user': 'parta@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Putu Hyan Parta Wijaya', 'branch': AppBranch.bali},
-      {'user': 'parta', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Putu Hyan Parta Wijaya', 'branch': AppBranch.bali},
-      {'user': 'putu hyan parta wijaya', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Putu Hyan Parta Wijaya', 'branch': AppBranch.bali},
-
-      // Teknisi 2: Alif Candra Triantoro
-      {'user': 'toro@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alif Candra Triantoro', 'branch': AppBranch.bali},
-      {'user': 'toro', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alif Candra Triantoro', 'branch': AppBranch.bali},
-      {'user': 'alif candra triantoro', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'Alif Candra Triantoro', 'branch': AppBranch.bali},
-
-      // Teknisi 3: I Putu Gede Suardana Putra
-      {'user': 'suardana@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'I PUTU GEDE SUARDANA PUTRA', 'branch': AppBranch.bali},
-      {'user': 'suardana', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'I PUTU GEDE SUARDANA PUTRA', 'branch': AppBranch.bali},
-      {'user': 'i putu gede suardana putra', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'I PUTU GEDE SUARDANA PUTRA', 'branch': AppBranch.bali},
-
-      // Teknisi 4: Aditya Caesar Bagaskara
-      {'user': 'dika@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ADITYA CAESAR BAGASKARA', 'branch': AppBranch.bali},
-      {'user': 'dika', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ADITYA CAESAR BAGASKARA', 'branch': AppBranch.bali},
-      {'user': 'aditya caesar bagaskara', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ADITYA CAESAR BAGASKARA', 'branch': AppBranch.bali},
-
-      // Teknisi 5: Anak Agung Gede Agung Yustikawangsa
-      {'user': 'cokagung@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ANAK AGUNG GEDE AGUNG YUSTIKAWANGSA', 'branch': AppBranch.bali},
-      {'user': 'cokagung', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ANAK AGUNG GEDE AGUNG YUSTIKAWANGSA', 'branch': AppBranch.bali},
-      {'user': 'anak agung gede agung yustikawangsa', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ANAK AGUNG GEDE AGUNG YUSTIKAWANGSA', 'branch': AppBranch.bali},
-
-      // --- HO Makassar Accounts ---
-      // SPV: ADI SUPRIADI
-      {'user': 'adi@pma.com', 'pass': 'spvho', 'role': UserRole.supervisor, 'name': 'ADI SUPRIADI', 'branch': AppBranch.ho},
-      {'user': 'adi', 'pass': 'spvho', 'role': UserRole.supervisor, 'name': 'ADI SUPRIADI', 'branch': AppBranch.ho},
-      {'user': 'adi supriadi', 'pass': 'spvho', 'role': UserRole.supervisor, 'name': 'ADI SUPRIADI', 'branch': AppBranch.ho},
-
-      // Teknisi HO (username nama depan; 'alif ahmad' dipakai utuh supaya tidak
-      // bentrok dengan akun Bali 'Alif Candra Triantoro')
-      {'user': 'ahmad@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'AHMAD KHAELANI', 'branch': AppBranch.ho},
-      {'user': 'ahmad', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'AHMAD KHAELANI', 'branch': AppBranch.ho},
-      {'user': 'ahmad khaelani', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'AHMAD KHAELANI', 'branch': AppBranch.ho},
-
-      {'user': 'hasrul@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'HASRUL HAQ', 'branch': AppBranch.ho},
-      {'user': 'hasrul', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'HASRUL HAQ', 'branch': AppBranch.ho},
-      {'user': 'hasrul haq', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'HASRUL HAQ', 'branch': AppBranch.ho},
-
-      {'user': 'hardin@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'MUH. HARDIN TAUFIK', 'branch': AppBranch.ho},
-      {'user': 'hardin', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'MUH. HARDIN TAUFIK', 'branch': AppBranch.ho},
-      {'user': 'muh. hardin taufik', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'MUH. HARDIN TAUFIK', 'branch': AppBranch.ho},
-
-      {'user': 'ferdinan@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'FERDINAN PRADANA PANGALA PUTRA', 'branch': AppBranch.ho},
-      {'user': 'ferdinan', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'FERDINAN PRADANA PANGALA PUTRA', 'branch': AppBranch.ho},
-      {'user': 'ferdinan pradana pangala putra', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'FERDINAN PRADANA PANGALA PUTRA', 'branch': AppBranch.ho},
-
-      {'user': 'alifahmad@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ALIF AHMAD MAULANA', 'branch': AppBranch.ho},
-      {'user': 'alifahmad', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ALIF AHMAD MAULANA', 'branch': AppBranch.ho},
-      {'user': 'alif ahmad maulana', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ALIF AHMAD MAULANA', 'branch': AppBranch.ho},
-
-      {'user': 'dany@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'DANY RAMADHANI ASHARI', 'branch': AppBranch.ho},
-      {'user': 'dany', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'DANY RAMADHANI ASHARI', 'branch': AppBranch.ho},
-      {'user': 'dany ramadhani ashari', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'DANY RAMADHANI ASHARI', 'branch': AppBranch.ho},
-
-      {'user': 'yusuf@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'MUHAMMAD YUSUF SALAM', 'branch': AppBranch.ho},
-      {'user': 'yusuf', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'MUHAMMAD YUSUF SALAM', 'branch': AppBranch.ho},
-      {'user': 'muhammad yusuf salam', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'MUHAMMAD YUSUF SALAM', 'branch': AppBranch.ho},
-
-      {'user': 'rahmad@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'RAHMAD HIDAYAT', 'branch': AppBranch.ho},
-      {'user': 'rahmad', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'RAHMAD HIDAYAT', 'branch': AppBranch.ho},
-      {'user': 'rahmad hidayat', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'RAHMAD HIDAYAT', 'branch': AppBranch.ho},
-
-      {'user': 'arif@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ARIF SURYA WIDODO', 'branch': AppBranch.ho},
-      {'user': 'arif', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ARIF SURYA WIDODO', 'branch': AppBranch.ho},
-      {'user': 'arif surya widodo', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'ARIF SURYA WIDODO', 'branch': AppBranch.ho},
-
-      {'user': 'riyan@pma.com', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'RIYAN ADNAN', 'branch': AppBranch.ho},
-      {'user': 'riyan', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'RIYAN ADNAN', 'branch': AppBranch.ho},
-      {'user': 'riyan adnan', 'pass': 'teknisi123', 'role': UserRole.petugas, 'name': 'RIYAN ADNAN', 'branch': AppBranch.ho},
-    ];
-
-    // Identitas pendek bisa cocok ke >1 orang (mis. 'alif' = Alif Candra/Bali dan
-    // Alif Ahmad/HO). Utamakan kecocokan persis; kalau masih ambigu, tolak login
-    // supaya absensi tidak tercatat di cabang yang salah.
-    bool identityMatch(Map<String, dynamic> acc, {required bool exactOnly}) {
-      final accUser = (acc['user'] as String).toLowerCase();
-      final accName = (acc['name'] as String).toLowerCase();
-      if (accUser == cleanIdentity || accUser == userPrefix || accName == cleanIdentity) {
-        return true;
-      }
-      return !exactOnly && cleanIdentity.length >= 4 && accName.contains(cleanIdentity);
-    }
-
-    var identityMatches =
-        hardcodedAccounts.where((acc) => identityMatch(acc, exactOnly: true)).toList();
-    if (identityMatches.isEmpty) {
-      identityMatches =
-          hardcodedAccounts.where((acc) => identityMatch(acc, exactOnly: false)).toList();
-      if (identityMatches.map((acc) => acc['name']).toSet().length > 1) return false;
-    }
-
-    for (final acc in identityMatches) {
-      final accPass = (acc['pass'] as String).toLowerCase();
-
-      final matchesPassword = accPass == cleanPass.toLowerCase();
-
-      if (matchesPassword) {
-        final role = acc['role'] as UserRole;
-        final name = acc['name'] as String;
-        final branch = (acc['branch'] as AppBranch?) ?? AppBranch.manado;
         await BranchService.instance.setBranch(branch);
 
-        final emailStr = cleanIdentity.contains('@')
-            ? cleanIdentity
-            : (branch == AppBranch.manado ? '$cleanIdentity@bssparking.id' : '$cleanIdentity@pma.com');
-
         final user = UserModel(
-          id: 'usr_${name.replaceAll(' ', '_').toLowerCase()}',
+          id: record['id'] as String? ?? 'usr_sb',
           nama: name,
-          npp: '${role == UserRole.supervisor ? 'BSS-SPV' : 'BSS-TEK'}-${branch == AppBranch.manado ? '' : '${branch.code}-'}01',
-          email: emailStr,
+          npp:
+              '${role == UserRole.supervisor ? 'BSS-SPV' : 'BSS-TEK'}-${branch == AppBranch.manado ? '' : '${branch.code}-'}01',
+          email: email,
           role: role,
           posId: branch == AppBranch.manado ? 'POS-01' : 'POS-${branch.code}-01',
           posName: branch == AppBranch.manado ? 'Pos Gate Utama' : branch.defaultLocationTag,
           cabangName: branch.name,
         );
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(sessionTokenPrefsKey, token);
+        _sessionToken = token;
+        DailyTaskService.setAuthToken(null);
+
         _currentUser = user;
         await StorageService.saveUser(user);
         await StorageService.saveLastTechnicianName(name);
+        await _saveOfflineCredential(
+          cleanIdentity: cleanIdentity,
+          cleanPassword: cleanPass.toLowerCase(),
+          user: user,
+          token: token,
+        );
+        _lastErrorMessage = null;
         notifyListeners();
         return true;
+      } else if (res.statusCode == 400 || res.statusCode == 401 || res.statusCode == 403) {
+        _lastErrorMessage = 'Username atau password salah.';
+        return false;
+      } else {
+        debugPrint('[AuthRepository] auth-login status: ${res.statusCode}');
       }
+    } catch (e) {
+      debugPrint('[AuthRepository] Online login error, checking fallback: $e');
     }
 
-    return false;
+    return _tryOfflineLogin(
+      cleanIdentity: cleanIdentity,
+      cleanPassword: cleanPass.toLowerCase(),
+    );
   }
 
   Future<void> logout() async {
     _currentUser = null;
+    _sessionToken = null;
     DailyTaskService.stopRealtimeListener();
     DailyTaskService.setAuthToken(null);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(sessionTokenPrefsKey);
     await StorageService.clearUser();
     await StorageService.remove('user');
     notifyListeners();
+  }
+
+  /// Clears session on HTTP 401 from any edge function, routes to login, and shows snackbar.
+  Future<void> handleUnauthorizedSession() async {
+    await logout();
+    final nav = navigatorKey.currentState;
+    if (nav != null) {
+      nav.pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+        (_) => false,
+      );
+    }
+    final messenger = scaffoldMessengerKey.currentState;
+    if (messenger != null) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(content: Text(sessionExpiredMessage)),
+      );
+    }
   }
 
   static final List<UserModel> demoUsers = [
@@ -308,18 +387,18 @@ class AuthRepository extends ChangeNotifier {
   ];
 
   Future<void> init() async {
-    final authToken = StorageService.getString('sb_auth_token') ?? StorageService.getString('pb_auth_token');
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(sessionTokenPrefsKey);
     final savedUser = StorageService.getUser();
 
-    // Pertahankan session jika user valid tersimpan di local storage
-    if (savedUser != null) {
-      _currentUser = savedUser;
-      if (authToken != null && authToken.isNotEmpty) {
-        DailyTaskService.setAuthToken(authToken);
-      }
-    } else {
-      _currentUser = null;
+    if (savedUser == null || !isTokenUnexpired(token)) {
+      await logout();
+      return;
     }
+
+    _currentUser = savedUser;
+    _sessionToken = token;
+    DailyTaskService.setAuthToken(null);
     notifyListeners();
   }
 
@@ -339,6 +418,4 @@ class AuthRepository extends ChangeNotifier {
     await StorageService.saveUser(user);
     notifyListeners();
   }
-
-
 }

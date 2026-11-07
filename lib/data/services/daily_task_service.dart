@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/daily_task_model.dart';
 import '../models/maintenance_submission.dart';
+import '../repositories/auth_repository.dart';
 import '../services/storage_service.dart';
 import '../services/location_service.dart';
 import '../services/branch_service.dart';
@@ -168,6 +169,21 @@ class DailyTaskService {
     'Authorization': 'Bearer $anonKey',
   };
 
+  static String? get sessionToken => AuthRepository.instance.sessionToken;
+
+  static Future<void> handleUnauthorizedSession() =>
+      AuthRepository.instance.handleUnauthorizedSession();
+
+  static Map<String, String> get _functionHeaders {
+    final token = sessionToken;
+    return {
+      ..._headers,
+      if (token != null && token.isNotEmpty) 'x-app-session': token,
+    };
+  }
+
+  static final RegExp _validTaskIdRegex = RegExp(r'^[A-Za-z0-9_-]{1,80}$');
+
   static Map<String, String> get _getHeaders => {
     'Accept': 'application/json',
     'apikey': anonKey,
@@ -205,22 +221,13 @@ class DailyTaskService {
     }
   }
 
-  /// Helper untuk mencocokkan nama teknisi secara fleksibel
+  /// Helper untuk mencocokkan nama teknisi secara presisi (case & whitespace-insensitive)
   static bool _matchesTechnician(String taskTech, String targetTech) {
-    final cleanTarget = targetTech.trim().toLowerCase();
-    final tName = taskTech.trim().toLowerCase();
-    if (cleanTarget.isEmpty) return true;
-    if (tName == cleanTarget) return true;
-    if (tName.contains(cleanTarget) || cleanTarget.contains(tName)) return true;
-    final targetParts = cleanTarget.split(' ').where((p) => p.length >= 3);
-    for (final p in targetParts) {
-      if (tName.contains(p)) return true;
-    }
-    final nameParts = tName.split(' ').where((p) => p.length >= 3);
-    for (final p in nameParts) {
-      if (cleanTarget.contains(p)) return true;
-    }
-    return false;
+    final cleanTarget = targetTech.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    if (cleanTarget.isEmpty) return false;
+    final tName = taskTech.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    if (tName.isEmpty) return false;
+    return tName == cleanTarget;
   }
 
   /// Tugas ini milik/ikut dikerjakan [nama]? Pemilik ATAU teknisi tambahan.
@@ -235,7 +242,7 @@ class DailyTaskService {
   /// PostgREST OR-group yang memuat semua baris yang mungkin lolos [isAssignedTo].
   /// `peserta` berupa teks dipisah koma, jadi pola pada kolomnya cukup.
   static String _assignedOrGroup(String nama) {
-    final cleaned = nama.replaceAll(RegExp(r'[,()*.:\\]'), ' ').trim();
+    final cleaned = nama.replaceAll(RegExp(r'[,()*.:%\\]'), ' ').trim();
     final tokens = cleaned.split(RegExp(r'\s+')).where((p) => p.length >= 2).toSet();
     final needles = tokens.isEmpty ? <String>{cleaned} : tokens;
     final parts = <String>[];
@@ -246,6 +253,9 @@ class DailyTaskService {
     }
     return parts.join(',');
   }
+
+  @visibleForTesting
+  static String assignedOrGroupForTesting(String nama) => _assignedOrGroup(nama);
 
   /// Ambil daftar tugas harian untuk teknisi tertentu (semua tugas pending + tugas hari ini)
   static Future<List<DailyTaskModel>> getTasksForTeknisi({required String tanggal, required String teknisiNama}) async {
@@ -608,7 +618,7 @@ class DailyTaskService {
           'limit': '1',
         },
       );
-      final res = await http.get(uri, headers: _getHeaders).timeout(const Duration(seconds: 7));
+      final res = await _get(uri, headers: _getHeaders).timeout(const Duration(seconds: 7));
       if (res.statusCode != 200) return null;
       final decoded = jsonDecode(res.body);
       if (decoded is List && decoded.isNotEmpty) {
@@ -667,12 +677,15 @@ class DailyTaskService {
 
     DailyTaskModel? resultTask;
     bool rejectedAsDuplicate = false;
+    bool rejectedAuth = false;
 
     try {
-      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable');
-      final body = jsonEncode(payload);
-      final res = await http
-          .post(uri, headers: {..._headers, 'Prefer': 'return=representation'}, body: body)
+      final uri = Uri.parse('$baseUrl/functions/v1/daily-tasks');
+      final body = jsonEncode({
+        'action': 'create',
+        'task': payload,
+      });
+      final res = await _post(uri, headers: _functionHeaders, body: body)
           .timeout(const Duration(seconds: 7));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
@@ -681,7 +694,15 @@ class DailyTaskService {
             ? (decoded.first as Map<String, dynamic>)
             : (decoded as Map<String, dynamic>);
         resultTask = DailyTaskModel.fromJson(map);
-        debugPrint('[DailyTaskService] Task sukses dibuat di Supabase: ${resultTask.id}');
+        debugPrint('[DailyTaskService] Task sukses dibuat via daily-tasks: ${resultTask.id}');
+      } else if (res.statusCode == 401) {
+        rejectedAuth = true;
+        final token = sessionToken;
+        if (token != null && token.isNotEmpty) {
+          unawaited(handleUnauthorizedSession());
+        }
+      } else if (res.statusCode == 403) {
+        rejectedAuth = true;
       } else if (res.statusCode == 409) {
         // Unique index server menolak duplikat: pakai task yang sudah ada.
         rejectedAsDuplicate = true;
@@ -693,10 +714,14 @@ class DailyTaskService {
         );
         debugPrint('[DailyTaskService] Duplikat ditolak server (409). Pakai task lama: ${resultTask?.id}');
       } else {
-        debugPrint('[DailyTaskService] Supabase HTTP status ${res.statusCode}. Menjalankan fallback offline.');
+        debugPrint('[DailyTaskService] daily-tasks HTTP status ${res.statusCode}. Menjalankan fallback offline.');
       }
     } catch (e) {
       debugPrint('[DailyTaskService] createTask error / timeout: $e. Menjalankan fallback offline.');
+    }
+
+    if (rejectedAuth) {
+      return null;
     }
 
     if (resultTask == null && rejectedAsDuplicate) {
@@ -767,6 +792,7 @@ class DailyTaskService {
     required String keTeknisi,
     required String alasan,
     required String olehSiapa,
+    bool requirePendingAndOwnerMatch = false,
   }) async {
     final tujuan = keTeknisi.trim();
     final entry = TaskHandover(
@@ -791,16 +817,51 @@ class DailyTaskService {
     }
 
     try {
-      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(queryParameters: {'id': 'eq.${task.id}'});
-      final res = await http
-          .patch(
+      if (requirePendingAndOwnerMatch) {
+        final expectedOwner = task.teknisiNama.trim();
+        final queryParams = <String, String>{
+          'id': 'eq.${task.id}',
+          'status': 'eq.pending',
+          'teknisi_nama': 'eq.$expectedOwner',
+        };
+        final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(queryParameters: queryParams);
+        final res = await _patch(
+              uri,
+              headers: {..._headers, 'Prefer': 'return=representation'},
+              body: jsonEncode({
+                'teknisi_nama': updated.teknisiNama,
+                'peserta': updated.peserta,
+                'serah_terima': updated.serahTerima,
+                'updated_at': DateTime.now().toUtc().toIso8601String(),
+              }),
+            )
+            .timeout(const Duration(seconds: 15));
+
+        if (res.statusCode == 200 || res.statusCode == 204) {
+          if (res.body.trim().isNotEmpty) {
+            final decoded = jsonDecode(res.body);
+            if (decoded is List && decoded.isEmpty) {
+              debugPrint('[DailyTaskService] Tugas sudah diambil teknisi lain (0 rows updated)');
+              return false;
+            }
+          }
+          await _upsertTaskToLocalCache(updated);
+          return true;
+        }
+        debugPrint('[DailyTaskService] claimTask gagal: ${res.statusCode} ${res.body}');
+        return false;
+      }
+
+      final uri = Uri.parse('$baseUrl/functions/v1/daily-tasks');
+      final res = await _post(
             uri,
-            headers: {..._headers, 'Prefer': 'return=representation'},
+            headers: _functionHeaders,
             body: jsonEncode({
+              'action': 'transfer',
+              'id': task.id,
               'teknisi_nama': updated.teknisiNama,
               'peserta': updated.peserta,
               'serah_terima': updated.serahTerima,
-              'updated_at': DateTime.now().toUtc().toIso8601String(),
             }),
           )
           .timeout(const Duration(seconds: 15));
@@ -808,6 +869,12 @@ class DailyTaskService {
       if (res.statusCode == 200 || res.statusCode == 204) {
         await _upsertTaskToLocalCache(updated);
         return true;
+      }
+      if (res.statusCode == 401) {
+        final token = sessionToken;
+        if (token != null && token.isNotEmpty) {
+          unawaited(handleUnauthorizedSession());
+        }
       }
       debugPrint('[DailyTaskService] transferTask gagal: ${res.statusCode} ${res.body}');
       return false;
@@ -824,6 +891,7 @@ class DailyTaskService {
       keTeknisi: olehSiapa,
       alasan: 'Ambil tugas terbuka',
       olehSiapa: task.handoverDari ?? task.teknisiNama,
+      requirePendingAndOwnerMatch: true,
     );
   }
 
@@ -834,8 +902,19 @@ class DailyTaskService {
 
     if (!task.id.startsWith('local_')) {
       try {
-        final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(queryParameters: {'id': 'eq.${task.id}'});
-        final res = await http.delete(uri, headers: _headers).timeout(const Duration(seconds: 15));
+        final uri = Uri.parse('$baseUrl/functions/v1/daily-tasks');
+        final res = await _post(
+          uri,
+          headers: _functionHeaders,
+          body: jsonEncode({'action': 'delete', 'id': task.id}),
+        ).timeout(const Duration(seconds: 15));
+        if (res.statusCode == 401) {
+          final token = sessionToken;
+          if (token != null && token.isNotEmpty) {
+            unawaited(handleUnauthorizedSession());
+          }
+          return false;
+        }
         if (res.statusCode != 200 && res.statusCode != 204) {
           debugPrint('[DailyTaskService] deleteTask gagal: ${res.statusCode} ${res.body}');
           return false;
@@ -1161,6 +1240,10 @@ class DailyTaskService {
   /// Upload satu foto bukti. `null` = gagal/tidak terbaca (foto dilewati, sama
   /// seperti perilaku loop sekuensial sebelumnya).
   static Future<String?> _uploadBuktiFoto(String filePath, {required String taskId, required int index}) async {
+    if (!_validTaskIdRegex.hasMatch(taskId)) {
+      debugPrint('[DailyTaskService] Invalid taskId rejected for upload: $taskId');
+      return null;
+    }
     try {
       final fileName = 'proof_${taskId}_${index + 1}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final uploadUri = Uri.parse('$baseUrl/storage/v1/object/task-proofs/$fileName');
@@ -1185,6 +1268,14 @@ class DailyTaskService {
       return null;
     }
   }
+
+  @visibleForTesting
+  static Future<String?> uploadBuktiFotoForTesting(
+    String filePath, {
+    required String taskId,
+    int index = 0,
+  }) =>
+      _uploadBuktiFoto(filePath, taskId: taskId, index: index);
 
   /// Baca byte bukti foto. Di web path-nya `blob:` URL dan `File` tidak ada,
   /// jadi harus lewat fetch browser.
@@ -1745,7 +1836,7 @@ class DailyTaskService {
       final list = StorageService.getStringList(_kPendingTaskCreations) ?? [];
       if (list.isEmpty) return 0;
 
-      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable');
+      final uri = Uri.parse('$baseUrl/functions/v1/daily-tasks');
       final remaining = <String>[];
       int flushed = 0;
 
@@ -1753,7 +1844,7 @@ class DailyTaskService {
         try {
           final item = jsonDecode(itemStr) as Map<String, dynamic>;
           final localId = item['localId'] as String;
-          final payload = item['payload'] as Map<String, dynamic>;
+          final payload = Map<String, dynamic>.from(item['payload'] as Map);
 
           // Kasus paling rawan: insert pertama sudah masuk server tapi responsnya
           // putus (timeout), lalu item ini diantre ulang. Cek dulu sebelum kirim.
@@ -1775,9 +1866,15 @@ class DailyTaskService {
             continue;
           }
 
-          final res = await http
-              .post(uri, headers: {..._headers, 'Prefer': 'return=representation'}, body: jsonEncode(payload))
-              .timeout(const Duration(seconds: 7));
+          if (localId.startsWith('local_')) {
+            payload['id'] = 'task_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(9000) + 1000}';
+          }
+
+          final res = await _post(
+            uri,
+            headers: _functionHeaders,
+            body: jsonEncode({'action': 'create', 'task': payload}),
+          ).timeout(const Duration(seconds: 7));
 
           if (res.statusCode == 200 || res.statusCode == 201) {
             flushed++;
@@ -1800,6 +1897,15 @@ class DailyTaskService {
             } else {
               remaining.add(itemStr);
             }
+          } else if (res.statusCode == 401 || res.statusCode == 403) {
+            if (res.statusCode == 401) {
+              final token = sessionToken;
+              if (token != null && token.isNotEmpty) {
+                unawaited(handleUnauthorizedSession());
+              }
+            }
+            remaining.add(itemStr);
+            break;
           } else if (res.statusCode >= 400 && res.statusCode < 500) {
             debugPrint('[DailyTaskService] Drop invalid pending task: ${res.statusCode}');
           } else {

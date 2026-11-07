@@ -63,6 +63,8 @@ class PmaApp extends StatelessWidget {
         return MaterialApp(
           title: 'PMA App',
           debugShowCheckedModeBanner: false,
+          navigatorKey: AuthRepository.navigatorKey,
+          scaffoldMessengerKey: AuthRepository.scaffoldMessengerKey,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: currentMode,

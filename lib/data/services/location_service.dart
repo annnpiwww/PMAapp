@@ -979,6 +979,11 @@ class LocationService {
     _lastLocationFetchTime = null;
   }
 
+  /// Override hasil lokasi untuk unit/widget testing (SEC-06).
+  @visibleForTesting
+  static Future<LocationResult> Function()? testLocationOverride;
+  static bool get hasTestLocationOverride => testLocationOverride != null;
+
   /// Cari PosLocation berdasarkan tag (misal 'PBM', 'TBM', 'PBKD'), nama pos, atau kata kunci teks tugas
   static PosLocation? findPosByTagOrName(String query, {AppBranch? branch}) {
     final q = query.trim().toLowerCase();
@@ -1268,6 +1273,7 @@ class LocationService {
     final queue = StorageService.getLocationImportQueue();
     if (queue.isEmpty) return;
 
+    final token = DailyTaskService.sessionToken;
     final remaining = List<PosLocation>.from(queue);
     final client = _client;
 
@@ -1289,6 +1295,7 @@ class LocationService {
                 'apikey': DailyTaskService.anonKey,
                 'Authorization': 'Bearer ${DailyTaskService.anonKey}',
                 'Content-Type': 'application/json',
+                if (token != null && token.isNotEmpty) 'x-app-session': token,
               },
               body: jsonEncode(body),
             )
@@ -1300,6 +1307,9 @@ class LocationService {
           remaining.removeRange(0, chunk.length);
           await StorageService.saveLocationImportQueue(queue);
         } else {
+          if (res.statusCode == 401 && token != null && token.isNotEmpty) {
+            unawaited(DailyTaskService.handleUnauthorizedSession());
+          }
           break;
         }
       } catch (_) {
@@ -1308,21 +1318,20 @@ class LocationService {
     }
   }
 
-  /// SPV write. On ok also updates the local list. Never stores the password.
+  /// SPV write. On ok also updates the local list. Sends x-app-session header and never sends password.
   static Future<RemoteWriteResult> saveLocationRemote(
     PosLocation pos, {
-    required String identity,
-    required String password,
+    String identity = '',
+    String password = '',
   }) async {
     try {
       final uri = Uri.parse(
         '${DailyTaskService.baseUrl}/functions/v1/pos-locations',
       );
       final client = _client;
+      final token = DailyTaskService.sessionToken;
       final body = {
         'action': 'upsert',
-        'identity': identity,
-        'password': password,
         'location': pos.toRemoteJson(),
       };
 
@@ -1333,6 +1342,7 @@ class LocationService {
               'apikey': DailyTaskService.anonKey,
               'Authorization': 'Bearer ${DailyTaskService.anonKey}',
               'Content-Type': 'application/json',
+              if (token != null && token.isNotEmpty) 'x-app-session': token,
             },
             body: jsonEncode(body),
           )
@@ -1352,6 +1362,9 @@ class LocationService {
         clearLocationCache();
         return RemoteWriteResult.ok;
       } else if (res.statusCode == 401) {
+        if (token != null && token.isNotEmpty) {
+          unawaited(DailyTaskService.handleUnauthorizedSession());
+        }
         return RemoteWriteResult.invalidCredentials;
       } else if (res.statusCode == 403) {
         return RemoteWriteResult.notSupervisor;
@@ -1375,18 +1388,17 @@ class LocationService {
 
   static Future<RemoteWriteResult> deleteLocationRemote(
     String posId, {
-    required String identity,
-    required String password,
+    String identity = '',
+    String password = '',
   }) async {
     try {
       final uri = Uri.parse(
         '${DailyTaskService.baseUrl}/functions/v1/pos-locations',
       );
       final client = _client;
+      final token = DailyTaskService.sessionToken;
       final body = {
         'action': 'delete',
-        'identity': identity,
-        'password': password,
         'pos_id': posId,
       };
 
@@ -1397,6 +1409,7 @@ class LocationService {
               'apikey': DailyTaskService.anonKey,
               'Authorization': 'Bearer ${DailyTaskService.anonKey}',
               'Content-Type': 'application/json',
+              if (token != null && token.isNotEmpty) 'x-app-session': token,
             },
             body: jsonEncode(body),
           )
@@ -1411,6 +1424,9 @@ class LocationService {
         clearLocationCache();
         return RemoteWriteResult.ok;
       } else if (res.statusCode == 401) {
+        if (token != null && token.isNotEmpty) {
+          unawaited(DailyTaskService.handleUnauthorizedSession());
+        }
         return RemoteWriteResult.invalidCredentials;
       } else if (res.statusCode == 403) {
         return RemoteWriteResult.notSupervisor;
@@ -1472,6 +1488,13 @@ class LocationService {
   static Future<LocationResult> getCurrentLocation({
     bool simulateGpsOff = false,
   }) async {
+    if (testLocationOverride != null) {
+      final res = await testLocationOverride!();
+      _cachedLocationResult = res;
+      _lastLocationFetchTime = DateTime.now();
+      return res;
+    }
+
     final pos = currentPos;
 
     if (simulateGpsOff) {
@@ -1579,11 +1602,10 @@ class LocationService {
       }
     } catch (_) {}
 
-    // SEC-03 HONEY: Fallback honey — titik pos penugasan, bukan GPS hardware. Caller WAJIB cek isFallback/isDefaultFallback sebelum pakai koordinat.
-    // Fallback tetap ada untuk UX offline, tapi status fallback tidak boleh diabaikan (jangan treat sebagai lokasi valid).
+    // SEC-06: Jangan pernah mensubstitusi koordinat resmi POS ketika GPS belum mengunci.
     _cachedLocationResult = LocationResult(
-      lat: pos.lat,
-      lng: pos.lng,
+      lat: 0.0,
+      lng: 0.0,
       accuracyMeter: 0,
       isGpsEnabled: false,
       isMockLocation: false,
