@@ -4,24 +4,30 @@ import 'package:path_provider/path_provider.dart';
 
 class PhotoCleanupService {
   /// Bersihkan file temporary foto di cache / app doc yang usianya > [maxDays] hari
-  static Future<int> cleanOldPhotos({int maxDays = 7}) async {
-    if (kIsWeb) return 0;
+  static Future<int> cleanOldPhotos({
+    int maxDays = 7,
+    @visibleForTesting List<Directory>? targetDirs,
+  }) async {
+    if (kIsWeb && targetDirs == null) return 0;
     int deletedCount = 0;
     try {
       final now = DateTime.now();
       final threshold = Duration(days: maxDays);
 
       final dirs = <Directory>[];
+      if (targetDirs != null) {
+        dirs.addAll(targetDirs);
+      } else {
+        try {
+          final tempDir = await getTemporaryDirectory();
+          dirs.add(tempDir);
+        } catch (_) {}
 
-      try {
-        final tempDir = await getTemporaryDirectory();
-        dirs.add(tempDir);
-      } catch (_) {}
-
-      try {
-        final appDocDir = await getApplicationDocumentsDirectory();
-        dirs.add(appDocDir);
-      } catch (_) {}
+        try {
+          final appDocDir = await getApplicationDocumentsDirectory();
+          dirs.add(appDocDir);
+        } catch (_) {}
+      }
 
       for (final dir in dirs) {
         if (!dir.existsSync()) continue;

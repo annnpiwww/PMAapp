@@ -41,7 +41,15 @@ class StorageService {
   static SharedPreferences? _prefs;
 
   static Future<void> init() async {
-    _prefs = await SharedPreferences.getInstance();
+    final newPrefs = await SharedPreferences.getInstance();
+    // Invalidate in-memory caches when binding a new SharedPreferences instance (CODE-17)
+    if (_prefs != newPrefs) {
+      _prefs = newPrefs;
+      _submissionsCache = null;
+      _attendanceRecordsCache = null;
+      _maintenanceSubmissionsCache = null;
+      _rawMaintenanceJsonList = null;
+    }
     // Sisa pref bypass QA dari versi lama dibersihkan sekali di sini.
     await _prefs?.remove('bss_spv_qa_bypass_mode_v1');
   }
@@ -53,7 +61,17 @@ class StorageService {
   static Future<bool>? setStringList(String key, List<String> val) => _prefs?.setStringList(key, val);
   static bool? getBool(String key) => _prefs?.getBool(key);
   static Future<bool>? setBool(String key, bool val) => _prefs?.setBool(key, val);
-  static Future<bool>? remove(String key) => _prefs?.remove(key);
+  static Future<bool>? remove(String key) {
+    if (key == _keyAttendanceRecords) {
+      _attendanceRecordsCache = null;
+    } else if (key == _keySubmissions) {
+      _submissionsCache = null;
+    } else if (key == _keyMaintenanceSubmissions) {
+      _maintenanceSubmissionsCache = null;
+      _rawMaintenanceJsonList = null;
+    }
+    return _prefs?.remove(key);
+  }
 
   // --- TECHNICIAN SUPPORT NAME ---
   static String getLastTechnicianName() {
@@ -233,6 +251,31 @@ class StorageService {
   /// Batas maksimal riwayat tersimpan di SharedPreferences untuk menjaga performa & memori HP
   static const int maxStoredSubmissions = 150;
 
+  // --- IN-MEMORY CACHES (CODE-17 & CODE-18) ---
+  static List<SubmissionModel>? _submissionsCache;
+  @visibleForTesting
+  static int submissionsDecodeCountForTesting = 0;
+
+  static List<AttendanceRecord>? _attendanceRecordsCache;
+  @visibleForTesting
+  static int attendanceRecordsDecodeCountForTesting = 0;
+
+  static List<MaintenanceSubmission>? _maintenanceSubmissionsCache;
+  static List<Map<String, dynamic>>? _rawMaintenanceJsonList;
+  @visibleForTesting
+  static int maintenanceSaveCountForTesting = 0;
+
+  @visibleForTesting
+  static void resetForTesting() {
+    _submissionsCache = null;
+    _attendanceRecordsCache = null;
+    _maintenanceSubmissionsCache = null;
+    _rawMaintenanceJsonList = null;
+    submissionsDecodeCountForTesting = 0;
+    attendanceRecordsDecodeCountForTesting = 0;
+    maintenanceSaveCountForTesting = 0;
+  }
+
   // --- SUBMISSIONS ---
   static Future<void> saveSubmissions(List<SubmissionModel> submissions) async {
     await init();
@@ -242,18 +285,22 @@ class StorageService {
     final pruned = sorted.length > maxStoredSubmissions
         ? sorted.sublist(0, maxStoredSubmissions)
         : sorted;
+    _submissionsCache = pruned;
     final listJson = pruned.map((s) => s.toJson()).toList();
     await _prefs?.setString(_keySubmissions, jsonEncode(listJson));
   }
 
   static List<SubmissionModel>? getSubmissions() {
+    if (_submissionsCache != null) return _submissionsCache;
     final str = _prefs?.getString(_keySubmissions);
     if (str == null) return null;
     try {
+      submissionsDecodeCountForTesting++;
       final decoded = jsonDecode(str) as List<dynamic>;
-      return decoded
+      _submissionsCache = decoded
           .map((e) => SubmissionModel.fromJson(e as Map<String, dynamic>))
           .toList();
+      return _submissionsCache;
     } catch (_) {
       return null;
     }
@@ -302,10 +349,14 @@ class StorageService {
       };
       final isLegacyModel = legacyModels.contains(raw.modelName);
 
-      // Migrasi key lama: kosong, prefix sk- (Omniroute/OpenAI), atau mengandung omniroute
-      final isLegacyKey = raw.apiKey.trim().isEmpty ||
-          raw.apiKey.startsWith('sk-') ||
-          raw.apiKey.toLowerCase().contains('omniroute');
+      // Migrasi key lama: prefix sk- (Omniroute/OpenAI), mengandung omniroute,
+      // atau key bawaan lama (53 karakter berawalan AQ.) yang dulu tersimpan di lokal.
+      final trimmedKey = raw.apiKey.trim();
+      final isOldEmbeddedKey =
+          trimmedKey.length == 53 && trimmedKey.startsWith('AQ.');
+      final isLegacyKey = trimmedKey.startsWith('sk-') ||
+          trimmedKey.toLowerCase().contains('omniroute') ||
+          isOldEmbeddedKey;
 
       // Migrasi timeout lama: jika di storage masih 10s atau < 25s, upgrade ke 25s
       final isLowTimeout = raw.timeoutSeconds < AiVisionConfig.perModelTimeoutSeconds;
@@ -459,37 +510,88 @@ class StorageService {
   // --- MAINTENANCE SUBMISSIONS (per-point) ---
   static Future<void> saveMaintenanceSubmissions(List<MaintenanceSubmission> list) async {
     await init();
+    maintenanceSaveCountForTesting++;
     // Pruning otomatis: simpan maksimal 150 riwayat maintenance terbaru (urut timestamp descending)
     final sorted = List<MaintenanceSubmission>.from(list)
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final pruned = sorted.length > maxStoredSubmissions
         ? sorted.sublist(0, maxStoredSubmissions)
         : sorted;
+    _maintenanceSubmissionsCache = pruned;
     final j = pruned.map((e) => e.toJson()).toList();
+    _rawMaintenanceJsonList = j;
     await _prefs?.setString(_keyMaintenanceSubmissions, jsonEncode(j));
   }
 
   static List<MaintenanceSubmission>? getMaintenanceSubmissions() {
+    if (_maintenanceSubmissionsCache != null) return _maintenanceSubmissionsCache;
     final str = _prefs?.getString(_keyMaintenanceSubmissions);
     if (str == null) return null;
     try {
       final d = jsonDecode(str) as List<dynamic>;
-      return d.map((e) => MaintenanceSubmission.fromJson(e as Map<String, dynamic>)).toList();
+      _rawMaintenanceJsonList = d.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      _maintenanceSubmissionsCache = _rawMaintenanceJsonList!
+          .map((e) => MaintenanceSubmission.fromJson(e))
+          .toList();
+      return _maintenanceSubmissionsCache;
     } catch (_) {
       return null;
     }
   }
 
+  /// Incremental per-draft upsert (CODE-18):
+  /// Only serializes [submission], preserving existing raw JSON for all other drafts.
+  static Future<void> upsertMaintenanceSubmission(MaintenanceSubmission submission) async {
+    await init();
+    maintenanceSaveCountForTesting++;
+    if (_rawMaintenanceJsonList == null) {
+      getMaintenanceSubmissions();
+    }
+    _rawMaintenanceJsonList ??= [];
+    _maintenanceSubmissionsCache ??= [];
+
+    final rawJson = submission.toJson();
+    final rawIdx = _rawMaintenanceJsonList!.indexWhere((e) => e['id'] == submission.id);
+    if (rawIdx >= 0) {
+      _rawMaintenanceJsonList![rawIdx] = rawJson;
+    } else {
+      _rawMaintenanceJsonList!.insert(0, rawJson);
+      _rawMaintenanceJsonList!.sort((a, b) {
+        final aTime = DateTime.tryParse(a['createdAt']?.toString() ?? '') ?? DateTime(1970);
+        final bTime = DateTime.tryParse(b['createdAt']?.toString() ?? '') ?? DateTime(1970);
+        return bTime.compareTo(aTime);
+      });
+      if (_rawMaintenanceJsonList!.length > maxStoredSubmissions) {
+        _rawMaintenanceJsonList!.removeRange(maxStoredSubmissions, _rawMaintenanceJsonList!.length);
+      }
+    }
+
+    final cacheIdx = _maintenanceSubmissionsCache!.indexWhere((e) => e.id == submission.id);
+    if (cacheIdx >= 0) {
+      _maintenanceSubmissionsCache![cacheIdx] = submission;
+    } else {
+      _maintenanceSubmissionsCache!.insert(0, submission);
+      _maintenanceSubmissionsCache!.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      if (_maintenanceSubmissionsCache!.length > maxStoredSubmissions) {
+        _maintenanceSubmissionsCache!.removeRange(maxStoredSubmissions, _maintenanceSubmissionsCache!.length);
+      }
+    }
+
+    await _prefs?.setString(_keyMaintenanceSubmissions, jsonEncode(_rawMaintenanceJsonList));
+  }
+
   static Future<void> deleteMaintenanceSubmission(String id) async {
     final list = getMaintenanceSubmissions() ?? [];
     list.removeWhere((e) => e.id == id);
+    _maintenanceSubmissionsCache = list;
+    _rawMaintenanceJsonList?.removeWhere((e) => e['id'] == id);
     await saveMaintenanceSubmissions(list);
   }
-
 
   static Future<void> deleteSubmission(String id) async {
     final list = getSubmissions() ?? [];
     list.removeWhere((e) => e.id == id);
+    _submissionsCache = list;
     await saveSubmissions(list);
   }
 
@@ -498,6 +600,9 @@ class StorageService {
 
   // --- ATTENDANCE RECORDS ---
   static List<AttendanceRecord> getAttendanceRecords() {
+    if (_attendanceRecordsCache != null) return _attendanceRecordsCache!;
+
+    attendanceRecordsDecodeCountForTesting++;
     // 1. Coba baca sebagai JSON String
     final str = _prefs?.getString(_keyAttendanceRecords);
     if (str != null && str.isNotEmpty) {
@@ -507,6 +612,7 @@ class StorageService {
             .map((e) => AttendanceRecord.fromJson(e as Map<String, dynamic>))
             .toList();
         list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        _attendanceRecordsCache = list;
         return list;
       } catch (_) {}
     }
@@ -519,15 +625,18 @@ class StorageService {
             .map((e) => AttendanceRecord.fromJson(jsonDecode(e) as Map<String, dynamic>))
             .toList();
         list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        _attendanceRecordsCache = list;
         return list;
       } catch (_) {}
     }
 
+    _attendanceRecordsCache = [];
     return [];
   }
 
   static Future<void> _saveAttendanceRecordsInternal(List<AttendanceRecord> records) async {
     await init();
+    _attendanceRecordsCache = records;
     final listJson = records.map((r) => r.toJson()).toList();
     await _prefs?.setString(_keyAttendanceRecords, jsonEncode(listJson));
   }
@@ -580,6 +689,7 @@ class StorageService {
         } catch (_) {}
       }
     }
+    _attendanceRecordsCache = [];
     await _prefs?.remove(_keyAttendanceRecords);
   }
 
@@ -636,6 +746,7 @@ class StorageService {
   static Future<void> clearAttendanceRecords() async {
     await init();
     await clearAllPhotoBlobs();
+    _attendanceRecordsCache = [];
     await _prefs?.remove(_keyAttendanceRecords);
   }
 
