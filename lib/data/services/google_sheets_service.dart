@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/maintenance_submission.dart';
 import '../models/template_model.dart';
+import '../repositories/auth_repository.dart';
 import '../../core/services/logger_service.dart';
+import 'daily_task_service.dart';
 import 'whatsapp_report_service.dart';
 import 'secure_time_service.dart';
 
@@ -26,6 +28,24 @@ class GoogleSheetsService {
     'BSS_GSHEET_TOKEN',
   );
 
+  /// SEC-08: Formula injection prevention.
+  /// Prefixes any cell value starting with [=+\-@\t\r] with a single quote (')
+  /// so spreadsheet engines treat it as plain text instead of executing formulas.
+  @visibleForTesting
+  static String sanitizeForSheet(String value) {
+    if (value.isEmpty) return value;
+    final firstChar = value[0];
+    if (firstChar == '=' ||
+        firstChar == '+' ||
+        firstChar == '-' ||
+        firstChar == '@' ||
+        firstChar == '\t' ||
+        firstChar == '\r') {
+      return "'$value";
+    }
+    return value;
+  }
+
   static Future<String> getSecretToken() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -42,12 +62,18 @@ class GoogleSheetsService {
     } catch (_) {}
   }
 
+  static String get defaultEndpointUrl =>
+      '${DailyTaskService.baseUrl}/functions/v1/sheets-sync';
+
   static Future<String> getAppsScriptUrl() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_kAppsScriptUrl) ?? defaultAppsScriptUrl;
+      final custom = prefs.getString(_kAppsScriptUrl);
+      if (custom != null && custom.isNotEmpty) return custom;
+      if (defaultAppsScriptUrl.isNotEmpty) return defaultAppsScriptUrl;
+      return defaultEndpointUrl;
     } catch (_) {
-      return defaultAppsScriptUrl;
+      return defaultAppsScriptUrl.isNotEmpty ? defaultAppsScriptUrl : defaultEndpointUrl;
     }
   }
 
@@ -60,6 +86,22 @@ class GoogleSheetsService {
 
 
 
+  @visibleForTesting
+  static http.Client? clientOverride;
+
+  static Future<http.Response> _post(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) =>
+      clientOverride?.post(uri, headers: headers, body: body) ??
+      http.post(uri, headers: headers, body: body);
+
+  static bool _isSuccessOrRedirect(int statusCode) =>
+      (statusCode >= 200 && statusCode < 300) ||
+      statusCode == 302 ||
+      statusCode == 303;
+
   /// Sinkronisasi otomatis data maintenance ke Google Sheets (Database SPV)
   /// Mengirimkan data terstruktur: tanggal, lokasi, teknisi, perangkat,
   /// jumlah poin lolos, dan daftar masalah/perbaikan yang ditemukan.
@@ -68,6 +110,7 @@ class GoogleSheetsService {
     required TemplateCategory category,
     int? unitCount,
   }) async {
+    Map<String, dynamic>? payload;
     try {
       final url = await getAppsScriptUrl();
       if (url.isEmpty) return false;
@@ -75,11 +118,9 @@ class GoogleSheetsService {
       final uri = Uri.parse(url);
       final secretToken = await getSecretToken();
 
-      // Kumpulkan temuan masalah (poin tidakSesuai atau perluCekManual) dengan bullet rapi
+      // CODE-03: perlu_cek_manual bukan temuan; hanya tidakSesuai yang dihitung sebagai masalah
       final issues = submission.points
-          .where((p) =>
-              p.status == PointStatus.tidakSesuai ||
-              p.status == PointStatus.perluCekManual)
+          .where((p) => p.status == PointStatus.tidakSesuai)
           .map((p) {
             final urgensiTag = p.urgensi == TingkatUrgensi.normal ? '' : ' [${p.urgensi.label.toUpperCase()}]';
             return '⚠️ ${p.label}: ${p.alasan.isNotEmpty ? p.alasan : "Perlu perbaikan"}$urgensiTag';
@@ -127,45 +168,49 @@ class GoogleSheetsService {
 
       final itSupportName = submission.userName.isNotEmpty ? submission.userName : 'Teknisi BSS';
 
-      final payload = {
+      payload = {
         'action': 'sync_maintenance',
         'secretToken': secretToken,
         'id': submission.id,
-        // Sesuai 5 kolom utama Google Sheet
-        'tanggal': tanggalDisplay,
-        'lokasi': fullLokasi,
-        'itSupport': itSupportName,
-        'approve': poinLolos.isNotEmpty ? poinLolos.join('\n') : '-',
-        'perluPerbaikan': issues.isNotEmpty ? issues.join('\n') : '-',
+        // Sesuai 5 kolom utama Google Sheet (dengan sanitasi formula SEC-08)
+        'tanggal': sanitizeForSheet(tanggalDisplay),
+        'lokasi': sanitizeForSheet(fullLokasi),
+        'itSupport': sanitizeForSheet(itSupportName),
+        'approve': sanitizeForSheet(poinLolos.isNotEmpty ? poinLolos.join('\n') : '-'),
+        'perluPerbaikan': sanitizeForSheet(issues.isNotEmpty ? issues.join('\n') : '-'),
         // Metadata tambahan
-        'perangkat': submission.templateName,
+        'perangkat': sanitizeForSheet(submission.templateName),
         'totalPoin': submission.totalPoints,
         'poinLolosCount': submission.sesuaiCount,
         'poinMasalahCount': issues.length,
-        'poinTidakTerpasang': poinTidakTerpasang.isNotEmpty ? poinTidakTerpasang.join('\n') : '-',
+        'poinTidakTerpasang': sanitizeForSheet(poinTidakTerpasang.isNotEmpty ? poinTidakTerpasang.join('\n') : '-'),
         'poinTidakTerpasangCount': poinTidakTerpasang.length,
-        'daftarUrgent': poinUrgent.isNotEmpty ? poinUrgent.join('\n') : '-',
+        'daftarUrgent': sanitizeForSheet(poinUrgent.isNotEmpty ? poinUrgent.join('\n') : '-'),
         'urgentCount': submission.urgentCount,
         'isTimeTampered': isTimeTampered,
-        'timeWarning': timeWarning,
+        'timeWarning': timeWarning != null ? sanitizeForSheet(timeWarning) : null,
         'timestamp': DateTime.now().toIso8601String(),
       };
 
       debugPrint('[GoogleSheets] Mengirim data maintenance ${submission.id} ke GSheet (Secured Token)...');
 
-      final response = await http
-          .post(
+      final sessionToken = AuthRepository.instance.sessionToken;
+      final response = await _post(
             uri,
             headers: {
               'Content-Type': 'application/json',
-              'X-Auth-Token': secretToken,
+              'apikey': DailyTaskService.anonKey,
+              'Authorization': 'Bearer ${DailyTaskService.anonKey}',
+              if (sessionToken != null && sessionToken.isNotEmpty)
+                'x-app-session': sessionToken,
+              if (secretToken.isNotEmpty) 'X-Auth-Token': secretToken,
             },
             body: jsonEncode(payload),
           )
           .timeout(const Duration(seconds: 12));
 
       debugPrint('[GoogleSheets] Response status: ${response.statusCode}');
-      final success = response.statusCode >= 200 && response.statusCode < 300;
+      final success = _isSuccessOrRedirect(response.statusCode);
       if (success) {
         // Jika berhasil, coba flush antrean offline yang tertunda jika ada
         unawaited(flushPendingQueue());
@@ -175,29 +220,11 @@ class GoogleSheetsService {
       return success;
     } catch (e) {
       debugPrint('[GoogleSheets] Gagal sync ke GSheet (Offline / RTO): $e. Menyimpan ke antrean offline.');
-      // Simpan ke antrean lokal agar tidak hilang saat teknisi di basement/dead-zone
+      // Simpan payload lengkap 19 field ke antrean lokal agar metadata tidak hilang saat offline
       try {
-        final secretToken = await getSecretToken();
-        final now = submission.createdAt.toLocal();
-        final dateStr = WhatsAppReportService.formatIndonesianDate(now);
-        final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} WITA';
-        final isTimeTampered = SecureTimeService.isTampered;
-        final timeWarning = isTimeTampered ? SecureTimeService.warningTag ?? '[JAM DIUBAH MANUAL]' : null;
-        final tanggalDisplay = timeWarning != null ? '$dateStr $timeStr $timeWarning' : '$dateStr $timeStr';
-
-        await _enqueuePendingPayload({
-          'action': 'sync_maintenance',
-          'secretToken': secretToken,
-          'id': submission.id,
-          'tanggal': tanggalDisplay,
-          'lokasi': submission.posName,
-          'itSupport': submission.userName,
-          'approve': submission.points.where((p) => p.status == PointStatus.sesuai).map((p) => '✓ ${p.label}').join('\n'),
-          'perluPerbaikan': submission.points.where((p) => p.status != PointStatus.sesuai && p.status != PointStatus.belumFoto).map((p) => '⚠️ ${p.label}: ${p.alasan}').join('\n'),
-          'isTimeTampered': isTimeTampered,
-          'timeWarning': timeWarning,
-          'timestamp': DateTime.now().toIso8601String(),
-        });
+        if (payload != null) {
+          await _enqueuePendingPayload(payload);
+        }
       } catch (e, stack) {
         LoggerService.error('Failed to sync or enqueue maintenance to Google Sheets', tag: 'GoogleSheetsService', error: e, stackTrace: stack);
       }
@@ -233,18 +260,23 @@ class GoogleSheetsService {
       final remaining = <String>[];
       int flushedCount = 0;
 
+      final sessionToken = AuthRepository.instance.sessionToken;
       for (final item in listStr) {
         try {
-          final res = await http.post(
+          final res = await _post(
             uri,
             headers: {
               'Content-Type': 'application/json',
-              'X-Auth-Token': secretToken,
+              'apikey': DailyTaskService.anonKey,
+              'Authorization': 'Bearer ${DailyTaskService.anonKey}',
+              if (sessionToken != null && sessionToken.isNotEmpty)
+                'x-app-session': sessionToken,
+              if (secretToken.isNotEmpty) 'X-Auth-Token': secretToken,
             },
             body: item,
           ).timeout(const Duration(seconds: 10));
 
-          if (res.statusCode >= 200 && res.statusCode < 300) {
+          if (_isSuccessOrRedirect(res.statusCode)) {
             flushedCount++;
           } else if (res.statusCode >= 400 && res.statusCode < 500) {
             // Client error (400 Bad Request / 401 Unauthorized / malformed data):
