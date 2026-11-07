@@ -30,18 +30,19 @@ class WhatsNewService {
 
   /// Diisi ulang tiap versi naik, bareng bump di pubspec.yaml.
   static const WhatsNewRelease current = WhatsNewRelease(
-    version: '2.0.132',
-    date: '5 November 2026',
+    version: '2.0.133',
+    date: '7 November 2026',
     features: [
-      'Map Maintenance: lihat lokasi mana yang bermasalah, sekarang untuk Manado, Bali, dan HO',
-      'SPV bisa isi alamat lokasi, titik di peta otomatis mengikuti alamat',
-      'Analisa ulang foto dengan AI saat koneksi gagal, tanpa foto ulang',
-      'Teknisi bisa ganti shift kalau salah pilih saat absen',
-      'Halaman Daily Task SPV lebih ringkas, tombol Buat Tugas di kanan bawah',
+      'AI cek foto lebih akurat (temuan palsu dikurangi)',
+      'Login sekarang dicek server, akun offline hanya untuk yang pernah login online di HP ini',
+      'Absen dikunci kalau GPS belum dapat lokasi atau lokasi palsu',
+      'Foto absen tidak lagi tersimpan ke galeri',
+      'Pulang telat lintas tengah malam dan label telat shift malam sudah benar',
+      'Tampilan lebih rapi di HP layar kecil dan peta ikut tema gelap',
     ],
-    aiNote: 'AI lebih cepat membalas, dengan cadangan otomatis saat server AI sibuk',
-    mapNote: 'Buka dari menu samping, pilih Map Maintenance.',
-    bugfix: 'Beberapa bug sudah diperbaiki dan aplikasi lebih ringan saat memuat tugas.',
+    aiNote: 'Setelah update, login online sekali dulu supaya login offline bisa dipakai.',
+    mapNote: 'Peta maintenance mengikuti tema gelap HP.',
+    bugfix: 'Beberapa bug sudah diperbaiki dan sistem login lebih aman.',
   );
 
   /// `seen` kosong berarti aplikasi belum pernah mencatat versi di perangkat ini.

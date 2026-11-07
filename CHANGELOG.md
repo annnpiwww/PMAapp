@@ -2,6 +2,30 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.133+2146] - 2026-11-07
+
+### 🎯 Highlight Utama
+1. **AI Cek Foto Lebih Akurat**:
+   - Temuan palsu pada foto maintenance dan absensi dikurangi secara signifikan.
+2. **Login Server dan Akun Offline Aman**:
+   - Login sekarang dicek langsung oleh server. Akun offline hanya untuk yang pernah login online di HP ini.
+   - *Catatan:* Setelah update, login online sekali dulu supaya login offline bisa dipakai.
+3. **Absen Anti Lokasi Palsu dan GPS Lock**:
+   - Absen dikunci jika GPS belum mengunci lokasi akurat atau terdeteksi lokasi palsu.
+4. **Foto Absen Tidak Masuk Galeri**:
+   - Foto bukti absensi tidak lagi tersimpan ke galeri perangkat.
+5. **Perbaikan Waktu dan Label Shift Malam**:
+   - Pulang telat lintas tengah malam dan label telat shift malam sudah dihitung dengan benar.
+6. **Optimasi Tampilan dan Tema Gelap**:
+   - Tampilan lebih rapi di HP layar kecil dan peta maintenance ikut tema gelap HP.
+
+### 🔒 Keamanan
+- Token sesi HMAC-SHA256 (`x-app-session`) dengan hashing password server PBKDF2-SHA256.
+- Endpoint proxy AI dilindungi limit ukuran payload 8MB dan model allowlist.
+- Mutasi daily task SPV dikelola server Edge Function dengan validasi role SPV.
+
+---
+
 ## [2.0.132+2145] - 2026-11-05
 
 ### 🎯 Highlight Utama
