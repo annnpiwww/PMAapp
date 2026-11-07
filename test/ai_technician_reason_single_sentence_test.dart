@@ -23,5 +23,12 @@ void main() {
       final cleaned = AiVisionService.cleanTechnicianReason(raw);
       expect(cleaned.toLowerCase(), contains('terdapat temuan plat besi yang mengalami kerusakan fisik'));
     });
+
+    test('Mempertahankan kalimat pertama pendek >= 4 karakter seperti Aman. atau Sesuai.', () {
+      expect(
+        AiVisionService.cleanTechnicianReason('Aman. Namun sudut agak gelap.'),
+        equals('Aman'),
+      );
+    });
   });
 }

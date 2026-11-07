@@ -61,9 +61,11 @@ void main() {
     test('CELAH 2: Kredensial Default Terintegrasi Google AI Studio (Free Tier)', () {
       // GSheets token wajib via environment/settings
       expect(GoogleSheetsService.defaultSecretToken, isEmpty);
-      // AI Vision terintegrasi Google AI Studio API key
-      expect(AiVisionConfig.defaultApiKey, isNotEmpty);
-      expect(AiVisionConfig.defaultApiKey, startsWith('AQ.Ab8'));
+      // AI Vision default embedded API key wajib KOSONG (disimpan di backend proxy)
+      expect(AiVisionConfig.defaultApiKey, isEmpty);
+      // StorageService tidak me-restore API key default tertanam
+      final config = StorageService.getAiVisionConfig();
+      expect(config.apiKey, isEmpty);
     });
 
     // 3. UJI CELAH 3: COLD-START CLOCK TAMPERING SAAT OFFLINE

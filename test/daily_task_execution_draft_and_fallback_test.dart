@@ -65,6 +65,24 @@ void main() {
       tempDir.deleteSync(recursive: true);
     });
 
+    testWidgets('Draft restores text notes even if media list has non-existent file path', (tester) async {
+      final draftData = {
+        'photos': ['/non/existent/path/photo.jpg'],
+        'videos': ['/non/existent/path/video.mp4'],
+        'catatan': 'Catatan tetap pulih meski media tidak ditemukan',
+      };
+      await StorageService.setString('daily_task_draft_${sampleTask.id}', jsonEncode(draftData));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CustomTaskExecutionScreen(task: sampleTask),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Catatan tetap pulih meski media tidak ditemukan'), findsOneWidget);
+    });
+
     testWidgets('Tombol upload gambar & video dari galeri ikut tampil', (tester) async {
       await tester.pumpWidget(
         MaterialApp(

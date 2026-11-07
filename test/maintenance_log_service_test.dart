@@ -272,7 +272,7 @@ void main() {
       expect(statuses.length, 1);
       final s = statuses.first;
       expect(s.sudah, isTrue);
-      expect(s.adaTemuan, isTrue);
+      expect(s.adaTemuan, isFalse);
       expect(s.logs.first.id, 'log_fallback');
     });
   });

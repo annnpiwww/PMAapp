@@ -11,9 +11,8 @@ import 'package:bssparking_timemark/data/models/template_model.dart';
 import 'package:bssparking_timemark/data/services/ai_vision_service.dart';
 import 'package:bssparking_timemark/data/services/storage_service.dart';
 
-/// Regresi: di browser, request ke proxy AI yang belum di-deploy gagal di
-/// preflight CORS (exception, bukan response 404). Dulu exception itu dianggap
-/// kegagalan jaringan biasa sehingga verifikasi berakhir "Koneksi ke AI gagal".
+/// Proxy-only AI verification tests: proxy failures route to manual review and
+/// never call generativelanguage.googleapis.com directly (SEC-03).
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -31,7 +30,7 @@ void main() {
 
   const config = AiVisionConfig(
     provider: AiProviderType.customEndpoint,
-    apiKey: 'test-key',
+    apiKey: '',
   );
 
   http.Response okResponse() => http.Response(
@@ -65,15 +64,12 @@ void main() {
     AiVisionService.resetProxyState();
   });
 
-  test('proxy gagal (exception CORS) -> fallback ke endpoint AI langsung',
+  test('proxy gagal (exception jaringan/CORS) -> manual review tanpa direct Gemini',
       () async {
     final urls = <String>[];
     AiVisionService.clientFactory = () => MockClient((request) async {
           urls.add(request.url.toString());
-          if (request.url.path.contains('/functions/v1/ai-vision')) {
-            throw http.ClientException('preflight CORS blocked');
-          }
-          return okResponse();
+          throw http.ClientException('preflight CORS blocked');
         });
 
     final result = await AiVisionService.verifySubmissionWithAI(
@@ -82,20 +78,24 @@ void main() {
       customConfig: config,
     );
 
-    expect(result.status, VerificationStatus.sesuai);
-    expect(result.isFallback, isFalse);
-    expect(urls.first, contains('/functions/v1/ai-vision'));
-    expect(urls.last, contains('generativelanguage.googleapis.com'));
+    expect(result.isFallback, isTrue);
+    expect(result.status, VerificationStatus.perluCekManual);
+    expect(urls, isNotEmpty);
+    expect(
+      urls.every(
+        (u) =>
+            u.contains('/functions/v1/ai-vision') &&
+            !u.contains('generativelanguage.googleapis.com'),
+      ),
+      isTrue,
+    );
   });
 
-  test('proxy balas 404 -> fallback ke endpoint AI langsung', () async {
+  test('proxy balas 404 -> manual review tanpa direct Gemini', () async {
     final urls = <String>[];
     AiVisionService.clientFactory = () => MockClient((request) async {
           urls.add(request.url.toString());
-          if (request.url.path.contains('/functions/v1/ai-vision')) {
-            return http.Response('{"code":"NOT_FOUND"}', 404);
-          }
-          return okResponse();
+          return http.Response('{"code":"NOT_FOUND"}', 404);
         });
 
     final result = await AiVisionService.verifySubmissionWithAI(
@@ -104,41 +104,25 @@ void main() {
       customConfig: config,
     );
 
-    expect(result.status, VerificationStatus.sesuai);
-    expect(urls.last, contains('generativelanguage.googleapis.com'));
+    expect(result.isFallback, isTrue);
+    expect(result.status, VerificationStatus.perluCekManual);
+    expect(result.alasan, contains('HTTP 404'));
+    expect(
+      urls.every(
+        (u) =>
+            u.contains('/functions/v1/ai-vision') &&
+            !u.contains('generativelanguage.googleapis.com'),
+      ),
+      isTrue,
+    );
   });
 
-  test('proxy hanya dicoba sekali per sesi (foto berikutnya langsung direct)',
+  test('HTTP 503 (model high demand) -> retry otomatis di proxy lalu sukses',
       () async {
     final proxyHits = <String>[];
     AiVisionService.clientFactory = () => MockClient((request) async {
-          if (request.url.path.contains('/functions/v1/ai-vision')) {
-            proxyHits.add(request.url.toString());
-            throw http.ClientException('preflight CORS blocked');
-          }
-          return okResponse();
-        });
-
-    for (var i = 0; i < 3; i++) {
-      final result = await AiVisionService.verifySubmissionWithAI(
-        template: template,
-        imageBase64: 'data:image/jpeg;base64,AAAA',
-        customConfig: config,
-      );
-      expect(result.status, VerificationStatus.sesuai);
-    }
-
-    expect(proxyHits.length, 1);
-  });
-
-  test('HTTP 503 (model high demand) -> retry otomatis lalu sukses', () async {
-    final directHits = <String>[];
-    AiVisionService.clientFactory = () => MockClient((request) async {
-          if (request.url.path.contains('/functions/v1/ai-vision')) {
-            return http.Response('{"code":"NOT_FOUND"}', 404);
-          }
-          directHits.add(request.url.toString());
-          if (directHits.length == 1) {
+          proxyHits.add(request.url.toString());
+          if (proxyHits.length == 1) {
             return http.Response(
               '{"error":{"code":503,"message":"high demand"}}',
               503,
@@ -155,14 +139,21 @@ void main() {
 
     expect(result.status, VerificationStatus.sesuai);
     expect(result.isFallback, isFalse);
-    expect(directHits.length, 2);
+    expect(proxyHits.length, 2);
+    expect(
+      proxyHits.every(
+        (u) =>
+            u.contains('/functions/v1/ai-vision') &&
+            !u.contains('generativelanguage.googleapis.com'),
+      ),
+      isTrue,
+    );
   });
 
   test('semua attempt gagal 503 -> alasan memuat kode penyebab', () async {
+    final urls = <String>[];
     AiVisionService.clientFactory = () => MockClient((request) async {
-          if (request.url.path.contains('/functions/v1/ai-vision')) {
-            return http.Response('{"code":"NOT_FOUND"}', 404);
-          }
+          urls.add(request.url.toString());
           return http.Response('{"error":{"code":503}}', 503);
         });
 
@@ -173,6 +164,67 @@ void main() {
     );
 
     expect(result.isFallback, isTrue);
+    expect(result.status, VerificationStatus.perluCekManual);
     expect(result.alasan, contains('HTTP 503'));
+    expect(
+      urls.every(
+        (u) =>
+            u.contains('/functions/v1/ai-vision') &&
+            !u.contains('generativelanguage.googleapis.com'),
+      ),
+      isTrue,
+    );
+  });
+
+  test('tanpa user API key (default kosong), tetap pakai proxy dan failover antar model tanpa callDirect',
+      () async {
+    final requestedModels = <String>[];
+    final requestedUrls = <String>[];
+    AiVisionService.clientFactory = () => MockClient((request) async {
+          requestedUrls.add(request.url.toString());
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          requestedModels.add(body['model'] as String);
+          if (requestedModels.length == 1) {
+            return http.Response('{"error":{"code":503}}', 503);
+          }
+          return okResponse();
+        });
+
+    final result = await AiVisionService.verifySubmissionWithAI(
+      template: template,
+      imageBase64: 'data:image/jpeg;base64,AAAA',
+      customConfig: const AiVisionConfig(
+        provider: AiProviderType.customEndpoint,
+        apiKey: '',
+      ),
+    );
+
+    expect(result.status, VerificationStatus.sesuai);
+    expect(requestedUrls.length, 2);
+    expect(
+      requestedUrls.every((u) => u.contains('/functions/v1/ai-vision')),
+      isTrue,
+    );
+    expect(requestedModels.first, equals(AiVisionConfig.defaultCustomModel));
+    expect(requestedModels.last, equals('gemini-3.5-flash-lite'));
+  });
+
+  test('migrasi StorageService membersihkan key bawaan lama 53 karakter AQ. menjadi kosong',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    await StorageService.init();
+    final oldEmbeddedLikeKey = 'AQ.${'X' * 50}';
+    expect(oldEmbeddedLikeKey.length, 53);
+
+    await StorageService.saveAiVisionConfig(
+      AiVisionConfig(
+        provider: AiProviderType.customEndpoint,
+        apiKey: oldEmbeddedLikeKey,
+      ),
+    );
+
+    AiVisionService.clearConfigCache();
+    final migrated = AiVisionService.getConfig();
+    expect(migrated.apiKey, isEmpty);
   });
 }

@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bssparking_timemark/data/repositories/auth_repository.dart';
 import 'package:bssparking_timemark/data/services/absensi_setup_service.dart';
@@ -17,9 +20,15 @@ void main() {
     await StorageService.init();
     BranchService.instance.resetForTesting();
     LocationService.resetForTesting();
+    AuthRepository.instance.httpClient = null;
+    AuthRepository.instance.isWebOverride = false;
   });
 
-  tearDown(() => BranchService.instance.resetForTesting());
+  tearDown(() {
+    BranchService.instance.resetForTesting();
+    AuthRepository.instance.httpClient = null;
+    AuthRepository.instance.isWebOverride = null;
+  });
 
   test('identitas cabang HO', () async {
     await BranchService.instance.setBranch(AppBranch.ho);
@@ -122,19 +131,127 @@ void main() {
   });
 
   test('login HO tidak menyeret akun Bali yang namanya mirip', () async {
-    // 'adi' dulu bisa cocok ke ADITYA (Bali) lewat potongan nama
+    String mkTok(String uid, String role, String cabang, String name) {
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final b64 = base64UrlEncode(utf8.encode(jsonEncode({
+        'uid': uid,
+        'role': role,
+        'cabang': cabang,
+        'name': name,
+        'iat': now,
+        'exp': now + 86400,
+      }))).replaceAll('=', '');
+      return 'v1.$b64.sig';
+    }
+
+    // Seed bss_offline_credentials_v1 via mock online auth-login untuk akun HO dan Bali
+    AuthRepository.instance.httpClient = MockClient((request) async {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final id = (body['identity'] as String? ?? '').trim().toLowerCase();
+      if (id == 'aditya') {
+        return http.Response(
+          jsonEncode({
+            'token': mkTok('usr_bali_aditya', 'technician', 'KC Bali', 'ADITYA CAESAR BAGASKARA'),
+            'user': {
+              'id': 'usr_bali_aditya',
+              'username': 'aditya',
+              'email': 'dika@pma.com',
+              'nama': 'ADITYA CAESAR BAGASKARA',
+              'role': 'technician',
+              'cabang': 'KC Bali',
+            },
+          }),
+          200,
+        );
+      } else if (id == 'alifahmad') {
+        return http.Response(
+          jsonEncode({
+            'token': mkTok('usr_ho_alif', 'technician', 'HO Makassar', 'ALIF AHMAD MAULANA'),
+            'user': {
+              'id': 'usr_ho_alif',
+              'username': 'alifahmad',
+              'email': 'alifahmad@pma.com',
+              'nama': 'ALIF AHMAD MAULANA',
+              'role': 'technician',
+              'cabang': 'HO Makassar',
+            },
+          }),
+          200,
+        );
+      } else if (id == 'alif candra triantoro') {
+        return http.Response(
+          jsonEncode({
+            'token': mkTok('usr_bali_toro', 'technician', 'KC Bali', 'Alif Candra Triantoro'),
+            'user': {
+              'id': 'usr_bali_toro',
+              'username': 'toro',
+              'email': 'toro@pma.com',
+              'nama': 'Alif Candra Triantoro',
+              'role': 'technician',
+              'cabang': 'KC Bali',
+            },
+          }),
+          200,
+        );
+      } else if (id == 'adi') {
+        return http.Response(
+          jsonEncode({
+            'token': mkTok('usr_ho_adi', 'spv', 'HO Makassar', 'ADI SUPRIADI'),
+            'user': {
+              'id': 'usr_ho_adi',
+              'username': 'adi',
+              'email': 'adi@pma.com',
+              'nama': 'ADI SUPRIADI',
+              'role': 'spv',
+              'cabang': 'HO Makassar',
+            },
+          }),
+          200,
+        );
+      }
+      return http.Response(jsonEncode({'error': 'invalid credentials'}), 401);
+    });
+
+    // 1. Seed online logins
+    expect(await AuthRepository.instance.loginWithPassword(identity: 'adi', password: 'spvho'), isTrue);
+    await AuthRepository.instance.logout();
+
+    expect(await AuthRepository.instance.loginWithPassword(identity: 'aditya', password: 'teknisi123'), isTrue);
+    await AuthRepository.instance.logout();
+
+    expect(await AuthRepository.instance.loginWithPassword(identity: 'alifahmad', password: 'teknisi123'), isTrue);
+    await AuthRepository.instance.logout();
+
+    expect(await AuthRepository.instance.loginWithPassword(identity: 'alif candra triantoro', password: 'teknisi123'), isTrue);
+    await AuthRepository.instance.logout();
+
+    // 2. Simulasikan device offline (network failure)
+    AuthRepository.instance.httpClient = MockClient((_) async {
+      throw http.ClientException('Offline');
+    });
+    BranchService.instance.resetForTesting();
+
+    // 'adi' offline hanya mengembalikan ADI SUPRIADI (HO), tidak menyeret ADITYA (Bali)
     expect(await AuthRepository.instance.loginWithPassword(identity: 'adi', password: 'spvho'), isTrue);
     expect(AuthRepository.instance.currentUser?.nama, 'ADI SUPRIADI');
     expect(BranchService.instance.currentBranch, AppBranch.ho);
+    await AuthRepository.instance.logout();
+    BranchService.instance.resetForTesting();
 
+    // 'alifahmad' offline hanya mengembalikan ALIF AHMAD MAULANA (HO)
     expect(await AuthRepository.instance.loginWithPassword(identity: 'alifahmad', password: 'teknisi123'), isTrue);
     expect(AuthRepository.instance.currentUser?.nama, 'ALIF AHMAD MAULANA');
     expect(BranchService.instance.currentBranch, AppBranch.ho);
+    await AuthRepository.instance.logout();
+    BranchService.instance.resetForTesting();
 
-    // 'alif' ambigu (Alif Candra/Bali vs Alif Ahmad/HO) -> ditolak, bukan salah cabang
+    // 'alif' tidak pernah login online di perangkat ini -> ditolak offline, bukan salah cabang
     expect(await AuthRepository.instance.loginWithPassword(identity: 'alif', password: 'teknisi123'), isFalse);
-    // Nama lengkap tetap bisa
+    expect(AuthRepository.instance.lastErrorMessage, 'Login offline hanya untuk akun yang pernah login online di HP ini.');
+
+    // Nama lengkap yang pernah login online tetap bisa offline
     expect(await AuthRepository.instance.loginWithPassword(identity: 'alif candra triantoro', password: 'teknisi123'), isTrue);
+    expect(AuthRepository.instance.currentUser?.nama, 'Alif Candra Triantoro');
     expect(BranchService.instance.currentBranch, AppBranch.bali);
   });
 }

@@ -473,9 +473,15 @@ void main() {
               ),
               MaintenanceTemuan(
                 label: 'Temuan Urgent Tanggal 1',
-                status: 'perlu_cek_manual',
+                status: 'tidak_sesuai',
                 alasan: 'Baut lepas',
                 urgent: true,
+              ),
+              MaintenanceTemuan(
+                label: 'Cek Manual Pengingat',
+                status: 'perlu_cek_manual',
+                alasan: 'Foto agak gelap',
+                urgent: false,
               ),
             ],
           ),
@@ -903,7 +909,7 @@ void main() {
           MaintenancePointResult(
             pointId: 'manless_printer',
             label: 'Printer Tiket',
-            status: PointStatus.perluCekManual,
+            status: PointStatus.tidakSesuai,
             alasan: 'Kertas agak macet saat cetak',
             urgensi: TingkatUrgensi.normal,
           ),
@@ -964,14 +970,14 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
 
         // No docked sheet or tabs
-        expect(find.textContaining('Temuan ('), findsNothing);
+        expect(find.byType(Tab), findsNothing);
         expect(find.textContaining('Belum ('), findsNothing);
         expect(find.byType(DraggableScrollableSheet), findsNothing);
 
         // Header, filters, summary strip and map present
         expect(find.text('Map Maintenance'), findsOneWidget);
         expect(find.text('Semua'), findsOneWidget);
-        expect(find.textContaining('Ada temuan'), findsOneWidget);
+        expect(find.text('Temuan'), findsOneWidget);
         expect(find.byType(FlutterMap), findsOneWidget);
 
         // Map controls present
@@ -1324,8 +1330,8 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
 
-        // Select 'Ada temuan' stat tile
-        await tester.tap(find.text('Ada temuan'));
+        // Select 'Temuan' stat tile
+        await tester.tap(find.text('Temuan'));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
 
@@ -1390,8 +1396,8 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
 
-        // Select 'Ada temuan' stat tile
-        await tester.tap(find.text('Ada temuan'));
+        // Select 'Temuan' stat tile
+        await tester.tap(find.text('Temuan'));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
 

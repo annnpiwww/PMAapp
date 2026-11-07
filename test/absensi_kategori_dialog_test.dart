@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bssparking_timemark/data/services/storage_service.dart';
+import 'package:bssparking_timemark/data/services/branch_service.dart';
 import 'package:bssparking_timemark/data/services/absensi_setup_service.dart';
 import 'package:bssparking_timemark/data/services/location_service.dart';
 import 'package:bssparking_timemark/features/templates/widgets/absensi_kategori_dialog.dart';
@@ -198,5 +199,49 @@ void main() {
 
     expect(find.text('Simpan Shift'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('AbsensiKategoriDialog renders HO Makassar shifts matching BranchService exactly', (tester) async {
+    await BranchService.instance.setBranch(AppBranch.ho);
+
+    await tester.pumpWidget(buildTestDialog());
+    await tester.tap(find.text('Open Dialog'));
+    await tester.pumpAndSettle();
+
+    // Scroll to shift cards section
+    await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, -300));
+    await tester.pumpAndSettle();
+
+    expect(find.text('RSWS 1'), findsOneWidget);
+    expect(find.text('RSWS 2'), findsOneWidget);
+    expect(find.text('JP 1'), findsOneWidget);
+    expect(find.text('JP 2'), findsOneWidget);
+    expect(find.text('GMM 2'), findsNothing);
+  });
+
+  testWidgets('choosing Pulang does NOT show handover form in AbsensiKategoriDialog', (tester) async {
+    await BranchService.instance.setBranch(AppBranch.manado);
+    // Set check in time so auto-pulang eligibility check passes
+    final checkIn = DateTime.now().subtract(const Duration(hours: 9));
+    await StorageService.saveLastCheckInTime(checkIn);
+
+    await tester.pumpWidget(buildTestDialog());
+    await tester.tap(find.text('Open Dialog'));
+    await tester.pumpAndSettle();
+
+    // Scroll down to Jenis Shift section
+    await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, -300));
+    await tester.pumpAndSettle();
+
+    // Tap Pulang
+    await tester.tap(find.text('Pulang'));
+    await tester.pumpAndSettle();
+
+    // Handover form elements must NOT exist in the dialog
+    expect(find.text('Handover & Laporan Pulang'), findsNothing);
+    expect(find.text('Ada Rekan Shift Berikutnya?'), findsNothing);
+    expect(find.text('Pilih / Ketik Nama Rekan Pengganti:'), findsNothing);
+    expect(find.text('Catatan Pekerjaan Selesai (Wajib):'), findsNothing);
+    expect(find.text('Semua Pekerjaan Selesai Hari Ini?'), findsNothing);
   });
 }

@@ -100,4 +100,32 @@ void main() {
     expect(find.text('Tidak ada lampiran foto bukti pada tugas ini.'), findsOneWidget);
     expect(find.text('Unduh Semua'), findsNothing);
   });
+
+  testWidgets('CompletedDailyTaskModal renders video bukti section when video present', (tester) async {
+    final taskWithVideo = DailyTaskModel(
+      id: 'task_test_vid_1',
+      tanggal: '2026-10-16',
+      teknisiId: 'user_1',
+      teknisiNama: 'Ryan Lumasuge',
+      posName: 'Pos Masuk 1',
+      posTag: 'PM1',
+      judul: 'Uji Coba Gate In Palang Naik',
+      deskripsi: 'Rekam video pergerakan palang',
+      status: TaskStatus.completed,
+      fotoBuktiUrls: ['video_bukti_gate.mp4'],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CompletedDailyTaskModal(task: taskWithVideo),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Video Bukti Pengerjaan (1)'), findsOneWidget);
+    expect(find.text('Video Bukti #1'), findsOneWidget);
+    expect(find.text('Buka'), findsOneWidget);
+  });
 }

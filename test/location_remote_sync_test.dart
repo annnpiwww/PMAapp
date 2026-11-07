@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bssparking_timemark/data/repositories/auth_repository.dart';
 import 'package:bssparking_timemark/data/services/location_service.dart';
 import 'package:bssparking_timemark/data/services/storage_service.dart';
 import 'package:bssparking_timemark/data/services/branch_service.dart';
@@ -14,6 +15,7 @@ void main() {
 
   tearDown(() {
     LocationService.clientOverride = null;
+    AuthRepository.instance.setSessionTokenForTesting(null);
   });
 
   group('LocationService Remote Sync Contract Tests', () {
@@ -251,10 +253,27 @@ void main() {
       );
 
       const secretPassword = 'SuperSecretPassword123!';
-      LocationService.clientOverride = MockClient((_) async => http.Response('{"ok":true}', 200));
+      const sessionTok = 'v1.eyJleHAiOjQxMDI0NDQ4MDB9.sig';
+      AuthRepository.instance.setSessionTokenForTesting(sessionTok);
+
+      final capturedHeaders = <Map<String, String>>[];
+      final capturedBodies = <Map<String, dynamic>>[];
+      LocationService.clientOverride = MockClient((req) async {
+        capturedHeaders.add(req.headers);
+        capturedBodies.add(jsonDecode(req.body) as Map<String, dynamic>);
+        return http.Response('{"ok":true}', 200);
+      });
 
       await LocationService.saveLocationRemote(testPos, identity: 'spv1', password: secretPassword);
       await LocationService.deleteLocationRemote('POS-TEST-SEC', identity: 'spv1', password: secretPassword);
+
+      for (final h in capturedHeaders) {
+        expect(h['x-app-session'], equals(sessionTok));
+      }
+      for (final b in capturedBodies) {
+        expect(b.containsKey('password'), isFalse);
+        expect(b.containsKey('identity'), isFalse);
+      }
 
       final prefs = await SharedPreferences.getInstance();
       for (final key in prefs.getKeys()) {
