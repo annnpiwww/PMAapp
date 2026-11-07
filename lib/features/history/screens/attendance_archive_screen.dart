@@ -1,17 +1,21 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_file_image.dart';
+import '../../../core/services/logger_service.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../core/utils/share_helper.dart';
+import '../../../core/utils/spreadsheet_escape.dart';
 import '../../../core/utils/timemark_formatter.dart';
 import '../../../core/utils/web_photo_store/web_photo_store.dart';
 import '../../../data/models/attendance_record.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/branch_service.dart';
+import '../../../data/services/absensi_setup_service.dart';
 import '../../../data/repositories/auth_repository.dart';
 
 class AttendanceArchiveScreen extends StatefulWidget {
@@ -111,27 +115,55 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
         final timeStr = TimemarkFormatter.formatClockTime(r.timestamp);
         final tipeStr = r.type == AttendanceType.masuk ? 'Masuk' : 'Pulang';
         final durationStr = r.workDuration ?? '-';
-        final safeAddress = '"${r.fullAddress.replaceAll('"', '""')}"';
-        final safePos = '"${r.posName.replaceAll('"', '""')}"';
+        final safeId = escapeSpreadsheetCell(r.id);
+        final safeTipe = escapeSpreadsheetCell(tipeStr);
+        final safeShift = '"${escapeSpreadsheetCell(r.shiftName).replaceAll('"', '""')}"';
+        final safeTech = '"${escapeSpreadsheetCell(r.technicianName).replaceAll('"', '""')}"';
+        final safePos = '"${escapeSpreadsheetCell(r.posName).replaceAll('"', '""')}"';
+        final safeDate = '"${escapeSpreadsheetCell(dateStr).replaceAll('"', '""')}"';
+        final safeTime = '"${escapeSpreadsheetCell(timeStr).replaceAll('"', '""')}"';
+        final safeDuration = '"${escapeSpreadsheetCell(durationStr).replaceAll('"', '""')}"';
+        final safeAddress = '"${escapeSpreadsheetCell(r.fullAddress).replaceAll('"', '""')}"';
+        final safeAi = '"${escapeSpreadsheetCell(r.aiStatusText).replaceAll('"', '""')}"';
 
-        buffer.writeln('${r.id},$tipeStr,"${r.shiftName}","${r.technicianName}",$safePos,"$dateStr","$timeStr","$durationStr",${r.lat},${r.lng},$safeAddress,"${r.aiStatusText}"');
+        buffer.writeln('$safeId,$safeTipe,$safeShift,$safeTech,$safePos,$safeDate,$safeTime,$safeDuration,${r.lat},${r.lng},$safeAddress,$safeAi');
       }
 
-      final tempDir = Directory.systemTemp;
-      final file = File('${tempDir.path}/Arsip_Absensi_BSS_${DateTime.now().millisecondsSinceEpoch}.csv');
-      await file.writeAsString(buffer.toString());
+      final fileName = 'Arsip_Absensi_BSS_${DateTime.now().millisecondsSinceEpoch}.csv';
+      final csvText = buffer.toString();
 
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path)],
-          text: 'Rekap Absensi BSS Parking (${_records.length} Catatan)',
-          subject: 'Rekap Absensi BSS Parking',
-        ),
-      );
+      if (kIsWeb) {
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [
+              XFile.fromData(
+                utf8.encode(csvText),
+                mimeType: 'text/csv',
+              ),
+            ],
+            fileNameOverrides: [fileName],
+            text: 'Rekap Absensi BSS Parking (${_records.length} Catatan)',
+            subject: 'Rekap Absensi BSS Parking',
+          ),
+        );
+      } else {
+        final tempDir = Directory.systemTemp;
+        final file = File('${tempDir.path}/$fileName');
+        await file.writeAsString(csvText);
+
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path)],
+            text: 'Rekap Absensi BSS Parking (${_records.length} Catatan)',
+            subject: 'Rekap Absensi BSS Parking',
+          ),
+        );
+      }
     } catch (e) {
+      LoggerService.error('Gagal export CSV', error: e, tag: 'AttendanceArchive');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal export CSV: $e')),
+          const SnackBar(content: Text('Gagal mengekspor CSV. Silakan coba lagi.')),
         );
       }
     }
@@ -140,6 +172,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
   Future<void> _confirmClearHistory() async {
     final count = _records.length;
     final isDark = ThemeService.isDarkMode(context);
+    final branchName = BranchService.instance.currentBranch.name;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -164,7 +197,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '$count catatan absen akan dihapus permanen dari HP ini dan tidak bisa dikembalikan.',
+              'Hapus $count catatan absen cabang $branchName? Catatan akan dihapus permanen dari HP ini dan tidak bisa dikembalikan.',
               style: TextStyle(
                 fontSize: 13,
                 height: 1.4,
@@ -224,12 +257,15 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
     );
 
     if (confirm == true) {
-      await StorageService.clearAllAttendanceRecords();
+      final idsToDelete = _records.map((r) => r.id).toList();
+      for (final id in idsToDelete) {
+        await StorageService.deleteAttendanceRecord(id);
+      }
       _webPhotoFutures.clear();
       await _loadRecords();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Riwayat absen dihapus.')),
+          SnackBar(content: Text('Riwayat absen cabang $branchName dihapus.')),
         );
       }
     }
@@ -321,32 +357,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
 
   bool _isRecordLate(AttendanceRecord record) {
     if (record.type != AttendanceType.masuk) return false;
-    final shift = record.shiftName;
-    final match = RegExp(r'(\d{1,2})[:.](\d{2})').firstMatch(shift);
-    if (match == null) return false;
-
-    final startH = int.tryParse(match.group(1) ?? '') ?? 0;
-    final startM = int.tryParse(match.group(2) ?? '') ?? 0;
-
-    final recTime = record.timestamp;
-    final scheduledMinutes = startH * 60 + startM;
-    final actualMinutes = recTime.hour * 60 + recTime.minute;
-
-    // Khusus Shift 1 (03:00 - 11:00):
-    // Jam kerja dimulai 03:00 pagi.
-    // - Jika teknisi masuk sebelum 03:00 (misal 02:45 atau malam sebelumnya 22:00) -> Tepat Waktu.
-    // - Jika teknisi masuk > 03:00 (misal 03:05, 04:00, atau bahkan 11:30) -> Terlambat!
-    if (startH == 3) {
-      if (recTime.hour >= 21) {
-        // Datang malam hari sebelum shift subuh -> Tepat Waktu (Early arrival)
-        return false;
-      }
-      return actualMinutes > scheduledMinutes;
-    }
-
-    // Shift 2 (10:00), Shift 2.2 (10:00), Shift 3 (14:00):
-    // Jika actualMinutes > scheduledMinutes (misal 10:07 > 10:00) -> Terlambat!
-    return actualMinutes > scheduledMinutes;
+    return AbsensiSetupService.isLateCheckIn(record.shiftName, record.timestamp);
   }
 
   @override
@@ -709,14 +720,19 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary,
+              Flexible(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary,
+                  ),
                 ),
               ),
+              const SizedBox(width: 4),
               Icon(icon, size: 14, color: color),
             ],
           ),
@@ -862,81 +878,76 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Badges Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    spacing: 5,
+                    runSpacing: 5,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isMasuk
-                                  ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5))
-                                  : (isDark ? const Color(0xFF1E3A8A) : const Color(0xFFEFF6FF)),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isMasuk
-                                    ? (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0))
-                                    : (isDark ? const Color(0xFF2563EB) : const Color(0xFFBFDBFE)),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isMasuk
-                                        ? (isDark ? const Color(0xFF34D399) : const Color(0xFF10B981))
-                                        : (isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6)),
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  isMasuk ? 'Jam Masuk' : 'Jam Pulang',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: isMasuk
-                                        ? (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857))
-                                        : (isDark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8)),
-                                  ),
-                                ),
-                              ],
-                            ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isMasuk
+                              ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5))
+                              : (isDark ? const Color(0xFF1E3A8A) : const Color(0xFFEFF6FF)),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isMasuk
+                                ? (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0))
+                                : (isDark ? const Color(0xFF2563EB) : const Color(0xFFBFDBFE)),
                           ),
-                          if (isMasuk) ...[
-                            const SizedBox(width: 5),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              width: 6,
+                              height: 6,
                               decoration: BoxDecoration(
-                                color: isLate
-                                    ? (isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7))
-                                    : (isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5)),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: isLate
-                                      ? (isDark ? const Color(0xFFB45309) : const Color(0xFFFDE68A))
-                                      : (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0)),
-                                ),
+                                shape: BoxShape.circle,
+                                color: isMasuk
+                                    ? (isDark ? const Color(0xFF34D399) : const Color(0xFF10B981))
+                                    : (isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6)),
                               ),
-                              child: Text(
-                                isLate ? 'Terlambat' : 'Tepat Waktu',
-                                style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: isLate
-                                      ? (isDark ? const Color(0xFFFDE68A) : const Color(0xFFB45309))
-                                      : (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857)),
-                                ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              isMasuk ? 'Jam Masuk' : 'Jam Pulang',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: isMasuk
+                                    ? (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857))
+                                    : (isDark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8)),
                               ),
                             ),
                           ],
-                        ],
+                        ),
                       ),
+                      if (isMasuk)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isLate
+                                ? (isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7))
+                                : (isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5)),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: isLate
+                                  ? (isDark ? const Color(0xFFB45309) : const Color(0xFFFDE68A))
+                                  : (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0)),
+                            ),
+                          ),
+                          child: Text(
+                            isLate ? 'Terlambat' : 'Tepat Waktu',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              color: isLate
+                                  ? (isDark ? const Color(0xFFFDE68A) : const Color(0xFFB45309))
+                                  : (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857)),
+                            ),
+                          ),
+                        ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
@@ -984,7 +995,10 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
 
                   // Shift & Work Duration
                   const SizedBox(height: 4),
-                  Row(
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
                         record.shiftName,
@@ -994,8 +1008,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      if (record.workDuration != null && record.workDuration!.isNotEmpty) ...[
-                        Text(' • ', style: TextStyle(color: isDark ? const Color(0xFF64748B) : AppColors.textMuted)),
+                      if (record.workDuration != null && record.workDuration!.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
@@ -1011,7 +1024,6 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
                             ),
                           ),
                         ),
-                      ],
                     ],
                   ),
                 ],

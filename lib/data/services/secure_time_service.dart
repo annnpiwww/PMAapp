@@ -30,15 +30,19 @@ class SecureTimeService {
   static final Stopwatch _monotonicStopwatch = Stopwatch()..start();
   static DateTime _anchorWallTime = DateTime.now();
   static Duration _anchorStopwatchElapsed = Duration.zero;
-  static DateTime? _lastCheckedWallTime;
 
   static DateTime? _lastSyncedNetworkTime;
-  static Duration? _lastSyncedStopwatchElapsed;
   static int _cachedOffsetSeconds = 0;
   static bool _isManipulated = false;
   static bool _isTimeSkewDetected = false;
   static bool _isTampered = false;
   static String? _tamperedReason;
+
+  @visibleForTesting
+  static http.Client? clientOverride;
+
+  @visibleForTesting
+  static DateTime Function() clock = DateTime.now;
 
   static bool get isTimeSkewDetected => _isTimeSkewDetected;
   static bool get isTampered => _isTampered || _isManipulated || _isTimeSkewDetected;
@@ -46,11 +50,11 @@ class SecureTimeService {
 
   /// Sinkronisasi waktu internet (World Time API / Google Date Header)
   static Future<void> syncNetworkTime() async {
+    final bool ownsClient = clientOverride == null;
+    final client = clientOverride ?? http.Client();
     try {
-      final client = http.Client();
       final uri = Uri.parse('https://www.google.com/generate_204');
       final response = await client.head(uri).timeout(const Duration(seconds: 3));
-      client.close();
 
       final dateHeader = response.headers['date'];
       if (dateHeader != null) {
@@ -63,19 +67,21 @@ class SecureTimeService {
         serverTime ??= _tryParseHttpDate(dateHeader)?.toLocal();
 
         if (serverTime != null) {
-          final deviceTime = DateTime.now();
+          final deviceTime = clock();
           _cachedOffsetSeconds = serverTime.difference(deviceTime).inSeconds;
           // Toleransi perbedaan jam HP vs Server: 300 detik (5 menit)
           _isManipulated = _cachedOffsetSeconds.abs() > 300;
           _lastSyncedNetworkTime = serverTime;
-          _lastSyncedStopwatchElapsed = _monotonicStopwatch.elapsed;
           _anchorWallTime = deviceTime;
           _anchorStopwatchElapsed = _monotonicStopwatch.elapsed;
-          _lastCheckedWallTime = deviceTime;
 
           if (_isManipulated) {
             _isTampered = true;
             _tamperedReason = 'Offset server berbeda ${_cachedOffsetSeconds}s (> 300s)';
+          } else {
+            _isTimeSkewDetected = false;
+            _isTampered = false;
+            _tamperedReason = null;
           }
 
           debugPrint('[BSS-Security] Time Synced. Offset: ${_cachedOffsetSeconds}s, Manipulated: $_isManipulated');
@@ -83,83 +89,60 @@ class SecureTimeService {
       }
     } catch (e) {
       debugPrint('[BSS-Security] Sync network time failed: $e');
+    } finally {
+      if (ownsClient) {
+        client.close();
+      }
     }
   }
 
-  /// Mendapatkan waktu terverifikasi anti-fake time & deteksi lonjakan jam (clock skew)
+  /// Mendapatkan waktu terverifikasi anti-fake time:
+  /// Hanya menandai manipulasi jika selisih jam perangkat vs network time > 300s (5 menit).
   static SecureTimeResult getVerifiedTime() {
-    final nowDevice = DateTime.now();
+    final nowDevice = clock();
     final currentStopwatch = _monotonicStopwatch.elapsed;
 
-    // Deteksi Clock Skew via Monotonic Timer:
-    // 1. Cek backward jump dibanding pengecekan terakhir (> 60 detik)
-    bool backwardJumpDetected = false;
-    if (_lastCheckedWallTime != null) {
-      final backwardDiff = _lastCheckedWallTime!.difference(nowDevice).inSeconds;
-      if (backwardDiff > 60) {
-        backwardJumpDetected = true;
-      }
-    }
-
-    // 2. Cek drift dibanding elapsed monotonic stopwatch sejak anchor
+    // Jika perangkat baru bangun dari deep sleep, re-anchor dan picu sync network time
     final elapsedMonotonicSinceAnchor = currentStopwatch - _anchorStopwatchElapsed;
     final expectedWallTime = _anchorWallTime.add(elapsedMonotonicSinceAnchor);
     final monotonicSkewSeconds = nowDevice.difference(expectedWallTime).inSeconds;
-
-    // Melompat mundur (> 60 detik) ATAU melompat maju ekstrem (> 300 detik)
-    final bool isBackwardSkew = monotonicSkewSeconds < -60 || backwardJumpDetected;
-    final bool isExtremeForwardSkew = monotonicSkewSeconds > 300;
-
-    if (isBackwardSkew || isExtremeForwardSkew) {
-      _isTimeSkewDetected = true;
-      _isTampered = true;
-      _tamperedReason = isBackwardSkew
-          ? 'Jam melompat mundur (${monotonicSkewSeconds.abs()}s)'
-          : 'Jam melompat maju ekstrem (${monotonicSkewSeconds}s)';
-      debugPrint('[BSS-Security] CLOCK SKEW DETECTED! Reason: $_tamperedReason');
+    if (monotonicSkewSeconds.abs() > 60 && !_isTimeSkewDetected) {
+      _anchorWallTime = nowDevice;
+      _anchorStopwatchElapsed = currentStopwatch;
+      unawaited(syncNetworkTime());
     }
 
-    _lastCheckedWallTime = nowDevice;
+    final manipulated = _cachedOffsetSeconds.abs() > 300;
+    _isManipulated = manipulated;
+    final tampered = manipulated || _isTimeSkewDetected;
+    _isTampered = tampered;
+    if (!tampered) {
+      _tamperedReason = null;
+    }
 
-    // Jika sudah pernah sync dengan server:
-    if (_lastSyncedNetworkTime != null && _lastSyncedStopwatchElapsed != null) {
-      final elapsedSinceSync = currentStopwatch - _lastSyncedStopwatchElapsed!;
-      final estimatedRealTime = _lastSyncedNetworkTime!.add(elapsedSinceSync).toLocal();
-      final currentOffset = nowDevice.difference(estimatedRealTime).inSeconds;
-      final manipulated = currentOffset.abs() > 300 || _isTimeSkewDetected;
-
-      if (manipulated) {
-        _isManipulated = true;
-        _isTampered = true;
-      }
-
-      final tampered = manipulated || _isTimeSkewDetected;
-
+    if (_lastSyncedNetworkTime != null) {
+      final estimatedRealTime = nowDevice.add(Duration(seconds: _cachedOffsetSeconds)).toLocal();
       return SecureTimeResult(
         accurateTime: estimatedRealTime,
         isDeviceTimeManipulated: manipulated,
         isTimeSkewDetected: _isTimeSkewDetected,
         isTampered: tampered,
-        offsetSeconds: currentOffset,
+        offsetSeconds: -_cachedOffsetSeconds,
         source: 'NTP_HTTP',
         warningTag: tampered ? '[JAM DIUBAH MANUAL]' : null,
         reason: _tamperedReason,
       );
     }
 
-    // Fallback tanpa network sync:
-    // Gunakan anchor wall time + monotonic stopwatch untuk accurateTime
-    final estimatedRealTime = _anchorWallTime.add(elapsedMonotonicSinceAnchor).toLocal();
-    final manipulated = _isManipulated || _isTimeSkewDetected;
-
+    final estimatedRealTime = nowDevice.toLocal();
     return SecureTimeResult(
       accurateTime: estimatedRealTime,
       isDeviceTimeManipulated: manipulated,
       isTimeSkewDetected: _isTimeSkewDetected,
-      isTampered: manipulated,
-      offsetSeconds: monotonicSkewSeconds,
+      isTampered: tampered,
+      offsetSeconds: _cachedOffsetSeconds,
       source: 'DEVICE_FALLBACK',
-      warningTag: manipulated ? '[JAM DIUBAH MANUAL]' : null,
+      warningTag: tampered ? '[JAM DIUBAH MANUAL]' : null,
       reason: _tamperedReason,
     );
   }
@@ -167,37 +150,41 @@ class SecureTimeService {
   /// Helper untuk unit testing
   @visibleForTesting
   static void setMockOffset(int offsetSeconds) {
+    final now = clock();
     _cachedOffsetSeconds = offsetSeconds;
     _isManipulated = offsetSeconds.abs() > 300;
     _isTampered = _isManipulated;
     _isTimeSkewDetected = false;
     _tamperedReason = _isManipulated ? 'Mock offset $offsetSeconds s' : null;
-    _lastSyncedNetworkTime = DateTime.now().add(Duration(seconds: offsetSeconds));
-    _lastSyncedStopwatchElapsed = _monotonicStopwatch.elapsed;
-    _anchorWallTime = DateTime.now();
+    _lastSyncedNetworkTime = now.add(Duration(seconds: offsetSeconds));
+    _anchorWallTime = now;
     _anchorStopwatchElapsed = _monotonicStopwatch.elapsed;
-    _lastCheckedWallTime = DateTime.now();
   }
 
   /// Helper untuk simulasi clock skew di unit testing
   @visibleForTesting
   static void simulateClockSkew({required int skewSeconds}) {
-    _anchorWallTime = DateTime.now().subtract(Duration(seconds: skewSeconds));
-    _lastCheckedWallTime = DateTime.now().subtract(Duration(seconds: skewSeconds));
+    final now = clock();
+    _anchorWallTime = now.subtract(Duration(seconds: skewSeconds));
+    if (skewSeconds < -60 || skewSeconds > 300) {
+      _isTimeSkewDetected = true;
+      _isTampered = true;
+      _tamperedReason = 'Simulated clock skew (${skewSeconds}s)';
+    }
   }
 
   @visibleForTesting
   static void reset() {
+    clientOverride = null;
+    clock = DateTime.now;
     _lastSyncedNetworkTime = null;
-    _lastSyncedStopwatchElapsed = null;
     _cachedOffsetSeconds = 0;
     _isManipulated = false;
     _isTimeSkewDetected = false;
     _isTampered = false;
     _tamperedReason = null;
-    _anchorWallTime = DateTime.now();
+    _anchorWallTime = clock();
     _anchorStopwatchElapsed = _monotonicStopwatch.elapsed;
-    _lastCheckedWallTime = _anchorWallTime;
   }
 
   static DateTime? _tryParseHttpDate(String dateStr) {

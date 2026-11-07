@@ -261,6 +261,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     if (state == AppLifecycleState.paused) {
       cameraController.dispose();
     } else if (state == AppLifecycleState.resumed) {
+      unawaited(SecureTimeService.syncNetworkTime());
       _initCamera();
       _checkGpsServiceAndPrompt();
       _fetchLocation();
@@ -507,6 +508,34 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     }
   }
 
+  bool get _isAbsensiMode =>
+      _selectedTemplate.jenis == TemplateCategory.absensi;
+
+  bool get _isAbsensiMockLocation =>
+      _isAbsensiMode && (_location?.isMockLocation ?? false);
+
+  bool get _isAbsensiNoGpsFix =>
+      _isAbsensiMode &&
+      !_isAbsensiMockLocation &&
+      (_location == null ||
+          !_location!.isGpsEnabled ||
+          _location!.isFallback ||
+          _location!.isDefaultFallback ||
+          (_location!.lat == 0.0 && _location!.lng == 0.0));
+
+  bool get _isAbsensiShutterBlocked =>
+      _isAbsensiMockLocation || _isAbsensiNoGpsFix;
+
+  String? get _absensiShutterBlockMessage {
+    if (_isAbsensiMockLocation) {
+      return 'Lokasi palsu terdeteksi. Matikan aplikasi lokasi palsu.';
+    }
+    if (_isAbsensiNoGpsFix) {
+      return 'GPS belum mengunci. Pindah ke area terbuka lalu coba lagi.';
+    }
+    return null;
+  }
+
   bool _isGpsDialogShowing = false;
 
   Future<bool> _checkGpsServiceAndPrompt({bool forceShow = false}) async {
@@ -667,7 +696,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     // browser API (navigator.mediaDevices & navigator.geolocation).
     // permission_handler tidak mendukung state browser dan selalu mengembalikan false,
     // sehingga memunculkan dialog 'Izin Diperlukan' palsu.
-    if (kIsWeb) {
+    if (kIsWeb || LocationService.hasTestLocationOverride) {
       _loadLocationInBackground();
       await _initCamera();
       return;
@@ -752,13 +781,17 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   /// Cold start optimization: get last known position immediately
   void _loadLocationInBackground() {
-    if (kIsWeb) {
+    if (kIsWeb || LocationService.hasTestLocationOverride) {
       _fetchLocation();
       return;
     }
     Geolocator.getLastKnownPosition()
         .then((last) {
-          if (!mounted || last == null) return;
+          if (!mounted ||
+              last == null ||
+              LocationService.hasTestLocationOverride) {
+            return;
+          }
           final pos = LocationService.currentPos;
           setState(() {
             _location = LocationResult(
@@ -766,6 +799,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               lng: last.longitude,
               accuracyMeter: last.accuracy,
               isGpsEnabled: true,
+              isMockLocation: last.isMocked,
               posName: pos.posName,
               cabangName: pos.cabangName,
               fullAddress: pos.fullAddress,
@@ -1256,13 +1290,27 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     }
 
     // Real-Time GPS Guard: Pastikan koordinat real-time didapatkan sebelum watermark dibakar
-    if (_location == null || _location!.isDefaultFallback) {
+    if (_location == null ||
+        _location!.isDefaultFallback ||
+        _location!.isFallback ||
+        !_location!.isGpsEnabled) {
       final freshLoc = await LocationService.getCurrentLocation();
-      if (mounted && !freshLoc.isDefaultFallback) {
+      if (mounted) {
         setState(() {
           _location = freshLoc;
         });
       }
+    }
+
+    // SEC-06: Absensi wajib memiliki GPS fix asli (bukan fallback POS) dan bukan mock location.
+    if (_isAbsensiShutterBlocked) {
+      if (mounted) {
+        setState(() {
+          _isProcessingAI = false;
+          _captureStep = 0;
+        });
+      }
+      return;
     }
 
     setState(() {
@@ -1276,16 +1324,26 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     // Anti-Fraud: Gunakan Secure Verified Time untuk mencegah manipulasi jam HP manual
     final verifiedTime = SecureTimeService.getVerifiedTime();
     final capturedTimestamp = verifiedTime.accurateTime.toLocal();
-    final lat = _location?.lat ?? _activePos.lat;
-    final lng = _location?.lng ?? _activePos.lng;
-    final accuracy = _location?.accuracyMeter ?? 3.0;
+    final hasRealFix = _location != null &&
+        _location!.isGpsEnabled &&
+        !_location!.isFallback &&
+        !_location!.isDefaultFallback;
+    final lat = hasRealFix ? _location!.lat : 0.0;
+    final lng = hasRealFix ? _location!.lng : 0.0;
+    final accuracy = hasRealFix ? _location!.accuracyMeter : 0.0;
     final currentAddress = _location?.fullAddress ?? _activePos.fullAddress;
 
-    // Security Check: Fake GPS / Mock Location diblokir by default.
-    // Teknisi boleh lanjut darurat, tapi hasil dipaksa cek manual + ditandai.
+    // Security Check: Fake GPS / Mock Location diblokir.
     final isMock = _location?.isMockLocation ?? false;
     bool mockOverride = false;
     if (isMock && mounted) {
+      if (_isAbsensiMode) {
+        setState(() {
+          _isProcessingAI = false;
+          _captureStep = 0;
+        });
+        return;
+      }
       mockOverride = await _confirmMockLocationProceed() ?? false;
       if (!mockOverride) {
         if (mounted) setState(() => _isProcessingAI = false);
@@ -1618,14 +1676,8 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
         }
       }
 
-      // JAMINAN MUTLAK: Simpan foto yang sudah ber-watermark ke galeri HP.
-      // Di web tidak ada tulis langsung ke Photos; simpan/bagikan ditangani
-      // lewat tombol Save & Share di bawah.
-      if (!kIsWeb && capturedPath != null && File(capturedPath!).existsSync()) {
-        try {
-          await ShareHelper.savePhotoToGallery(capturedPath);
-        } catch (_) {}
-      }
+      // SEC-10: Foto tetap disimpan di direktori internal aplikasi (cache/app documents)
+      // dengan pembersihan otomatis 7 hari oleh PhotoCleanupService (tidak disalin ke album publik galeri).
 
       final absSetup = AbsensiSetupService.instance;
       final isAbsensiSave = _selectedTemplate.jenis == TemplateCategory.absensi;
@@ -1771,24 +1823,13 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
       if (mounted) setState(() {});
     }
 
-    // Verifikasi HIJAU absensi web: langsung coba unduh foto + salin caption.
-    // Safari iOS memblokir download/clipboard tanpa gesture user, jadi ini
-    // best-effort — kalau ditolak browser, user tinggal tap tombol di modal.
+    // Verifikasi HIJAU absensi web: langsung coba salin caption (tanpa simpan ke galeri publik).
     if (kIsWeb && isTeknisi && aiResult.isSesuai && !aiResult.isFallback) {
       unawaited(() async {
         try {
           await Clipboard.setData(ClipboardData(text: fullShareText));
         } catch (_) {}
       }());
-      if (capturedBytes != null && capturedBytes.isNotEmpty) {
-        unawaited(
-          ShareHelper.savePhotoToGalleryOutcome(
-            null,
-            imageBytes: capturedBytes,
-            fileName: webShareFileName,
-          ),
-        );
-      }
     }
 
     // Show Verification Result Modal
@@ -2032,9 +2073,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
             final totalW = constraints.maxWidth;
             final totalH = constraints.maxHeight;
 
-            // Reserve fixed slot for top bar (~64) and bottom bar (~150 incl. timer row).
+            // Reserve fixed slot for top bar (~64) and bottom bar (~158 incl. timer row).
             const topBarH = 64.0;
-            const bottomBarH = 150.0;
+            const bottomBarH = 158.0;
             final midH = totalH - topBarH - bottomBarH;
 
             final isFull = _aspectRatio == CameraAspectRatio.ratioFull;
@@ -2203,8 +2244,18 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                         if (_isCameraInitialized && _cameraController != null)
                           Positioned.fill(
                             child: InteractiveWatermark(
-                              lat: _location?.lat ?? _activePos.lat,
-                              lng: _location?.lng ?? _activePos.lng,
+                              lat: (_location != null &&
+                                      _location!.isGpsEnabled &&
+                                      !_location!.isFallback &&
+                                      !_location!.isDefaultFallback)
+                                  ? _location!.lat
+                                  : 0.0,
+                              lng: (_location != null &&
+                                      _location!.isGpsEnabled &&
+                                      !_location!.isFallback &&
+                                      !_location!.isDefaultFallback)
+                                  ? _location!.lng
+                                  : 0.0,
                               fullAddress: currentAddress,
                               kodeVerifikasi: 'VERIFYING...',
                               template: _selectedTemplate,
@@ -2363,147 +2414,172 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                           },
                         ),
 
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
 
-                        // Quick Ratio Selector Pill (44dp touch target)
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: _showRatioPickerModal,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              minHeight: 44,
-                              minWidth: 44,
-                            ),
-                            child: Container(
-                              height: 38,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.black.withValues(alpha: 0.45)
-                                    : AppColors.surfaceContainerLow,
-                                borderRadius: BorderRadius.circular(19),
-                                border: Border.all(
-                                  color: isDark
-                                      ? Colors.white24
-                                      : AppColors.cardBorder,
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    _aspectRatio.icon,
-                                    color: AppColors.accent,
-                                    size: 15,
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    _aspectRatio.label,
-                                    style: TextStyle(
-                                      color: isDark
-                                          ? Colors.white
-                                          : AppColors.textPrimary,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      fontFamily: 'PlusJakartaSans',
+                        // Quick Ratio & Timer Selector Pills (44dp touch targets)
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: _showRatioPickerModal,
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      minHeight: 44,
+                                      minWidth: 44,
+                                    ),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      widthFactor: 1.0,
+                                      child: Container(
+                                        height: 38,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isDark
+                                              ? Colors.black.withValues(alpha: 0.45)
+                                              : AppColors.surfaceContainerLow,
+                                          borderRadius: BorderRadius.circular(19),
+                                          border: Border.all(
+                                            color: isDark
+                                                ? Colors.white24
+                                                : AppColors.cardBorder,
+                                            width: 0.8,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              _aspectRatio.icon,
+                                              color: AppColors.accent,
+                                              size: 15,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Flexible(
+                                              child: Text(
+                                                _aspectRatio.label,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: isDark
+                                                      ? Colors.white
+                                                      : AppColors.textPrimary,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w800,
+                                                  fontFamily: 'PlusJakartaSans',
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 2),
+                                            Icon(
+                                              Icons.arrow_drop_down_rounded,
+                                              color: isDark
+                                                  ? Colors.white70
+                                                  : AppColors.textSecondary,
+                                              size: 16,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(width: 2),
-                                  Icon(
-                                    Icons.arrow_drop_down_rounded,
-                                    color: isDark
-                                        ? Colors.white70
-                                        : AppColors.textSecondary,
-                                    size: 16,
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: _isCountingDown ? null : _showTimerPickerModal,
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      minHeight: 44,
+                                      minWidth: 44,
+                                    ),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      widthFactor: 1.0,
+                                      child: Container(
+                                        height: 38,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _timerSeconds > 0
+                                              ? AppColors.accent.withValues(alpha: 0.22)
+                                              : (isDark
+                                                    ? Colors.black.withValues(alpha: 0.45)
+                                                    : AppColors.surfaceContainerLow),
+                                          borderRadius: BorderRadius.circular(19),
+                                          border: Border.all(
+                                            color: _timerSeconds > 0
+                                                ? AppColors.accent
+                                                : (isDark
+                                                      ? Colors.white24
+                                                      : AppColors.cardBorder),
+                                            width: 0.8,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              _timerSeconds > 0
+                                                  ? Icons.timer_rounded
+                                                  : Icons.timer_outlined,
+                                              color: _timerSeconds > 0
+                                                  ? AppColors.accent
+                                                  : (isDark
+                                                        ? Colors.white70
+                                                        : AppColors.textSecondary),
+                                              size: 15,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Flexible(
+                                              child: Text(
+                                                _timerSeconds > 0
+                                                    ? '${_timerSeconds}s'
+                                                    : 'Timer',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: _timerSeconds > 0
+                                                      ? AppColors.accent
+                                                      : (isDark
+                                                            ? Colors.white
+                                                            : AppColors.textPrimary),
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w800,
+                                                  fontFamily: 'PlusJakartaSans',
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 2),
+                                            Icon(
+                                              Icons.arrow_drop_down_rounded,
+                                              color: _timerSeconds > 0
+                                                  ? AppColors.accent
+                                                  : (isDark
+                                                        ? Colors.white70
+                                                        : AppColors.textSecondary),
+                                              size: 16,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
 
-                        const SizedBox(width: 8),
-
-                        // Quick Timer Selector Pill (44dp touch target)
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: _isCountingDown ? null : _showTimerPickerModal,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              minHeight: 44,
-                              minWidth: 44,
-                            ),
-                            child: Container(
-                              height: 38,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _timerSeconds > 0
-                                    ? AppColors.accent.withValues(alpha: 0.22)
-                                    : (isDark
-                                          ? Colors.black.withValues(alpha: 0.45)
-                                          : AppColors.surfaceContainerLow),
-                                borderRadius: BorderRadius.circular(19),
-                                border: Border.all(
-                                  color: _timerSeconds > 0
-                                      ? AppColors.accent
-                                      : (isDark
-                                            ? Colors.white24
-                                            : AppColors.cardBorder),
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    _timerSeconds > 0
-                                        ? Icons.timer_rounded
-                                        : Icons.timer_outlined,
-                                    color: _timerSeconds > 0
-                                        ? AppColors.accent
-                                        : (isDark
-                                              ? Colors.white70
-                                              : AppColors.textSecondary),
-                                    size: 15,
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    _timerSeconds > 0
-                                        ? '${_timerSeconds}s'
-                                        : 'Timer',
-                                    style: TextStyle(
-                                      color: _timerSeconds > 0
-                                          ? AppColors.accent
-                                          : (isDark
-                                                ? Colors.white
-                                                : AppColors.textPrimary),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      fontFamily: 'PlusJakartaSans',
-                                    ),
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Icon(
-                                    Icons.arrow_drop_down_rounded,
-                                    color: _timerSeconds > 0
-                                        ? AppColors.accent
-                                        : (isDark
-                                              ? Colors.white70
-                                              : AppColors.textSecondary),
-                                    size: 16,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+                        const SizedBox(width: 6),
 
                         // Flash Toggle Button (Off -> Auto -> On -> Torch Senter)
                         Semantics(
@@ -2698,6 +2774,70 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                 ),
 
                 // 6. Processing AI Loading Overlay — Dynamic Floating Pill (Non-intrusive di atas kontrol bawah)
+                if (_absensiShutterBlockMessage != null && !_isProcessingAI)
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: bottomBarH + 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7F1D1D).withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(0xFFF87171),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.location_off_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _absensiShutterBlockMessage!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'PlusJakartaSans',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF7F1D1D),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              minimumSize: const Size(44, 34),
+                            ),
+                            onPressed: () {
+                              LocationService.clearLocationCache();
+                              _fetchLocation();
+                            },
+                            child: const Text(
+                              'Coba Lagi',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 if (_isProcessingAI)
                   Positioned(
                     left: 0,
@@ -2877,6 +3017,8 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
         );
 
     return GestureDetector(
+      key: const Key('attendance_shift_shortcut_pill'),
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         if (isModePulangTap) {
           DailyPulangBottomSheet.show(context).then((saved) {
@@ -2893,60 +3035,71 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
           );
         }
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5.5),
-        decoration: BoxDecoration(
-          color: isTransparent
-              ? Colors.black.withValues(alpha: 0.75)
-              : (isDark ? const Color(0xFF1E293B) : const Color(0xFF0F172A)),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: accentColor.withValues(alpha: 0.8),
-            width: 1.2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: accentColor.withValues(alpha: 0.25),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+        child: Center(
+          widthFactor: 1,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isTransparent
+                  ? Colors.black.withValues(alpha: 0.75)
+                  : (isDark ? const Color(0xFF1E293B) : const Color(0xFF0F172A)),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: accentColor.withValues(alpha: 0.8),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: accentColor.withValues(alpha: 0.25),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: accentColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: accentColor.withValues(alpha: 0.8),
-                    blurRadius: 4,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: accentColor,
+                    boxShadow: [
+                      BoxShadow(
+                        color: accentColor.withValues(alpha: 0.8),
+                        blurRadius: 4,
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'PlusJakartaSans',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 3),
+                const Icon(
+                  Icons.arrow_drop_down_rounded,
+                  color: Colors.white70,
+                  size: 16,
+                ),
+              ],
             ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: 0.2,
-              ),
-            ),
-            const SizedBox(width: 3),
-            const Icon(
-              Icons.arrow_drop_down_rounded,
-              color: Colors.white70,
-              size: 16,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -3058,87 +3211,96 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
         ),
 
         // Center: Floating Attendance Shift Shortcut Pill + Pro Dual-Ring Shutter Button
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildAttendanceShiftShortcutPill(isTransparent, isDark: isDark),
-            const SizedBox(height: 8),
-            Semantics(
-              label: _isCountingDown
-                  ? 'Batalkan timer foto'
-                  : 'Ambil foto verifikasi',
-              button: true,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  if (_isProcessingAI) return;
-                  HapticFeedback.mediumImpact();
-                  if (_isCountingDown) {
-                    _cancelTimer();
-                  } else {
-                    _startTimedCapture();
-                  }
-                },
-                child: Container(
-                  width: 78,
-                  height: 78,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.transparent,
-                    border: Border.all(
-                      color: _isProcessingAI
-                          ? (isDark ? Colors.white24 : Colors.black26)
-                          : AppColors.accent,
-                      width: 3.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color:
-                            (_isProcessingAI ? Colors.black : AppColors.accent)
-                                .withValues(alpha: 0.35),
-                        blurRadius: 12,
-                        spreadRadius: 1.0,
-                        offset: const Offset(0, 2),
+        Flexible(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildAttendanceShiftShortcutPill(isTransparent, isDark: isDark),
+                const SizedBox(height: 8),
+                Semantics(
+                  label: _isCountingDown
+                      ? 'Batalkan timer foto'
+                      : 'Ambil foto verifikasi',
+                  button: true,
+                  enabled: !_isProcessingAI && !_isAbsensiShutterBlocked,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: (_isProcessingAI || _isAbsensiShutterBlocked)
+                        ? null
+                        : () {
+                            HapticFeedback.mediumImpact();
+                            if (_isCountingDown) {
+                              _cancelTimer();
+                            } else {
+                              _startTimedCapture();
+                            }
+                          },
+                    child: Container(
+                      width: 78,
+                      height: 78,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.transparent,
+                        border: Border.all(
+                          color: (_isProcessingAI || _isAbsensiShutterBlocked)
+                              ? (isDark ? Colors.white24 : Colors.black26)
+                              : AppColors.accent,
+                          width: 3.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                ((_isProcessingAI || _isAbsensiShutterBlocked)
+                                        ? Colors.black
+                                        : AppColors.accent)
+                                    .withValues(alpha: 0.35),
+                            blurRadius: 12,
+                            spreadRadius: 1.0,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(4.5),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: _isProcessingAI
-                          ? Colors.grey.shade600
-                          : (isTransparent
-                                ? Colors.white
-                                : (isDark
-                                      ? AppColors.primary
-                                      : const Color(0xFF1E448D))),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: _isProcessingAI
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
+                      padding: const EdgeInsets.all(4.5),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: (_isProcessingAI || _isAbsensiShutterBlocked)
+                              ? Colors.grey.shade600
+                              : (isTransparent
+                                    ? Colors.white
+                                    : (isDark
+                                          ? AppColors.primary
+                                          : const Color(0xFF1E448D))),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: _isProcessingAI
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.camera_alt_rounded,
+                                  color: isTransparent
+                                      ? const Color(0xFF0F2C59)
+                                      : Colors.white,
+                                  size: 30,
                                 ),
-                              ),
-                            )
-                          : Icon(
-                              Icons.camera_alt_rounded,
-                              color: isTransparent
-                                  ? const Color(0xFF0F2C59)
-                                  : Colors.white,
-                              size: 30,
-                            ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
 
         // Right: Template Icon "SOP" Shortcut Button

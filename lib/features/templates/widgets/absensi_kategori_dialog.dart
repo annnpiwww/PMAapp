@@ -5,7 +5,6 @@ import '../../../core/services/theme_service.dart';
 import '../../../data/models/submission_model.dart';
 import '../../../data/services/absensi_setup_service.dart';
 import '../../../data/services/storage_service.dart';
-import '../../../data/services/whatsapp_report_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/services/branch_service.dart';
@@ -40,13 +39,6 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
   // Lokasi standby manual (Bali bisa isi sendiri, tidak dikunci ke PBKD)
   late TextEditingController _lokasiCtrl;
   late String _lokasiStandby;
-
-  // Toggle & input state untuk Laporan Pulang
-  bool _adaShiftSelanjutnya = false;
-  late TextEditingController _petugasNextShiftCtrl;
-  late TextEditingController _pekerjaanSelesaiCtrl;
-  bool _semuaPekerjaanSelesai = true;
-  late TextEditingController _pekerjaanBelumCtrl;
 
   // Validation & saving state
   String? _teknisiError;
@@ -162,32 +154,26 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
       'period': 'Normal • 8 Jam',
     },
     {
-      'title': 'GMM 2',
-      'full': 'GMM 2 (15.00 - 23.00)',
+      'title': 'RSWS 1',
+      'full': 'RSWS 1 (15.00 - 23.00)',
       'hours': '15:00 - 23:00 WITA',
       'period': 'Siang-Malam • 8 Jam',
     },
     {
-      'title': 'RSWS',
-      'full': 'RSWS (15.00 - 23.00)',
-      'hours': '15:00 - 23:00 WITA',
-      'period': 'Siang-Malam • 8 Jam',
-    },
-    {
-      'title': 'RSWS',
-      'full': 'RSWS (08.30 - 16.30)',
+      'title': 'RSWS 2',
+      'full': 'RSWS 2 (08.30 - 16.30)',
       'hours': '08:30 - 16:30 WITA',
       'period': 'Normal • 8 Jam',
     },
     {
-      'title': 'JP',
-      'full': 'JP (08.30 - 16.30)',
+      'title': 'JP 1',
+      'full': 'JP 1 (08.30 - 16.30)',
       'hours': '08:30 - 16:30 WITA',
       'period': 'Normal • 8 Jam',
     },
     {
-      'title': 'JP',
-      'full': 'JP (17.00 - 01.00)',
+      'title': 'JP 2',
+      'full': 'JP 2 (17.00 - 01.00)',
       'hours': '17:00 - 01:00 WITA',
       'period': 'Sore-Malam • 8 Jam',
     },
@@ -203,8 +189,6 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
         return _hoShiftCards;
     }
   }
-
-  List<String> get _rekanItOptions => BranchService.instance.getTechnicians();
 
   @override
   void initState() {
@@ -236,27 +220,6 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
       _tipeLaporan = 'Pulang';
     }
     _jamPulang = setup.effectiveJamPulang;
-
-    // Shift selanjutnya
-    _adaShiftSelanjutnya = setup.shiftSelanjutnya.trim().isNotEmpty &&
-        setup.shiftSelanjutnya.trim() != '-' &&
-        !setup.shiftSelanjutnya.toLowerCase().contains('tidak ada');
-    _petugasNextShiftCtrl = TextEditingController(
-      text: _adaShiftSelanjutnya ? setup.shiftSelanjutnya : '',
-    );
-
-    // Form manual pekerjaan selesai (auto numbering jika ada teks tersimpan)
-    final rawSelesai = setup.pekerjaanSelesai.trim();
-    final initialSelesai = rawSelesai.isNotEmpty && rawSelesai != '-'
-        ? (rawSelesai.contains('1.') ? rawSelesai : WhatsAppReportService.formatAutoNumberedList(rawSelesai))
-        : '';
-    _pekerjaanSelesaiCtrl = TextEditingController(text: initialSelesai);
-
-    _semuaPekerjaanSelesai = setup.pekerjaanBelum.trim().isEmpty ||
-        setup.pekerjaanBelum.trim() == '-';
-    _pekerjaanBelumCtrl = TextEditingController(
-      text: _semuaPekerjaanSelesai ? '' : setup.pekerjaanBelum,
-    );
   }
 
   @override
@@ -265,9 +228,6 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     _customShiftCtrl.dispose();
     _customShiftJamCtrl.dispose();
     _lokasiCtrl.dispose();
-    _petugasNextShiftCtrl.dispose();
-    _pekerjaanSelesaiCtrl.dispose();
-    _pekerjaanBelumCtrl.dispose();
     super.dispose();
   }
 
@@ -451,31 +411,6 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
 
     setup.updateTipe(_tipeLaporan);
     setup.updateJamPulang(_jamPulang);
-
-    // Shift selanjutnya
-    if (_adaShiftSelanjutnya) {
-      final val = _petugasNextShiftCtrl.text.trim();
-      setup.updateNextShift(val.isNotEmpty ? val : 'Petugas Shift Pengganti');
-    } else {
-      setup.updateNextShift('-');
-    }
-
-    // Pekerjaan selesai manual
-    final selesaiManual = _pekerjaanSelesaiCtrl.text.trim();
-    if (selesaiManual.isNotEmpty && selesaiManual != '-') {
-      final autoNumbered = WhatsAppReportService.formatAutoNumberedList(selesaiManual);
-      setup.updatePekerjaanSelesai(autoNumbered);
-    } else {
-      setup.updatePekerjaanSelesai('-');
-    }
-
-    // Pekerjaan belum selesai
-    if (!_semuaPekerjaanSelesai) {
-      final belum = _pekerjaanBelumCtrl.text.trim();
-      setup.updatePekerjaanBelum(belum.isNotEmpty ? belum : '-');
-    } else {
-      setup.updatePekerjaanBelum('-');
-    }
 
     HapticFeedback.mediumImpact();
     if (mounted) {
@@ -702,12 +637,6 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                         ),
                       ],
                     ),
-
-                    // SECTION KHUSUS: LAPORAN PULANG & HANDOVER
-                    if (_tipeLaporan == 'Pulang') ...[
-                      const SizedBox(height: 14),
-                      _buildPulangHandoverSection(),
-                    ],
                   ],
                 ),
               ),
@@ -818,14 +747,17 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
           children: [
             Icon(icon, size: 16, color: isDark ? const Color(0xFF38BDF8) : AppColors.primary),
             const SizedBox(width: 6),
-            Text(
-              title,
-              style: TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 11.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
-                color: isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary,
+            Expanded(
+              child: Text(
+                title,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                  color: isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary,
+                ),
               ),
             ),
           ],
@@ -1026,6 +958,8 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                   BranchService.instance.currentBranch == AppBranch.bali
                       ? 'PBKD'
                       : 'Pasar Bersehati Manado',
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
@@ -1128,7 +1062,6 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
               child: Text(
                 shift['hours']!,
                 style: TextStyle(
-                  fontFamily: 'monospace',
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: hoursColor,
@@ -1136,12 +1069,16 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              shift['period']!,
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w500,
-                color: periodColor,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                shift['period']!,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w500,
+                  color: periodColor,
+                ),
               ),
             ),
           ],
@@ -1384,13 +1321,14 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
                           label,
-                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: 'PlusJakartaSans',
                             fontSize: 13,
@@ -1398,20 +1336,24 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                             color: textColor,
                           ),
                         ),
-                      ),
-                      if (isSelected) ...[
-                        const SizedBox(width: 4),
-                        Icon(Icons.check_circle_rounded, size: 13, color: activeColor),
+                        if (isSelected) ...[
+                          const SizedBox(width: 4),
+                          Icon(Icons.check_circle_rounded, size: 13, color: activeColor),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 1),
-                  Text(
-                    sublabel,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w500,
-                      color: isSelected ? activeColor.withValues(alpha: 0.9) : (isDark ? const Color(0xFF94A3B8) : AppColors.textMuted),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      sublabel,
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w500,
+                        color: isSelected ? activeColor.withValues(alpha: 0.9) : (isDark ? const Color(0xFF94A3B8) : AppColors.textMuted),
+                      ),
                     ),
                   ),
                 ],
@@ -1419,286 +1361,6 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildPulangHandoverSection() {
-    final isDark = ThemeService.isDarkMode(context);
-    final sectionBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFFFFBEB);
-    final sectionBorder = isDark ? const Color(0xFF334155) : const Color(0xFFFDE68A);
-    final innerCardBg = isDark ? const Color(0xFF0B1120) : Colors.white;
-    final innerCardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFFDE68A);
-    final inputBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
-    final inputBorder = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-    final textHeader = isDark ? const Color(0xFFF59E0B) : const Color(0xFF92400E);
-    final textTitle = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF1E293B);
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: sectionBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: sectionBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.handshake_outlined, size: 16, color: isDark ? const Color(0xFFF59E0B) : const Color(0xFFB45309)),
-              const SizedBox(width: 6),
-              Text(
-                'Handover & Laporan Pulang',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  color: textHeader,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                'Jam Pulang: $_jamPulang WITA',
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? const Color(0xFFF59E0B) : const Color(0xFFB45309),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // TOGGLE SHIFT SELANJUTNYA
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: innerCardBg,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: innerCardBorder),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Ada Rekan Shift Berikutnya?',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textTitle),
-                    ),
-                    Switch(
-                      value: _adaShiftSelanjutnya,
-                      activeThumbColor: Colors.white,
-                      activeTrackColor: const Color(0xFFD97706),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      onChanged: (val) {
-                        setState(() {
-                          _adaShiftSelanjutnya = val;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-                if (_adaShiftSelanjutnya) ...[
-                  const Divider(height: 8),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Pilih / Ketik Nama Rekan Pengganti:',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
-                  ),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: _petugasNextShiftCtrl,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? Colors.white : const Color(0xFF0F172A)),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: 'Nama rekan shift berikutnya',
-                      prefixIcon: const Icon(Icons.person_outline, size: 16, color: Color(0xFFD97706)),
-                      filled: true,
-                      fillColor: inputBg,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: inputBorder),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: inputBorder),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    children: _rekanItOptions.map((name) {
-                      final isSelected = _petugasNextShiftCtrl.text.trim().toLowerCase() == name.toLowerCase();
-                      return InkWell(
-                        onTap: () {
-                          setState(() {
-                            _petugasNextShiftCtrl.text = name;
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFFD97706)
-                                : (isDark ? const Color(0xFF1E293B) : Colors.white),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: isSelected
-                                  ? const Color(0xFFD97706)
-                                  : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
-                            ),
-                          ),
-                          child: Text(
-                            name,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                              color: isSelected
-                                  ? Colors.white
-                                  : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155)),
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 4),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // FORM PEKERJAAN SELESAI
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: innerCardBg,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: innerCardBorder),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.check_circle_outline, size: 14, color: AppColors.success),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Pekerjaan Selesai Hari Ini:',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textTitle),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _pekerjaanSelesaiCtrl,
-                  maxLines: 3,
-                  style: TextStyle(fontSize: 11.5, height: 1.3, color: isDark ? Colors.white : const Color(0xFF0F172A)),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: 'Tulis ringkasan tugas selesai...\nTekan enter untuk penomoran otomatis (1. 2. 3.)',
-                    hintStyle: TextStyle(fontSize: 10.5, color: isDark ? const Color(0xFF64748B) : AppColors.textMuted),
-                    filled: true,
-                    fillColor: inputBg,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: inputBorder),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: inputBorder),
-                    ),
-                    contentPadding: const EdgeInsets.all(8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // TOGGLE & FORM PEKERJAAN BELUM SELESAI
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: innerCardBg,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: innerCardBorder),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Semua Tugas Beres?',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textTitle),
-                    ),
-                    Switch(
-                      value: _semuaPekerjaanSelesai,
-                      activeThumbColor: Colors.white,
-                      activeTrackColor: AppColors.success,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      onChanged: (val) {
-                        setState(() {
-                          _semuaPekerjaanSelesai = val;
-                          if (val) {
-                            _pekerjaanBelumCtrl.clear();
-                          }
-                        });
-                      },
-                    ),
-                  ],
-                ),
-                if (!_semuaPekerjaanSelesai) ...[
-                  const Divider(height: 8),
-                  const SizedBox(height: 4),
-                  const Row(
-                    children: [
-                      Icon(Icons.pending_actions_outlined, size: 14, color: AppColors.danger),
-                      SizedBox(width: 4),
-                      Text(
-                        'Pekerjaan Pending / PR:',
-                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.danger),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: _pekerjaanBelumCtrl,
-                    maxLines: 2,
-                    style: TextStyle(fontSize: 11.5, height: 1.3, color: isDark ? Colors.white : const Color(0xFF0F172A)),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: 'Tulis tugas pending untuk rekan berikutnya...',
-                      hintStyle: TextStyle(fontSize: 10.5, color: isDark ? const Color(0xFF64748B) : AppColors.textMuted),
-                      filled: true,
-                      fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFFFF1F2),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFECDD3)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFECDD3)),
-                      ),
-                      contentPadding: const EdgeInsets.all(8),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                ],
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

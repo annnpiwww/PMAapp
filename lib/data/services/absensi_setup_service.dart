@@ -200,23 +200,115 @@ class AbsensiSetupService extends ChangeNotifier {
     required String shift,
     required DateTime checkInTime,
   }) {
-    final parts = autoDetectJamPulang(
-      shift: shift,
-      time: checkInTime,
-    ).split(':');
-    final endH = parts.length == 2 ? (int.tryParse(parts[0]) ?? 18) : 18;
-    final endM = parts.length == 2 ? (int.tryParse(parts[1]) ?? 0) : 0;
-    final shiftEnd = DateTime(
-      checkInTime.year,
-      checkInTime.month,
-      checkInTime.day,
-      endH,
-      endM,
-    );
-    if (shiftEnd.isBefore(checkInTime)) {
-      return checkInTime.add(getMinimumWorkDuration(shift));
+    final rangeMatch = RegExp(
+      r'(\d{1,2})[:.](\d{2})\s*-\s*(\d{1,2})[:.](\d{2})',
+    ).firstMatch(shift);
+
+    DateTime shiftEnd;
+    if (rangeMatch != null) {
+      final rawStartH = int.tryParse(rangeMatch.group(1)!) ?? 0;
+      final startM = int.tryParse(rangeMatch.group(2)!) ?? 0;
+      final rawEndH = int.tryParse(rangeMatch.group(3)!) ?? 18;
+      final endM = int.tryParse(rangeMatch.group(4)!) ?? 0;
+      final startH = rawStartH % 24;
+      final endH = rawEndH % 24;
+      final startTotalMin = startH * 60 + startM;
+      final endTotalMin = endH * 60 + endM;
+
+      if (rawStartH == 24 || startH == 0) {
+        // Shift mulai tengah malam (mis. 24.00 - 08.00)
+        // Jika masuk sebelum tengah malam (>= 18:00), akhir shift adalah besok pagi.
+        final dayOffset = checkInTime.hour >= 18 ? 1 : 0;
+        shiftEnd = DateTime(
+          checkInTime.year,
+          checkInTime.month,
+          checkInTime.day + dayOffset,
+          endH,
+          endM,
+        );
+      } else if (endTotalMin <= startTotalMin) {
+        // Shift lintas tengah malam (mis. 22.00 - 06.00, 17.00 - 01.00, 16.00 - 24.00)
+        // Jika check-in sore/malam (>= 12:00), shiftEnd jatuh di hari kalender berikutnya.
+        // Jika check-in lewat tengah malam (< 12:00), shiftEnd jatuh di hari yang sama.
+        final dayOffset = checkInTime.hour >= 12 ? 1 : 0;
+        shiftEnd = DateTime(
+          checkInTime.year,
+          checkInTime.month,
+          checkInTime.day + dayOffset,
+          endH,
+          endM,
+        );
+      } else if (startH == 3 && checkInTime.hour >= 21) {
+        // Shift 1 (03:00 - 11:00) tetapi datang lebih awal malam sebelumnya
+        shiftEnd = DateTime(
+          checkInTime.year,
+          checkInTime.month,
+          checkInTime.day + 1,
+          endH,
+          endM,
+        );
+      } else {
+        shiftEnd = DateTime(
+          checkInTime.year,
+          checkInTime.month,
+          checkInTime.day,
+          endH,
+          endM,
+        );
+      }
+    } else {
+      final parts = autoDetectJamPulang(
+        shift: shift,
+        time: checkInTime,
+      ).split(':');
+      final endH = parts.length == 2 ? (int.tryParse(parts[0]) ?? 18) : 18;
+      final endM = parts.length == 2 ? (int.tryParse(parts[1]) ?? 0) : 0;
+      shiftEnd = DateTime(
+        checkInTime.year,
+        checkInTime.month,
+        checkInTime.day,
+        endH,
+        endM,
+      );
+    }
+
+    // Jika teknisi check-in saat atau setelah jam akhir shift, izinkan pulang langsung
+    if (!checkInTime.isBefore(shiftEnd)) {
+      return checkInTime;
     }
     return shiftEnd;
+  }
+
+  /// Menentukan apakah waktu absen masuk [checkIn] terlambat terhadap [shiftName].
+  /// Mendukung shift subuh (03:00), shift tengah malam (24.00 - 08.00), dan
+  /// shift lintas hari (22.00 - 06.00, 17.00 - 01.00).
+  static bool isLateCheckIn(String shiftName, DateTime checkIn) {
+    final match = RegExp(r'(\d{1,2})[:.](\d{2})').firstMatch(shiftName);
+    if (match == null) return false;
+    final rawStartH = int.tryParse(match.group(1) ?? '') ?? 0;
+    final startM = int.tryParse(match.group(2) ?? '') ?? 0;
+    final startH = rawStartH % 24;
+    final scheduledMinutes = startH * 60 + startM;
+    final actualMinutes = checkIn.hour * 60 + checkIn.minute;
+
+    if (rawStartH == 24 || startH == 0) {
+      if (checkIn.hour >= 18) return false;
+      if (checkIn.hour < 12) return actualMinutes > scheduledMinutes;
+      return true;
+    }
+
+    if (startH == 3) {
+      if (checkIn.hour >= 21) return false;
+      if (checkIn.hour < 15) return actualMinutes > scheduledMinutes;
+      return false;
+    }
+
+    if (startH >= 15) {
+      if (checkIn.hour < 9) return true;
+      return actualMinutes > scheduledMinutes;
+    }
+
+    return actualMinutes > scheduledMinutes;
   }
 
   /// Menghitung sisa waktu sebelum boleh absensi pulang.
@@ -347,7 +439,8 @@ class AbsensiSetupService extends ChangeNotifier {
       'SABTU',
       'MINGGU',
     ];
-    return map[DateTime.now().weekday - 1];
+    final verifiedLocal = SecureTimeService.getVerifiedTime().accurateTime.toLocal();
+    return map[verifiedLocal.weekday - 1];
   }
 
   String get seragamHariIni {
