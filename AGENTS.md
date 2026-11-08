@@ -123,7 +123,7 @@ Before starting, ask the user when antislop applies: during the work, or after i
 - **Rules wajib dimuat Mandor**: `~/.agents/skills/mandortukangv2/rules/common.md` + `~/.agents/skills/mandortukangv2/rules/mandor-v2.md`. Worker dapat rules perannya otomatis lewat baris `ROLE` di handoff (wajib isi `target_worker`).
 - **1 Mandor (Pane 1, Claude Opus 5.5 / Sonnet di `omp`)**:
   - Lead Architect & Review Gate (Strict Max 1 Pass Gate).
-  - NOL EKSEKUSI: cuma planning, review, bantah Tukang. Semua kerja (termasuk SIMPLE via `--force`, build APK, operasi DB) didelegasikan ke Tukang via:
+  - Minim eksekusi: planning, review, bantah Tukang. SIMPLE (root cause ketemu, ≤ ~20 baris, 1-2 file) boleh Mandor edit sendiri + verify sempit. Sisanya (MEDIUM/COMPLEX, build APK, operasi DB) didelegasikan ke Tukang via:
     `orca-bridge delegate --to <ui|coder|sec> --spec task.json`
   - Bilingual Token Optimization: Spec ke Tukang dalam **English**, respon ke user dalam **Indonesian gaul Gen-Z ultra-ringkas**.
 
