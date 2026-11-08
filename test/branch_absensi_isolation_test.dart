@@ -67,9 +67,10 @@ void main() {
 
     test('AttendanceArchiveScreen filters records strictly per branch without cross-viewing', () async {
       await StorageService.clearAllAttendanceRecords();
+      final recordTime = DateTime.now().subtract(const Duration(days: 2));
       final manadoRecord = AttendanceRecord(
         id: 'att_manado',
-        timestamp: DateTime(2026, 10, 9, 8, 0),
+        timestamp: recordTime,
         type: AttendanceType.masuk,
         shiftName: 'Shift 1 (03:00 - 11:00)',
         technicianName: 'Ryan Lumasuge',
@@ -80,7 +81,7 @@ void main() {
       );
       final baliRecord = AttendanceRecord(
         id: 'att_bali',
-        timestamp: DateTime(2026, 10, 9, 8, 0),
+        timestamp: recordTime,
         type: AttendanceType.masuk,
         shiftName: 'Shift 1 (06.00 - 14.00)',
         technicianName: 'Putu Hyan Parta Wijaya',
