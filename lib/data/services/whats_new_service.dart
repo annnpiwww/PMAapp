@@ -30,19 +30,18 @@ class WhatsNewService {
 
   /// Diisi ulang tiap versi naik, bareng bump di pubspec.yaml.
   static const WhatsNewRelease current = WhatsNewRelease(
-    version: '2.0.133',
-    date: '7 November 2026',
+    version: '2.0.134',
+    date: '8 November 2026',
     features: [
-      'AI cek foto lebih akurat (temuan palsu dikurangi)',
-      'Login sekarang dicek server, akun offline hanya untuk yang pernah login online di HP ini',
-      'Absen dikunci kalau GPS belum dapat lokasi atau lokasi palsu',
-      'Foto absen tidak lagi tersimpan ke galeri',
-      'Pulang telat lintas tengah malam dan label telat shift malam sudah benar',
-      'Tampilan lebih rapi di HP layar kecil dan peta ikut tema gelap',
+      'Format absen pulang rapi, pekerjaan belum selesai bernomor dan wajib ada alasan',
+      'Tandai temuan sudah diperbaiki dari Map Maintenance (foto bukti + catatan + kirim WA)',
+      'Tampilan Detail Lokasi baru (Progres Maintenance, ringkasan Total/Sesuai/Temuan)',
+      'Hasil AI tidak lagi menampilkan teks mentah, otomatis coba model cadangan',
+      'Foto bukti dikompres otomatis dan tidak lagi ter-upload dobel',
     ],
-    aiNote: 'Setelah update, login online sekali dulu supaya login offline bisa dipakai.',
-    mapNote: 'Peta maintenance mengikuti tema gelap HP.',
-    bugfix: 'Beberapa bug sudah diperbaiki dan sistem login lebih aman.',
+    aiNote: 'Hasil verifikasi AI kini lebih stabil dan otomatis failover jika respon terpotong.',
+    mapNote: 'Temuan yang sudah diperbaiki langsung berstatus final di peta maintenance.',
+    bugfix: 'Foto bukti terkompresi otomatis, perbaikan upload ganda, dan retensi storage server aktif.',
   );
 
   /// `seen` kosong berarti aplikasi belum pernah mencatat versi di perangkat ini.

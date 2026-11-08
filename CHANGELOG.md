@@ -2,6 +2,26 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.134+2147] - 2026-11-08
+
+### 🎯 Highlight Utama
+1. **Format Absen Pulang Lebih Rapi**:
+   - Format absen pulang rapi, pekerjaan belum selesai bernomor dan wajib ada alasan pada baris terpisah. Tag pos lokasi tidak lagi tertukar dengan alasan.
+2. **Tandai Temuan Sudah Diperbaiki dari Map**:
+   - Tandai temuan sudah diperbaiki langsung dari Map Maintenance lengkap dengan foto bukti, catatan tindakan, dan tombol kirim ringkasan perbaikan ke WhatsApp.
+3. **Tampilan Detail Lokasi Baru**:
+   - Tampilan Detail Lokasi baru dengan bar Progres Maintenance, ringkasan Total/Sesuai/Temuan, dan kartu temuan yang jelas.
+4. **Hasil Verifikasi AI Lebih Andal**:
+   - Hasil AI tidak lagi menampilkan teks mentah atau JSON terpotong, otomatis coba model cadangan dengan alokasi token lebih lega.
+5. **Foto Bukti Hemat Kuota & Tanpa Duplikasi**:
+   - Foto bukti dikompres otomatis (maksimal 1280px) dan tidak lagi ter-upload dobel saat sinkronisasi ulang.
+
+### 🔒 Keamanan & Server
+- Proxy AI server kembali memaksa format JSON (`response_format: json_object`) dan menyalurkan opsi `reasoning_effort`.
+- Retensi storage otomatis harian: foto tugas/maintenance disimpan 7 hari, perbaikan temuan 30 hari, dan foto sementara tak terpakai 2 hari.
+
+---
+
 ## [2.0.133+2146] - 2026-11-07
 
 ### 🎯 Highlight Utama
