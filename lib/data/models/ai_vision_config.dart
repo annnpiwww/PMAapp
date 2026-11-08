@@ -157,7 +157,7 @@ class AiVisionConfig {
     this.enableIdCardDetection = true,
     this.enableFormationCheck = true,
     this.enableCleanlinessCheck = true,
-    this.maxTokens = 350,
+    this.maxTokens = 800,
     this.temperature = 0.0,
   });
 
@@ -190,7 +190,7 @@ class AiVisionConfig {
       enableIdCardDetection: true,
       enableFormationCheck: true,
       enableCleanlinessCheck: true,
-      maxTokens: 350,
+      maxTokens: 800,
       temperature: 0.0,
     );
   }
@@ -261,7 +261,7 @@ class AiVisionConfig {
       enableIdCardDetection: json['enableIdCardDetection'] as bool? ?? true,
       enableFormationCheck: json['enableFormationCheck'] as bool? ?? true,
       enableCleanlinessCheck: json['enableCleanlinessCheck'] as bool? ?? true,
-      maxTokens: json['maxTokens'] as int? ?? 350,
+      maxTokens: json['maxTokens'] as int? ?? 800,
       temperature: (json['temperature'] as num?)?.toDouble() ?? 0.0,
     );
   }

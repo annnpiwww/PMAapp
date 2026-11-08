@@ -360,8 +360,9 @@ class StorageService {
 
       // Migrasi timeout lama: jika di storage masih 10s atau < 25s, upgrade ke 25s
       final isLowTimeout = raw.timeoutSeconds < AiVisionConfig.perModelTimeoutSeconds;
+      final isLowMaxTokens = raw.maxTokens < 800;
 
-      if (isLegacyUrl || isLegacyModel || isLegacyKey || isLowTimeout) {
+      if (isLegacyUrl || isLegacyModel || isLegacyKey || isLowTimeout || isLowMaxTokens) {
         final migrated = raw.copyWith(
           baseUrl: isLegacyUrl
               ? AiVisionConfig.defaultCustomUrl
@@ -372,8 +373,10 @@ class StorageService {
           apiKey: isLegacyKey
               ? AiVisionConfig.defaultApiKey
               : raw.apiKey,
-          timeoutSeconds: AiVisionConfig.perModelTimeoutSeconds,
-          maxTokens: 350,
+          timeoutSeconds: isLowTimeout
+              ? AiVisionConfig.perModelTimeoutSeconds
+              : raw.timeoutSeconds,
+          maxTokens: isLowMaxTokens ? 800 : raw.maxTokens,
           temperature: 0.0,
         );
         // Persist migration synchronously-ish

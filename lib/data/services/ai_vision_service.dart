@@ -644,6 +644,7 @@ OUTPUT STRICT JSON ONLY:
     const maxAttempts = 3;
     final proxyUri = Uri.parse(AiVisionConfig.proxyUrl);
     final backendAnonKey = DailyTaskService.anonKey;
+    String? lastRawContent;
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       if (DateTime.now().difference(budgetStart) >= totalBudget) {
         errorMessage = 'Batas waktu ${AiVisionConfig.totalBudgetSeconds}s tercapai';
@@ -734,21 +735,45 @@ OUTPUT STRICT JSON ONLY:
           final data = jsonDecode(response.body) as Map<String, dynamic>;
           final choices = data['choices'] as List<dynamic>?;
           if (choices != null && choices.isNotEmpty) {
+            final firstChoice = choices[0] as Map<String, dynamic>?;
+            final finishReason = firstChoice?['finish_reason'] as String?;
             final rawContent =
-                choices[0]['message']?['content'] as String? ?? '{}';
-            final parsedResult = _parseAiJsonResponse(
+                firstChoice?['message']?['content'] as String? ?? '{}';
+            lastRawContent = rawContent;
+
+            final strictResult = _parseStrictAiJsonResponse(
               rawContent,
               criteria,
               config,
               extraContext: extraContext,
             );
-            if (parsedResult != null) {
-              return parsedResult.copyWith(
+
+            if (strictResult != null && finishReason != 'length') {
+              return strictResult.copyWith(
                 providerName: 'Google Gemini',
               );
             }
-            errorMessage = 'Format JSON response tidak sesuai';
-            break;
+
+            final isFailover = finishReason == 'length' || strictResult == null;
+            if (isFailover && attempt < maxAttempts - 1 && remaining.inSeconds > 3) {
+              debugPrint(
+                '[BSS-Vision] Failover attempt ${attempt + 1}/$maxAttempts '
+                '($currentModel): finish_reason=$finishReason, strict=${strictResult != null} '
+                '-> switch ke model berikutnya (sisa ${remaining.inSeconds}s)',
+              );
+              await Future.delayed(Duration(milliseconds: 300 * (attempt + 1)));
+              continue;
+            }
+
+            final fallbackResult = _parseFreeTextFallback(
+              rawContent,
+              criteria,
+              config,
+              extraContext: extraContext,
+            );
+            return fallbackResult.copyWith(
+              providerName: 'Google Gemini',
+            );
           }
           errorMessage = 'Response dari server kosong';
           break;
@@ -786,6 +811,18 @@ OUTPUT STRICT JSON ONLY:
       } finally {
         client.close();
       }
+    }
+
+    if (lastRawContent != null) {
+      final fallbackResult = _parseFreeTextFallback(
+        lastRawContent,
+        criteria,
+        config,
+        extraContext: extraContext,
+      );
+      return fallbackResult.copyWith(
+        providerName: 'Google Gemini',
+      );
     }
 
     if (errorMessage.isEmpty || errorMessage == 'null') {
@@ -1057,23 +1094,90 @@ OUTPUT STRICT JSON ONLY:
     return VerificationStatus.perluCekManual;
   }
 
-  static AiVerificationResult? parseAiJsonResponseForTest(
-    String rawContent,
-    List<String> criteria,
-    AiVisionConfig config, {
-    String? extraContext,
-    bool? isMaintenance,
-  }) {
-    return _parseAiJsonResponse(
-      rawContent,
-      criteria,
-      config,
-      extraContext: extraContext,
-      isMaintenance: isMaintenance,
-    );
+  static bool _hasKnownStatusToken(String rawStatus) {
+    final normalized = rawStatus
+        .toLowerCase()
+        .trim()
+        .replaceAll(RegExp(r'[\s\-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    if (normalized.isEmpty) return false;
+
+    const exactTokens = {
+      'sesuai',
+      'lolos',
+      'pass',
+      'passed',
+      'approve',
+      'approved',
+      'ok',
+      'aman',
+      'hijau',
+      'tidak_sesuai',
+      'tidak_lolos',
+      'gagal',
+      'fail',
+      'failed',
+      'reject',
+      'rejected',
+      'merah',
+      'perlu_cek_manual',
+      'cek_manual',
+      'manual',
+      'ragu',
+      'kuning',
+    };
+    if (exactTokens.contains(normalized)) return true;
+
+    return normalized.contains('perlu_cek_manual') ||
+        normalized.contains('cek_manual') ||
+        normalized.contains('manual') ||
+        normalized.contains('tidak_sesuai') ||
+        normalized.contains('tidak_lolos') ||
+        normalized.contains('gagal') ||
+        normalized.contains('fail') ||
+        normalized.contains('reject') ||
+        normalized.contains('not_sesuai') ||
+        normalized.contains('not_pass') ||
+        normalized.contains('sesuai') ||
+        normalized.contains('lolos') ||
+        normalized.contains('pass') ||
+        normalized.contains('approve');
   }
 
-  static AiVerificationResult? _parseAiJsonResponse(
+  static String _extractJsonCandidate(String rawContent) {
+    String sanitized = rawContent.trim();
+    if (sanitized.contains('```json')) {
+      final start = sanitized.indexOf('```json') + 7;
+      final end = sanitized.indexOf('```', start);
+      if (end != -1) {
+        sanitized = sanitized.substring(start, end).trim();
+      } else {
+        sanitized = sanitized.substring(start).trim();
+      }
+    } else if (sanitized.contains('```')) {
+      final start = sanitized.indexOf('```') + 3;
+      final end = sanitized.indexOf('```', start);
+      if (end != -1) {
+        sanitized = sanitized.substring(start, end).trim();
+      } else {
+        sanitized = sanitized.substring(start).trim();
+      }
+    }
+
+    if (sanitized.contains('{')) {
+      final start = sanitized.indexOf('{');
+      final end = sanitized.lastIndexOf('}');
+      if (end != -1 && end > start) {
+        sanitized = sanitized.substring(start, end + 1).trim();
+      } else {
+        sanitized = sanitized.substring(start).trim();
+      }
+    }
+    return sanitized;
+  }
+
+  static AiVerificationResult? _parseStrictAiJsonResponse(
     String rawContent,
     List<String> criteria,
     AiVisionConfig config, {
@@ -1081,32 +1185,15 @@ OUTPUT STRICT JSON ONLY:
     bool? isMaintenance,
   }) {
     try {
-      String sanitized = rawContent.trim();
-      if (sanitized.contains('```json')) {
-        final start = sanitized.indexOf('```json') + 7;
-        final end = sanitized.indexOf('```', start);
-        if (end != -1) {
-          sanitized = sanitized.substring(start, end).trim();
-        }
-      } else if (sanitized.contains('```')) {
-        final start = sanitized.indexOf('```') + 3;
-        final end = sanitized.indexOf('```', start);
-        if (end != -1) {
-          sanitized = sanitized.substring(start, end).trim();
-        }
-      }
-
-      if (!sanitized.startsWith('{') && sanitized.contains('{')) {
-        final start = sanitized.indexOf('{');
-        final end = sanitized.lastIndexOf('}');
-        if (end != -1 && end > start) {
-          sanitized = sanitized.substring(start, end + 1);
-        }
-      }
-
-      final jsonMap = jsonDecode(sanitized) as Map<String, dynamic>;
+      final sanitized = _extractJsonCandidate(rawContent);
+      final decoded = jsonDecode(sanitized);
+      if (decoded is! Map) return null;
+      final jsonMap = Map<String, dynamic>.from(decoded);
 
       final rawStatus = jsonMap['status'] as String? ?? '';
+      if (!_hasKnownStatusToken(rawStatus)) {
+        return null;
+      }
       VerificationStatus status = _resolveStatusToken(rawStatus);
 
       final rawAlasan = jsonMap['alasan'] as String? ??
@@ -1117,9 +1204,6 @@ OUTPUT STRICT JSON ONLY:
       final rawPoinGagal = jsonMap['poinGagal'] as List<dynamic>? ??
           jsonMap['poin_gagal'] as List<dynamic>? ??
           [];
-      // Beberapa temuan AI yang beda (blur, miring, tidak fokus) bisa jatuh ke
-      // kalimat SOP yang sama. Disaring dulu supaya kartu "Yang Perlu Diperbaiki"
-      // tidak menampilkan kalimat kembar, dan item kosong/negasi tidak memicu gagal palsu.
       final poinGagal = <String>[];
       final poinGagalUnik = <String>{};
       for (final e in rawPoinGagal) {
@@ -1145,8 +1229,6 @@ OUTPUT STRICT JSON ONLY:
         conf = rawConf > 1.0 ? rawConf / 100.0 : rawConf.toDouble();
       }
 
-      // KRITERIA STRICT MUTLAK: Jika ada poin gagal valid dan status bukan perluCekManual,
-      // status WAJIB tidakSesuai!
       if (poinGagal.isNotEmpty &&
           status != VerificationStatus.perluCekManual) {
         status = VerificationStatus.tidakSesuai;
@@ -1154,12 +1236,13 @@ OUTPUT STRICT JSON ONLY:
         poinGagal.add('Kriteria SOP belum terpenuhi');
       }
 
-      // briefing counting fields
-      final rawCount = jsonMap['personCount'] ?? jsonMap['person_count'] ?? jsonMap['jumlahPersonel'];
+      final rawCount = jsonMap['personCount'] ??
+          jsonMap['person_count'] ??
+          jsonMap['jumlahPersonel'];
       int? personCount;
       if (rawCount is num) personCount = rawCount.toInt();
-      final kategori = jsonMap['briefingKategori'] as String? ?? jsonMap['kategori'] as String?;
-      // auto derive kategori jika tidak ada tapi count ada
+      final kategori = jsonMap['briefingKategori'] as String? ??
+          jsonMap['kategori'] as String?;
       String? finalKategori = kategori;
       if (finalKategori == null && personCount != null) {
         finalKategori = personCount < 5 ? 'kecil' : 'besar';
@@ -1176,14 +1259,83 @@ OUTPUT STRICT JSON ONLY:
         briefingKategori: finalKategori,
       );
     } catch (_) {
-      return _parseFreeTextFallback(
-        rawContent,
-        criteria,
-        config,
-        extraContext: extraContext,
-        isMaintenance: isMaintenance,
-      );
+      return null;
     }
+  }
+
+  static AiVerificationResult? parseAiJsonResponseForTest(
+    String rawContent,
+    List<String> criteria,
+    AiVisionConfig config, {
+    String? extraContext,
+    bool? isMaintenance,
+  }) {
+    return _parseAiJsonResponse(
+      rawContent,
+      criteria,
+      config,
+      extraContext: extraContext,
+      isMaintenance: isMaintenance,
+    );
+  }
+
+  static AiVerificationResult? _parseAiJsonResponse(
+    String rawContent,
+    List<String> criteria,
+    AiVisionConfig config, {
+    String? extraContext,
+    bool? isMaintenance,
+  }) {
+    final strict = _parseStrictAiJsonResponse(
+      rawContent,
+      criteria,
+      config,
+      extraContext: extraContext,
+      isMaintenance: isMaintenance,
+    );
+    if (strict != null) return strict;
+
+    return _parseFreeTextFallback(
+      rawContent,
+      criteria,
+      config,
+      extraContext: extraContext,
+      isMaintenance: isMaintenance,
+    );
+  }
+
+  static String _sanitizeFallbackReason(String raw) {
+    var cleaned = raw.trim();
+    cleaned = cleaned
+        .replaceAll(RegExp(r'```(?:json)?', caseSensitive: false), '')
+        .trim();
+    if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+      cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+    }
+    final lower = cleaned.toLowerCase();
+    if (cleaned.contains('{') ||
+        cleaned.contains('}') ||
+        cleaned.contains('```') ||
+        lower.contains('"status"') ||
+        lower.contains('status:') ||
+        lower.contains('json') ||
+        cleaned.isEmpty) {
+      return '$kErrorUnverifiablePhoto. Hasil AI tidak terbaca, silakan cek manual.';
+    }
+    if (cleaned.length > 200) {
+      cleaned = '${cleaned.substring(0, 200).trim()}...';
+    }
+    final result = cleanTechnicianReason(cleaned);
+    final resultLower = result.toLowerCase();
+    if (result.contains('{') ||
+        result.contains('}') ||
+        result.contains('```') ||
+        resultLower.contains('"status"') ||
+        resultLower.contains('status:') ||
+        resultLower.contains('json')) {
+      return '$kErrorUnverifiablePhoto. Hasil AI tidak terbaca, silakan cek manual.';
+    }
+    return result;
   }
 
   static bool _isMaintenanceFallbackContext(
@@ -1203,7 +1355,7 @@ OUTPUT STRICT JSON ONLY:
     ).hasMatch(lowerText);
   }
 
-  static AiVerificationResult? _parseFreeTextFallback(
+  static AiVerificationResult _parseFreeTextFallback(
     String rawContent,
     List<String> criteria,
     AiVisionConfig config, {
@@ -1221,10 +1373,16 @@ OUTPUT STRICT JSON ONLY:
         r'"(?:alasan|reason)"\s*:\s*"([^"]*)',
         caseSensitive: false,
       ).firstMatch(rawContent);
-      final recoveredAlasan = alasanMatch != null &&
+      var recoveredAlasan = alasanMatch != null &&
               alasanMatch.group(1)!.trim().isNotEmpty
           ? cleanTechnicianReason(alasanMatch.group(1)!)
           : 'Evaluasi selesai';
+      if (recoveredAlasan.startsWith('{') ||
+          recoveredAlasan.contains('"status"') ||
+          recoveredAlasan.contains('```')) {
+        recoveredAlasan =
+            '$kErrorUnverifiablePhoto. Hasil AI tidak terbaca, silakan cek manual.';
+      }
       return AiVerificationResult(
         status: recoveredStatus,
         alasan: recoveredAlasan,
@@ -1241,11 +1399,6 @@ OUTPUT STRICT JSON ONLY:
     }
 
     final text = rawContent.toLowerCase();
-    String reason = rawContent.trim();
-    if (reason.length > 200) {
-      reason = '${reason.substring(0, 200).trim()}...';
-    }
-
     final isMaint = isMaintenance ??
         (extraContext != null || _isMaintenanceFallbackContext(text, criteria));
 
@@ -1289,9 +1442,10 @@ OUTPUT STRICT JSON ONLY:
 
     if (qualityKeywords.any((kw) => textWithoutNegatedQuality.contains(kw))) {
       if (isMaint) {
+        final sanitizedReason = _sanitizeFallbackReason(rawContent);
         return AiVerificationResult(
           status: VerificationStatus.perluCekManual,
-          alasan: cleanTechnicianReason(reason),
+          alasan: sanitizedReason,
           poinGagal: const [],
           poinLolos: const [],
           confidenceScore: 0.6,
@@ -1338,11 +1492,16 @@ OUTPUT STRICT JSON ONLY:
         unverifiableKeywords.any((kw) => text.contains(kw));
 
     if (isUnverifiable) {
+      final sanitizedReason = _sanitizeFallbackReason(rawContent);
+      final finalAlasan = sanitizedReason ==
+              '$kErrorUnverifiablePhoto. Hasil AI tidak terbaca, silakan cek manual.'
+          ? sanitizedReason
+          : '$kErrorUnverifiablePhoto: $sanitizedReason';
       return AiVerificationResult(
         status: VerificationStatus.perluCekManual,
-        alasan: '$kErrorUnverifiablePhoto: $reason',
-        poinGagal: [],
-        poinLolos: [],
+        alasan: finalAlasan,
+        poinGagal: const [],
+        poinLolos: const [],
         confidenceScore: 0.5,
         providerName: 'Google Gemini',
         isFallback: true,
@@ -1378,10 +1537,14 @@ OUTPUT STRICT JSON ONLY:
 
     if ((matchCount >= (criteria.length / 2).ceil() && criteria.isNotEmpty) ||
         hasExplicitPositiveProse) {
+      final sanitizedReason = _sanitizeFallbackReason(rawContent);
       return AiVerificationResult(
         status: VerificationStatus.sesuai,
-        alasan: reason,
-        poinGagal: [],
+        alasan: sanitizedReason ==
+                '$kErrorUnverifiablePhoto. Hasil AI tidak terbaca, silakan cek manual.'
+            ? 'Evaluasi selesai'
+            : sanitizedReason,
+        poinGagal: const [],
         poinLolos:
             criteria.map(SopCriteriaHelper.toPositiveStatement).toList(),
         confidenceScore: 0.7,
@@ -1390,11 +1553,17 @@ OUTPUT STRICT JSON ONLY:
       );
     }
 
+    final truncatedRaw = rawContent.length > 300
+        ? rawContent.substring(0, 300)
+        : rawContent;
+    debugPrint('[BSS-Vision] Unparsed AI response: $truncatedRaw');
+
     return AiVerificationResult(
       status: VerificationStatus.perluCekManual,
-      alasan: '$kErrorInvalidJson terstruktur. Respons: $reason',
-      poinGagal: [],
-      poinLolos: [],
+      alasan:
+          '$kErrorUnverifiablePhoto. Hasil AI tidak terbaca, silakan cek manual.',
+      poinGagal: const [],
+      poinLolos: const [],
       confidenceScore: 0.4,
       providerName: 'Google Gemini',
       isFallback: true,
