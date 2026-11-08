@@ -21,7 +21,7 @@ Implementasi Edge Function `storage-retention` menerapkan tiga aturan pembersiha
 
 ## 2. Jadwal Eksekusi Otomatis (Cron)
 
-- **Waktu Eksekusi**: Setiap hari pukul **03:00 WITA** (**19:00 UTC**).
+- **Waktu Eksekusi Awal**: Setiap hari pukul **03:00 WITA** (**19:00 UTC**).
 - **Ekstensi**: `pg_cron` dan `pg_net`.
 - **Status Job**: Aktif (`active: true`).
 
@@ -96,8 +96,85 @@ Pengukuran langsung pada tabel `storage.objects` via SQL Management API:
 
 ---
 
-## 7. Kesimpulan & Rekomendasi Lanjutan
+## 7. Kesimpulan Awal
 
-1. **Efektivitas Retensi**: Pembersihan berhasil memangkas 58.7% storage (~1.56 GB), memulihkan bucket dari 2.66 GB menjadi 1.07 GB.
-2. **Kondisi Quota Free Tier (1 GB)**: Sisa storage saat ini berada di angka **1,097 MB** (hanya terpaut ~97 MB di atas 1,024 MB). Dengan aktifnya optimasi kompresi upload foto (`DailyTaskService.uploadProofPhoto` ~104 kB/foto) dan cron retention harian jam 03:00 WITA, penggunaan storage diproyeksikan akan stabil berada di kisaran **< 800 MB** dalam 2-3 hari ke depan seiring bertambahnya usia foto ke batas 7 hari.
-3. **Higienitas Kredensial**: Tidak ada rahasia, token, atau URL yang dibocorkan ke repositori atau catatan audit.
+Pembersihan tahap pertama berhasil membebaskan ~1.56 GB. Namun, karena aplikasi versi lama (<=2.0.133) di lapangan masih mengunggah duplikat dengan rasio ~10x, penyimpanan stabil di 1,097 MB (sedikit di atas batas 1 GB). Tahap kedua pembersihan agresif duplikat diterapkan di bawah ini.
+
+---
+
+## 8. Pembersihan Agresif Duplikat 6 Jam (2026-11-08 duplicate purge 6h)
+
+### A. Analisis Masalah Duplikasi Cepat
+Dari pengukuran 24 jam terakhir pada aplikasi versi lama:
+- Terjadi pengunggahan 559 MB foto baru (rata-rata 781 kB per foto).
+- Pada jendela 1 jam (02:00 WITA), dari 388 foto yang diunggah hanya terdapat 40 variasi ukuran file unik (~10x pengunggahan duplikat untuk foto yang sama).
+- Kebijakan grace period 2 hari membuat penumpukan duplikat baru mempertahankan bucket di angka 1,097 MB.
+
+### B. Aturan Duplikat Baru (Duplicate Twin Rule)
+1. **Aturan 6 Jam**: Objek orphan (tidak ada di `daily_tasks_*.foto_bukti`) yang berusia **> 6 jam** dapat langsung dihapus **JIKA** terdapat objek lain dengan prefix kelompok sama (`proof_${keyPrefix}_${n}`) dan ukuran `metadata.size` yang identik yang **SUDAH TERCATAT (REFERENCED)** di database.
+2. **Grace Period 2 Hari Tetap Aman**: Objek orphan yang belum memiliki kembaran terverifikasi di database tetap mempertahankan grace period 2 hari penuh untuk mencegah terhapusnya foto saat proses sync DB tertunda.
+3. **Objek Aktif/Tercatat Tidak Pernah Dihapus**: Objek yang tercatat di database tidak akan pernah disentuh oleh aturan duplikat berapapun usianya (< 7 hari untuk task, < 30 hari untuk fix).
+
+### C. Pembaruan Jadwal Cron (Setiap 6 Jam)
+Jadwal `pg_cron` diperbarui dari harian menjadi setiap 6 jam (`0 */6 * * *` UTC) agar pembersihan duplikat berjalan berkala tanpa menunggu malam hari.
+
+Rincian baris `cron.job` aktif:
+```json
+[
+  {
+    "jobid": 2,
+    "jobname": "storage-retention-daily",
+    "schedule": "0 */6 * * *",
+    "active": true,
+    "command": "\n  select net.http_post(\n    url := 'https://sxsjixnnlzhjinzcyhjb.supabase.co/functions/v1/storage-retention',\n    headers := jsonb_build_object(\n      'Content-Type', 'application/json',\n      'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'storage_retention_cron_secret')\n    ),\n    body := '{}'::jsonb\n  );\n  "
+  }
+]
+```
+
+### D. Hasil Pengujian Unit Baru (10 Tests Passed)
+Suite `supabase/functions/storage-retention/index_test.ts`:
+- `extractGroupPrefix: correctly extracts prefix before last millis timestamp` — **PASSED**
+- `Auth: 401 without secret or with wrong secret` — **PASSED**
+- `Safety Cap: refuse if cutoff below minimum allowed` — **PASSED**
+- `Requirement 4(a): orphan >6h with referenced same-size twin -> deleted` — **PASSED**
+- `Requirement 4(b): young orphan without twin -> kept` — **PASSED**
+- `Requirement 4(c): orphan >2d without twin -> deleted` — **PASSED**
+- `Requirement 4(d): referenced object never deleted regardless of age (under 7d)` — **PASSED**
+- `Requirement 4(e): proof_task >7d and proof_fix >30d retention unchanged` — **PASSED**
+- `Retention: dry_run body flag counts correctly and deletes nothing` — **PASSED**
+- `Retention: table-read failure skips orphan rules (fail-safe)` — **PASSED**
+
+### E. Hasil Eksekusi Dry-Run
+Pemanggilan Edge Function dengan `{"dry_run": true}`:
+- `scanned`: 1,475 objek
+- `matchedDuplicateOrphan`: 1,060 objek
+- `matchedOrphan`: 0 objek
+- `matchedTask`: 0 objek
+- `matchedFix`: 0 objek
+- `totalMatched`: 1,060 objek
+- `deleted`: 0 objek
+- `bytesFreed`: 889,515,021 bytes (**848.3 MB**)
+- `errors`: 0
+- **Verifikasi Jalur**: Dikonfirmasi **0 (nol) objek terdaftar/aktif** yang masuk daftar hapus.
+
+### F. Hasil Eksekusi Live Purge (Aktual)
+Pemanggilan Edge Function live dengan `{"dry_run": false}`:
+- `deleted`: **1,060 objek** (dihapus via Storage API dalam 11 batch)
+- `bytesFreed`: **889,515,021 bytes (~848.3 MB / 889.5 MB)**
+- `errors`: **0**
+
+### G. Status Akhir Bucket `task-proofs` (Re-Measure SQL)
+Query pengukuran aktual pada `storage.objects`:
+```sql
+select bucket_id, count(*), sum((metadata->>'size')::bigint)/1048576 as size_mb, pg_size_pretty(sum((metadata->>'size')::bigint)) as size_pretty
+from storage.objects
+group by 1;
+```
+
+Hasil:
+| Parameter | Sebelum Purge 6 Jam | Setelah Purge 6 Jam | Perubahan / Penurunan |
+|---|---|---|---|
+| **Jumlah Objek** | 1,475 file | **415 file** | **-1,060 file (-71.9%)** |
+| **Total Ukuran (Bytes)** | 1,149,964,538 bytes | **260,449,517 bytes** | **-889,515,021 bytes** |
+| **Total Ukuran (MB)** | 1,097 MB (~1.07 GB) | **248.38 MB (~248 MB)** | **-848.3 MB (-77.3%)** |
+| **Status Kuota Free Tier (1 GB)** | Melampaui (107%) | **Sangat Aman (24.2%)** | **Tersedia Headroom ~776 MB** |
