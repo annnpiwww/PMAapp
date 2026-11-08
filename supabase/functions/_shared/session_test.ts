@@ -166,6 +166,122 @@ Deno.test('ai-vision: ENFORCE_SESSION=true vs compat mode, size cap, allowlist, 
   assertEquals('extra_injected_field' in capturedUpstreamBody!, false);
   assertEquals('tools' in capturedUpstreamBody!, false);
 
+  // 3a. response_format {type:'json_object'} + reasoning_effort 'none' with model 'gemini-3-flash-preview' -> upstream body has both
+  const bodyA = JSON.stringify({
+    model: 'gemini-3-flash-preview',
+    messages: [{ role: 'user', content: 'check' }],
+    response_format: { type: 'json_object' },
+    reasoning_effort: 'none',
+  });
+  const reqA = new Request('https://example.com/functions/v1/ai-vision', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'content-length': String(bodyA.length),
+    },
+    body: bodyA,
+  });
+  await handleAiVision(reqA, mockGeminiOk);
+  assertEquals(capturedUpstreamBody!['response_format'], { type: 'json_object' });
+  assertEquals(capturedUpstreamBody!['reasoning_effort'], 'none');
+
+  // 3b. response_format {type:'json_schema', json_schema:{...}} -> not forwarded
+  const bodyB = JSON.stringify({
+    model: 'gemini-3-flash-preview',
+    messages: [{ role: 'user', content: 'check' }],
+    response_format: { type: 'json_schema', json_schema: { strict: true } },
+  });
+  const reqB = new Request('https://example.com/functions/v1/ai-vision', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'content-length': String(bodyB.length),
+    },
+    body: bodyB,
+  });
+  await handleAiVision(reqB, mockGeminiOk);
+  assertEquals('response_format' in capturedUpstreamBody!, false);
+
+  // 3c. reasoning_effort 'none' with a model outside the family that is allowlisted (gemini-flash-lite) -> not forwarded
+  const bodyC = JSON.stringify({
+    model: 'gemini-flash-lite',
+    messages: [{ role: 'user', content: 'check' }],
+    reasoning_effort: 'none',
+  });
+  const reqC = new Request('https://example.com/functions/v1/ai-vision', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'content-length': String(bodyC.length),
+    },
+    body: bodyC,
+  });
+  await handleAiVision(reqC, mockGeminiOk);
+  assertEquals('reasoning_effort' in capturedUpstreamBody!, false);
+
+  // 3d. reasoning_effort 'turbo' -> not forwarded
+  const bodyD = JSON.stringify({
+    model: 'gemini-3-flash-preview',
+    messages: [{ role: 'user', content: 'check' }],
+    reasoning_effort: 'turbo',
+  });
+  const reqD = new Request('https://example.com/functions/v1/ai-vision', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'content-length': String(bodyD.length),
+    },
+    body: bodyD,
+  });
+  await handleAiVision(reqD, mockGeminiOk);
+  assertEquals('reasoning_effort' in capturedUpstreamBody!, false);
+
+  // 3e. extra unknown field still stripped
+  const bodyE = JSON.stringify({
+    model: 'gemini-3-flash-preview',
+    messages: [{ role: 'user', content: 'check' }],
+    unrecognized_arbitrary_field: 'strip_me',
+  });
+  const reqE = new Request('https://example.com/functions/v1/ai-vision', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'content-length': String(bodyE.length),
+    },
+    body: bodyE,
+  });
+  await handleAiVision(reqE, mockGeminiOk);
+  assertEquals('unrecognized_arbitrary_field' in capturedUpstreamBody!, false);
+
+  // 3f. fallback call drops reasoning_effort for fallbackModel outside the family but keeps response_format
+  Deno.env.set('GEMINI_API_KEY_FALLBACK', 'fake-fallback-key');
+  let fallbackCapturedBody: Record<string, unknown> | null = null;
+  let callCount = 0;
+  const mockGeminiFallback: typeof fetch = async (_input, init) => {
+    callCount++;
+    if (callCount === 1) {
+      return new Response(JSON.stringify({ error: { code: 503 } }), { status: 503 });
+    }
+    fallbackCapturedBody = JSON.parse(String(init?.body ?? '{}'));
+    return new Response(JSON.stringify({ choices: [{ message: { content: '{}' } }] }), {
+      status: 200,
+    });
+  };
+  const reqFallback = new Request('https://example.com/functions/v1/ai-vision', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'content-length': String(bodyA.length),
+    },
+    body: bodyA,
+  });
+  await handleAiVision(reqFallback, mockGeminiFallback);
+  assertNotEquals(fallbackCapturedBody, null);
+  assertEquals(fallbackCapturedBody!['model'], 'gemini-3.5-flash');
+  assertEquals(fallbackCapturedBody!['response_format'], { type: 'json_object' });
+  assertEquals('reasoning_effort' in fallbackCapturedBody!, false);
+  Deno.env.delete('GEMINI_API_KEY_FALLBACK');
+
   // 4. Missing content-length rejected before reading
   Deno.env.set('ENFORCE_SESSION', 'true');
   const missingClReq = new Request('https://example.com/functions/v1/ai-vision', {

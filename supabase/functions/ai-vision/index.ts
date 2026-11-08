@@ -8,6 +8,44 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/openai';
 const MAX_BODY_BYTES = 8_000_000;
 const MAX_TOKENS_CAP = 1024;
 
+const VALID_REASONING_EFFORTS = new Set(['none', 'low', 'medium', 'high']);
+const REASONING_FAMILY_MARKERS = [
+  '3.1',
+  '3.6',
+  '3.7',
+  '3.8',
+  '3-flash',
+  'reasoning',
+  'thinking',
+];
+
+function modelSupportsReasoningEffort(modelId: string): boolean {
+  return REASONING_FAMILY_MARKERS.some((marker) => modelId.includes(marker));
+}
+
+function resolveReasoningEffort(rawEffort: unknown, modelId: string): string | undefined {
+  if (
+    typeof rawEffort === 'string' &&
+    VALID_REASONING_EFFORTS.has(rawEffort) &&
+    modelSupportsReasoningEffort(modelId)
+  ) {
+    return rawEffort;
+  }
+  return undefined;
+}
+
+function resolveResponseFormat(raw: unknown): { type: 'json_object' } | undefined {
+  if (
+    raw !== null &&
+    typeof raw === 'object' &&
+    !Array.isArray(raw) &&
+    (raw as Record<string, unknown>).type === 'json_object'
+  ) {
+    return { type: 'json_object' };
+  }
+  return undefined;
+}
+
 export const ALLOWED_MODELS = [
   'gemini-3-flash-preview',
   'gemini-3.5-flash',
@@ -161,12 +199,17 @@ export async function handleAiVision(
       : 0;
   const temperature = Math.min(1, Math.max(0, clientTemp));
 
+  const responseFormat = resolveResponseFormat(parsed.response_format);
+  const reasoningEffort = resolveReasoningEffort(parsed.reasoning_effort, model);
+
   // Build clean upstream body: drop every other client field
-  const cleanPayload = {
+  const cleanPayload: Record<string, unknown> = {
     model,
     messages: parsed.messages,
     max_tokens: maxTokens,
     temperature,
+    ...(responseFormat ? { response_format: responseFormat } : {}),
+    ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
   };
 
   const apiKey = Deno.env.get('GEMINI_API_KEY');
@@ -194,10 +237,20 @@ export async function handleAiVision(
       const fallbackModel = ALLOWED_MODEL_SET.has(fallbackModelRaw)
         ? fallbackModelRaw
         : 'gemini-3.5-flash';
-      upstream = await callGemini(fallbackKey, {
+      const fallbackPayload: Record<string, unknown> = {
         ...cleanPayload,
         model: fallbackModel,
-      });
+      };
+      const fallbackReasoningEffort = resolveReasoningEffort(
+        parsed.reasoning_effort,
+        fallbackModel,
+      );
+      if (fallbackReasoningEffort) {
+        fallbackPayload.reasoning_effort = fallbackReasoningEffort;
+      } else {
+        delete fallbackPayload.reasoning_effort;
+      }
+      upstream = await callGemini(fallbackKey, fallbackPayload);
     }
 
     if (!upstream.ok) {
