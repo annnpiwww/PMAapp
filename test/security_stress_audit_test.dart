@@ -96,7 +96,7 @@ void main() {
     });
 
     test('teks bebas 5.000 baris di-format tanpa error', () {
-      final raw = List.generate(5000, (i) => 'Pekerjaan $i (Alasan $i)').join('\n');
+      final raw = List.generate(5000, (i) => 'Pekerjaan $i\nAlasan: Alasan $i').join('\n');
       final out = WhatsAppReportService.formatUnfinishedJobList(raw);
       expect(out.split('\n').length, greaterThan(5000));
     });

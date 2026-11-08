@@ -4,10 +4,25 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/utils/share_helper.dart';
 import '../../core/utils/web_bytes/web_bytes.dart';
 import '../models/maintenance_submission.dart';
+import '../models/maintenance_temuan_fix.dart';
 import '../models/template_model.dart';
 import '../repositories/auth_repository.dart';
 import 'ai_vision_service.dart';
+import 'maintenance_log_service.dart';
 import 'storage_service.dart';
+
+class ParsedUnfinishedJob {
+  final String judul;
+  final List<String> reasons;
+
+  ParsedUnfinishedJob({
+    required this.judul,
+    List<String>? reasons,
+  }) : reasons = reasons ?? [];
+
+  String get combinedReason => reasons.join('; ').trim();
+  bool get hasReason => combinedReason.isNotEmpty && combinedReason != '-';
+}
 
 class WhatsAppReportService {
   /// Format salam otomatis berdasarkan jam saat ini:
@@ -63,6 +78,33 @@ class WhatsAppReportService {
     return '${local.day} ${_monthsList[local.month]} ${local.year}';
   }
 
+  /// Format teks laporan WhatsApp saat perbaikan temuan selesai dicatat teknisi.
+  static String formatTemuanFixReport({
+    required MaintenanceLogEntry log,
+    required MaintenanceTemuan temuan,
+    required MaintenanceTemuanFix fix,
+  }) {
+    final posName = fix.posName.trim().isNotEmpty
+        ? fix.posName.trim()
+        : (log.posName.trim().isNotEmpty ? log.posName.trim() : '-');
+    final kondisiAwal = temuan.alasan.trim().isNotEmpty ? temuan.alasan.trim() : '-';
+    final localTime = fix.fixedAt.toLocal();
+    final dateStr = formatIndonesianDate(localTime);
+    final hourStr = localTime.hour.toString().padLeft(2, '0');
+    final minStr = localTime.minute.toString().padLeft(2, '0');
+
+    return '''*LAPORAN PERBAIKAN TEMUAN*
+
+Pos : $posName
+Temuan : ${temuan.label}
+Kondisi Awal : $kondisiAwal
+Tindakan : ${fix.catatan}
+Diperbaiki Oleh : ${fix.teknisiNama}
+Waktu : $dateStr, $hourStr:$minStr WITA
+
+Terima Kasih''';
+  }
+
   /// Format satu pekerjaan yang belum selesai.
   /// Bentuknya: judul di baris pertama, alasan dalam kurung di baris kedua.
   /// Contoh:
@@ -77,40 +119,85 @@ class WhatsAppReportService {
   }
 
   /// Pecah satu baris teks bebas jadi judul + alasan.
-  /// "Pengecatan pulau (Cuaca hujan)" -> judul "Pengecatan pulau", alasan "Cuaca hujan"
-  /// "Pengecatan pulau - Cuaca hujan" -> judul + alasan
+  /// "Pengecatan pulau - Cuaca hujan" -> judul "Pengecatan pulau", alasan "Cuaca hujan"
+  /// Catatan: kurung trailing seperti "(TBM)" tidak dipecah agar pos tag tetap menyatu dengan judul.
   static ({String judul, String? alasan}) splitJobAndAlasan(String line) {
     var text = line.trim();
     text = text.replaceFirst(RegExp(r'^(\d+[\.\)]|\-|\*|•)\s*'), '').trim();
     if (text.isEmpty) return (judul: '', alasan: null);
 
-    final paren = RegExp(r'^(.*?)\s*\(([^()]+)\)\s*$').firstMatch(text);
-    if (paren != null) {
-      return (judul: paren.group(1)!.trim(), alasan: paren.group(2)!.trim());
-    }
     final dash = RegExp(r'^(.*?)\s+[-–—]\s+(.*)$').firstMatch(text);
     if (dash != null) {
-      return (judul: dash.group(1)!.trim(), alasan: dash.group(2)!.trim());
+      final j = dash.group(1)!.trim();
+      final a = dash.group(2)!.trim();
+      return (judul: j, alasan: a.isNotEmpty && a != '-' ? a : null);
     }
     return (judul: text, alasan: null);
   }
 
-  /// Daftar pekerjaan yang belum selesai dari teks bebas teknisi.
-  /// Alasan ditulis di baris berikutnya dalam kurung.
-  static String formatUnfinishedJobList(String rawText) {
-    final lines = rawText
-        .split('\n')
-        .map((l) => l.trim())
-        .where((l) => l.isNotEmpty && l != '-')
+  /// Parsing daftar pekerjaan belum selesai dari teks baris demi baris.
+  static List<ParsedUnfinishedJob> parseUnfinishedJobs(String rawText) {
+    final lines = rawText.split('\n');
+    final items = <ParsedUnfinishedJob>[];
+
+    final reasonRegex = RegExp(r'^alasan\s*:\s*(.*)$', caseSensitive: false);
+    final parenRegex = RegExp(r'^\((.+)\)$');
+
+    for (final rawLine in lines) {
+      final line = rawLine.trim();
+      if (line.isEmpty || line == '-') continue;
+
+      final reasonMatch = reasonRegex.firstMatch(line);
+      final parenMatch = parenRegex.firstMatch(line);
+
+      if (items.isNotEmpty && (reasonMatch != null || parenMatch != null)) {
+        var reason = reasonMatch != null
+            ? reasonMatch.group(1)!.trim()
+            : parenMatch!.group(1)!.trim();
+        if (reason.startsWith('(') && reason.endsWith(')') && reason.length >= 2) {
+          reason = reason.substring(1, reason.length - 1).trim();
+        }
+        if (reason.isNotEmpty && reason != '-') {
+          items.last.reasons.add(reason);
+        }
+      } else {
+        final parts = splitJobAndAlasan(line);
+        if (parts.judul.isNotEmpty) {
+          final entry = ParsedUnfinishedJob(judul: parts.judul);
+          if (parts.alasan != null && parts.alasan!.isNotEmpty && parts.alasan != '-') {
+            entry.reasons.add(parts.alasan!);
+          }
+          items.add(entry);
+        }
+      }
+    }
+
+    return items;
+  }
+
+  /// Mengembalikan daftar judul pekerjaan yang belum memiliki alasan.
+  static List<String> unfinishedJobsMissingReason(String rawText) {
+    return parseUnfinishedJobs(rawText)
+        .where((item) => !item.hasReason)
+        .map((item) => item.judul)
         .toList();
-    if (lines.isEmpty) return '-';
-    return lines
-        .map((l) {
-          final parts = splitJobAndAlasan(l);
-          return formatUnfinishedJob(parts.judul, alasan: parts.alasan);
-        })
-        .where((l) => l.isNotEmpty)
-        .join('\n');
+  }
+
+  /// Daftar pekerjaan yang belum selesai dari teks bebas teknisi.
+  /// Menomori setiap pekerjaan dan menuliskan alasan di baris berikutnya dalam kurung berindentasi 3 spasi.
+  static String formatUnfinishedJobList(String rawText) {
+    final items = parseUnfinishedJobs(rawText);
+    if (items.isEmpty) return '-';
+
+    final result = <String>[];
+    for (int i = 0; i < items.length; i++) {
+      final item = items[i];
+      result.add('${i + 1}. ${item.judul}');
+      if (item.hasReason) {
+        result.add('   (${item.combinedReason})');
+      }
+    }
+    return result.join('\n');
   }
 
   /// Format daftar baris (multiline) menjadi auto-numbering (1. , 2. , 3. dst)

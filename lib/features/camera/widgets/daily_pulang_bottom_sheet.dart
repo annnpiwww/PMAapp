@@ -4,7 +4,9 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../data/services/absensi_setup_service.dart';
 import '../../../data/services/storage_service.dart';
+import '../../../data/models/daily_task_model.dart';
 import '../../../data/services/daily_task_service.dart';
+import '../../../data/services/whatsapp_report_service.dart';
 import '../../../data/services/branch_service.dart';
 import '../../../data/repositories/auth_repository.dart';
 
@@ -75,6 +77,17 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
     });
   }
 
+  static String _formatUnfinishedTaskPrefill(List<DailyTaskModel> tasks) {
+    final buffer = StringBuffer();
+    for (int i = 0; i < tasks.length; i++) {
+      final t = tasks[i];
+      final reason = DailyTaskService.unfinishedReason(t) ?? '';
+      buffer.writeln('${i + 1}. ${t.judul} (${t.posName})');
+      buffer.writeln('Alasan: $reason');
+    }
+    return buffer.toString().trim();
+  }
+
   Future<void> _autoFillFromDailyTasks({bool force = false}) async {
     final user = AuthRepository.instance.currentUser;
     if (user == null) return;
@@ -110,12 +123,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
 
       if (pending.isNotEmpty) {
         _adaPekerjaanBelum = true;
-        final bufferBelum = StringBuffer();
-        for (int i = 0; i < pending.length; i++) {
-          final t = pending[i];
-          bufferBelum.writeln('${i + 1}. ${t.judul} (${t.posName})');
-        }
-        _belumCtrl.text = bufferBelum.toString().trim();
+        _belumCtrl.text = _formatUnfinishedTaskPrefill(pending);
       }
 
       _syncedCompletedCount = completed.length;
@@ -135,12 +143,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
       }
       if (pending.isNotEmpty) {
         _adaPekerjaanBelum = true;
-        final bufferBelum = StringBuffer();
-        for (int i = 0; i < pending.length; i++) {
-          final t = pending[i];
-          bufferBelum.writeln('${i + 1}. ${t.judul} (${t.posName})');
-        }
-        _belumCtrl.text = bufferBelum.toString().trim();
+        _belumCtrl.text = _formatUnfinishedTaskPrefill(pending);
       }
       _syncedCompletedCount = completed.length;
     } finally {
@@ -179,7 +182,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
       return;
     }
 
-    // Validasi 3: Jika toggle belum selesai aktif, teks tidak boleh kosong
+    // Validasi 3: Jika toggle belum selesai aktif, teks tidak boleh kosong dan wajib ada alasan
     String savedBelum = '-';
     if (_adaPekerjaanBelum) {
       final belumText = _belumCtrl.text.trim();
@@ -187,6 +190,14 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
         HapticFeedback.heavyImpact();
         setState(() {
           _errorMessage = 'Tulis pekerjaan yang belum selesai, atau matikan opsi jika tidak ada.';
+        });
+        return;
+      }
+      final missingReasons = WhatsAppReportService.unfinishedJobsMissingReason(belumText);
+      if (missingReasons.isNotEmpty) {
+        HapticFeedback.heavyImpact();
+        setState(() {
+          _errorMessage = 'Tulis alasan kenapa belum selesai untuk: ${missingReasons.first}';
         });
         return;
       }
@@ -678,7 +689,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                               decoration: InputDecoration(
                                 isDense: true,
                                 hintText:
-                                    'Tulis pekerjaan yang belum selesai + alasannya\n(contoh: Pengecatan pulau (Cuaca hujan))',
+                                    '1. Nama pekerjaan (Pos)\nAlasan: kenapa belum selesai',
                                 hintStyle: TextStyle(
                                   fontSize: 12,
                                   color: hintColor,

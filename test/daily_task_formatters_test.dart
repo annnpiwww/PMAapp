@@ -251,30 +251,62 @@ Printer bersih dan hasil cetak tiket jelas''';
       );
     });
 
-    test('splitJobAndAlasan memecah kurung dan tanda hubung', () {
-      final a = WhatsAppReportService.splitJobAndAlasan(
-        'Pengecatan pulau (Cuaca hujan)',
-      );
-      expect(a.judul, 'Pengecatan pulau');
-      expect(a.alasan, 'Cuaca hujan');
+    test('formatUnfinishedJobList converts editor format to exact target output', () {
+      const editorInput =
+          '1. Backup server, hapus foto, upload cloud & HDD (TBM)\n'
+          'Alasan: Menunggu HDD dari kantor\n'
+          '2. Pengecoran jalur kabel, tarikan baru CCTV Ipcam pos 5 (PBM)\n'
+          'Alasan: Cuaca hujan';
 
-      final b = WhatsAppReportService.splitJobAndAlasan(
-        '1. Pengecatan pulau - Cuaca hujan',
-      );
-      expect(b.judul, 'Pengecatan pulau');
-      expect(b.alasan, 'Cuaca hujan');
+      const expectedOutput =
+          '1. Backup server, hapus foto, upload cloud & HDD (TBM)\n'
+          '   (Menunggu HDD dari kantor)\n'
+          '2. Pengecoran jalur kabel, tarikan baru CCTV Ipcam pos 5 (PBM)\n'
+          '   (Cuaca hujan)';
 
-      final c = WhatsAppReportService.splitJobAndAlasan('Pengecatan pulau');
-      expect(c.judul, 'Pengecatan pulau');
-      expect(c.alasan, isNull);
+      expect(WhatsAppReportService.formatUnfinishedJobList(editorInput), expectedOutput);
     });
 
-    test('formatUnfinishedJobList merapikan daftar teks bebas', () {
-      final out = WhatsAppReportService.formatUnfinishedJobList(
-        'Pengecatan pulau (Cuaca hujan)\nGanti ribbon printer',
-      );
-      expect(out, contains('Pengecatan pulau\n(Cuaca hujan)'));
-      expect(out, contains('Ganti ribbon printer'));
+    test('keeps pos tag like (TBM) on job line and has no reason line when alone', () {
+      const input = '1. Backup server (TBM)';
+      final out = WhatsAppReportService.formatUnfinishedJobList(input);
+      expect(out, '1. Backup server (TBM)');
+
+      final parts = WhatsAppReportService.splitJobAndAlasan(input);
+      expect(parts.judul, 'Backup server (TBM)');
+      expect(parts.alasan, isNull);
+    });
+
+    test('camera fallback shape judul (pos)\\n(alasan) renders as 1. judul (pos)\\n   (alasan)', () {
+      const input = 'judul (pos)\n(alasan)';
+      final out = WhatsAppReportService.formatUnfinishedJobList(input);
+      expect(out, '1. judul (pos)\n   (alasan)');
+    });
+
+    test('unfinishedJobsMissingReason returns judul for empty reason and empty list when all have reasons', () {
+      const inputWithEmpty =
+          '1. Backup server (TBM)\n'
+          'Alasan: \n'
+          '2. Pengecoran jalur kabel (PBM)\n'
+          'Alasan: Cuaca hujan';
+      final missing = WhatsAppReportService.unfinishedJobsMissingReason(inputWithEmpty);
+      expect(missing, ['Backup server (TBM)']);
+
+      const inputAllValid =
+          '1. Backup server (TBM)\n'
+          'Alasan: Menunggu HDD dari kantor\n'
+          '2. Pengecoran jalur kabel (PBM)\n'
+          'Alasan: Cuaca hujan';
+      expect(WhatsAppReportService.unfinishedJobsMissingReason(inputAllValid), isEmpty);
+    });
+
+    test('dash form still yields reason in splitJobAndAlasan and formatUnfinishedJobList', () {
+      final parts = WhatsAppReportService.splitJobAndAlasan('1. Pengecatan pulau - Cuaca hujan');
+      expect(parts.judul, 'Pengecatan pulau');
+      expect(parts.alasan, 'Cuaca hujan');
+
+      final out = WhatsAppReportService.formatUnfinishedJobList('1. Pengecatan pulau - Cuaca hujan');
+      expect(out, '1. Pengecatan pulau\n   (Cuaca hujan)');
     });
 
     test('laporan harian menampilkan alasan tugas yang belum selesai', () {
