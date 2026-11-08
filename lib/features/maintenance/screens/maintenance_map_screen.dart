@@ -97,12 +97,14 @@ class MaintenanceTemuanItem {
   final MaintenanceLogEntry log;
   final MaintenanceTemuan temuan;
   final int phase;
+  final bool isFixed;
 
   const MaintenanceTemuanItem({
     required this.status,
     required this.log,
     required this.temuan,
     required this.phase,
+    this.isFixed = false,
   });
 }
 
@@ -230,6 +232,7 @@ class MaintenanceMapScreen extends StatefulWidget {
               log: top,
               temuan: t,
               phase: currentPhase,
+              isFixed: t.isFixed,
             ));
           }
         }
@@ -245,6 +248,7 @@ class MaintenanceMapScreen extends StatefulWidget {
                 log: top,
                 temuan: t,
                 phase: p,
+                isFixed: t.isFixed,
               ));
             }
           }
@@ -256,12 +260,16 @@ class MaintenanceMapScreen extends StatefulWidget {
     return items;
   }
 
-  /// Komparator pengurutan temuan: urgent dulu, lalu tidak_sesuai, lalu perlu_cek_manual, lalu tanggal terbaru.
+  /// Komparator pengurutan temuan: belum selesai diperbaiki dulu, urgent dulu, lalu tidak_sesuai, lalu perlu_cek_manual, lalu tanggal terbaru.
   @visibleForTesting
   static int compareTemuanItems(
     MaintenanceTemuanItem a,
     MaintenanceTemuanItem b,
   ) {
+    if (a.isFixed != b.isFixed) {
+      return a.isFixed ? 1 : -1;
+    }
+
     if (a.temuan.urgent != b.temuan.urgent) {
       return a.temuan.urgent ? -1 : 1;
     }
@@ -648,14 +656,14 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
               0,
               (sum, l) =>
                   sum +
-                  l.temuan.where((t) => t.status == 'tidak_sesuai').length,
+                  l.temuan.where((t) => t.status == 'tidak_sesuai' && !t.isFixed).length,
             );
         return tCount > 0 ? '$tCount Temuan' : 'Temuan';
       } else {
         final tCount = s.logs.fold<int>(
           0,
           (sum, l) =>
-              sum + l.temuan.where((t) => t.status == 'tidak_sesuai').length,
+              sum + l.temuan.where((t) => t.status == 'tidak_sesuai' && !t.isFixed).length,
         );
         return tCount > 0 ? '$tCount Temuan' : 'Temuan';
       }
@@ -739,8 +747,8 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     }
   }
 
-  Future<void> _openDetail(PosMaintenanceStatus s) {
-    return Navigator.push(
+  Future<void> _openDetail(PosMaintenanceStatus s) async {
+    final refreshed = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => MaintenanceLocationDetailScreen(
@@ -749,6 +757,9 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
         ),
       ),
     );
+    if (refreshed == true && mounted) {
+      _loadMonthData();
+    }
   }
 
   @override
@@ -1529,7 +1540,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
       selectedMonth: _selectedMonth,
     );
     final urgentPosIds = temuanItems
-        .where((t) => t.temuan.urgent)
+        .where((t) => t.temuan.urgent && !t.isFixed)
         .map((t) => t.status.location.posId)
         .toSet();
 
@@ -1664,7 +1675,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     final selected = isSelected || _selectedPosId == s.location.posId;
     final isUrgent = urgentPosIds.contains(s.location.posId);
     final items = temuanByPos[s.location.posId] ?? const [];
-    final temuanCount = items.length;
+    final temuanCount = items.where((i) => !i.isFixed).length;
     final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
     final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
     final primaryColor = MaintenanceMapPalette.primaryOf(context);
@@ -1777,7 +1788,10 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     final hasUrgent = u > 0;
     final sumTemuan = cluster.members.fold<int>(
       0,
-      (sum, m) => sum + (temuanByPos[m.location.posId]?.length ?? 0),
+      (sum, m) =>
+          sum +
+          (temuanByPos[m.location.posId]?.where((i) => !i.isFixed).length ??
+              0),
     );
     final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
     final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);

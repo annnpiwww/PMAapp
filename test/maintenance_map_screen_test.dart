@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bssparking_timemark/data/models/maintenance_submission.dart';
+import 'package:bssparking_timemark/data/models/maintenance_temuan_fix.dart';
 import 'package:bssparking_timemark/data/services/branch_service.dart';
 import 'package:bssparking_timemark/data/services/location_service.dart';
 import 'package:bssparking_timemark/data/services/maintenance_log_service.dart';
@@ -532,6 +533,122 @@ void main() {
       expect(items[2].temuan.urgent, isFalse);
       expect(items[2].temuan.label, equals('Temuan Biasa Tanggal 1'));
     });
+
+    test('pos whose only temuan is fixed is not counted as temuan marker and has isFixed: true', () {
+      final fix = MaintenanceTemuanFix(
+        id: 'fix-1',
+        logId: 'log-01',
+        temuanLabel: 'Temuan Sudah Dibereskan',
+        posId: 'POS-01',
+        posName: 'Pos Pasar Bersehati',
+        branch: 'MDO',
+        teknisiNama: 'Budi',
+        catatan: 'Sudah diganti baut baru',
+        photoUrls: ['https://example.com/p1.jpg'],
+        fixedAt: DateTime(2026, 11, 2),
+      );
+
+      final log = MaintenanceLogEntry(
+        id: 'log-01',
+        tanggal: '2026-11-01',
+        jamSelesai: '09:00',
+        posId: 'POS-01',
+        posName: 'Pos Pasar Bersehati',
+        teknisiNama: 'Budi',
+        templateId: 'tpl_maint_manless',
+        totalPoin: 10,
+        sesuaiPoin: 9,
+        temuan: [
+          MaintenanceTemuan(
+            label: 'Temuan Sudah Dibereskan',
+            status: 'tidak_sesuai',
+            alasan: 'Baut kendor',
+            urgent: false,
+            fix: fix,
+          ),
+        ],
+      );
+
+      final status = PosMaintenanceStatus(
+        location: loc1,
+        wilayah: 'Manado',
+        logs: [log],
+      );
+
+      // Log hasTemuan is false because the only temuan is fixed
+      expect(log.hasTemuan, isFalse);
+      expect(status.hasPhaseTemuan(1), isFalse);
+      expect(status.statusForPhase(1), equals('selesai_aman'));
+
+      final items = MaintenanceMapScreen.extractTemuanItems(
+        statuses: [status],
+        isCurrentMonth: true,
+        selectedMonth: DateTime(2026, 11, 1),
+        now: fixedNow,
+      );
+
+      expect(items.length, equals(1));
+      expect(items.first.isFixed, isTrue);
+      expect(items.first.temuan.isFixed, isTrue);
+    });
+
+    test('compareTemuanItems sorts unfixed findings before fixed findings', () {
+      final fix = MaintenanceTemuanFix(
+        id: 'fix-1',
+        logId: 'log-01',
+        temuanLabel: 'Temuan Fixed Urgent',
+        posId: 'POS-01',
+        posName: 'Pos Pasar Bersehati',
+        branch: 'MDO',
+        teknisiNama: 'Budi',
+        catatan: 'Fixed',
+        photoUrls: ['https://example.com/p.jpg'],
+        fixedAt: DateTime(2026, 11, 2),
+      );
+
+      const unfixedLog = MaintenanceLogEntry(
+        id: 'log-01',
+        tanggal: '2026-11-01',
+        jamSelesai: '09:00',
+        posId: 'POS-01',
+        posName: 'Pos Pasar Bersehati',
+        teknisiNama: 'Budi',
+        totalPoin: 10,
+        sesuaiPoin: 9,
+        temuan: [],
+      );
+
+      const unfixedItem = MaintenanceTemuanItem(
+        status: PosMaintenanceStatus(location: loc1, wilayah: 'Manado'),
+        log: unfixedLog,
+        temuan: MaintenanceTemuan(
+          label: 'Temuan Normal Unfixed',
+          status: 'tidak_sesuai',
+          alasan: 'Normal',
+          urgent: false,
+        ),
+        phase: 1,
+        isFixed: false,
+      );
+
+      final fixedItem = MaintenanceTemuanItem(
+        status: const PosMaintenanceStatus(location: loc1, wilayah: 'Manado'),
+        log: unfixedLog,
+        temuan: MaintenanceTemuan(
+          label: 'Temuan Fixed Urgent',
+          status: 'tidak_sesuai',
+          alasan: 'Urgent but fixed',
+          urgent: true,
+          fix: fix,
+        ),
+        phase: 1,
+        isFixed: true,
+      );
+
+      // Unfixed must come before fixed
+      expect(MaintenanceMapScreen.compareTemuanItems(unfixedItem, fixedItem), isNegative);
+      expect(MaintenanceMapScreen.compareTemuanItems(fixedItem, unfixedItem), isPositive);
+    });
   });
 
   group('MaintenanceBelumRow and MaintenanceTemuanRow at 320dp', () {
@@ -868,6 +985,9 @@ void main() {
 
   group('Map Maintenance UX V3: Badges, Location Sheet & Screenshots', () {
     final now = DateTime.now();
+    final currentTemplate =
+        MaintenanceLogService.phaseTemplates[MaintenanceLogService.phaseForDate(now)] ??
+            'tpl_maint_manless';
 
     final testSubmissions = [
       MaintenanceSubmission(
@@ -878,7 +998,7 @@ void main() {
         userId: 'tech-01',
         userName: 'Junifer Mamahit',
         userNpp: 'NPP-101',
-        templateId: 'tpl_maint_manless',
+        templateId: currentTemplate,
         templateName: 'Manless Gate',
         createdAt: now,
         updatedAt: now,
@@ -923,7 +1043,7 @@ void main() {
         userId: 'tech-01',
         userName: 'Junifer Mamahit',
         userNpp: 'NPP-101',
-        templateId: 'tpl_maint_manless',
+        templateId: currentTemplate,
         templateName: 'Manless Gate',
         createdAt: now.subtract(const Duration(hours: 2)),
         updatedAt: now.subtract(const Duration(hours: 2)),
@@ -1217,7 +1337,7 @@ void main() {
           userId: 'tech-01',
           userName: 'Junifer Mamahit',
           userNpp: 'NPP-101',
-          templateId: 'tpl_maint_manless',
+          templateId: currentTemplate,
           templateName: 'Manless Gate',
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
@@ -1306,6 +1426,34 @@ void main() {
             File('docs/screenshots/maintenance_map_wilayah_dialog.png');
         final fileDialogTs13 =
             File('docs/screenshots/maintenance_map_wilayah_dialog_ts13.png');
+
+        final origStats = fileStats.existsSync() ? fileStats.readAsBytesSync() : null;
+        final origStatsTs13 = fileStatsTs13.existsSync() ? fileStatsTs13.readAsBytesSync() : null;
+        final origDialog = fileDialog.existsSync() ? fileDialog.readAsBytesSync() : null;
+        final origDialogTs13 = fileDialogTs13.existsSync() ? fileDialogTs13.readAsBytesSync() : null;
+
+        addTearDown(() {
+          if (origStats != null) {
+            fileStats.writeAsBytesSync(origStats);
+          } else if (fileStats.existsSync()) {
+            fileStats.deleteSync();
+          }
+          if (origStatsTs13 != null) {
+            fileStatsTs13.writeAsBytesSync(origStatsTs13);
+          } else if (fileStatsTs13.existsSync()) {
+            fileStatsTs13.deleteSync();
+          }
+          if (origDialog != null) {
+            fileDialog.writeAsBytesSync(origDialog);
+          } else if (fileDialog.existsSync()) {
+            fileDialog.deleteSync();
+          }
+          if (origDialogTs13 != null) {
+            fileDialogTs13.writeAsBytesSync(origDialogTs13);
+          } else if (fileDialogTs13.existsSync()) {
+            fileDialogTs13.deleteSync();
+          }
+        });
 
         fileStats.parent.createSync(recursive: true);
 

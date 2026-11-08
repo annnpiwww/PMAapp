@@ -3,9 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/maintenance_submission.dart';
+import '../models/maintenance_temuan_fix.dart';
 import 'branch_service.dart';
 import 'daily_task_service.dart';
 import 'location_service.dart';
+import 'maintenance_fix_service.dart';
 import 'storage_service.dart';
 
 /// Model item temuan pada maintenance (khusus tidak sesuai & perlu cek manual).
@@ -14,13 +16,33 @@ class MaintenanceTemuan {
   final String status; // 'tidak_sesuai' | 'perlu_cek_manual'
   final String alasan;
   final bool urgent;
+  final MaintenanceTemuanFix? fix;
 
   const MaintenanceTemuan({
     required this.label,
     required this.status,
     required this.alasan,
     required this.urgent,
+    this.fix,
   });
+
+  bool get isFixed => fix != null;
+
+  MaintenanceTemuan copyWith({
+    String? label,
+    String? status,
+    String? alasan,
+    bool? urgent,
+    MaintenanceTemuanFix? fix,
+  }) {
+    return MaintenanceTemuan(
+      label: label ?? this.label,
+      status: status ?? this.status,
+      alasan: alasan ?? this.alasan,
+      urgent: urgent ?? this.urgent,
+      fix: fix ?? this.fix,
+    );
+  }
 
   factory MaintenanceTemuan.fromJson(Map<String, dynamic> json) {
     return MaintenanceTemuan(
@@ -71,7 +93,53 @@ class MaintenanceLogEntry {
     this.branch = 'MDO',
   });
 
-  bool get hasTemuan => temuan.any((t) => t.status == 'tidak_sesuai');
+  bool get hasTemuan =>
+      temuan.any((t) => t.status == 'tidak_sesuai' && !t.isFixed);
+
+  MaintenanceLogEntry withFixes(Map<String, MaintenanceTemuanFix> byKey) {
+    if (byKey.isEmpty || temuan.isEmpty) return this;
+    final updatedTemuan = temuan.map((t) {
+      final key = '$id|${t.label}';
+      final fix = byKey[key];
+      if (fix != null) {
+        return t.copyWith(fix: fix);
+      }
+      return t;
+    }).toList();
+    return copyWith(temuan: updatedTemuan);
+  }
+
+  MaintenanceLogEntry copyWith({
+    String? id,
+    String? tanggal,
+    String? jamSelesai,
+    String? posId,
+    String? posName,
+    String? teknisiNama,
+    String? teknisiNpp,
+    String? templateId,
+    String? templateName,
+    int? totalPoin,
+    int? sesuaiPoin,
+    List<MaintenanceTemuan>? temuan,
+    String? branch,
+  }) {
+    return MaintenanceLogEntry(
+      id: id ?? this.id,
+      tanggal: tanggal ?? this.tanggal,
+      jamSelesai: jamSelesai ?? this.jamSelesai,
+      posId: posId ?? this.posId,
+      posName: posName ?? this.posName,
+      teknisiNama: teknisiNama ?? this.teknisiNama,
+      teknisiNpp: teknisiNpp ?? this.teknisiNpp,
+      templateId: templateId ?? this.templateId,
+      templateName: templateName ?? this.templateName,
+      totalPoin: totalPoin ?? this.totalPoin,
+      sesuaiPoin: sesuaiPoin ?? this.sesuaiPoin,
+      temuan: temuan ?? this.temuan,
+      branch: branch ?? this.branch,
+    );
+  }
 
   factory MaintenanceLogEntry.fromJson(Map<String, dynamic> json) {
     final rawTemuan = json['temuan'];
@@ -574,7 +642,14 @@ class MaintenanceLogService {
               .map((row) => MaintenanceLogEntry.fromJson(
                   Map<String, dynamic>.from(row as Map)))
               .toList();
-          return (logs: entries, offline: false);
+          final logIds = entries
+              .map((e) => e.id)
+              .where((id) => id.isNotEmpty)
+              .toList();
+          final fixes = await MaintenanceFixService.fetchForLogs(logIds);
+          final entriesWithFixes =
+              entries.map((e) => e.withFixes(fixes)).toList();
+          return (logs: entriesWithFixes, offline: false);
         }
       }
     } catch (e) {
@@ -603,6 +678,11 @@ class MaintenanceLogService {
         .expand((s) => entriesFromSubmission(s, branch: activeBranch))
         .toList();
 
-    return (logs: localLogs, offline: true);
+    // Offline: jaringan sudah gagal, jangan tunggu timeout lagi; pakai perbaikan lokal saja.
+    final fixes = {for (final f in MaintenanceFixService.pendingLocal()) f.key: f};
+    final localLogsWithFixes =
+        localLogs.map((e) => e.withFixes(fixes)).toList();
+
+    return (logs: localLogsWithFixes, offline: true);
   }
 }
