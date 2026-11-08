@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import '../models/daily_task_model.dart';
 import '../models/maintenance_submission.dart';
 import '../repositories/auth_repository.dart';
@@ -1139,18 +1140,21 @@ class DailyTaskService {
     // Disiapkan di luar try supaya path foto tetap bisa diantrekan kalau sync gagal.
     // Di web `File` tidak ada (melempar UnsupportedError), jadi cek file hanya di native.
     // Tanpa guard ini submit tugas menggantung selamanya di iPhone/Vercel.
-    bool adaFile(String p) => kIsWeb || File(p).existsSync();
+    bool adaFile(String p) =>
+        p.startsWith('http://') || p.startsWith('https://') || kIsWeb || File(p).existsSync();
 
     final photosToUpload = <String>[];
     if (localPhotoPaths != null && localPhotoPaths.isNotEmpty) {
       for (final p in localPhotoPaths) {
-        if (p.isNotEmpty && adaFile(p)) {
-          photosToUpload.add(p);
+        if (p.trim().isNotEmpty && adaFile(p.trim())) {
+          photosToUpload.add(p.trim());
         }
       }
-    } else if (localPhotoPath != null && adaFile(localPhotoPath)) {
-      photosToUpload.add(localPhotoPath);
+    } else if (localPhotoPath != null && adaFile(localPhotoPath.trim())) {
+      photosToUpload.add(localPhotoPath.trim());
     }
+
+    var currentPhotosForQueue = List<String>.from(photosToUpload);
 
     try {
       // 2. Catatan murni teknisi tanpa teks annotasi tambahan
@@ -1175,20 +1179,48 @@ class DailyTaskService {
         return true;
       }
 
-      final uploadedUrls = <String>[];
-      if (photosToUpload.isNotEmpty) {
-        // Maks 3 upload paralel per batch: cepat tapi uplink HP tidak tersaturasi.
-        for (int start = 0; start < photosToUpload.length; start += 3) {
-          final end = min(start + 3, photosToUpload.length);
-          final batch = await Future.wait(
-            List.generate(
-              end - start,
-              (offset) => _uploadBuktiFoto(photosToUpload[start + offset], taskId: taskId, index: start + offset),
-            ),
-          );
-          uploadedUrls.addAll(batch.whereType<String>());
+      // photosToUpload can contain either local file paths or already-uploaded https URLs.
+      // resolvedUrls holds the final URL for each index (or null if upload failed).
+      final resolvedUrls = List<String?>.filled(photosToUpload.length, null);
+      final pendingIndices = <int>[];
+
+      for (int i = 0; i < photosToUpload.length; i++) {
+        final p = photosToUpload[i];
+        if (p.startsWith('http://') || p.startsWith('https://')) {
+          resolvedUrls[i] = p;
+        } else {
+          pendingIndices.add(i);
         }
       }
+
+      // Upload remaining local photos in batches of 3
+      if (pendingIndices.isNotEmpty) {
+        for (int start = 0; start < pendingIndices.length; start += 3) {
+          final end = min(start + 3, pendingIndices.length);
+          final currentBatchIndices = pendingIndices.sublist(start, end);
+          final results = await Future.wait(
+            currentBatchIndices.map(
+              (idx) => _uploadBuktiFoto(photosToUpload[idx], taskId: taskId, index: idx),
+            ),
+          );
+          for (int b = 0; b < currentBatchIndices.length; b++) {
+            final resUrl = results[b];
+            if (resUrl != null) {
+              resolvedUrls[currentBatchIndices[b]] = resUrl;
+            }
+          }
+        }
+      }
+
+      // Build updated photos list for outbox:
+      // For each item, if resolvedUrls[i] != null, use the remote URL; otherwise keep the local path.
+      final updatedPhotosForQueue = <String>[];
+      for (int i = 0; i < photosToUpload.length; i++) {
+        updatedPhotosForQueue.add(resolvedUrls[i] ?? photosToUpload[i]);
+      }
+      currentPhotosForQueue = updatedPhotosForQueue;
+
+      final uploadedUrls = resolvedUrls.whereType<String>().toList();
 
       final patchUri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(queryParameters: {'id': 'eq.$taskId'});
       final patchBody = jsonEncode({
@@ -1213,49 +1245,109 @@ class DailyTaskService {
       }
       if (!success) {
         debugPrint('[DailyTaskService] completeTask patch failed: ${res.statusCode} ${res.body}');
-        if (!fromQueue) {
-          await _enqueueCompletion(
-            taskId: taskId,
-            jamSelesai: jamSelesai,
-            catatan: effectiveCatatan,
-            photos: photosToUpload,
-          );
-        }
+        await _enqueueCompletion(
+          taskId: taskId,
+          jamSelesai: jamSelesai,
+          catatan: effectiveCatatan,
+          photos: currentPhotosForQueue,
+        );
       }
       return success;
     } catch (e) {
       debugPrint('[DailyTaskService] completeTask error: $e');
-      if (!fromQueue) {
-        await _enqueueCompletion(
-          taskId: taskId,
-          jamSelesai: jamSelesai,
-          catatan: (catatan ?? '').trim(),
-          photos: photosToUpload,
-        );
-      }
+      await _enqueueCompletion(
+        taskId: taskId,
+        jamSelesai: jamSelesai,
+        catatan: (catatan ?? '').trim(),
+        photos: currentPhotosForQueue,
+      );
       return false;
     }
   }
 
-  /// Upload satu foto bukti. `null` = gagal/tidak terbaca (foto dilewati, sama
-  /// seperti perilaku loop sekuensial sebelumnya).
-  static Future<String?> _uploadBuktiFoto(String filePath, {required String taskId, required int index}) async {
-    if (!_validTaskIdRegex.hasMatch(taskId)) {
-      debugPrint('[DailyTaskService] Invalid taskId rejected for upload: $taskId');
+  /// Downscale proof photo bytes so longest side <= 1280px (preserve aspect ratio, never upscale),
+  /// and encode as JPEG with quality 70.
+  /// Returns null if image cannot be decoded.
+  static Uint8List? _compressProofBytesSync(Uint8List rawBytes) {
+    try {
+      final decoded = img.decodeImage(rawBytes);
+      if (decoded == null) return null;
+
+      img.Image processed = decoded;
+      const maxSide = 1280;
+      final longestSide = max(decoded.width, decoded.height);
+      if (longestSide > maxSide) {
+        int targetW;
+        int targetH;
+        if (decoded.width >= decoded.height) {
+          targetW = maxSide;
+          targetH = (decoded.height * maxSide / decoded.width).round();
+        } else {
+          targetH = maxSide;
+          targetW = (decoded.width * maxSide / decoded.height).round();
+        }
+        processed = img.copyResize(decoded, width: targetW, height: targetH);
+      }
+
+      final encoded = img.encodeJpg(processed, quality: 70);
+      return Uint8List.fromList(encoded);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @visibleForTesting
+  static Uint8List? compressProofBytesForTesting(Uint8List rawBytes) =>
+      _compressProofBytesSync(rawBytes);
+
+  /// Upload satu foto bukti ke bucket task-proofs Supabase Storage.
+  /// Reusable untuk Daily Task completion maupun Maintenance Temuan Fix.
+  static Future<String?> uploadProofPhoto(
+    String filePath, {
+    required String keyPrefix,
+    required int index,
+  }) async {
+    if (!_validTaskIdRegex.hasMatch(keyPrefix)) {
+      debugPrint('[DailyTaskService] Invalid keyPrefix rejected for upload: $keyPrefix');
       return null;
     }
     try {
-      final fileName = 'proof_${taskId}_${index + 1}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName = 'proof_${keyPrefix}_${index + 1}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final uploadUri = Uri.parse('$baseUrl/storage/v1/object/task-proofs/$fileName');
       final bytes = await _readBuktiBytes(filePath);
       if (bytes == null || bytes.isEmpty) {
         debugPrint('[DailyTaskService] Bukti foto tidak terbaca: $filePath');
         return null;
       }
+
+      Uint8List uploadBytes = bytes;
+      try {
+        final compressed = kIsWeb
+            ? _compressProofBytesSync(bytes)
+            : await compute(_compressProofBytesSync, bytes);
+        if (compressed != null && compressed.isNotEmpty) {
+          if (compressed.length < bytes.length) {
+            debugPrint(
+              '[DailyTaskService] Proof compressed: $fileName '
+              '(${bytes.length} -> ${compressed.length} bytes, -${((bytes.length - compressed.length) * 100 / bytes.length).toStringAsFixed(1)}%)',
+            );
+            uploadBytes = compressed;
+          } else {
+            debugPrint(
+              '[DailyTaskService] Proof compression skipped (compressed ${compressed.length} >= original ${bytes.length} bytes): $fileName',
+            );
+          }
+        } else {
+          debugPrint('[DailyTaskService] Proof decode failed, uploading original: $fileName');
+        }
+      } catch (e) {
+        debugPrint('[DailyTaskService] Proof compression error ($e), uploading original: $fileName');
+      }
+
       final uploadRes = await _post(
         uploadUri,
         headers: {'apikey': anonKey, 'Authorization': 'Bearer $anonKey', 'Content-Type': 'image/jpeg'},
-        body: bytes,
+        body: uploadBytes,
       ).timeout(const Duration(seconds: 15));
 
       if (uploadRes.statusCode == 200 || uploadRes.statusCode == 201) {
@@ -1268,6 +1360,11 @@ class DailyTaskService {
       return null;
     }
   }
+
+  /// Upload satu foto bukti. `null` = gagal/tidak terbaca (foto dilewati, sama
+  /// seperti perilaku loop sekuensial sebelumnya).
+  static Future<String?> _uploadBuktiFoto(String filePath, {required String taskId, required int index}) =>
+      uploadProofPhoto(filePath, keyPrefix: taskId, index: index);
 
   @visibleForTesting
   static Future<String?> uploadBuktiFotoForTesting(
@@ -1794,23 +1891,54 @@ class DailyTaskService {
     String? catatan,
     List<String> photos = const [],
   }) async {
-    final list = _pendingCompletions()..removeWhere((e) => e['taskId'] == taskId);
-    list.add({'taskId': taskId, 'jamSelesai': jamSelesai, 'catatan': catatan ?? '', 'photos': photos});
+    final list = _pendingCompletions();
+    final existingIndex = list.indexWhere((e) => e['taskId'] == taskId);
+    final mergedPhotos = List<String>.from(photos);
+
+    if (existingIndex != -1) {
+      final existingPhotos = (list[existingIndex]['photos'] as List?)?.cast<String>() ?? [];
+      // If incoming photo at index i is a local path but existing already has remote URL,
+      // preserve the remote URL so we never re-upload it.
+      for (int i = 0; i < mergedPhotos.length && i < existingPhotos.length; i++) {
+        if (!mergedPhotos[i].startsWith('http://') &&
+            !mergedPhotos[i].startsWith('https://') &&
+            (existingPhotos[i].startsWith('http://') || existingPhotos[i].startsWith('https://'))) {
+          mergedPhotos[i] = existingPhotos[i];
+        }
+      }
+      list.removeAt(existingIndex);
+    }
+
+    list.add({'taskId': taskId, 'jamSelesai': jamSelesai, 'catatan': catatan ?? '', 'photos': mergedPhotos});
     await _savePendingCompletions(list);
     debugPrint('[DailyTaskService] Penyelesaian $taskId diantrekan, akan dikirim ulang');
   }
 
+  static Future<int>? _activeFlushFuture;
+
   /// Kirim ulang penyelesaian tugas yang tertunda. Aman dipanggil berkali-kali.
-  static Future<int> flushPendingCompletions() async {
+  /// Dilindungi single-flight guard agar pemanggilan paralel mengembalikan Future yang sama.
+  static Future<int> flushPendingCompletions() {
+    if (_activeFlushFuture != null) {
+      return _activeFlushFuture!;
+    }
+    final future = _flushPendingCompletionsInternal();
+    _activeFlushFuture = future;
+    return future.whenComplete(() {
+      _activeFlushFuture = null;
+    });
+  }
+
+  static Future<int> _flushPendingCompletionsInternal() async {
     final queue = _pendingCompletions();
     if (queue.isEmpty) return 0;
 
-    final remaining = <Map<String, dynamic>>[];
     var flushed = 0;
     for (final entry in queue) {
+      final taskId = entry['taskId'] as String;
       final note = ((entry['catatan'] as String?) ?? '').trim();
       final ok = await completeTask(
-        taskId: entry['taskId'] as String,
+        taskId: taskId,
         jamSelesai: (entry['jamSelesai'] as String?) ?? '',
         catatan: note.isEmpty ? null : note,
         localPhotoPaths: (entry['photos'] as List?)?.cast<String>(),
@@ -1818,11 +1946,10 @@ class DailyTaskService {
       );
       if (ok) {
         flushed++;
-      } else {
-        remaining.add(entry);
+        final currentQueue = _pendingCompletions()..removeWhere((e) => e['taskId'] == taskId);
+        await _savePendingCompletions(currentQueue);
       }
     }
-    await _savePendingCompletions(remaining);
     if (flushed > 0) {
       debugPrint('[DailyTaskService] Flush penyelesaian tertunda: $flushed tersinkron');
     }
