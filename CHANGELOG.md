@@ -2,6 +2,22 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.135+2148] - 2026-11-10
+
+### 🎯 Highlight Utama (Redesign Tiket)
+1. **Desain Baru Tiket di Seluruh Layar**:
+   - Header band biru BSS khas tiket dengan aksen perforasi, tipografi tajam Plus Jakarta Sans, dan dark mode terkalibrasi token `TiketColors`.
+2. **Identitas Aplikasi & Login Baru**:
+   - Nama aplikasi resmi menjadi PMApp dengan tampilan login dan drawer yang telah distandardisasi ke arsitektur Tiket.
+3. **Filter Dropdown Terpadu**:
+   - Filter teknisi dan status tugas kini menggunakan pilihan modal dropdown terpadu (`TiketDropdownField` + dialog), menggantikan scroll horizontal lama.
+4. **Kamera Lebih Lega & Ergonomis**:
+   - Tata letak kamera lebih bersih dengan rasio foto terpusat pada kontrol kanan atas.
+5. **Responsivitas & Aksesibilitas**:
+   - Tampilan rapi tanpa overflow pada layar kecil 360 dp maupun pembesaran font `textScaler: 1.3`.
+
+---
+
 ## [2.0.134+2147] - 2026-11-08
 
 ### 🎯 Highlight Utama
