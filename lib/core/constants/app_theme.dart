@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import 'tiket_colors.dart';
 
 class AppTheme {
   static const String fontFamily = 'PlusJakartaSans';
@@ -12,16 +13,17 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      primaryColor: AppColors.primary,
-      scaffoldBackgroundColor: AppColors.background,
-      colorScheme: const ColorScheme.light(
-        primary: AppColors.primary,
-        onPrimary: Colors.white,
+      primaryColor: TiketColors.light.primary,
+      scaffoldBackgroundColor: TiketColors.light.canvas,
+      extensions: const [TiketColors.light],
+      colorScheme: ColorScheme.light(
+        primary: TiketColors.light.primary,
+        onPrimary: TiketColors.light.onPrimary,
         secondary: AppColors.accent,
         onSecondary: Colors.white,
         surface: AppColors.surface,
         onSurface: AppColors.textPrimary,
-        error: AppColors.danger,
+        error: TiketColors.light.danger,
         onError: Colors.white,
       ),
       textTheme: baseTextTheme.copyWith(
@@ -91,41 +93,71 @@ class AppTheme {
         ),
         margin: EdgeInsets.zero,
       ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: TiketColors.light.dialog,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: TiketColors.light.dialog,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+      ),
+      dividerTheme: DividerThemeData(
+        color: TiketColors.light.hairline,
+        thickness: 1,
+        space: 1,
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
+          backgroundColor: TiketColors.light.primary,
+          foregroundColor: TiketColors.light.onPrimary,
           elevation: 0,
-          minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          minimumSize: const Size(double.infinity, 48),
+          shape: const StadiumBorder(),
           textStyle: const TextStyle(
             fontFamily: fontFamily,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: TiketColors.light.primary,
+          foregroundColor: TiketColors.light.onPrimary,
+          elevation: 0,
+          minimumSize: const Size(double.infinity, 48),
+          shape: const StadiumBorder(),
+          textStyle: const TextStyle(
+            fontFamily: fontFamily,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
             letterSpacing: 0.2,
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.cardBorder, width: 1.5),
-          minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          foregroundColor: TiketColors.light.primary,
+          side: BorderSide(color: TiketColors.light.primary, width: 1.5),
+          minimumSize: const Size(double.infinity, 48),
+          shape: const StadiumBorder(),
           textStyle: const TextStyle(
             fontFamily: fontFamily,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surfaceContainerLow,
+        fillColor: TiketColors.light.soft,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -136,20 +168,13 @@ class AppTheme {
           borderSide: const BorderSide(color: AppColors.cardBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
+          borderRadius: const BorderRadius.all(Radius.circular(14)),
+          borderSide: BorderSide(color: TiketColors.light.primary, width: 2.0),
         ),
         hintStyle: const TextStyle(
           fontFamily: fontFamily,
           fontSize: 13,
           color: AppColors.textMuted,
-        ),
-      ),
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
       ),
     );
@@ -160,22 +185,22 @@ class AppTheme {
           fontFamily: fontFamily,
         );
 
-    const darkBg = AppColors.darkBackground;
     const darkSurface = AppColors.darkSurface;
     const darkBorder = AppColors.darkBorder;
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      primaryColor: AppColors.primary,
-      scaffoldBackgroundColor: darkBg,
-      colorScheme: const ColorScheme.dark(
-        primary: AppColors.primaryLight,
-        onPrimary: Colors.white,
+      primaryColor: TiketColors.dark.primary,
+      scaffoldBackgroundColor: TiketColors.dark.canvas,
+      extensions: const [TiketColors.dark],
+      colorScheme: ColorScheme.dark(
+        primary: TiketColors.dark.primary,
+        onPrimary: TiketColors.dark.onPrimary,
         secondary: AppColors.accent,
         onSecondary: Colors.white,
         surface: darkSurface,
         onSurface: Colors.white,
-        error: AppColors.danger,
+        error: TiketColors.dark.danger,
         onError: Colors.white,
       ),
       textTheme: baseTextTheme.copyWith(
@@ -245,41 +270,71 @@ class AppTheme {
         ),
         margin: EdgeInsets.zero,
       ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: TiketColors.dark.dialog,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: TiketColors.dark.dialog,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+      ),
+      dividerTheme: DividerThemeData(
+        color: TiketColors.dark.hairline,
+        thickness: 1,
+        space: 1,
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
+          backgroundColor: TiketColors.dark.primary,
+          foregroundColor: TiketColors.dark.onPrimary,
           elevation: 0,
-          minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          minimumSize: const Size(double.infinity, 48),
+          shape: const StadiumBorder(),
           textStyle: const TextStyle(
             fontFamily: fontFamily,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: TiketColors.dark.primary,
+          foregroundColor: TiketColors.dark.onPrimary,
+          elevation: 0,
+          minimumSize: const Size(double.infinity, 48),
+          shape: const StadiumBorder(),
+          textStyle: const TextStyle(
+            fontFamily: fontFamily,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
             letterSpacing: 0.2,
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white,
-          side: const BorderSide(color: darkBorder, width: 1.5),
-          minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          foregroundColor: TiketColors.dark.primary,
+          side: BorderSide(color: TiketColors.dark.primary, width: 1.5),
+          minimumSize: const Size(double.infinity, 48),
+          shape: const StadiumBorder(),
           textStyle: const TextStyle(
             fontFamily: fontFamily,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFF1E293B),
+        fillColor: TiketColors.dark.soft,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -297,13 +352,6 @@ class AppTheme {
           fontFamily: fontFamily,
           fontSize: 13,
           color: Color(0xFF64748B),
-        ),
-      ),
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: darkSurface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
       ),
     );

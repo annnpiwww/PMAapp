@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<title>Konsep F Ceria</title>
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+:root{--bg:#f4f1fb;--fg:#1d1640;--mut:#6c6589;--ink:#2b1f6b;--mint:#c8f0da;--mint-i:#13643d;--lil:#ddd5ff;--lil-i:#4b33b8;--pch:#ffd8c6;--pch-i:#9a3b12;--but:#fff0b3;--but-i:#7a5a00;--acc:#5b3df5}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Plus Jakarta Sans",sans-serif;background:#e2ddf0;display:flex;gap:28px;padding:28px;width:max-content}
+.cap{display:flex;flex-direction:column;align-items:center}
+.label{font-size:12px;color:#3d3566;margin-top:10px;font-weight:600}
+.phone{width:390px;height:844px;background:var(--bg);color:var(--fg);position:relative;overflow:hidden;border-radius:28px}
+.sb{height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 24px;font-size:14px;font-weight:600}
+.sb i{font-size:15px;margin-left:4px}
+.top{display:flex;align-items:center;gap:12px;padding:6px 18px 0}
+.ib{width:44px;height:44px;border-radius:16px;background:#fff;display:grid;place-items:center;font-size:21px;flex:none}
+.top h1{flex:1;font-size:18px;font-weight:800}
+.hi{display:flex;align-items:center;gap:12px;padding:16px 20px 0}
+.hi .av{width:48px;height:48px;border-radius:24px;background:var(--but);color:var(--but-i);display:grid;place-items:center;font-weight:800;font-size:18px}
+.hi small{font-size:12.5px;color:var(--mut);font-weight:600}
+.hi h2{font-size:22px;font-weight:800;letter-spacing:-.3px}
+.bento{display:grid;grid-template-columns:1.25fr 1fr;gap:10px;padding:18px 20px 0}
+.t{border-radius:24px;padding:16px;position:relative;overflow:hidden}
+.t.big{grid-row:span 2}
+.t small{font-size:12.5px;font-weight:700;opacity:.85}
+.t b{display:block;font-size:40px;font-weight:800;letter-spacing:-1px;line-height:1.05;margin-top:4px}
+.t b span{font-size:20px;opacity:.6}
+.t p{font-size:12.5px;font-weight:600;margin-top:4px;opacity:.85}
+.t .deco{position:absolute;right:-10px;bottom:-14px;font-size:84px;opacity:.18}
+.mint{background:var(--mint);color:var(--mint-i)}.lil{background:var(--lil);color:var(--lil-i)}.pch{background:var(--pch);color:var(--pch-i)}.but{background:var(--but);color:var(--but-i)}
+.sec{display:flex;justify-content:space-between;align-items:baseline;padding:24px 20px 10px}
+.sec h3{font-size:17px;font-weight:800}
+.sec span{font-size:13px;color:var(--mut);font-weight:600}
+.item{display:flex;gap:12px;align-items:center;padding:12px 20px}
+.bub{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;font-size:23px;flex:none}
+.tx{flex:1;min-width:0}
+.tx h4{font-size:15px;font-weight:700;line-height:1.3}
+.tx h4.done{text-decoration:line-through;color:var(--mut)}
+.tx p{font-size:12.5px;color:var(--mut);margin-top:2px;font-weight:500}
+.go{height:38px;padding:0 16px;border-radius:14px;background:var(--fg);color:#fff;font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex:none}
+.go.soft{background:#fff;color:var(--fg)}
+.cta{position:absolute;left:20px;right:20px;bottom:26px;height:58px;border-radius:20px;background:var(--acc);color:#fff;font-weight:800;font-size:16px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 10px 0 #3b23c4}
+.pills{display:flex;gap:8px;padding:16px 20px 0;overflow:hidden}
+.pl{height:38px;padding:0 14px;border-radius:14px;background:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.pl.on{background:var(--fg);color:#fff}
+.pl em{font-style:normal;background:var(--pch);color:var(--pch-i);border-radius:8px;padding:1px 6px;font-size:11px}
+.fase{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:16px 20px 0}
+.fase div{border-radius:18px;padding:12px 0;text-align:center;background:#fff}
+.fase small{font-size:11.5px;font-weight:700;color:var(--mut);display:block}
+.fase b{font-size:16px;font-weight:800;display:block;margin:2px 0}
+.fase span{font-size:11px;font-weight:800}
+.map{position:absolute;inset:0;background:url(osm_14_13873_8124.png) 0 0/390px 390px,url(osm_14_13874_8124.png) 390px 0/390px 390px,url(osm_14_13873_8125.png) 0 390px/390px 390px,url(osm_14_13874_8125.png) 390px 390px/390px 390px;background-repeat:no-repeat;filter:saturate(.35) sepia(.15) hue-rotate(210deg)}
+.pin{position:absolute;transform:translate(-50%,-100%);font-size:12.5px;font-weight:800;padding:8px 12px;border-radius:16px 16px 16px 4px;display:flex;gap:6px;align-items:center}
+.ph{display:inline-block}
+</style></head><body>
+
+<!-- 1 Kamera -->
+<div class="cap"><div class="phone">
+ <div class="sb"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div class="top"><div class="ib" style="position:relative"><i class="ph-bold ph-list"></i><em style="position:absolute;top:-4px;right:-4px;font-style:normal;font-size:11px;font-weight:800;background:var(--pch);color:var(--pch-i);border-radius:9px;padding:1px 6px">2</em></div><div style="flex:1"></div><div class="ib"><i class="ph-bold ph-timer"></i></div><div class="ib"><i class="ph-bold ph-lightning-a"></i></div><div class="ib"><i class="ph-bold ph-camera-rotate"></i></div></div>
+ <div style="margin:14px 14px 0;height:500px;border-radius:32px;background:radial-gradient(120% 80% at 50% 40%,#6a6488,#2b2645 70%);position:relative;overflow:hidden">
+  <div style="position:absolute;left:16px;bottom:16px;color:#fff;font-size:12px;line-height:1.5;text-shadow:0 1px 3px #0008"><b style="font-size:14px">Pos Pasar Bersehati</b><br>Jl. Sam Ratulangi, Manado<br>1.4921, 124.8412 · 08 Nov 09:30 WITA</div>
+  <div style="position:absolute;right:12px;bottom:12px;display:flex;gap:4px;background:#fff3;border-radius:16px;padding:4px"><span class="pl on" style="height:32px">1x</span><span class="pl" style="height:32px;background:transparent;color:#fff">2x</span><span class="pl" style="height:32px;background:transparent;color:#fff">5x</span></div>
+  <span class="pl" style="position:absolute;left:12px;top:12px;height:32px">3:4</span>
+ </div>
+ <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 34px 0">
+  <div class="bub lil"><i class="ph-bold ph-images"></i></div>
+  <div style="width:84px;height:84px;border-radius:30px;background:var(--acc);display:grid;place-items:center;box-shadow:0 8px 0 #3b23c4"><i class="ph-fill ph-camera" style="font-size:34px;color:#fff"></i></div>
+  <div class="bub but"><i class="ph-bold ph-clipboard-text"></i></div>
+ </div>
+ <div class="item" style="margin:18px 14px 0;background:var(--mint);border-radius:20px;padding:10px 10px 10px 16px"><div class="tx" style="color:var(--mint-i)"><h4>Shift Pagi · masuk 1j 30m</h4></div><span class="go">Pulang</span></div>
+</div><div class="label">Kamera</div></div>
+
+<!-- 2 Tugas -->
+<div class="cap"><div class="phone">
+ <div class="sb"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div class="top"><div class="ib"><i class="ph-bold ph-arrow-left"></i></div><div style="flex:1"></div><div class="ib"><i class="ph-bold ph-arrows-clockwise"></i></div></div>
+ <div class="hi"><div class="av">R</div><div><small>IT Support KC BSG</small><h2>Semangat, Rendy</h2></div></div>
+ <div class="bento"><div class="t big lil"><small>Selesai hari ini</small><b>2<span>/4</span></b><p>Sisa 2 tugas</p><i class="ph-fill ph-check-circle deco"></i></div><div class="t mint"><small>Selesai</small><b style="font-size:30px">2</b></div><div class="t pch"><small>Shift lalu</small><b style="font-size:30px">1</b></div></div>
+ <div class="sec"><h3>Hari ini</h3><span>4 tugas</span></div>
+ <div class="item"><div class="bub mint"><i class="ph-bold ph-check"></i></div><div class="tx"><h4 class="done">Cek barrier gate masuk 1</h4><p>Pos Pasar Bersehati · 09:30</p></div><span class="go soft">Bukti</span></div>
+ <div class="item"><div class="bub but"><i class="ph-bold ph-wrench"></i></div><div class="tx"><h4>Bersihkan sensor gate dan kalibrasi palang</h4><p>Gate 1 PBM · bareng Alessandro</p></div><span class="go">Lanjut</span></div>
+ <div class="item"><div class="bub lil"><i class="ph-bold ph-desktop-tower"></i></div><div class="tx"><h4>Periksa PC server dan switch</h4><p>Server PBM · Tugas Khusus</p></div><span class="go">Kerjakan</span></div>
+ <div class="item"><div class="bub pch"><i class="ph-bold ph-plugs"></i></div><div class="tx"><h4>Kabel LAN kasir 2 putus</h4><p>Lanjutan dari Farhan · kemarin</p></div><span class="go soft">Lanjut</span></div>
+ <div class="cta"><i class="ph-bold ph-plus"></i>Catat Kerjaan</div>
+</div><div class="label">Tugas Harian Teknisi</div></div>
+
+<!-- 3 SPV -->
+<div class="cap"><div class="phone">
+ <div class="sb"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div class="top"><div class="ib"><i class="ph-bold ph-arrow-left"></i></div><h1>Penugasan Tim</h1><div class="ib"><i class="ph-bold ph-whatsapp-logo"></i></div><div class="ib"><i class="ph-bold ph-users-three"></i></div></div>
+ <div class="bento"><div class="t big but"><small>Kamis, 8 Nov</small><b>67%</b><p>4 dari 6 selesai</p><i class="ph-fill ph-chart-pie-slice deco"></i></div><div class="t pch"><small>Pending</small><b style="font-size:30px">2</b></div><div class="t mint"><small>Selesai</small><b style="font-size:30px">4</b></div></div>
+ <div class="pills"><span class="pl on">Semua 6</span><span class="pl">Rendy <em>1</em></span><span class="pl">Alessandro <em>1</em></span><span class="pl">Farhan</span></div>
+ <div class="sec"><h3>Belum selesai</h3><span>2</span></div>
+ <div class="item"><div class="bub but" style="font-weight:800;font-size:17px">R</div><div class="tx"><h4>Bersihkan sensor gate dan kalibrasi palang</h4><p>Pos Pasar Bersehati · Maintenance</p></div><div class="ib" style="width:38px;height:38px"><i class="ph-bold ph-dots-three"></i></div></div>
+ <div class="item"><div class="bub lil" style="font-weight:800;font-size:17px">A</div><div class="tx"><h4>Ganti switch hub 8 port kasir 2</h4><p>Mega Mall · Tugas Khusus</p></div><div class="ib" style="width:38px;height:38px"><i class="ph-bold ph-dots-three"></i></div></div>
+ <div class="sec"><h3>Selesai</h3><span>4</span></div>
+ <div class="item"><div class="bub mint"><i class="ph-bold ph-check"></i></div><div class="tx"><h4 class="done">Cek barrier gate masuk 1</h4><p>Rendy · 09:30</p></div></div>
+ <div class="cta"><i class="ph-bold ph-plus"></i>Buat Tugas</div>
+</div><div class="label">Penugasan SPV</div></div>
+
+<!-- 4 Detail -->
+<div class="cap"><div class="phone">
+ <div class="sb"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div class="top"><div class="ib"><i class="ph-bold ph-arrow-left"></i></div><div style="flex:1"></div><div class="ib"><i class="ph-bold ph-navigation-arrow"></i></div><div class="ib"><i class="ph-bold ph-arrows-clockwise"></i></div></div>
+ <div style="padding:16px 20px 0"><span class="pl" style="display:inline-flex;height:28px;background:var(--lil);color:var(--lil-i)">PBM · Manado</span><h2 style="font-size:28px;font-weight:800;letter-spacing:-.5px;margin-top:8px">Pos Pasar Bersehati</h2><p style="font-size:13px;color:var(--mut);margin-top:4px;font-weight:500">Jl. Sam Ratulangi No. 1 · Rendy · 8 Nov 14:20</p></div>
+ <div class="fase"><div class="pch"><small style="color:inherit">Fase 1</small><b>23/24</b><span>Temuan</span></div><div><small>Fase 2</small><b>8-14</b><span style="color:var(--mut)">Belum</span></div><div><small>Fase 3</small><b>15-21</b><span style="color:var(--mut)">Belum</span></div><div><small>Fase 4</small><b>22-30</b><span style="color:var(--mut)">Belum</span></div></div>
+ <div class="pills" style="padding-top:20px"><span class="pl on">Temuan 1</span><span class="pl">Checklist 24</span></div>
+ <div style="margin:16px 20px 0;background:var(--pch);color:var(--pch-i);border-radius:24px;padding:16px">
+  <div style="display:flex;gap:6px"><span class="pl" style="height:26px;font-size:11.5px;color:var(--pch-i)">Urgent</span><span class="pl" style="height:26px;font-size:11.5px;color:var(--pch-i)">Belum diperbaiki</span></div>
+  <h4 style="font-size:17px;font-weight:800;margin-top:10px;color:var(--fg)">Sensor gate kotor, palang miring</h4>
+  <p style="font-size:13px;margin-top:4px;font-weight:500">Perlu cairan pembersih khusus dan baut dikencangkan ulang.</p>
+ </div>
+ <div class="item" style="margin-top:6px"><div class="bub mint"><i class="ph-bold ph-check"></i></div><div class="tx"><h4>Printer tiket gate 1</h4><p>Ganti roller · Rendy 14:20</p></div><div class="ib"><i class="ph-bold ph-whatsapp-logo"></i></div></div>
+ <div class="cta"><i class="ph-bold ph-camera"></i>Tandai Sudah Diperbaiki</div>
+</div><div class="label">Detail Lokasi</div></div>
+
+<!-- 5 Peta -->
+<div class="cap"><div class="phone">
+ <div class="map"></div>
+ <div class="sb" style="position:relative"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div class="top" style="position:relative"><div class="ib"><i class="ph-bold ph-arrow-left"></i></div><span class="pl" style="height:44px;border-radius:16px;flex:1;justify-content:space-between"><i class="ph-bold ph-caret-left"></i>Nov 2026<i class="ph-bold ph-caret-right"></i></span><span class="pl" style="height:44px;border-radius:16px">Manado <i class="ph-bold ph-caret-down"></i></span></div>
+ <div class="pin pch" style="left:150px;top:330px"><i class="ph-bold ph-warning"></i>PBM · 1</div>
+ <div class="pin mint" style="left:270px;top:270px"><i class="ph-bold ph-check"></i>Mega Mall</div>
+ <div class="pin" style="left:96px;top:440px;background:#fff;color:var(--mut)"><i class="ph-bold ph-minus"></i>MTS</div>
+ <div style="position:absolute;right:18px;top:420px;display:flex;flex-direction:column;gap:8px"><div class="ib"><i class="ph-bold ph-crosshair"></i></div><div class="ib"><i class="ph-bold ph-plus"></i></div><div class="ib"><i class="ph-bold ph-minus"></i></div></div>
+ <div style="position:absolute;left:0;right:0;bottom:0;background:var(--bg);border-radius:32px 32px 0 0;padding:8px 0 24px">
+  <div style="width:40px;height:5px;border-radius:3px;background:#d4cde8;margin:0 auto"></div>
+  <div class="fase" style="padding-top:12px"><div class="pch"><small style="color:inherit">Fase 1</small><b>1-7</b><span>2 temuan</span></div><div><small>Fase 2</small><b>8-14</b></div><div><small>Fase 3</small><b>15-21</b></div><div><small>Fase 4</small><b>22-30</b></div></div>
+  <div class="item" style="margin-top:6px"><div class="bub pch"><i class="ph-bold ph-map-pin"></i></div><div class="tx"><h4>Pos Pasar Bersehati</h4><p>23 dari 24 sesuai · 1 temuan</p></div><span class="go">Detail</span></div>
+ </div>
+</div><div class="label">Peta Maintenance</div></div>
+
+<!-- 6 Checklist -->
+<div class="cap"><div class="phone">
+ <div class="sb"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div class="top"><div class="ib"><i class="ph-bold ph-arrow-left"></i></div><h1>Barrier Gate Manless</h1><div class="ib"><i class="ph-bold ph-clock-counter-clockwise"></i></div></div>
+ <div class="bento" style="grid-template-columns:1.6fr 1fr"><div class="t lil"><small>Foto poin</small><b>18<span>/24</span></b><p>Pos Pasar Bersehati</p><i class="ph-fill ph-camera deco"></i></div><div class="t but"><small>Belum foto</small><b>6</b><p>poin</p></div></div>
+ <div class="pills"><span class="pl on">Semua 24</span><span class="pl">Belum foto 6</span><span class="pl">Sesuai 17</span><span class="pl">Perlu cek 1</span></div>
+ <div class="pills" style="padding-top:8px"><span class="pl" style="background:var(--lil);color:var(--lil-i)">Semua gate</span><span class="pl" style="background:transparent">Gate 1</span><span class="pl" style="background:transparent">Gate 2</span></div>
+ <div class="item" style="margin-top:8px"><div class="bub" style="background:linear-gradient(135deg,#cfc6ef,#a99ad8)"></div><div class="tx"><h4>Kerapian bodi dan housing</h4><p>Sesuai · dicek AI</p></div><i class="ph-fill ph-check-circle" style="font-size:26px;color:#1f9d5c"></i></div>
+ <div class="item"><div class="bub" style="background:linear-gradient(135deg,#f3c7b3,#d99a7c)"></div><div class="tx"><h4>Sensor loop dan photocell</h4><p>Perlu cek · sensor kotor</p></div><span class="go soft">Ulang</span></div>
+ <div class="item"><div class="bub but"><i class="ph-bold ph-camera-plus"></i></div><div class="tx"><h4>Tombol manual push button</h4><p>Belum ada foto</p></div><span class="go">Foto</span></div>
+ <div class="cta" style="background:#bdb2f0;box-shadow:0 10px 0 #a598e6">Lengkapi 6 foto dulu</div>
+</div><div class="label">Checklist SOP</div></div>
+
+<!-- 7 Riwayat -->
+<div class="cap"><div class="phone">
+ <div class="sb"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div class="top"><div class="ib"><i class="ph-bold ph-arrow-left"></i></div><h1>Riwayat Kerja</h1><div class="ib"><i class="ph-bold ph-trash"></i></div></div>
+ <div class="hi"><div class="av">R</div><div><small>Pos Pasar Bersehati · PBM</small><h2>Rendy</h2></div></div>
+ <div class="bento" style="grid-template-columns:repeat(3,1fr)"><div class="t mint"><small>Hadir</small><b style="font-size:30px">24</b></div><div class="t lil"><small>Pulang</small><b style="font-size:30px">24</b></div><div class="t pch"><small>Telat</small><b style="font-size:30px">1</b></div></div>
+ <div class="sec"><h3>30 hari terakhir</h3><span>Nov 2026</span></div>
+ <div class="item"><div class="bub mint"><i class="ph-bold ph-sign-in"></i></div><div class="tx"><h4>Masuk · 08:05</h4><p>Sab 8 Nov · tepat waktu</p></div><div class="bub" style="background:linear-gradient(135deg,#cfc6ef,#a99ad8)"></div></div>
+ <div class="item"><div class="bub lil"><i class="ph-bold ph-sign-out"></i></div><div class="tx"><h4>Pulang · 16:45</h4><p>Jum 7 Nov · 8j 40m · 3 tugas</p></div><div class="bub" style="background:linear-gradient(135deg,#cfc6ef,#a99ad8)"></div></div>
+ <div class="item"><div class="bub pch"><i class="ph-bold ph-sign-in"></i></div><div class="tx"><h4>Masuk · 08:25</h4><p>Jum 7 Nov · telat 25 menit</p></div><div class="bub" style="background:linear-gradient(135deg,#f3c7b3,#d99a7c)"></div></div>
+ <div class="cta"><i class="ph-bold ph-file-csv"></i>Export ke Sheets</div>
+</div><div class="label">Riwayat Kerja</div></div>
+
+</body></html>

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=390, height=844, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SPV Task Dispatcher - Concept A</title>
+  <style>
+    
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-Medium.ttf') format('truetype');
+      font-weight: 500;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-SemiBold.ttf') format('truetype');
+      font-weight: 600;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-Bold.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-ExtraBold.ttf') format('truetype');
+      font-weight: 800;
+      font-style: normal;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: 'PlusJakartaSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      width: 390px;
+      height: 844px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      margin: 0 auto;
+      position: relative;
+      background: var(--bg);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Scrollbar hidden for mockups */
+    body::-webkit-scrollbar {
+      display: none;
+    }
+    
+    :root {
+      --bg: #F2F2F7;
+      --surface: #FFFFFF;
+      --text-primary: #000000;
+      --text-secondary: #6C6C70;
+      --accent: #007AFF;
+      --accent-bg: rgba(0, 122, 255, 0.12);
+      --divider: #E5E5EA;
+      --success: #34C759;
+      --success-bg: rgba(52, 199, 89, 0.12);
+      --warning: #FF9500;
+      --warning-bg: rgba(255, 149, 0, 0.12);
+      --danger: #FF3B30;
+      --danger-bg: rgba(255, 59, 48, 0.12);
+      --card-radius: 10px;
+    }
+    body.theme-dark {
+      --bg: #000000;
+      --surface: #1C1C1E;
+      --text-primary: #FFFFFF;
+      --text-secondary: #8E8E93;
+      --accent: #0A84FF;
+      --accent-bg: rgba(10, 132, 255, 0.2);
+      --divider: #38383A;
+      --success: #30D158;
+      --success-bg: rgba(48, 209, 88, 0.2);
+      --warning: #FF9F0A;
+      --warning-bg: rgba(255, 159, 10, 0.2);
+      --danger: #FF453A;
+      --danger-bg: rgba(255, 69, 58, 0.2);
+    }
+    .app-header {
+      padding: 16px 16px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .app-header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .header-action {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 44px;
+      padding: 0 4px;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 16px 16px 6px;
+    }
+    .grouped-box {
+      margin: 0 16px 16px;
+      background: var(--surface);
+      border-radius: var(--card-radius);
+      border: 0.5px solid var(--divider);
+      overflow: hidden;
+    }
+    .list-row {
+      display: flex;
+      align-items: center;
+      padding: 12px 14px;
+      min-height: 48px;
+      position: relative;
+    }
+    .list-row:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 54px;
+      right: 0;
+      bottom: 0;
+      height: 0.5px;
+      background: var(--divider);
+    }
+    .row-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+    .row-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .row-title {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .row-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      line-height: 1.3;
+    }
+    .row-trailing {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 8px;
+      flex-shrink: 0;
+    }
+    .pill {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .pill-success { background: var(--success-bg); color: var(--success); }
+    .pill-warning { background: var(--warning-bg); color: var(--warning); }
+    .pill-danger { background: var(--danger-bg); color: var(--danger); }
+    .pill-neutral { background: rgba(120, 120, 128, 0.12); color: var(--text-secondary); }
+    .pill-accent { background: var(--accent-bg); color: var(--accent); }
+
+    .bottom-bar {
+      position: sticky;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 12px 16px 20px;
+      background: var(--bg);
+      border-top: 0.5px solid var(--divider);
+      z-index: 20;
+    }
+    .btn-primary {
+      width: 100%;
+      height: 48px;
+      background: var(--accent);
+      color: #FFFFFF;
+      font-size: 14px;
+      font-weight: 700;
+      border-radius: 10px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .btn-tonal {
+      width: 100%;
+      height: 48px;
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 700;
+      border-radius: 10px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    
+  </style>
+</head>
+<body class="concept-a theme-light">
+  
+    <div class="app-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button style="background:none; border:none; cursor:pointer; min-height:44px; display:flex; align-items:center;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div>
+          <h1>Penugasan Harian SPV</h1>
+          <div style="font-size:12px; color:var(--text-secondary);">KC Manado · 08 Nov 2026</div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <button class="header-action" title="Format WA Briefing">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>
+        </button>
+        <button class="header-action" title="Kontrol Tim">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Group 1: Rekap Metrik -->
+    <div class="section-title">Ringkasan Tim</div>
+    <div class="grouped-box">
+      <div class="list-row" style="padding:14px;">
+        <div class="row-icon" style="background:var(--accent-bg); color:var(--accent);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+        </div>
+        <div class="row-content">
+          <div style="font-size:16px; font-weight:700;">4 dari 6 Selesai (67%)</div>
+          <div class="row-subtitle">2 tugas pending · 3 teknisi aktif dinas</div>
+        </div>
+        <div class="row-trailing">
+          <span class="pill pill-warning">2 Pending</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Group 2: Filter Status & Teknisi -->
+    <div class="section-title">Filter Tugas</div>
+    <div style="padding:0 16px 12px; display:flex; gap:8px; overflow-x:auto;">
+      <button style="padding:8px 14px; border-radius:20px; font-size:12px; font-weight:700; background:var(--accent); color:#fff; border:none; white-space:nowrap;">Semua (6)</button>
+      <button style="padding:8px 14px; border-radius:20px; font-size:12px; font-weight:600; background:var(--surface); color:var(--text-secondary); border:0.5px solid var(--divider); white-space:nowrap;">Budi Santoso (3)</button>
+      <button style="padding:8px 14px; border-radius:20px; font-size:12px; font-weight:600; background:var(--surface); color:var(--text-secondary); border:0.5px solid var(--divider); white-space:nowrap;">Farhan Lakoro (2)</button>
+      <button style="padding:8px 14px; border-radius:20px; font-size:12px; font-weight:600; background:var(--surface); color:var(--text-secondary); border:0.5px solid var(--divider); white-space:nowrap;">Agus Setiawan (1)</button>
+    </div>
+
+    <!-- Group 3: Daftar Tugas Tim -->
+    <div class="section-title">Daftar Tugas Petugas Lapangan</div>
+    <div class="grouped-box">
+      <!-- Item 1 -->
+      <div class="list-row">
+        <div class="row-icon" style="background:var(--warning-bg); color:var(--warning);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>
+        </div>
+        <div class="row-content">
+          <div class="row-title">Pembersihan Sensor Gate Kotor & Kalibrasi Palang Miring</div>
+          <div class="row-subtitle">Petugas: Budi Santoso · Pos Pasar Bersehati · Prioritas Tinggi</div>
+        </div>
+        <div class="row-trailing">
+          <button style="padding:6px 10px; font-size:12px; font-weight:600; color:var(--accent); background:none; border:none; cursor:pointer;">Alihkan</button>
+        </div>
+      </div>
+
+      <!-- Item 2 -->
+      <div class="list-row">
+        <div class="row-icon" style="background:var(--warning-bg); color:var(--warning);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>
+        </div>
+        <div class="row-content">
+          <div class="row-title">Penggantian Switch Hub 8-Port di Pos Kasir 2</div>
+          <div class="row-subtitle">Petugas: Farhan Lakoro · Pos Mega Mall Manado</div>
+        </div>
+        <div class="row-trailing">
+          <button style="padding:6px 10px; font-size:12px; font-weight:600; color:var(--accent); background:none; border:none; cursor:pointer;">Alihkan</button>
+        </div>
+      </div>
+
+      <!-- Item 3: Selesai -->
+      <div class="list-row">
+        <div class="row-icon" style="background:var(--success-bg); color:var(--success);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        </div>
+        <div class="row-content">
+          <div class="row-title" style="text-decoration:line-through; color:var(--text-secondary);">Cek Barrier Gate Masuk 1</div>
+          <div class="row-subtitle">Budi Santoso · Selesai 09:30 WITA · Lolos Verifikasi</div>
+        </div>
+        <div class="row-trailing">
+          <span class="pill pill-success">Selesai</span>
+        </div>
+      </div>
+
+      <!-- Item 4: Selesai -->
+      <div class="list-row">
+        <div class="row-icon" style="background:var(--success-bg); color:var(--success);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        </div>
+        <div class="row-content">
+          <div class="row-title" style="text-decoration:line-through; color:var(--text-secondary);">Ganti Kertas Thermal Printer Gate 2</div>
+          <div class="row-subtitle">Budi Santoso · Selesai 10:15 WITA</div>
+        </div>
+        <div class="row-trailing">
+          <span class="pill pill-success">Selesai</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Bar Button -->
+    <div class="bottom-bar">
+      <button class="btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        <span>Buat Tugas Baru</span>
+      </button>
+    </div>
+    
+</body>
+</html>

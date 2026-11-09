@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=390, height=844, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Camera Home - Concept C</title>
+  <style>
+    
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-Medium.ttf') format('truetype');
+      font-weight: 500;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-SemiBold.ttf') format('truetype');
+      font-weight: 600;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-Bold.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-ExtraBold.ttf') format('truetype');
+      font-weight: 800;
+      font-style: normal;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: 'PlusJakartaSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      width: 390px;
+      height: 844px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      margin: 0 auto;
+      position: relative;
+      background: var(--bg);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Scrollbar hidden for mockups */
+    body::-webkit-scrollbar {
+      display: none;
+    }
+    
+    :root {
+      --bg: #FAF9F6;
+      --hero-surface: #FFFFFF;
+      --text-primary: #18181B;
+      --text-secondary: #71717A;
+      --accent: #2563EB;
+      --accent-bg: rgba(37, 99, 235, 0.08);
+      --line: #E4E4E7;
+      --timeline-dot: #2563EB;
+      --success: #16A34A;
+      --warning: #EA580C;
+      --danger: #DC2626;
+    }
+    body.theme-dark {
+      --bg: #090D16;
+      --hero-surface: #111827;
+      --text-primary: #F4F4F5;
+      --text-secondary: #A1A1AA;
+      --accent: #3B82F6;
+      --accent-bg: rgba(59, 130, 246, 0.15);
+      --line: #27272A;
+      --timeline-dot: #60A5FA;
+      --success: #22C55E;
+      --warning: #F97316;
+      --danger: #EF4444;
+    }
+    .editorial-header {
+      padding: 24px 20px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .editorial-header h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      line-height: 1.1;
+    }
+    .editorial-hero {
+      margin: 12px 20px 20px;
+      padding: 20px;
+      background: var(--hero-surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+    }
+    .big-numeral {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.0;
+      color: var(--text-primary);
+    }
+    .timeline-container {
+      padding: 0 20px 20px;
+      position: relative;
+    }
+    .timeline-item {
+      position: relative;
+      padding-left: 28px;
+      padding-bottom: 24px;
+    }
+    .timeline-item:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 14px;
+      bottom: 0;
+      width: 2px;
+      background: var(--line);
+    }
+    .timeline-item::after {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 5px;
+      width: 10px;
+      height: 10px;
+      border-radius: 5px;
+      background: var(--timeline-dot);
+    }
+    .timeline-item.success::after { background: var(--success); }
+    .timeline-item.warning::after { background: var(--warning); }
+    .timeline-item.neutral::after { background: var(--text-secondary); }
+
+    .editorial-title {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .editorial-meta {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      line-height: 1.35;
+    }
+    .btn-bold {
+      height: 48px;
+      background: var(--accent);
+      color: #FFFFFF;
+      font-size: 14px;
+      font-weight: 700;
+      border-radius: 8px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      width: 100%;
+    }
+    
+  </style>
+</head>
+<body class="concept-c theme-dark">
+  
+    <div style="background:#090D16; width:100%; height:844px; display:flex; flex-direction:column; position:relative; color:#fff;">
+      <div style="padding:16px 20px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:18px; font-weight:800; letter-spacing:-0.4px;">KAMERA VERIFIKASI</span>
+        <span style="font-size:12px; font-weight:700; color:#60A5FA;">2 TUGAS PENDING</span>
+      </div>
+
+      <!-- Hero Viewfinder Surface (The ONE elevated hero) -->
+      <div style="margin:0 16px; flex:1; background:#111827; border-radius:8px; border:1px solid #27272A; box-shadow:0 4px 16px rgba(0,0,0,0.5); position:relative; display:flex; flex-direction:column; justify-content:space-between; padding:16px;">
+        <div style="background:rgba(9,13,22,0.9); padding:10px 14px; border-radius:6px; font-size:12px; line-height:1.4;">
+          <div style="font-size:16px; font-weight:800; color:#fff;">Pos Pasar Bersehati Manado</div>
+          <div style="color:#A1A1AA; font-size:11.5px;">Jl. Nusantara No. 123 Calaca Wenang Kota Manado</div>
+          <div style="color:#38BDF8; font-size:11px; margin-top:4px;">WITA: 08 Nov 2026, 09:30 · GPS: 1.4921 N, 124.8412 E</div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12px; font-weight:700; background:rgba(255,255,255,0.1); padding:4px 8px; border-radius:4px;">RASIO 3:4 · TIMER OFF</span>
+          <span style="font-size:12px; font-weight:700; background:rgba(37,99,235,0.3); color:#93C5FD; padding:4px 8px; border-radius:4px;">1x ZOOM</span>
+        </div>
+      </div>
+
+      <!-- Controls Row (Unenclosed) -->
+      <div style="padding:20px; display:flex; flex-direction:column; gap:16px; align-items:center;">
+        <div style="font-size:12.5px; font-weight:700; color:#4ADE80; display:flex; align-items:center; gap:6px;">
+          <span style="width:8px; height:8px; border-radius:4px; background:#4ADE80;"></span>
+          <span>Shift Pagi (08:00 - 16:00) · Sedang Dinas</span>
+        </div>
+
+        <div style="width:100%; display:flex; justify-content:space-around; align-items:center;">
+          <span style="font-size:13px; font-weight:700; color:#A1A1AA; cursor:pointer;">Galeri Foto</span>
+          <div style="width:68px; height:68px; border-radius:34px; background:#2563EB; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M9 2L7.17 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3.17L15 2H9zm3 15a5 5 0 110-10 5 5 0 010 10z"/></svg>
+          </div>
+          <span style="font-size:13px; font-weight:700; color:#A1A1AA; cursor:pointer;">Pilih SOP</span>
+        </div>
+      </div>
+    </div>
+    
+</body>
+</html>

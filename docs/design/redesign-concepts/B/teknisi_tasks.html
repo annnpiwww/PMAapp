@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=390, height=844, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Teknisi Daily Tasks - Concept B</title>
+  <style>
+    
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-Medium.ttf') format('truetype');
+      font-weight: 500;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-SemiBold.ttf') format('truetype');
+      font-weight: 600;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-Bold.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-ExtraBold.ttf') format('truetype');
+      font-weight: 800;
+      font-style: normal;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: 'PlusJakartaSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      width: 390px;
+      height: 844px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      margin: 0 auto;
+      position: relative;
+      background: var(--bg);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Scrollbar hidden for mockups */
+    body::-webkit-scrollbar {
+      display: none;
+    }
+    
+    :root {
+      --bg: #F1F5F9;
+      --panel: #FFFFFF;
+      --band: #E2E8F0;
+      --text-primary: #0F172A;
+      --text-secondary: #475569;
+      --accent: #0F766E;
+      --accent-bg: rgba(15, 118, 110, 0.1);
+      --divider: #CBD5E1;
+      --rail-success: #059669;
+      --rail-warning: #D97706;
+      --rail-danger: #DC2626;
+      --rail-neutral: #64748B;
+    }
+    body.theme-dark {
+      --bg: #0B1120;
+      --panel: #131C2E;
+      --band: #0F172A;
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+      --accent: #14B8A6;
+      --accent-bg: rgba(20, 184, 166, 0.15);
+      --divider: #1E293B;
+      --rail-success: #10B981;
+      --rail-warning: #F59E0B;
+      --rail-danger: #EF4444;
+      --rail-neutral: #475569;
+    }
+    .ops-header {
+      background: var(--panel);
+      border-bottom: 2px solid var(--accent);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .ops-header h1 {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+      text-transform: uppercase;
+    }
+    .band-separator {
+      height: 8px;
+      background: var(--band);
+      width: 100%;
+    }
+    .ops-section {
+      background: var(--panel);
+      padding: 12px 16px;
+    }
+    .section-label {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ops-row {
+      display: flex;
+      align-items: flex-start;
+      padding: 10px 14px;
+      border-left: 4px solid var(--rail-neutral);
+      background: var(--panel);
+      margin-bottom: 6px;
+      border-top: 1px solid var(--divider);
+      border-right: 1px solid var(--divider);
+      border-bottom: 1px solid var(--divider);
+    }
+    .ops-row.rail-success { border-left-color: var(--rail-success); }
+    .ops-row.rail-warning { border-left-color: var(--rail-warning); }
+    .ops-row.rail-danger { border-left-color: var(--rail-danger); }
+
+    .ops-row-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .ops-row-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 3px;
+      line-height: 1.3;
+    }
+    .badge-square {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .btn-tactical {
+      height: 44px;
+      background: var(--accent);
+      color: #FFFFFF;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      border-radius: 4px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      width: 100%;
+      text-transform: uppercase;
+    }
+    .btn-tactical-outline {
+      height: 44px;
+      background: transparent;
+      color: var(--accent);
+      border: 1.5px solid var(--accent);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      width: 100%;
+      text-transform: uppercase;
+    }
+    .sticky-action-bar {
+      position: sticky;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 10px 16px 18px;
+      background: var(--panel);
+      border-top: 1px solid var(--divider);
+      box-shadow: 0 -2px 6px rgba(0,0,0,0.06);
+      z-index: 20;
+    }
+    
+  </style>
+</head>
+<body class="concept-b theme-light">
+  
+    <div class="ops-header">
+      <div>
+        <h1>Daily Task Teknisi</h1>
+        <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">Budi Santoso · IT Support KC BSG</div>
+      </div>
+      <button style="padding:4px 8px; background:var(--band); border:1px solid var(--divider); border-radius:3px; font-size:11px; font-weight:800; color:var(--text-primary); cursor:pointer;">REFRESH</button>
+    </div>
+
+    <!-- Ops Metric Board -->
+    <div class="ops-section" style="padding-top:14px; padding-bottom:14px;">
+      <div class="section-label">
+        <span>STATUS PENGERJAAN HARIAN</span>
+        <span style="color:var(--accent);">2 / 4 SELESAI</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:8px;">
+        <div style="border:1px solid var(--divider); padding:8px; border-radius:4px; text-align:center;">
+          <div style="font-size:18px; font-weight:800; color:var(--text-primary);">4</div>
+          <div style="font-size:11px; font-weight:700; color:var(--text-secondary);">TOTAL</div>
+        </div>
+        <div style="border:1px solid var(--divider); padding:8px; border-radius:4px; text-align:center;">
+          <div style="font-size:18px; font-weight:800; color:var(--rail-success);">2</div>
+          <div style="font-size:11px; font-weight:700; color:var(--rail-success);">SELESAI</div>
+        </div>
+        <div style="border:1px solid var(--divider); padding:8px; border-radius:4px; text-align:center;">
+          <div style="font-size:18px; font-weight:800; color:var(--rail-warning);">2</div>
+          <div style="font-size:11px; font-weight:700; color:var(--rail-warning);">PENDING</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="band-separator"></div>
+
+    <!-- Ops Task Rows: Full-bleed bands with Left Rails -->
+    <div class="ops-section">
+      <div class="section-label">
+        <span>TUGAS HARI INI (4 TUGAS)</span>
+      </div>
+
+      <!-- Row 1: Selesai -->
+      <div class="ops-row rail-success">
+        <div style="flex:1;">
+          <div style="display:flex; justify-content:space-between;">
+            <span class="ops-row-title" style="text-decoration:line-through; color:var(--text-secondary);">Cek Barrier Gate Masuk 1 & Sensor Loop</span>
+            <span class="badge-square" style="background:rgba(5,150,105,0.15); color:var(--rail-success);">SELESAI</span>
+          </div>
+          <div class="ops-row-meta">Pos Pasar Bersehati · Selesai 09:30 WITA · Bukti Tersimpan</div>
+        </div>
+      </div>
+
+      <!-- Row 2: Selesai -->
+      <div class="ops-row rail-success">
+        <div style="flex:1;">
+          <div style="display:flex; justify-content:space-between;">
+            <span class="ops-row-title" style="text-decoration:line-through; color:var(--text-secondary);">Ganti Kertas Thermal Printer Tiket Manless</span>
+            <span class="badge-square" style="background:rgba(5,150,105,0.15); color:var(--rail-success);">SELESAI</span>
+          </div>
+          <div class="ops-row-meta">Gate 2 PBM · Selesai 10:15 WITA · Laporan OK</div>
+        </div>
+      </div>
+
+      <!-- Row 3: Pending / Critical (Long text case) -->
+      <div class="ops-row rail-warning">
+        <div style="flex:1;">
+          <div style="display:flex; justify-content:space-between;">
+            <span class="ops-row-title">Pembersihan Sensor Gate Kotor dan Kalibrasi Palang Penghalang Sedikit Miring</span>
+            <span class="badge-square" style="background:rgba(217,119,6,0.15); color:var(--rail-warning);">PROSES</span>
+          </div>
+          <div class="ops-row-meta">Gate 1 PBM · Bersama Agus Setiawan · Prioritas Tinggi</div>
+          <div style="font-size:11.5px; color:var(--text-secondary); margin-top:4px;">Instruksi: Bersihkan sensor optik dan kencangkan baut angkur dudukan.</div>
+          <div style="margin-top:8px; display:flex; gap:8px;">
+            <button style="padding:6px 12px; background:var(--accent); color:#fff; border:none; border-radius:3px; font-size:11px; font-weight:800; cursor:pointer;">LANJUTKAN</button>
+            <button style="padding:6px 12px; background:transparent; border:1px solid var(--divider); color:var(--text-secondary); border-radius:3px; font-size:11px; font-weight:700; cursor:pointer;">OPER KE LAIN</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 4: Pending -->
+      <div class="ops-row rail-neutral">
+        <div style="flex:1;">
+          <div style="display:flex; justify-content:space-between;">
+            <span class="ops-row-title">Pemeriksaan PC Server & Switch Hub Utama</span>
+            <span class="badge-square" style="background:rgba(100,116,139,0.15); color:var(--rail-neutral);">BELUM</span>
+          </div>
+          <div class="ops-row-meta">Server Utama PBM · Maintenance Berkala</div>
+          <div style="margin-top:8px;">
+            <button style="padding:6px 14px; background:var(--accent); color:#fff; border:none; border-radius:3px; font-size:11px; font-weight:800; cursor:pointer;">KERJAKAN</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="band-separator"></div>
+
+    <!-- Shift Sebelumnya -->
+    <div class="ops-section">
+      <div class="section-label">
+        <span>TUGAS OPERAN SHIFT SEBELUMNYA</span>
+      </div>
+      <div class="ops-row rail-danger">
+        <div style="flex:1;">
+          <div style="display:flex; justify-content:space-between;">
+            <span class="ops-row-title">Perbaikan Kabel LAN Kasir 2 Putus Terinjak</span>
+            <span class="badge-square" style="background:rgba(220,38,38,0.15); color:var(--rail-danger);">OPERAN</span>
+          </div>
+          <div class="ops-row-meta">Lanjutan dari Farhan Lakoro · Ditinggal Kemarin 17:00 WITA</div>
+          <div style="margin-top:8px;">
+            <button style="padding:6px 12px; background:var(--accent); color:#fff; border:none; border-radius:3px; font-size:11px; font-weight:800; cursor:pointer;">AMBIL ALIH</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sticky Bottom Bar -->
+    <div class="sticky-action-bar">
+      <button class="btn-tactical">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        <span>CATAT KERJAAN LAPANGAN</span>
+      </button>
+    </div>
+    
+</body>
+</html>

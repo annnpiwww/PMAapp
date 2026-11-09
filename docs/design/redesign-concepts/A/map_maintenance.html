@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=390, height=844, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Map Maintenance - Concept A</title>
+  <style>
+    
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-Medium.ttf') format('truetype');
+      font-weight: 500;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-SemiBold.ttf') format('truetype');
+      font-weight: 600;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-Bold.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'PlusJakartaSans';
+      src: url('/home/annnpii/Product development annpii/BssparkingTimeMark/assets/fonts/PlusJakartaSans-ExtraBold.ttf') format('truetype');
+      font-weight: 800;
+      font-style: normal;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: 'PlusJakartaSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      width: 390px;
+      height: 844px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      margin: 0 auto;
+      position: relative;
+      background: var(--bg);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Scrollbar hidden for mockups */
+    body::-webkit-scrollbar {
+      display: none;
+    }
+    
+    :root {
+      --bg: #F2F2F7;
+      --surface: #FFFFFF;
+      --text-primary: #000000;
+      --text-secondary: #6C6C70;
+      --accent: #007AFF;
+      --accent-bg: rgba(0, 122, 255, 0.12);
+      --divider: #E5E5EA;
+      --success: #34C759;
+      --success-bg: rgba(52, 199, 89, 0.12);
+      --warning: #FF9500;
+      --warning-bg: rgba(255, 149, 0, 0.12);
+      --danger: #FF3B30;
+      --danger-bg: rgba(255, 59, 48, 0.12);
+      --card-radius: 10px;
+    }
+    body.theme-dark {
+      --bg: #000000;
+      --surface: #1C1C1E;
+      --text-primary: #FFFFFF;
+      --text-secondary: #8E8E93;
+      --accent: #0A84FF;
+      --accent-bg: rgba(10, 132, 255, 0.2);
+      --divider: #38383A;
+      --success: #30D158;
+      --success-bg: rgba(48, 209, 88, 0.2);
+      --warning: #FF9F0A;
+      --warning-bg: rgba(255, 159, 10, 0.2);
+      --danger: #FF453A;
+      --danger-bg: rgba(255, 69, 58, 0.2);
+    }
+    .app-header {
+      padding: 16px 16px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .app-header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .header-action {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 44px;
+      padding: 0 4px;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 16px 16px 6px;
+    }
+    .grouped-box {
+      margin: 0 16px 16px;
+      background: var(--surface);
+      border-radius: var(--card-radius);
+      border: 0.5px solid var(--divider);
+      overflow: hidden;
+    }
+    .list-row {
+      display: flex;
+      align-items: center;
+      padding: 12px 14px;
+      min-height: 48px;
+      position: relative;
+    }
+    .list-row:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 54px;
+      right: 0;
+      bottom: 0;
+      height: 0.5px;
+      background: var(--divider);
+    }
+    .row-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+    .row-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .row-title {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .row-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      line-height: 1.3;
+    }
+    .row-trailing {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 8px;
+      flex-shrink: 0;
+    }
+    .pill {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .pill-success { background: var(--success-bg); color: var(--success); }
+    .pill-warning { background: var(--warning-bg); color: var(--warning); }
+    .pill-danger { background: var(--danger-bg); color: var(--danger); }
+    .pill-neutral { background: rgba(120, 120, 128, 0.12); color: var(--text-secondary); }
+    .pill-accent { background: var(--accent-bg); color: var(--accent); }
+
+    .bottom-bar {
+      position: sticky;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 12px 16px 20px;
+      background: var(--bg);
+      border-top: 0.5px solid var(--divider);
+      z-index: 20;
+    }
+    .btn-primary {
+      width: 100%;
+      height: 48px;
+      background: var(--accent);
+      color: #FFFFFF;
+      font-size: 14px;
+      font-weight: 700;
+      border-radius: 10px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .btn-tonal {
+      width: 100%;
+      height: 48px;
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 700;
+      border-radius: 10px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    
+  </style>
+</head>
+<body class="concept-a theme-light">
+  
+    <div class="app-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button style="background:none; border:none; cursor:pointer; min-height:44px; display:flex; align-items:center;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div>
+          <h1>Map Maintenance</h1>
+          <div style="font-size:12px; color:var(--text-secondary);">Monitoring Sebaran Wilayah</div>
+        </div>
+      </div>
+      <button class="header-action">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+      </button>
+    </div>
+
+    <!-- Filter Control Inset -->
+    <div class="grouped-box" style="margin-bottom:8px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span style="font-size:13px; font-weight:700;">Nov 2026</span>
+        </div>
+        <div style="height:18px; width:1px; background:var(--divider);"></div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:13px; font-weight:600; color:var(--text-secondary);">Wilayah:</span>
+          <span class="pill pill-accent" style="font-size:12px;">Manado (12 Pos)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase Selector Inset -->
+    <div style="padding:0 16px 8px; display:flex; gap:6px;">
+      <button style="flex:1; height:34px; border-radius:8px; font-size:12px; font-weight:700; background:var(--accent); color:#fff; border:none;">Fase 1 (1-7)</button>
+      <button style="flex:1; height:34px; border-radius:8px; font-size:12px; font-weight:600; background:var(--surface); color:var(--text-secondary); border:0.5px solid var(--divider);">Fase 2</button>
+      <button style="flex:1; height:34px; border-radius:8px; font-size:12px; font-weight:600; background:var(--surface); color:var(--text-secondary); border:0.5px solid var(--divider);">Fase 3</button>
+      <button style="flex:1; height:34px; border-radius:8px; font-size:12px; font-weight:600; background:var(--surface); color:var(--text-secondary); border:0.5px solid var(--divider);">Fase 4</button>
+    </div>
+
+    <!-- Map Canvas Simulation -->
+    <div style="position:relative; width:100%; height:460px; background:#E5E7EB; border-top:1px solid var(--divider); border-bottom:1px solid var(--divider); overflow:hidden;">
+      <!-- Simplified Map Grid Roads -->
+      <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#D1D5DB" stroke-width="1"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="#E5E7EB"/>
+        <path d="M 0 180 Q 150 120 390 260" fill="none" stroke="#93C5FD" stroke-width="12"/>
+        <path d="M 120 0 L 180 460" fill="none" stroke="#FFFFFF" stroke-width="8"/>
+        <path d="M 0 320 L 390 300" fill="none" stroke="#FFFFFF" stroke-width="6"/>
+      </svg>
+
+      <!-- Pin 1: Pasar Bersehati (Orange / Temuan) -->
+      <div style="position:absolute; left:160px; top:190px; transform:translate(-50%, -100%); display:flex; flex-direction:column; align-items:center;">
+        <div style="background:#FF9500; color:#fff; font-size:11px; font-weight:800; padding:4px 8px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.2); white-space:nowrap; display:flex; align-items:center; gap:4px;">
+          <span>PBM</span>
+          <span style="background:#fff; color:#FF9500; font-size:9px; border-radius:6px; padding:0 3px;">1</span>
+        </div>
+        <div style="width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid #FF9500;"></div>
+      </div>
+
+      <!-- Pin 2: Mega Mall (Green / Aman) -->
+      <div style="position:absolute; left:260px; top:120px; transform:translate(-50%, -100%); display:flex; flex-direction:column; align-items:center;">
+        <div style="background:#34C759; color:#fff; font-size:11px; font-weight:800; padding:4px 8px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.2); white-space:nowrap;">
+          <span>MMM (Aman)</span>
+        </div>
+        <div style="width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid #34C759;"></div>
+      </div>
+
+      <!-- Pin 3: Mantos (Grey / Belum) -->
+      <div style="position:absolute; left:80px; top:280px; transform:translate(-50%, -100%); display:flex; flex-direction:column; align-items:center;">
+        <div style="background:#64748B; color:#fff; font-size:11px; font-weight:800; padding:4px 8px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.2); white-space:nowrap;">
+          <span>MTS (Belum)</span>
+        </div>
+        <div style="width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid #64748B;"></div>
+      </div>
+
+      <!-- Floating Map Controls -->
+      <div style="position:absolute; right:12px; bottom:16px; display:flex; flex-direction:column; gap:8px;">
+        <div style="width:40px; height:40px; border-radius:20px; background:#fff; border:0.5px solid var(--divider); display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="8"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+        </div>
+        <div style="width:40px; height:76px; border-radius:20px; background:#fff; border:0.5px solid var(--divider); display:flex; flex-direction:column; align-items:center; justify-content:space-around; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
+          <span style="font-size:18px; font-weight:700; color:var(--text-primary); cursor:pointer;">+</span>
+          <div style="width:24px; height:0.5px; background:var(--divider);"></div>
+          <span style="font-size:18px; font-weight:700; color:var(--text-primary); cursor:pointer;">-</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Selected Pos Preview Inset -->
+    <div class="section-title">Pos Terpilih</div>
+    <div class="grouped-box">
+      <div class="list-row">
+        <div class="row-icon" style="background:#FF9500; color:#fff; font-weight:800; font-size:11px;">PBM</div>
+        <div class="row-content">
+          <div class="row-title">Pos Pasar Bersehati Manado</div>
+          <div class="row-subtitle">Fase 1: 23/24 Poin Sesuai (1 Temuan) · Budi Santoso</div>
+        </div>
+        <div class="row-trailing">
+          <button style="padding:6px 12px; font-size:12px; font-weight:700; background:var(--accent); color:#fff; border-radius:6px; border:none; cursor:pointer;">Detail</button>
+        </div>
+      </div>
+    </div>
+    
+</body>
+</html>

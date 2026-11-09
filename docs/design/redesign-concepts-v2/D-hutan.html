@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<title>Konsep D Hutan Malam</title>
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+:root{--bg:#0d1813;--bg2:#12211a;--line:#21362b;--fg:#eaf3ee;--mut:#8fa89a;--acc:#7fe3a9;--acc-ink:#0b2a1a;--warn:#f3bd55;--bad:#ff8a7a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Plus Jakarta Sans",sans-serif;background:#c9cfcb;display:flex;gap:28px;padding:28px;width:max-content}
+.phone{width:390px;height:844px;background:var(--bg);color:var(--fg);position:relative;overflow:hidden;border-radius:28px}
+.sb{height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 24px;font-size:14px;font-weight:600}
+.sb i{font-size:15px;margin-left:4px}
+.top{display:flex;align-items:center;gap:12px;padding:6px 20px 0}
+.top .back{width:44px;height:44px;display:grid;place-items:center;font-size:22px;margin-left:-12px}
+.top h1{font-size:20px;font-weight:700;flex:1}
+.top .act{width:44px;height:44px;display:grid;place-items:center;font-size:21px;color:var(--mut)}
+.hello{padding:14px 20px 0}
+.hello small{color:var(--mut);font-size:13px;font-weight:500}
+.hello h2{font-size:28px;font-weight:800;letter-spacing:-.5px;margin-top:2px}
+.big{display:flex;align-items:flex-end;gap:10px;padding:22px 20px 0}
+.big b{font-size:64px;font-weight:800;line-height:.9;letter-spacing:-2px}
+.big b span{color:var(--mut);font-weight:600;font-size:34px;letter-spacing:-1px}
+.big p{color:var(--mut);font-size:14px;padding-bottom:6px;line-height:1.35}
+.seg{display:flex;gap:4px;margin:16px 20px 0}
+.seg i{flex:1;height:6px;border-radius:3px;background:var(--line)}
+.seg i.on{background:var(--acc)}
+.note{display:flex;gap:8px;color:var(--mut);font-size:12.5px;line-height:1.45;padding:12px 20px 0}
+.note i{font-size:16px;color:var(--acc);margin-top:1px}
+.sec{display:flex;justify-content:space-between;align-items:baseline;padding:26px 20px 8px}
+.sec h3{font-size:15px;font-weight:700}
+.sec span{font-size:13px;color:var(--mut)}
+.row{display:flex;gap:14px;padding:14px 20px;align-items:flex-start;border-top:1px solid var(--line)}
+.row:last-child{border-bottom:1px solid var(--line)}
+.ic{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;font-size:19px;flex:none;background:var(--bg2);color:var(--mut)}
+.ic.ok{color:var(--acc)}.ic.warn{color:var(--warn)}.ic.bad{color:var(--bad)}
+.tx{flex:1;min-width:0}
+.tx h4{font-size:15px;font-weight:600;line-height:1.3}
+.tx h4.done{text-decoration:line-through;color:var(--mut);font-weight:500}
+.tx p{font-size:13px;color:var(--mut);margin-top:3px;line-height:1.4}
+.tx .bar{height:4px;background:var(--line);border-radius:2px;margin-top:8px}.tx .bar i{display:block;height:100%;border-radius:2px;background:var(--warn)}
+.btn{height:36px;padding:0 14px;border-radius:18px;background:var(--acc);color:var(--acc-ink);font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex:none;align-self:center}
+.btn.ghost{background:transparent;color:var(--fg);box-shadow:inset 0 0 0 1px var(--line)}
+.dock{position:absolute;left:16px;right:16px;bottom:18px;height:64px;border-radius:32px;background:#1a2e24;display:flex;align-items:center;padding:0 8px;gap:6px;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.dock .d{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;font-size:22px;color:var(--mut)}
+.dock .main{flex:1;height:48px;border-radius:24px;background:var(--acc);color:var(--acc-ink);font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px}
+.tag{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:6px;background:var(--bg2);color:var(--mut)}
+.tag.ok{color:var(--acc)}.tag.warn{color:var(--warn)}.tag.bad{color:var(--bad)}
+.chips{display:flex;gap:8px;padding:14px 20px 0;overflow:hidden}
+.chip{height:36px;padding:0 14px;border-radius:18px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap;box-shadow:inset 0 0 0 1px var(--line);color:var(--mut)}
+.chip.on{background:var(--fg);color:var(--bg);box-shadow:none}
+.chip em{font-style:normal;font-size:11px;background:var(--warn);color:#2a1d00;border-radius:9px;padding:1px 6px}
+.stat{display:flex;padding:22px 20px 0}
+.stat div{flex:1;border-left:1px solid var(--line);padding-left:14px}
+.stat div:first-child{border:0;padding-left:0}
+.stat b{font-size:30px;font-weight:800;letter-spacing:-1px;display:block}
+.stat small{font-size:12.5px;color:var(--mut)}
+.phase{display:flex;margin:16px 20px 0;border-radius:16px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
+.phase div{flex:1;padding:12px 0;text-align:center;border-left:1px solid var(--line)}
+.phase div:first-child{border:0}
+.phase div.on{background:var(--acc);color:var(--acc-ink)}
+.phase small{font-size:11.5px;font-weight:600;opacity:.8;display:block}
+.phase b{font-size:17px;font-weight:800;display:block;margin:2px 0}
+.phase span{font-size:11.5px;font-weight:700}
+.tabs{display:flex;gap:22px;padding:24px 20px 0;border-bottom:1px solid var(--line)}
+.tabs div{padding-bottom:10px;font-size:15px;font-weight:600;color:var(--mut)}
+.tabs div.on{color:var(--fg);box-shadow:inset 0 -2px 0 var(--acc)}
+.cam{position:absolute;inset:0;background:radial-gradient(120% 70% at 50% 35%,#3b4a42 0,#16201b 60%,#0a100d 100%)}
+.cam .grid{position:absolute;inset:110px 0 230px;background:linear-gradient(90deg,transparent 33%,rgba(255,255,255,.12) 33%,rgba(255,255,255,.12) calc(33% + 1px),transparent 0,transparent 66%,rgba(255,255,255,.12) 66%,rgba(255,255,255,.12) calc(66% + 1px),transparent 0),linear-gradient(transparent 33%,rgba(255,255,255,.12) 33%,rgba(255,255,255,.12) calc(33% + 1px),transparent 0,transparent 66%,rgba(255,255,255,.12) 66%,rgba(255,255,255,.12) calc(66% + 1px),transparent 0)}
+.map{position:absolute;left:0;right:0;top:0;bottom:0;background:url(osm_14_13873_8124.png) 0 0/390px 390px,url(osm_14_13874_8124.png) 390px 0/390px 390px,url(osm_14_13873_8125.png) 0 390px/390px 390px,url(osm_14_13874_8125.png) 390px 390px/390px 390px;background-repeat:no-repeat;filter:invert(1) hue-rotate(160deg) brightness(.75) saturate(.45) contrast(.9)}
+.pin{position:absolute;display:flex;align-items:center;gap:6px;transform:translate(-50%,-100%);font-size:12px;font-weight:700;padding:5px 10px 5px 6px;border-radius:16px;background:var(--bg);box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.pin i{width:20px;height:20px;border-radius:10px;display:grid;place-items:center;font-size:12px;color:var(--acc-ink)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--bg);border-radius:28px 28px 0 0;padding-top:10px;box-shadow:0 -10px 30px rgba(0,0,0,.4)}
+.handle{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto}
+.label{font-size:12px;color:#c9d6cf;margin-top:10px;text-align:center;font-weight:600}
+.cap{display:flex;flex-direction:column;align-items:center}
+</style></head><body>
+
+<!-- 1 Kamera -->
+<div class="cap"><div class="phone">
+ <div class="cam"><div class="grid"></div></div>
+ <div class="sb" style="position:relative"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div style="position:relative;display:flex;justify-content:space-between;padding:8px 16px">
+  <div class="d" style="position:relative;width:44px;height:44px;border-radius:22px;background:rgba(13,24,19,.7);display:grid;place-items:center;font-size:21px"><i class="ph ph-list"></i><em style="position:absolute;top:-2px;right:-2px;font-style:normal;font-size:11px;font-weight:800;background:var(--warn);color:#2a1d00;border-radius:9px;padding:1px 6px">2</em></div>
+  <div style="display:flex;gap:4px;background:rgba(13,24,19,.7);border-radius:22px;padding:4px">
+   <span class="chip" style="box-shadow:none;color:var(--fg)">3:4</span><span class="chip" style="box-shadow:none;color:var(--fg)"><i class="ph ph-timer"></i>Off</span><span class="chip" style="box-shadow:none;color:var(--fg)"><i class="ph ph-lightning-a"></i></span><span class="chip" style="box-shadow:none;color:var(--fg)"><i class="ph ph-camera-rotate"></i></span>
+  </div>
+ </div>
+ <div style="position:absolute;left:16px;top:118px;font-size:12px;line-height:1.5;color:#eaf3ee;text-shadow:0 1px 3px #000">
+  <div style="font-weight:800;font-size:14px">Pos Pasar Bersehati <span class="tag ok" style="background:rgba(13,24,19,.7)">PBM</span></div>
+  <div>Jl. Sam Ratulangi, Manado</div><div>1.4921, 124.8412 · 08 Nov 2026 09:30 WITA</div>
+ </div>
+ <div style="position:absolute;right:16px;top:330px;display:flex;flex-direction:column;gap:8px;background:rgba(13,24,19,.7);border-radius:24px;padding:6px">
+  <span style="width:36px;height:36px;border-radius:18px;background:var(--acc);color:var(--acc-ink);display:grid;place-items:center;font-size:12px;font-weight:800">1x</span><span style="width:36px;height:36px;display:grid;place-items:center;font-size:12px;font-weight:700">2x</span><span style="width:36px;height:36px;display:grid;place-items:center;font-size:12px;font-weight:700">5x</span>
+ </div>
+ <div style="position:absolute;left:0;right:0;bottom:0;height:220px;background:var(--bg);border-radius:28px 28px 0 0;padding:16px 20px">
+  <div style="display:flex;align-items:center;justify-content:space-between">
+   <div><small style="color:var(--mut);font-size:12px">Shift Pagi 08:00 - 16:00</small><div style="font-weight:700;font-size:15px;margin-top:2px">Sudah masuk · 1j 30m</div></div>
+   <span class="btn ghost"><i class="ph ph-sign-out"></i>Pulang</span>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:26px;padding:0 12px">
+   <div style="text-align:center;font-size:12px;color:var(--mut)"><div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#3a5246,#1d2c25);margin-bottom:6px;box-shadow:inset 0 0 0 2px var(--line)"></div>Galeri</div>
+   <div style="width:80px;height:80px;border-radius:40px;border:4px solid var(--acc);display:grid;place-items:center"><div style="width:62px;height:62px;border-radius:31px;background:var(--fg)"></div></div>
+   <div style="text-align:center;font-size:12px;color:var(--mut)"><div style="width:48px;height:48px;border-radius:14px;background:var(--bg2);display:grid;place-items:center;font-size:22px;color:var(--fg);margin-bottom:6px"><i class="ph ph-clipboard-text"></i></div>SOP</div>
+  </div>
+ </div>
+</div><div class="label">Kamera</div></div>
+
+<!-- 2 Tugas Harian -->
+<div class="cap"><div class="phone">
+ <div class="sb"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div class="top"><div class="back"><i class="ph ph-arrow-left"></i></div><div style="flex:1"></div><div class="act"><i class="ph ph-arrows-clockwise"></i></div></div>
+ <div class="hello"><small>Kamis, 8 Nov · IT Support KC BSG</small><h2>Halo, Rendy</h2></div>
+ <div class="big"><b>2<span>/4</span></b><p>tugas selesai<br>sisa 2 hari ini</p></div>
+ <div class="seg"><i class="on"></i><i class="on"></i><i></i><i></i></div>
+ <div class="note"><i class="ph ph-info"></i><span>Tugas selesai otomatis masuk Laporan Pulang saat absen pulang.</span></div>
+ <div class="sec"><h3>Hari ini</h3><span>4 tugas</span></div>
+ <div class="row"><div class="ic ok"><i class="ph-bold ph-check"></i></div><div class="tx"><h4 class="done">Cek barrier gate masuk 1</h4><p>Pos Pasar Bersehati · Selesai 09:30</p></div><span class="tag ok">Bukti</span></div>
+ <div class="row"><div class="ic warn"><i class="ph ph-wrench"></i></div><div class="tx"><h4>Bersihkan sensor gate dan kalibrasi palang yang miring</h4><p>Gate 1 PBM · Maintenance · Bersama Alessandro</p><div class="bar"><i style="width:45%"></i></div></div><span class="btn">Lanjut</span></div>
+ <div class="row"><div class="ic"><i class="ph ph-desktop-tower"></i></div><div class="tx"><h4>Periksa PC server dan switch</h4><p>Server PBM · Tugas Khusus</p></div><span class="btn">Kerjakan</span></div>
+ <div class="sec"><h3>Shift sebelumnya</h3><span>1 belum</span></div>
+ <div class="row"><div class="ic bad"><i class="ph ph-plugs"></i></div><div class="tx"><h4>Kabel LAN kasir 2 putus</h4><p>Lanjutan dari Farhan · Kemarin 17:00</p></div><span class="btn ghost">Lanjut</span></div>
+ <div class="dock"><div class="d"><i class="ph ph-clock-counter-clockwise"></i></div><div class="main"><i class="ph-bold ph-plus"></i>Catat Kerjaan</div></div>
+</div><div class="label">Tugas Harian Teknisi</div></div>
+
+<!-- 3 SPV -->
+<div class="cap"><div class="phone">
+ <div class="sb"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div class="top"><div class="back"><i class="ph ph-arrow-left"></i></div><h1>Penugasan Tim</h1><div class="act"><i class="ph ph-whatsapp-logo"></i></div><div class="act"><i class="ph ph-users-three"></i></div></div>
+ <div class="big"><b>67<span>%</span></b><p>4 dari 6 tugas selesai<br>Kamis, 8 Nov · 3 teknisi</p></div>
+ <div class="stat"><div><b>6</b><small>Semua</small></div><div><b style="color:var(--warn)">2</b><small>Pending</small></div><div><b style="color:var(--acc)">4</b><small>Selesai</small></div></div>
+ <div class="chips"><span class="chip on">Semua</span><span class="chip">Rendy <em>1</em></span><span class="chip">Alessandro <em>1</em></span><span class="chip">Farhan</span></div>
+ <div class="sec"><h3>Pending</h3><span>2</span></div>
+ <div class="row"><div class="ic warn"><i class="ph ph-wrench"></i></div><div class="tx"><h4>Bersihkan sensor gate dan kalibrasi palang</h4><p>Rendy · Pos Pasar Bersehati · Maintenance</p></div><div class="act" style="width:36px;height:36px;display:grid;place-items:center;color:var(--mut);font-size:20px"><i class="ph ph-dots-three-vertical"></i></div></div>
+ <div class="row"><div class="ic warn"><i class="ph ph-network"></i></div><div class="tx"><h4>Ganti switch hub 8 port kasir 2</h4><p>Alessandro · Mega Mall · Tugas Khusus</p></div><div style="width:36px;height:36px;display:grid;place-items:center;color:var(--mut);font-size:20px"><i class="ph ph-dots-three-vertical"></i></div></div>
+ <div class="sec"><h3>Selesai</h3><span>4</span></div>
+ <div class="row"><div class="ic ok"><i class="ph-bold ph-check"></i></div><div class="tx"><h4 class="done">Cek barrier gate masuk 1</h4><p>Rendy · 09:30 WITA</p></div></div>
+ <div class="dock"><div class="d"><i class="ph ph-funnel"></i></div><div class="main"><i class="ph-bold ph-plus"></i>Buat Tugas</div></div>
+</div><div class="label">Penugasan SPV</div></div>
+
+<!-- 4 Detail Lokasi -->
+<div class="cap"><div class="phone">
+ <div class="sb"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div class="top"><div class="back"><i class="ph ph-arrow-left"></i></div><div style="flex:1"></div><div class="act"><i class="ph ph-arrows-clockwise"></i></div></div>
+ <div class="hello" style="padding-top:4px"><small>Manado · PBM</small><h2>Pos Pasar Bersehati</h2></div>
+ <div style="padding:8px 20px 0;font-size:13.5px;color:var(--mut);line-height:1.7">
+  <div><i class="ph ph-map-pin" style="margin-right:6px"></i>Jl. Sam Ratulangi No. 1</div>
+  <div><i class="ph ph-user" style="margin-right:6px"></i>Rendy · 8 Nov 14:20 WITA</div>
+ </div>
+ <div style="padding:14px 20px 0"><span class="btn ghost" style="height:40px"><i class="ph ph-navigation-arrow"></i>Buka di Maps</span></div>
+ <div class="sec" style="padding-top:22px"><h3>November</h3><span>1 dari 4 fase</span></div>
+ <div class="phase" style="margin-top:4px"><div class="on"><small>Fase 1</small><b>23/24</b><span>Temuan</span></div><div><small>Fase 2</small><b>8-14</b><span style="color:var(--mut)">Belum</span></div><div><small>Fase 3</small><b>15-21</b><span style="color:var(--mut)">Belum</span></div><div><small>Fase 4</small><b>22-30</b><span style="color:var(--mut)">Belum</span></div></div>
+ <div class="tabs"><div class="on">Temuan 1</div><div>Checklist 24</div></div>
+ <div class="row" style="border-top:0"><div class="ic bad"><i class="ph ph-warning"></i></div><div class="tx"><h4>Sensor gate kotor, palang miring</h4><p>Perlu cairan pembersih khusus dan baut dikencangkan ulang.</p><div style="display:flex;gap:6px;margin-top:8px"><span class="tag bad">Urgent</span><span class="tag">Belum diperbaiki</span></div></div></div>
+ <div class="row"><div class="ic ok"><i class="ph-bold ph-check"></i></div><div class="tx"><h4>Printer tiket gate 1</h4><p>Ganti roller, jalur kertas dibersihkan · Rendy 14:20</p></div><div style="width:44px;height:44px;display:grid;place-items:center;font-size:21px;color:var(--acc)"><i class="ph ph-share-network"></i></div></div>
+ <div class="dock"><div class="main"><i class="ph ph-camera"></i>Tandai Sudah Diperbaiki</div></div>
+</div><div class="label">Detail Lokasi</div></div>
+
+<!-- 5 Peta -->
+<div class="cap"><div class="phone">
+ <div class="map"></div>
+ <div class="sb" style="position:relative;background:linear-gradient(var(--bg),transparent)"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div style="position:relative;display:flex;gap:8px;padding:6px 16px">
+  <div style="width:44px;height:44px;border-radius:22px;background:var(--bg);display:grid;place-items:center;font-size:20px"><i class="ph ph-arrow-left"></i></div>
+  <div style="flex:1;height:44px;border-radius:22px;background:var(--bg);display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 16px;font-size:14px;font-weight:700"><span><i class="ph ph-caret-left" style="color:var(--mut)"></i> Nov 2026 <i class="ph ph-caret-right" style="color:var(--mut)"></i></span><span class="chip" style="height:32px">Manado <i class="ph ph-caret-down"></i></span></div>
+ </div>
+ <div class="pin" style="left:150px;top:300px"><i style="background:var(--warn)"><i class="ph-bold ph-warning" style="color:#2a1d00;font-size:12px"></i></i>PBM · 1 temuan</div>
+ <div class="pin" style="left:262px;top:236px"><i style="background:var(--acc)"><i class="ph-bold ph-check" style="font-size:12px"></i></i>Mega Mall</div>
+ <div class="pin" style="left:96px;top:410px"><i style="background:#5b6f64"><i class="ph-bold ph-minus" style="font-size:12px;color:#fff"></i></i>MTS</div>
+ <div style="position:absolute;right:16px;top:420px;display:flex;flex-direction:column;gap:8px">
+  <div style="width:44px;height:44px;border-radius:22px;background:var(--bg);display:grid;place-items:center;font-size:20px"><i class="ph ph-crosshair"></i></div>
+  <div style="width:44px;border-radius:22px;background:var(--bg);font-size:20px;text-align:center"><div style="height:44px;display:grid;place-items:center"><i class="ph ph-plus"></i></div><div style="height:44px;display:grid;place-items:center;border-top:1px solid var(--line)"><i class="ph ph-minus"></i></div></div>
+ </div>
+ <div class="sheet" style="height:262px"><div class="handle"></div>
+  <div class="phase" style="margin-top:14px"><div class="on"><small>Fase 1</small><b>1-7</b><span>2 temuan</span></div><div><small>Fase 2</small><b>8-14</b><span style="color:var(--mut)">Belum</span></div><div><small>Fase 3</small><b>15-21</b><span style="color:var(--mut)">Belum</span></div><div><small>Fase 4</small><b>22-30</b><span style="color:var(--mut)">Belum</span></div></div>
+  <div class="row" style="border-top:0;margin-top:6px"><div class="ic warn"><i class="ph ph-map-pin"></i></div><div class="tx"><h4>Pos Pasar Bersehati</h4><p>23 dari 24 sesuai · 1 temuan · Rendy</p></div><span class="btn">Detail</span></div>
+ </div>
+</div><div class="label">Peta Maintenance</div></div>
+
+<!-- 6 Checklist -->
+<div class="cap"><div class="phone">
+ <div class="sb"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div class="top"><div class="back"><i class="ph ph-arrow-left"></i></div><div style="flex:1"></div><div class="act"><i class="ph ph-clock-counter-clockwise"></i></div></div>
+ <div class="hello" style="padding-top:4px"><small>Barrier Gate Manless · Pos Pasar Bersehati</small></div>
+ <div class="big" style="padding-top:8px"><b>18<span>/24</span></b><p>foto poin<br>6 belum difoto</p></div>
+ <div class="seg"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+ <div class="chips"><span class="chip on">Semua 24</span><span class="chip">Belum foto 6</span><span class="chip">Sesuai 17</span><span class="chip">Perlu cek 1</span></div>
+ <div class="chips" style="padding-top:10px"><span class="chip" style="box-shadow:none;color:var(--fg);padding:0 2px;box-shadow:inset 0 -2px 0 var(--acc);border-radius:0">Semua gate</span><span class="chip" style="box-shadow:none;padding:0 2px">Gate 1</span><span class="chip" style="box-shadow:none;padding:0 2px">Gate 2</span></div>
+ <div class="row" style="margin-top:12px"><div style="width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,#3a5246,#1d2c25);flex:none"></div><div class="tx"><h4>Kerapian bodi dan housing</h4><p>Bodi bersih tanpa karat</p><span class="tag ok" style="display:inline-block;margin-top:6px">Sesuai · AI</span></div></div>
+ <div class="row"><div style="width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,#3a5246,#1d2c25);flex:none"></div><div class="tx"><h4>Sensor loop detector dan photocell</h4><p>Sensor kotor, palang sedikit miring</p><span class="tag warn" style="display:inline-block;margin-top:6px">Perlu cek</span></div><span class="btn ghost">Ulang</span></div>
+ <div class="row"><div class="ic" style="width:52px;height:52px;font-size:22px"><i class="ph ph-camera-plus"></i></div><div class="tx"><h4>Tombol manual push button</h4><p>Belum ada foto</p></div><span class="btn">Foto</span></div>
+ <div class="dock"><div class="main" style="opacity:.45"><i class="ph ph-check-circle"></i>Lengkapi 6 foto dulu</div></div>
+</div><div class="label">Checklist SOP</div></div>
+
+<!-- 7 Riwayat -->
+<div class="cap"><div class="phone">
+ <div class="sb"><span>09:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+ <div class="top"><div class="back"><i class="ph ph-arrow-left"></i></div><div style="flex:1"></div><div class="act"><i class="ph ph-trash"></i></div></div>
+ <div class="hello" style="padding-top:4px"><small>Pos Pasar Bersehati · PBM</small><h2>Riwayat Kerja Rendy</h2></div>
+ <div class="stat"><div><b>24</b><small>Hadir</small></div><div><b>24</b><small>Pulang</small></div><div><b style="color:var(--bad)">1</b><small>Terlambat</small></div></div>
+ <div class="note" style="padding-top:16px"><i class="ph ph-clock"></i><span>Catatan tersimpan 30 hari terakhir.</span></div>
+ <div class="sec"><h3>November</h3><span>30 hari</span></div>
+ <div class="row"><div class="ic ok"><i class="ph ph-sign-in"></i></div><div class="tx"><h4>Masuk · Sab 8 Nov</h4><p>08:05 WITA · Tepat waktu · kode 9102</p></div><div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#3a5246,#1d2c25)"></div></div>
+ <div class="row"><div class="ic"><i class="ph ph-sign-out"></i></div><div class="tx"><h4>Pulang · Jum 7 Nov</h4><p>16:45 WITA · 8j 40m · 3 tugas</p></div><div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#3a5246,#1d2c25)"></div></div>
+ <div class="row"><div class="ic bad"><i class="ph ph-sign-in"></i></div><div class="tx"><h4>Masuk · Jum 7 Nov</h4><p>08:25 WITA · Terlambat 25 menit</p></div><div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#3a5246,#1d2c25)"></div></div>
+ <div class="dock"><div class="main"><i class="ph ph-file-csv"></i>Export ke Sheets</div></div>
+</div><div class="label">Riwayat Kerja</div></div>
+
+</body></html>
