@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_theme.dart';
+import '../../../core/constants/tiket_colors.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../core/services/logger_service.dart';
 import '../../../core/utils/verification_code.dart';
 import '../../../core/utils/image_watermark_processor.dart';
@@ -16,7 +18,6 @@ import '../../../data/services/ai_vision_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/secure_time_service.dart';
-import '../../../data/repositories/auth_repository.dart';
 import '../../camera/widgets/interactive_watermark.dart';
 
 enum CameraRatioOption {
@@ -29,6 +30,7 @@ class PointCameraView extends StatefulWidget {
   final SopPoint point;
   final TemplateModel template;
   final PosLocation? location;
+  final Widget? placeholderPreview;
 
   /// Preferensi global mode offline (saklar manual teknisi, ikut ke poin berikutnya)
   static bool globalOfflineMode = false;
@@ -67,6 +69,7 @@ class PointCameraView extends StatefulWidget {
     required this.point,
     required this.template,
     this.location,
+    this.placeholderPreview,
   });
 
   @override
@@ -152,6 +155,15 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
   }
 
   Future<void> _initCam() async {
+    if (widget.placeholderPreview != null) {
+      if (mounted) {
+        setState(() {
+          _isInit = true;
+          _hasInitError = false;
+        });
+      }
+      return;
+    }
     try {
       if (mounted) {
         setState(() {
@@ -398,11 +410,12 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
       _isOfflineFastMode = !_isOfflineFastMode;
       PointCameraView.globalOfflineMode = _isOfflineFastMode;
     });
+    final colors = TiketColors.of(context);
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         duration: const Duration(seconds: 2),
-        backgroundColor: _isOfflineFastMode ? const Color(0xFFB45309) : const Color(0xFF047857),
+        backgroundColor: _isOfflineFastMode ? colors.signal : colors.ok,
         content: Row(
           children: [
             Icon(
@@ -469,41 +482,45 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.danger),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Fake GPS Terdeteksi',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      builder: (ctx) {
+        final colors = TiketColors.of(ctx);
+        return AlertDialog(
+          backgroundColor: colors.dialog,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: colors.danger),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Fake GPS Terdeteksi',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
+            ],
+          ),
+          content: const Text(
+            'Aplikasi mendeteksi Mock Location / Fake GPS aktif pada perangkat ini.\n\n'
+            'Matikan Fake GPS untuk melanjutkan checklist maintenance sesuai lokasi fisik pos.\n\n'
+            'Kalau kamu pilih Lanjut Darurat, foto ditandai [FAKE GPS DETECTED] dan otomatis jadi Cek Manual buat diaudit Supervisor.',
+            style: TextStyle(fontSize: 13, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Batal / Matikan Fake GPS'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colors.danger,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Lanjut Darurat (Ditandai SPV)'),
             ),
           ],
-        ),
-        content: const Text(
-          'Aplikasi mendeteksi Mock Location / Fake GPS aktif pada perangkat ini.\n\n'
-          'Matikan Fake GPS untuk melanjutkan checklist maintenance sesuai lokasi fisik pos.\n\n'
-          'Kalau kamu pilih Lanjut Darurat, foto ditandai [FAKE GPS DETECTED] dan otomatis jadi Cek Manual buat diaudit Supervisor.',
-          style: TextStyle(fontSize: 13, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Batal / Matikan Fake GPS'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Lanjut Darurat (Ditandai SPV)'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -525,7 +542,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
 
       final verifiedTime = SecureTimeService.getVerifiedTime();
       final now = verifiedTime.accurateTime;
-      final user = AuthRepository.instance.currentUser;
+      final user = StorageService.getUser();
 
       // Real-Time GPS Guard: Pastikan lokasi real-time terambil, jangan biarkan fallback default
       if (_realLocation == null || _realLocation!.isDefaultFallback) {
@@ -804,184 +821,198 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
     }
   }
 
-  Widget _buildTopHeader() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 6, 12, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+  Widget _buildTopRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Back 44 circle (#000 alpha 0.6 surface via Colors.black.withValues, white icon)
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.black.withValues(alpha: 0.6),
           ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Row 1: Back/Close, Location Tag, Title, AI status, Timer, Ratio, Flash
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              IconButton(
-                key: const Key('point_camera_back_button'),
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-                padding: const EdgeInsets.all(12),
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                tooltip: 'Kembali',
-                onPressed: () => Navigator.pop(context),
+          child: IconButton(
+            key: const Key('point_camera_back_button'),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            tooltip: 'Kembali',
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        // PBM soft pill (light grey fill, ink text)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: TiketColors.light.soft,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            _activeLocation.locationTag.isNotEmpty
+                ? _activeLocation.locationTag
+                : 'PBM',
+            style: TextStyle(
+              fontFamily: 'PlusJakartaSans',
+              color: TiketColors.light.ink,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        // Title Maintenance white
+        const Text(
+          'Maintenance',
+          style: TextStyle(
+            fontFamily: 'PlusJakartaSans',
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const Spacer(),
+
+        // AI Cloud pill right (black alpha surface, white text, no green/cloud chip)
+        GestureDetector(
+          onTap: _toggleAiMode,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              _isOfflineFastMode ? 'Kilat' : 'AI Cloud',
+              style: const TextStyle(
+                fontFamily: 'PlusJakartaSans',
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
               ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                      decoration: BoxDecoration(
-                        color: _activeLocation.tagColor.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: _activeLocation.tagColor.withValues(alpha: 0.6),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        _activeLocation.locationTag.isNotEmpty
-                            ? _activeLocation.locationTag
-                            : 'BSS',
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          color: _activeLocation.tagColor,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const Text(
-                      'Maintenance',
-                      style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
-                        color: Colors.white,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-                    // Shortcut AI Status (Online / Offline Mode Kilat)
-                    GestureDetector(
-                      onTap: _toggleAiMode,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-                        decoration: BoxDecoration(
-                          color: _isOfflineFastMode
-                              ? const Color(0xFFF59E0B).withValues(alpha: 0.25)
-                              : const Color(0xFF10B981).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: _isOfflineFastMode
-                                ? const Color(0xFFF59E0B)
-                                : const Color(0xFF10B981),
-                            width: 1.1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _isOfflineFastMode ? Icons.bolt_rounded : Icons.cloud_done_rounded,
-                              size: 12,
-                              color: _isOfflineFastMode ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              _isOfflineFastMode ? 'Kilat' : 'AI Cloud',
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                                color: _isOfflineFastMode ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+  Widget _buildPointAndControlsRow() {
+    final colors = TiketColors.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // (2) point card = dark rounded 16 surface (Colors.black alpha 0.7), title white 16 bold, SOP text white70 13 readable, no checkbox square
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.point.label,
+                  style: const TextStyle(
+                    fontFamily: 'PlusJakartaSans',
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    height: 1.25,
+                  ),
+                  softWrap: true,
+                ),
+                if (widget.point.deskripsi.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.point.deskripsi,
+                    style: const TextStyle(
+                      fontFamily: 'PlusJakartaSans',
+                      color: Colors.white70,
+                      fontSize: 13,
+                      height: 1.3,
                     ),
+                    softWrap: true,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
 
-                    // Timer Pill
-                    GestureDetector(
-                      onTap: _cycleTimer,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
-                        decoration: BoxDecoration(
-                          color: _timerSeconds > 0
-                              ? const Color(0xFFF59E0B).withValues(alpha: 0.25)
-                              : Colors.white.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: _timerSeconds > 0
-                                ? const Color(0xFFF59E0B)
-                                : Colors.white30,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.timer_rounded,
-                              size: 12,
-                              color: _timerSeconds > 0 ? const Color(0xFFF59E0B) : Colors.white70,
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              _timerSeconds == 0 ? 'Off' : '${_timerSeconds}s',
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                                color: _timerSeconds > 0 ? const Color(0xFFF59E0B) : Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+        // (3) right column under it: Off, 3:4, flash as 44 dark circles stacked (move 3:4 out of the header)
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Timer circle
+            GestureDetector(
+              onTap: _cycleTimer,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withValues(alpha: 0.6),
+                ),
+                child: Center(
+                  child: Text(
+                    _timerSeconds == 0 ? 'Off' : '${_timerSeconds}s',
+                    style: TextStyle(
+                      fontFamily: 'PlusJakartaSans',
+                      color: _timerSeconds > 0 ? colors.signal : Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
-
-                    // Ratio Pill (3:4 / Full / 1:1)
-                    GestureDetector(
-                      onTap: _cycleRatio,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white30),
-                        ),
-                        child: Text(
-                          _selectedRatio == CameraRatioOption.full
-                              ? 'Full'
-                              : (_selectedRatio == CameraRatioOption.ratio43 ? '3:4' : '1:1'),
-                          style: const TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-              const SizedBox(width: 2),
+            ),
+            const SizedBox(height: 8),
 
-              // Flash Toggle
-              IconButton(
+            // Ratio circle
+            GestureDetector(
+              onTap: _cycleRatio,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withValues(alpha: 0.6),
+                ),
+                child: Center(
+                  child: Text(
+                    _selectedRatio == CameraRatioOption.full
+                        ? 'Full'
+                        : (_selectedRatio == CameraRatioOption.ratio43 ? '3:4' : '1:1'),
+                    style: const TextStyle(
+                      fontFamily: 'PlusJakartaSans',
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Flash circle
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black.withValues(alpha: 0.6),
+              ),
+              child: IconButton(
                 key: const Key('point_camera_flash_button'),
                 icon: Icon(
                   _flashMode == FlashMode.off
@@ -995,79 +1026,66 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                       ? Colors.white70
                       : (_flashMode == FlashMode.torch
                           ? Colors.cyanAccent
-                          : Colors.amber),
-                  size: 18,
+                          : colors.signal),
+                  size: 20,
                 ),
-                padding: const EdgeInsets.all(12),
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 tooltip: 'Flash',
                 onPressed: _toggleFlash,
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
-
-          // Row 2: Point Info Compact Card (Terlihat jelas, multi-line, anti-terpotong)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A).withValues(alpha: 0.88),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 2),
-                  child: Icon(Icons.assignment_turned_in_rounded, size: 15, color: Color(0xFF38BDF8)),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        widget.point.label,
-                        style: const TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          height: 1.25,
-                        ),
-                        maxLines: 2,
-                        softWrap: true,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (widget.point.deskripsi.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.point.deskripsi,
-                          maxLines: 3,
-                          softWrap: true,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFFE2E8F0),
-                            fontSize: 10,
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 
 
   Widget _buildCameraViewport(Size media) {
+    if (widget.placeholderPreview != null) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final h = constraints.maxHeight;
+          return SizedBox(
+            width: w,
+            height: h,
+            child: Stack(
+              fit: StackFit.expand,
+              clipBehavior: Clip.hardEdge,
+              children: [
+                widget.placeholderPreview!,
+                MediaQuery(
+                  data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+                  child: InteractiveWatermark(
+                    lat: _realLocation?.lat ?? _activeLocation.lat,
+                    lng: _realLocation?.lng ?? _activeLocation.lng,
+                    fullAddress: (_realLocation != null &&
+                            _realLocation!.fullAddress.isNotEmpty &&
+                            !_realLocation!.isDefaultFallback)
+                        ? _realLocation!.fullAddress
+                        : _activeLocation.fullAddress,
+                    kodeVerifikasi: 'TIMEMARK',
+                    template: widget.template,
+                    config: _watermarkConfig.copyWith(
+                      badgeTag: _activeLocation.locationTag,
+                      badgeColor: _activeLocation.tagColor,
+                    ),
+                    activeLocationTag: _activeLocation.locationTag,
+                    activeLocationColor: _activeLocation.tagColor,
+                    onConfigChanged: (newConfig) {
+                      setState(() => _watermarkConfig = newConfig);
+                      StorageService.saveWatermarkConfig(newConfig);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
     if (!_isInit || _controller == null) {
       if (_hasInitError) {
         return Center(
@@ -1108,8 +1126,8 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                   icon: const Icon(Icons.refresh_rounded, size: 18),
                   label: const Text('Coba Lagi', style: TextStyle(fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
+                    backgroundColor: TiketColors.dark.primary,
+                    foregroundColor: TiketColors.dark.onPrimary,
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -1135,6 +1153,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
     }
 
     final targetAspect = _calculateTargetAspectRatio(media);
+    final colors = TiketColors.of(context);
 
     return Center(
       child: AspectRatio(
@@ -1189,25 +1208,25 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                               height: 56,
                               decoration: BoxDecoration(
                                 border: Border.all(
-                                  color: const Color(0xFFFACC15),
+                                  color: colors.signal,
                                   width: 2.0,
                                 ),
                                 borderRadius: BorderRadius.circular(10),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFFACC15).withValues(alpha: 0.45),
+                                    color: colors.signal.withValues(alpha: 0.45),
                                     blurRadius: 10,
                                     spreadRadius: 1,
                                   ),
                                 ],
                               ),
-                              child: const Center(
+                              child: Center(
                                 child: DecoratedBox(
                                   decoration: BoxDecoration(
-                                    color: Color(0xFFFACC15),
+                                    color: colors.signal,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: SizedBox(
+                                  child: const SizedBox(
                                     width: 6,
                                     height: 6,
                                   ),
@@ -1221,26 +1240,29 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                   ),
 
                 // 3. Live Interactive Timemark Overlay (strictly bounded inside 3:4 preview frame)
-                InteractiveWatermark(
-                  lat: _realLocation?.lat ?? _activeLocation.lat,
-                  lng: _realLocation?.lng ?? _activeLocation.lng,
-                  fullAddress: (_realLocation != null &&
-                          _realLocation!.fullAddress.isNotEmpty &&
-                          !_realLocation!.isDefaultFallback)
-                      ? _realLocation!.fullAddress
-                      : _activeLocation.fullAddress,
-                  kodeVerifikasi: 'TIMEMARK',
-                  template: widget.template,
-                  config: _watermarkConfig.copyWith(
-                    badgeTag: _activeLocation.locationTag,
-                    badgeColor: _activeLocation.tagColor,
+                MediaQuery(
+                  data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+                  child: InteractiveWatermark(
+                    lat: _realLocation?.lat ?? _activeLocation.lat,
+                    lng: _realLocation?.lng ?? _activeLocation.lng,
+                    fullAddress: (_realLocation != null &&
+                            _realLocation!.fullAddress.isNotEmpty &&
+                            !_realLocation!.isDefaultFallback)
+                        ? _realLocation!.fullAddress
+                        : _activeLocation.fullAddress,
+                    kodeVerifikasi: 'TIMEMARK',
+                    template: widget.template,
+                    config: _watermarkConfig.copyWith(
+                      badgeTag: _activeLocation.locationTag,
+                      badgeColor: _activeLocation.tagColor,
+                    ),
+                    activeLocationTag: _activeLocation.locationTag,
+                    activeLocationColor: _activeLocation.tagColor,
+                    onConfigChanged: (newConfig) {
+                      setState(() => _watermarkConfig = newConfig);
+                      StorageService.saveWatermarkConfig(newConfig);
+                    },
                   ),
-                  activeLocationTag: _activeLocation.locationTag,
-                  activeLocationColor: _activeLocation.tagColor,
-                  onConfigChanged: (newConfig) {
-                    setState(() => _watermarkConfig = newConfig);
-                    StorageService.saveWatermarkConfig(newConfig);
-                  },
                 ),
               ],
             );
@@ -1253,15 +1275,25 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
   /// Teknisi menandai poin ini memang tidak ada/tidak terpasang di lokasi.
   /// Tidak perlu foto, poin langsung dianggap selesai (hemat waktu).
   Future<void> _confirmTidakTerpasang() async {
+    final colors = TiketColors.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: colors.dialog,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Barang tidak terpasang?'),
         content: Text(
             '"${widget.point.label}" akan ditandai TIDAK TERPASANG / tidak ada di lokasi, tanpa perlu foto.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ya, Tidak Terpasang')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colors.primary,
+              foregroundColor: colors.onPrimary,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Ya, Tidak Terpasang'),
+          ),
         ],
       ),
     );
@@ -1281,32 +1313,51 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
   }
 
   Widget _buildBottomControls() {
+    final colors = TiketColors.of(context);
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      color: Colors.black,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Perforation edge at the top (like camera_capture_screen G2)
+          Transform.translate(
+            offset: const Offset(0, -8),
+            child: const ExcludeSemantics(
+              child: CustomPaint(
+                size: Size(double.infinity, 0),
+                painter: PerforationPainter(canvasColor: Colors.black),
+              ),
+            ),
+          ),
+
           // Floating Instruction Status Pill
-          if (!_isCapturing)
+          if (!_isCapturing) ...[
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.75),
+                color: Colors.black.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white24),
+                border: Border.all(color: Colors.white24, width: 1.0),
               ),
               child: Text(
                 _statusText,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          const SizedBox(height: 10),
+            const SizedBox(height: 16),
+          ],
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Switch Camera Button (Rotate)
+              // Left flip-camera 48 dark circle
               if (_cameras.length > 1)
                 Container(
                   width: 48,
@@ -1314,10 +1365,12 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.white.withValues(alpha: 0.12),
-                    border: Border.all(color: Colors.white24),
+                    border: Border.all(color: Colors.white24, width: 1.0),
                   ),
                   child: IconButton(
                     icon: const Icon(Icons.cameraswitch_rounded, color: Colors.white, size: 22),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                     tooltip: 'Ganti Kamera Depan/Belakang',
                     onPressed: _isCapturing || _isCountingDown ? null : _toggleCameraFlip,
                   ),
@@ -1325,71 +1378,99 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
               else
                 const SizedBox(width: 48, height: 48),
 
-              // Pro Dual-Ring Shutter button
+              // Shutter = white disc with 4px signal ring
               GestureDetector(
+                key: const Key('point_camera_shutter_button'),
                 onTap: _isCapturing
                     ? null
                     : (_isCountingDown ? _cancelTimer : _startTimedCapture),
                 child: Container(
-                  width: 74,
-                  height: 74,
+                  width: 80,
+                  height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 3.5),
+                    border: Border.all(color: colors.signal, width: 4.0),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.35),
+                        color: Colors.black.withValues(alpha: 0.4),
                         blurRadius: 10,
                         offset: const Offset(0, 3),
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.all(4.5),
+                  padding: const EdgeInsets.all(4.0),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: _isCapturing ? Colors.grey : AppColors.primary,
+                      color: _isCapturing ? Colors.grey : Colors.white,
                       shape: BoxShape.circle,
                     ),
-                    child: Center(
-                      child: _isCapturing
-                          ? const SizedBox(
+                    child: _isCapturing
+                        ? const Center(
+                            child: SizedBox(
                               width: 26,
                               height: 26,
                               child: CircularProgressIndicator(
-                                color: Colors.white,
+                                color: Colors.black,
                                 strokeWidth: 2.5,
                               ),
-                            )
-                          : const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 28),
-                    ),
+                            ),
+                          )
+                        : null,
                   ),
                 ),
               ),
 
-              // Close Button (Tutup Kamera)
+              // Right close 48 dark circle (not blue)
               Container(
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white.withValues(alpha: 0.12),
-                  border: Border.all(color: Colors.white24),
+                  border: Border.all(color: Colors.white24, width: 1.0),
                 ),
                 child: IconButton(
                   icon: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                   tooltip: 'Tutup Kamera',
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
             ],
           ),
-          // Jalan pintas: barang memang tidak ada di lokasi, tidak perlu foto
-          TextButton.icon(
-            onPressed: _isCapturing || _isCountingDown ? null : _confirmTidakTerpasang,
-            icon: const Icon(Icons.do_not_disturb_alt_rounded, size: 15, color: Colors.white70),
-            label: const Text(
-              'Barang tidak terpasang di lokasi?',
-              style: TextStyle(fontSize: 11.5, color: Colors.white70, fontWeight: FontWeight.w600),
+          const SizedBox(height: 16),
+
+          // Barang tidak terpasang pill dark outlined
+          GestureDetector(
+            onTap: _isCapturing || _isCountingDown ? null : _confirmTidakTerpasang,
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: Colors.white24, width: 1.0),
+              ),
+              child: const FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.do_not_disturb_alt_rounded, color: Colors.white70, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'Barang tidak terpasang di lokasi?',
+                      style: TextStyle(
+                        fontFamily: 'PlusJakartaSans',
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -1399,104 +1480,135 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context).size;
+    return Theme(
+      data: AppTheme.darkTheme,
+      child: Builder(
+        builder: (context) {
+          final media = MediaQuery.of(context).size;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // Non-overlapping 3-part layout: Top Header, Center 3:4 Viewport, Bottom Controls
-            Column(
-              children: [
-                _buildTopHeader(),
-                Expanded(
-                  child: _buildCameraViewport(media),
-                ),
-                _buildBottomControls(),
-              ],
-            ),
-
-            // Visual Shutter Overlay — Dynamic Floating Pill (Non-intrusive di atas kontrol bawah)
-            if (_isCapturing)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 120,
-                child: Center(
-                  child: VerificationStepCard(
-                    currentStep: _currentStep,
-                    statusText: _statusText,
-                    templateName: widget.point.label,
+          return Scaffold(
+            backgroundColor: Colors.black,
+            body: SafeArea(
+              top: false,
+              bottom: true,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // 1. Column: Viewport on top, Bottom Controls below
+                  Column(
+                    children: [
+                      Expanded(
+                        child: _buildCameraViewport(media),
+                      ),
+                      _buildBottomControls(),
+                    ],
                   ),
-                ),
-              ),
 
-            // Countdown overlay
-            if (_isCountingDown)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.black.withValues(alpha: 0.7),
-                            border: Border.all(color: Colors.white, width: 3),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '$_countdownValue',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 56,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
+                  // 2. Top HUD Overlay (on top of preview)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: SafeArea(
+                      top: true,
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildTopRow(),
+                            const SizedBox(height: 10),
+                            _buildPointAndControlsRow(),
+                          ],
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Foto dalam $_countdownValue detik',
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
-                        ),
-                        const SizedBox(height: 12),
-                        GestureDetector(
-                          onTap: _cancelTimer,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.close, color: Colors.black, size: 16),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Batal',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+
+                  // 3. Visual Shutter Overlay — Dynamic Floating Pill
+                  if (_isCapturing)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 120,
+                      child: Center(
+                        child: VerificationStepCard(
+                          currentStep: _currentStep,
+                          statusText: _statusText,
+                          templateName: widget.point.label,
+                        ),
+                      ),
+                    ),
+
+                  // 4. Countdown overlay
+                  if (_isCountingDown)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 120,
+                                height: 120,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.black.withValues(alpha: 0.7),
+                                  border: Border.all(color: Colors.white, width: 3),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '$_countdownValue',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 56,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Foto dalam $_countdownValue detik',
+                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                              ),
+                              const SizedBox(height: 12),
+                              GestureDetector(
+                                onTap: _cancelTimer,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.close, color: Colors.black, size: 16),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Batal',
+                                        style: TextStyle(
+                                          color: Colors.black,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-          ],
-        ),
+            ),
+          );
+        },
       ),
     );
   }

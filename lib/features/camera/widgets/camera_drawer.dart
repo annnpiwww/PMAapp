@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/tiket_colors.dart';
 import '../../../core/services/theme_service.dart';
+import '../../../core/widgets/tiket/tiket_band.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/services/branch_service.dart';
@@ -16,8 +17,6 @@ import '../../maintenance/screens/maintenance_history_screen.dart';
 import '../../maintenance/screens/maintenance_map_screen.dart';
 import 'ios_pwa_install_modal.dart';
 
-/// Navigation Drawer for CameraCaptureScreen
-/// Versi app yang benar-benar terpasang, buat mastiin teknisi pakai build terbaru.
 final Future<PackageInfo> _appPackageInfo = PackageInfo.fromPlatform();
 
 class CameraDrawer extends StatelessWidget {
@@ -29,22 +28,24 @@ class CameraDrawer extends StatelessWidget {
   });
 
   void _confirmLogout(BuildContext context) {
-    final isDark = ThemeService.isDarkMode(context);
+    final colors = TiketColors.of(context);
     showDialog(
       context: context,
       builder: (dCtx) => AlertDialog(
-        backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusCard)),
+        backgroundColor: colors.dialog,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.logout_rounded, color: AppColors.danger, size: 24),
+            Icon(Icons.logout_rounded, color: colors.ink, size: 24),
             const SizedBox(width: 8),
             Text(
               'Keluar Akun',
               style: TextStyle(
+                fontFamily: TiketType.fontFamily,
                 fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: isDark ? AppColors.textDarkPrimary : AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+                color: colors.ink,
               ),
             ),
           ],
@@ -52,30 +53,38 @@ class CameraDrawer extends StatelessWidget {
         content: Text(
           'Yakin ingin keluar akun?',
           style: TextStyle(
+            fontFamily: TiketType.fontFamily,
             fontSize: 13,
-            color: isDark ? AppColors.textDarkSecondary : AppColors.textSecondary,
+            color: colors.body,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dCtx).pop(),
-            child: const Text('Batal', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+            child: Text(
+              'Batal',
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                color: colors.body,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
               final nav = Navigator.of(context);
               Navigator.of(dCtx).pop();
-              nav.pop(); // Tutup drawer
+              nav.pop();
               await AuthRepository.instance.logout();
               nav.pushReplacement(
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
-              foregroundColor: Colors.white,
+              backgroundColor: colors.danger,
+              foregroundColor: colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: const StadiumBorder(),
             ),
             child: const Text('Keluar', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
@@ -89,15 +98,11 @@ class CameraDrawer extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: ThemeService.themeModeNotifier,
       builder: (context, currentMode, _) {
-        final isDark = ThemeService.isDarkMode(context);
-        final drawerBg = isDark ? AppColors.darkSurface : Colors.white;
-        final textPrimary = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
-        final textSecondary = isDark ? AppColors.textDarkSecondary : AppColors.textSecondary;
-        final dividerColor = isDark ? AppColors.darkBorder : AppColors.cardBorder;
+        final colors = TiketColors.of(context);
 
         return Drawer(
           width: 310,
-          backgroundColor: drawerBg,
+          backgroundColor: colors.dialog,
           child: SafeArea(
             top: false,
             child: Column(
@@ -106,33 +111,39 @@ class CameraDrawer extends StatelessWidget {
                   child: ListView(
                     padding: EdgeInsets.zero,
                     children: [
-                      // Drawer Header with Pure Transparent Logo on Blue Background
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.fromLTRB(20, 52, 20, 24),
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
-                          border: Border(
-                            bottom: BorderSide(color: AppColors.accent, width: 2.5),
-                          ),
-                        ),
-                        child: Center(
-                          child: Image.asset(
-                            'foto/bssfotologo_transparent.png',
-                            height: 48,
-                            fit: BoxFit.contain,
-                            errorBuilder: (ctx, err, stack) => const Text(
-                              'BSS PARKING',
-                              style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 20,
-                                letterSpacing: 1.5,
+                      // Header Band with top-right radius 24 and perforation at bottom edge
+                      Stack(
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.fromLTRB(20, 52, 20, 24),
+                            decoration: BoxDecoration(
+                              color: colors.band,
+                              borderRadius: const BorderRadius.only(
+                                topRight: Radius.circular(24),
+                              ),
+                            ),
+                            child: Center(
+                              child: Image.asset(
+                                'foto/bssfotologo_transparent.png',
+                                height: 48,
+                                fit: BoxFit.contain,
+                                errorBuilder: (ctx, err, stack) => const SizedBox(height: 48),
                               ),
                             ),
                           ),
-                        ),
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            height: 10,
+                            child: ExcludeSemantics(
+                              child: CustomPaint(
+                                painter: PerforationPainter(canvasColor: colors.dialog),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
 
                       const SizedBox(height: 12),
@@ -143,43 +154,61 @@ class CameraDrawer extends StatelessWidget {
                         final isSpv = user?.role == UserRole.supervisor;
                         if (!isSpv) return const SizedBox.shrink();
 
-                        return ListTile(
-                          leading: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.accent.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                              title: Row(
+                                children: [
+                                  Text(
+                                    'Penugasan Teknisi',
+                                    style: TextStyle(
+                                      fontFamily: TiketType.fontFamily,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                      color: colors.ink,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: colors.soft,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      'SPV',
+                                      style: TextStyle(
+                                        fontFamily: TiketType.fontFamily,
+                                        color: colors.body,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              subtitle: Text(
+                                'Buat tugas dan pantau progres kerja teknisi',
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 12,
+                                  color: colors.body,
+                                ),
+                              ),
+                              trailing: Icon(Icons.chevron_right_rounded, size: 20, color: colors.body),
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const SpvTaskDispatcherScreen(),
+                                  ),
+                                );
+                              },
                             ),
-                            child: const Icon(Icons.assignment_ind_rounded, color: AppColors.accent, size: 22),
-                          ),
-                          title: Row(
-                            children: [
-                              Text(
-                                'Penugasan Teknisi',
-                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
-                              ),
-                              const SizedBox(width: 6),
-                              const Chip(
-                                label: Text('SPV', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold)),
-                                backgroundColor: AppColors.accent,
-                                padding: EdgeInsets.zero,
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ],
-                          ),
-                          subtitle: Text(
-                            'Buat tugas dan pantau progres kerja teknisi',
-                            style: TextStyle(fontSize: 11, color: textSecondary),
-                          ),
-                          onTap: () {
-                            Navigator.of(context).pop();
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const SpvTaskDispatcherScreen(),
-                              ),
-                            );
-                          },
+                            Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
+                          ],
                         );
                       }),
 
@@ -189,55 +218,64 @@ class CameraDrawer extends StatelessWidget {
                         final isTeknisi = user?.role == UserRole.petugas;
                         if (!isTeknisi) return const SizedBox.shrink();
 
-                        return ListTile(
-                          leading: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.accent.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.assignment_turned_in_rounded, color: AppColors.accent, size: 22),
-                          ),
-                          title: Text(
-                            'Daily Task',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
-                          ),
-                          subtitle: Text(
-                            'Daftar tugas harian yang harus dikerjakan',
-                            style: TextStyle(fontSize: 11, color: textSecondary),
-                          ),
-                          trailing: ValueListenableBuilder<int>(
-                            valueListenable: DailyTaskService.pendingCountNotifier,
-                            builder: (context, pendingCount, _) {
-                              if (pendingCount > 0) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEF4444),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    '$pendingCount',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                              title: Text(
+                                'Daily Task',
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                  color: colors.ink,
+                                ),
+                              ),
+                              subtitle: Text(
+                                'Daftar tugas harian yang harus dikerjakan',
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 12,
+                                  color: colors.body,
+                                ),
+                              ),
+                              trailing: ValueListenableBuilder<int>(
+                                valueListenable: DailyTaskService.pendingCountNotifier,
+                                builder: (context, pendingCount, _) {
+                                  if (pendingCount > 0) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: colors.signal,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        '$pendingCount',
+                                        style: TextStyle(
+                                          fontFamily: TiketType.fontFamily,
+                                          color: colors.black,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return Icon(Icons.chevron_right_rounded, size: 20, color: colors.body);
+                                },
+                              ),
+                              onTap: () async {
+                                Navigator.of(context).pop();
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const TeknisiDailyTasksScreen(),
                                   ),
                                 );
-                              }
-                              return const Icon(Icons.chevron_right_rounded, size: 20);
-                            },
-                          ),
-                          onTap: () async {
-                            Navigator.of(context).pop();
-                            await Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const TeknisiDailyTasksScreen(),
-                              ),
-                            );
-                            onRefreshDailyTasksBadge?.call();
-                          },
+                                onRefreshDailyTasksBadge?.call();
+                              },
+                            ),
+                            Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
+                          ],
                         );
                       }),
 
@@ -246,72 +284,83 @@ class CameraDrawer extends StatelessWidget {
                         final allSubmissions = StorageService.getMaintenanceSubmissions() ?? [];
                         final drafts = allSubmissions.where((s) => !s.isComplete).toList();
                         final completed = allSubmissions.where((s) => s.isComplete).toList();
-                        return ListTile(
-                          leading: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.handyman_rounded, color: AppColors.primary, size: 22),
-                          ),
-                          title: Text(
-                            'Riwayat Maintenance',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
-                          ),
-                          subtitle: Text(
-                            drafts.isNotEmpty
-                                ? '${drafts.length} draft aktif • ${completed.length} selesai'
-                                : (completed.isNotEmpty ? '${completed.length} pekerjaan selesai' : 'Daftar checklist unit'),
-                            style: TextStyle(fontSize: 11, color: textSecondary),
-                          ),
-                          trailing: drafts.isNotEmpty
-                              ? Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.warning,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    '${drafts.length} Draft',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                )
-                              : Icon(Icons.chevron_right_rounded, size: 20, color: textSecondary),
-                          onTap: () {
-                            Navigator.of(context).pop();
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const MaintenanceHistoryScreen(),
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                              title: Text(
+                                'Riwayat Maintenance',
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                  color: colors.ink,
+                                ),
                               ),
-                            );
-                          },
+                              subtitle: Text(
+                                drafts.isNotEmpty
+                                    ? '${drafts.length} draft aktif • ${completed.length} selesai'
+                                    : (completed.isNotEmpty ? '${completed.length} pekerjaan selesai' : 'Daftar checklist unit'),
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 12,
+                                  color: colors.body,
+                                ),
+                              ),
+                              trailing: drafts.isNotEmpty
+                                  ? Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: colors.soft,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        '${drafts.length} Draft',
+                                        style: TextStyle(
+                                          fontFamily: TiketType.fontFamily,
+                                          color: colors.body,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    )
+                                  : Icon(Icons.chevron_right_rounded, size: 20, color: colors.body),
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const MaintenanceHistoryScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
+                          ],
                         );
                       }),
 
                       // Map Maintenance
                       ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.map_rounded, color: AppColors.primary, size: 22),
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
                         title: Text(
                           'Map Maintenance',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            color: colors.ink,
+                          ),
                         ),
                         subtitle: Text(
                           'Lokasi sudah & belum maintenance',
-                          style: TextStyle(fontSize: 11, color: textSecondary),
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 12,
+                            color: colors.body,
+                          ),
                         ),
-                        trailing: Icon(Icons.chevron_right_rounded, size: 20, color: textSecondary),
+                        trailing: Icon(Icons.chevron_right_rounded, size: 20, color: colors.body),
                         onTap: () {
                           Navigator.of(context).pop();
                           Navigator.of(context).push(
@@ -321,35 +370,41 @@ class CameraDrawer extends StatelessWidget {
                           );
                         },
                       ),
+                      Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
 
                       // Menu Arsip Kehadiran (30 Hari)
                       ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0284C7).withValues(alpha: isDark ? 0.25 : 0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.folder_shared_rounded, color: Color(0xFF0284C7), size: 22),
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
                         title: Text(
                           'Arsip Kehadiran',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            color: colors.ink,
+                          ),
                         ),
-                        subtitle: Text('Catatan absen masuk & pulang 30 hari terakhir', style: TextStyle(fontSize: 11, color: textSecondary)),
+                        subtitle: Text(
+                          'Catatan absen masuk & pulang 30 hari terakhir',
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 12,
+                            color: colors.body,
+                          ),
+                        ),
                         trailing: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF082F49) : const Color(0xFFE0F2FE),
+                            color: colors.soft,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: isDark ? const Color(0xFF0284C7) : const Color(0xFFBAE6FD)),
                           ),
                           child: Text(
                             '30 Hari',
                             style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0369A1),
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: colors.body,
                             ),
                           ),
                         ),
@@ -362,6 +417,7 @@ class CameraDrawer extends StatelessWidget {
                           );
                         },
                       ),
+                      Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
 
                       // Pengaturan Tema (Mode Gelap / Terang)
                       ValueListenableBuilder<ThemeMode>(
@@ -369,29 +425,27 @@ class CameraDrawer extends StatelessWidget {
                         builder: (ctx, currentMode, _) {
                           final isCurrentDark = ThemeService.isDarkMode(ctx);
                           return ListTile(
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: (isCurrentDark ? const Color(0xFFF59E0B) : const Color(0xFF1E448D)).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                isCurrentDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                                color: isCurrentDark ? const Color(0xFFF59E0B) : const Color(0xFF1E448D),
-                                size: 22,
-                              ),
-                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
                             title: Text(
                               isCurrentDark ? 'Mode Terang' : 'Mode Gelap',
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                                color: colors.ink,
+                              ),
                             ),
                             subtitle: Text(
                               isCurrentDark ? 'Ganti ke tema terang' : 'Ganti ke tema gelap',
-                              style: TextStyle(fontSize: 11, color: textSecondary),
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 12,
+                                color: colors.body,
+                              ),
                             ),
                             trailing: Switch.adaptive(
                               value: isCurrentDark,
-                              activeTrackColor: AppColors.accent,
+                              activeTrackColor: colors.primary,
                               onChanged: (_) {
                                 ThemeService.toggleTheme(context);
                               },
@@ -402,59 +456,108 @@ class CameraDrawer extends StatelessWidget {
                           );
                         },
                       ),
+                      Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
 
                       // Panduan Instalasi Layar Utama iPhone (PWA)
-                      if (kIsWeb)
+                      if (kIsWeb) ...[
                         ListTile(
-                          leading: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF3B82F6).withValues(alpha: isDark ? 0.25 : 0.12),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.apple_rounded, color: Color(0xFF3B82F6), size: 22),
-                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
                           title: Text(
                             'Pasang di iPhone (PWA)',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              color: colors.ink,
+                            ),
                           ),
                           subtitle: Text(
                             'Panduan pasang ke layar utama tanpa URL bar',
-                            style: TextStyle(fontSize: 11, color: textSecondary),
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 12,
+                              color: colors.body,
+                            ),
                           ),
-                          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                          trailing: Icon(Icons.chevron_right_rounded, size: 20, color: colors.body),
                           onTap: () {
                             Navigator.of(context).pop();
                             IosPwaInstallModal.show(context);
                           },
                         ),
+                        Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
+                      ],
 
-                      Divider(height: 24, color: dividerColor),
+                      const SizedBox(height: 12),
 
-                      // Informasi Akun & Modal Konfirmasi Keluar Akun
+                      // Informasi Akun & Keluar Akun
                       Builder(builder: (ctx) {
                         final user = AuthRepository.instance.currentUser;
                         return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                           leading: CircleAvatar(
-                            radius: 20,
-                            backgroundColor: AppColors.accent.withValues(alpha: 0.2),
+                            radius: 22,
+                            backgroundColor: colors.soft,
                             child: Text(
                               (user?.nama.isNotEmpty ?? false) ? user!.nama[0].toUpperCase() : 'U',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.accent, fontSize: 16),
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontWeight: FontWeight.w700,
+                                color: colors.ink,
+                                fontSize: 16,
+                              ),
                             ),
                           ),
                           title: Text(
                             user?.nama ?? 'Belum Login',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                              color: colors.ink,
+                            ),
                           ),
                           subtitle: Text(
                             'IT Support ${BranchService.instance.currentBranch.name}',
-                            style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B), fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 12,
+                              color: colors.body,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.logout_rounded, size: 20, color: AppColors.danger),
-                            tooltip: 'Keluar Akun',
-                            onPressed: () => _confirmLogout(context),
+                          trailing: Tooltip(
+                            message: 'Keluar Akun',
+                            child: SizedBox(
+                              width: 48,
+                              height: 48,
+                              child: Center(
+                                child: Material(
+                                  color: Colors.transparent,
+                                  shape: CircleBorder(
+                                    side: BorderSide(
+                                      color: colors.hairline,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: InkWell(
+                                    customBorder: const CircleBorder(),
+                                    onTap: () => _confirmLogout(context),
+                                    child: SizedBox(
+                                      width: 40,
+                                      height: 40,
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.logout_rounded,
+                                          size: 20,
+                                          color: colors.ink,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                           onTap: () => _confirmLogout(context),
                         );
@@ -463,12 +566,12 @@ class CameraDrawer extends StatelessWidget {
                   ),
                 ),
 
-                // Footer Paling Bawah Center (Bottom-Pinned)
+                // Footer Bottom-Pinned
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
                   decoration: BoxDecoration(
-                    border: Border(top: BorderSide(color: dividerColor, width: 0.8)),
+                    border: Border(top: BorderSide(color: colors.hairline, width: 1.0)),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -478,9 +581,9 @@ class CameraDrawer extends StatelessWidget {
                         'PMAapp powered by annnpii',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: TiketType.fontFamily,
                           fontSize: 11.5,
-                          color: isDark ? const Color(0xFF38BDF8) : AppColors.primary,
+                          color: colors.primary,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -489,9 +592,9 @@ class CameraDrawer extends StatelessWidget {
                         'Project Maintenance Assembly',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: TiketType.fontFamily,
                           fontSize: 10,
-                          color: textSecondary,
+                          color: colors.body,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -504,9 +607,9 @@ class CameraDrawer extends StatelessWidget {
                               : 'Versi tidak terbaca',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontSize: 10,
-                            color: textSecondary,
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 11,
+                            color: colors.body,
                             fontWeight: FontWeight.w500,
                           ),
                         ),

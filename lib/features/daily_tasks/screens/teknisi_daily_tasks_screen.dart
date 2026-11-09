@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/services/theme_service.dart';
+import '../../../core/constants/tiket_colors.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../data/models/daily_task_model.dart';
 import '../../../data/models/maintenance_submission.dart';
 import '../../../data/repositories/auth_repository.dart';
@@ -26,8 +26,10 @@ class TeknisiDailyTasksScreen extends StatefulWidget {
 
 class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
   List<DailyTaskModel> _tasks = [];
-  List<DailyTaskModel> _openTasks = []; // tugas serah terima tanpa penerus
+  List<DailyTaskModel> _openTasks = [];
   bool _isLoading = true;
+  bool _isOffline = false;
+  String _lastUpdateTime = '08:15';
 
   @override
   void initState() {
@@ -64,48 +66,62 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
     }
     setState(() => _isLoading = true);
 
-    final tasks = await DailyTaskService.getTasksForTeknisi(
-      tanggal: _todayStr(),
-      teknisiNama: user.nama,
-    );
+    try {
+      final tasks = await DailyTaskService.getTasksForTeknisi(
+        tanggal: _todayStr(),
+        teknisiNama: user.nama,
+      );
 
-    final openTasks = await DailyTaskService.getOpenHandoverTasks(excludeTeknisi: user.nama);
+      final openTasks = await DailyTaskService.getOpenHandoverTasks(excludeTeknisi: user.nama);
 
-    final pendingCount = tasks.where((t) => !t.isCompleted).length;
-    DailyTaskService.updatePendingCount(pendingCount);
-    NotificationService.instance.showDailyTasksNotification(tasks: tasks);
+      final pendingCount = tasks.where((t) => !t.isCompleted).length;
+      DailyTaskService.updatePendingCount(pendingCount);
+      NotificationService.instance.showDailyTasksNotification(tasks: tasks);
 
-    if (mounted) {
-      setState(() {
-        _tasks = tasks;
-        _openTasks = openTasks;
-        _isLoading = false;
-      });
+      final now = DateTime.now();
+      final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+      if (mounted) {
+        setState(() {
+          _tasks = tasks;
+          _openTasks = openTasks;
+          _isLoading = false;
+          _isOffline = false;
+          _lastUpdateTime = timeStr;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isOffline = true;
+        });
+      }
     }
   }
 
   void _snack(String pesan, {bool sukses = true}) {
     if (!mounted) return;
+    final colors = TiketColors.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             Icon(
               sukses ? Icons.check_circle_rounded : Icons.error_rounded,
-              color: Colors.white,
+              color: colors.white,
               size: 20,
             ),
             const SizedBox(width: 8),
             Expanded(child: Text(pesan)),
           ],
         ),
-        backgroundColor: sukses ? AppColors.success : AppColors.danger,
+        backgroundColor: sukses ? colors.ok : colors.danger,
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  /// Teknisi mencatat kerjaan dadakan (bukan tugas SPV) supaya masuk daftar hari itu.
   Future<void> _catatKerjaan() async {
     final user = AuthRepository.instance.currentUser;
     if (user == null) return;
@@ -126,7 +142,6 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
     if (tersimpan) await _loadTasks();
   }
 
-  /// Teknisi menyerahkan tugas yang belum selesai ke shift berikutnya.
   Future<void> _serahkanTugas(DailyTaskModel task) async {
     final user = AuthRepository.instance.currentUser;
     await TaskHandoverDialog.show(
@@ -156,7 +171,6 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
     );
   }
 
-  /// Teknisi shift berikutnya mengambil tugas dari daftar terbuka.
   Future<void> _ambilTugas(DailyTaskModel task) async {
     final user = AuthRepository.instance.currentUser;
     if (user == null) return;
@@ -173,7 +187,6 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
         (task.templateId == null || task.templateId!.isEmpty);
 
     if (!isKhusus) {
-      // Tugas Maintenance SOP (Checklist Point Pos)
       final templates = TemplateRepository.instance.templates;
       final foundTpl = templates.firstWhere(
         (t) => t.id == task.templateId,
@@ -183,11 +196,9 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
         ),
       );
 
-      // 1. CARI APAKAH ADA PROGRESS DRAFT BERJALAN UNTUK TUGAS INI
       final MaintenanceSubmission? ongoing = DailyTaskService.getOngoingMaintenance(task);
 
       if (ongoing != null) {
-        // Hubungkan taskId jika belum tercatat di submission
         if (ongoing.taskId != task.id) {
           final updated = ongoing.copyWith(taskId: task.id);
           final list = StorageService.getMaintenanceSubmissions() ?? [];
@@ -199,11 +210,12 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
         }
 
         if (mounted) {
+          final colors = TiketColors.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 20),
+                  Icon(Icons.play_circle_fill_rounded, color: colors.white, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -213,7 +225,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                   ),
                 ],
               ),
-              backgroundColor: AppColors.accent,
+              backgroundColor: colors.primary,
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 2),
             ),
@@ -222,7 +234,6 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
 
         if (!mounted) return;
 
-        // Langsung lanjutkan pengerjaan tanpa reset progress!
         final refreshed = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
             builder: (_) => MaintenanceChecklistScreen(
@@ -239,9 +250,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
         return;
       }
 
-      // 2. JIKA BELUM ADA PROGRESS: BUKA SETUP DIALOG
       if (foundTpl.isPerPoint) {
-        // Cari rekomendasi lokasi cerdas dari kata kunci SPV (posTag, posName, judul)
         final matchedLoc = LocationService.resolveLocationFromTask(
           posTag: task.posTag,
           posName: task.posName,
@@ -249,7 +258,6 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
         );
 
         if (matchedLoc != null) {
-          // Sinkronkan langsung ke LocationService agar watermark & GPS sinkron
           LocationService.setCurrentPos(matchedLoc);
           LocationService.clearLocationCache();
         }
@@ -270,7 +278,6 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
         );
       }
     } else {
-      // Tugas Khusus (Non-SOP Checklist): Buka layar pengerjaan mandiri
       final refreshed = await Navigator.of(context).push<bool>(
         MaterialPageRoute(
           builder: (_) => CustomTaskExecutionScreen(task: task),
@@ -284,536 +291,578 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = TiketColors.of(context);
     final user = AuthRepository.instance.currentUser;
     final total = _tasks.length;
     final done = _tasks.where((t) => t.isCompleted).length;
-    final isDark = ThemeService.isDarkMode(context);
-
-    final bg = isDark ? const Color(0xFF0B1120) : const Color(0xFFFAF8F5);
-    final line = isDark ? const Color(0xFF1E293B) : const Color(0xFFE5E1D8);
-    final textHead = isDark ? Colors.white : const Color(0xFF111827);
-    final textSub = isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280);
+    final semua = total > 0 && done == total;
 
     return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF111827) : AppColors.primary,
-        elevation: 0,
-        titleSpacing: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Daily Task',
-              style: TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 1),
-            Text(
-              user?.nama ?? 'IT Support KC BSG',
-              style: TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 11.5,
-                color: Colors.white.withValues(alpha: 0.72),
-              ),
-            ),
-          ],
+      backgroundColor: colors.canvas,
+      bottomNavigationBar: TiketBottomBar(
+        primary: TiketPill(
+          label: 'Catat Kerjaan baru',
+          icon: Icons.add_rounded,
+          kind: TiketPillKind.primary,
+          height: 48,
+          expand: true,
+          onPressed: _catatKerjaan,
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-            tooltip: 'Muat Ulang',
-            onPressed: _loadTasks,
-          ),
-        ],
       ),
-      bottomNavigationBar: _isLoading
-          ? null
-          : SafeArea(
-              top: false,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-                decoration: BoxDecoration(
-                  color: bg,
-                  border: Border(top: BorderSide(color: line)),
+      body: RefreshIndicator(
+        onRefresh: _loadTasks,
+        color: colors.primary,
+        child: CustomScrollView(
+          slivers: [
+            _TeknisiSliverBand(
+              expandedHeight: 220.0,
+              compactTitle: 'Daily Task · $done/$total selesai',
+              leading: TiketIconButton(
+                icon: Icons.arrow_back_rounded,
+                semanticLabel: 'Kembali',
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
+              actions: [
+                TiketIconButton(
+                  icon: Icons.refresh_rounded,
+                  semanticLabel: 'Muat Ulang',
+                  onPressed: _loadTasks,
                 ),
-                child: SizedBox(
-                  height: 46,
-                  child: FilledButton.icon(
-                    onPressed: _catatKerjaan,
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text(
-                      'Catat Kerjaan',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.accent,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
-          : RefreshIndicator(
-              onRefresh: _loadTasks,
-              color: AppColors.accent,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                children: [
-                  _progressBlock(done: done, total: total, textHead: textHead, textSub: textSub, line: line),
-                  _infoLaporanPulang(textSub: textSub, line: line),
-                  _sectionHeader(
-                    'Tugas Hari Ini',
-                    _tasks.isEmpty ? null : '$total tugas',
-                    textHead: textHead,
-                    textSub: textSub,
-                  ),
-                  if (_tasks.isEmpty)
-                    _emptyToday(textSub)
-                  else
-                    ..._tasks.map(
-                      (task) => _taskRow(
-                        task,
-                        isDark: isDark,
-                        line: line,
-                        textHead: textHead,
-                        textSub: textSub,
-                      ),
-                    ),
-                  if (_openTasks.isNotEmpty) ...[
-                    _sectionHeader(
-                      'Tugas Shift Sebelumnya',
-                      '${_openTasks.length} belum selesai',
-                      textHead: textHead,
-                      textSub: textSub,
-                    ),
-                    ..._openTasks.map(
-                      (task) => _openTaskRow(
-                        task,
-                        line: line,
-                        textHead: textHead,
-                        textSub: textSub,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-    );
-  }
-
-  Widget _progressBlock({
-    required int done,
-    required int total,
-    required Color textHead,
-    required Color textSub,
-    required Color line,
-  }) {
-    final semua = total > 0 && done == total;
-    final value = total == 0 ? 0.0 : done / total;
-    final accent = semua ? AppColors.success : AppColors.primary;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 18, bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'STATUS PENGERJAAN',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        letterSpacing: 1.1,
-                        fontWeight: FontWeight.w600,
-                        color: textSub,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '$done dari $total selesai',
-                      style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
-                        fontSize: 19,
-                        fontWeight: FontWeight.w700,
-                        height: 1.1,
-                        color: textHead,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    semua ? Icons.check_circle_rounded : Icons.schedule_rounded,
-                    size: 15,
-                    color: accent,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    semua ? 'Semua selesai' : 'Sisa ${(total - done).clamp(0, total)}',
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: accent),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: value.clamp(0.0, 1.0),
-              minHeight: 4,
-              backgroundColor: line,
-              valueColor: AlwaysStoppedAnimation<Color>(accent),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _infoLaporanPulang({required Color textSub, required Color line}) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            children: [
-              const Icon(Icons.info_outline_rounded, size: 15, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Tugas yang selesai otomatis masuk ke Laporan Pulang saat absen pulang.',
-                  style: TextStyle(fontSize: 11.5, height: 1.35, color: textSub),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Divider(height: 1, thickness: 1, color: line),
-      ],
-    );
-  }
-
-  Widget _sectionHeader(String title, String? trailing, {required Color textHead, required Color textSub}) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 22, bottom: 2),
-      child: Row(
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.1,
-              color: textHead,
-            ),
-          ),
-          if (trailing != null) ...[
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(trailing, style: TextStyle(fontSize: 11, color: textSub)),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _emptyToday(Color textSub) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Belum ada tugas dari SPV hari ini.',
-              style: TextStyle(fontSize: 12, color: textSub),
-            ),
-          ),
-          TextButton(
-            onPressed: _loadTasks,
-            style: TextButton.styleFrom(
-              minimumSize: const Size(0, 36),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Text('Cek Ulang', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _taskRow(
-    DailyTaskModel task, {
-    required bool isDark,
-    required Color line,
-    required Color textHead,
-    required Color textSub,
-  }) {
-    final isDone = task.isCompleted ||
-        DailyTaskService.getCachedTasksLocally().any((ct) => ct.id == task.id && ct.isCompleted);
-    final isKhusus = task.kategori == 'khusus' || task.templateId == null || task.templateId!.isEmpty;
-    final ongoing = !isDone ? DailyTaskService.getOngoingMaintenance(task) : null;
-    final statusColor = isDone ? AppColors.success : (ongoing != null ? AppColors.accent : textSub);
-    final statusText = isDone
-        ? 'Selesai'
-        : (ongoing != null ? 'Proses ${ongoing.doneCount}/${ongoing.totalPoints}' : 'Belum dikerjakan');
-    final jamSelesai = (task.jamSelesai ?? '').trim();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        InkWell(
-          onTap: isDone ? () => CompletedDailyTaskModal.show(context, task) : null,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        task.judul,
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontSize: 14.5,
-                          height: 1.35,
-                          fontWeight: FontWeight.w700,
-                          color: isDone ? textSub : textHead,
-                          decoration: isDone ? TextDecoration.lineThrough : null,
-                          decorationColor: textSub,
-                          decorationThickness: 1.6,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+              ],
+              caption: 'Daily Task · ${user?.nama ?? 'IT Support'}',
+              hero: (_tasks.isEmpty && !_isLoading)
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          isDone
-                              ? Icons.check_circle_rounded
-                              : (ongoing != null ? Icons.autorenew_rounded : Icons.circle_outlined),
-                          size: 13,
-                          color: statusColor,
-                        ),
-                        const SizedBox(width: 4),
                         Text(
-                          statusText,
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: statusColor),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  [
-                    task.posName,
-                    isKhusus ? 'Tugas Khusus' : 'Maintenance',
-                    if (task.tanggal != _todayStr()) _formatTaskDateBadge(task.tanggal),
-                  ].where((e) => e.trim().isNotEmpty).join(' · '),
-                  style: TextStyle(fontSize: 11.5, color: textSub),
-                ),
-                if (task.isShared || task.isHandover) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    [
-                      if (task.isShared) 'Bersama ${task.pesertaList.join(', ')}',
-                      if (task.isHandover) 'Lanjutan dari ${task.handoverDari ?? '-'}',
-                    ].join(' · '),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? const Color(0xFF7DD3FC) : const Color(0xFF0369A1),
-                    ),
-                  ),
-                ],
-                if (task.deskripsi.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    task.deskripsi,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11.5, height: 1.4, color: textSub),
-                  ),
-                ],
-                if (ongoing != null) ...[
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: ongoing.progress,
-                      minHeight: 3,
-                      backgroundColor: line,
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                if (isDone)
-                  Row(
-                    children: [
-                      TextButton.icon(
-                        onPressed: () => CompletedDailyTaskModal.show(context, task),
-                        icon: const Icon(Icons.photo_library_outlined, size: 15, color: AppColors.success),
-                        label: Text(
-                          jamSelesai.isNotEmpty ? 'Lihat Bukti ($jamSelesai)' : 'Lihat Bukti',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.success,
+                          'Belum ada tugas',
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: colors.white,
+                            height: 1.1,
                           ),
                         ),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
-                          minimumSize: const Size(0, 36),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        const SizedBox(height: 4),
+                        Text(
+                          'Tugas dari SPV muncul di sini',
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: colors.bandCaption,
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      if (jamSelesai.isNotEmpty) ...[
-                        Icon(Icons.schedule_rounded, size: 13, color: textSub),
-                        const SizedBox(width: 4),
-                        Text(jamSelesai, style: TextStyle(fontSize: 11, color: textSub)),
                       ],
-                    ],
-                  )
-                else
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => _serahkanTugas(task),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.danger,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: const Size(0, 40),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          '$done/$total',
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 36,
+                            fontWeight: FontWeight.w800,
+                            color: colors.white,
+                            height: 1.1,
+                          ),
                         ),
-                        child: const Text(
-                          'Belum Selesai',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        const SizedBox(width: 8),
+                        Text(
+                          'tugas selesai',
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+              footer: (_tasks.isEmpty && !_isLoading)
+                  ? null
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: List.generate(
+                            total == 0 ? 1 : total.clamp(1, 16),
+                            (i) => Expanded(
+                              child: Container(
+                                height: 6,
+                                margin: EdgeInsets.only(right: i < total - 1 ? 4 : 0),
+                                decoration: BoxDecoration(
+                                  color: (total > 0 && i < done) ? colors.white : colors.bandTrack,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          semua
+                              ? 'Semua selesai · otomatis masuk Laporan Pulang'
+                              : 'Sisa ${(total - done).clamp(0, total)} · otomatis masuk Laporan Pulang',
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: colors.bandCaption,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+            if (_isLoading)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: colors.primary),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Memuat tugas hari ini',
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: colors.ink,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      FilledButton.icon(
-                        onPressed: () => _startTask(task),
-                        icon: Icon(
-                          ongoing != null ? Icons.play_arrow_rounded : Icons.camera_alt_outlined,
-                          size: 16,
-                        ),
-                        label: Text(
-                          ongoing != null ? 'Lanjutkan' : 'Kerjakan',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                        ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.accent,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          minimumSize: const Size(0, 40),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tugas SPV dan shift sebelumnya lagi diambil',
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 13,
+                          color: colors.body,
                         ),
                       ),
                     ],
                   ),
+                ),
+              )
+            else ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_isOffline) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: colors.soft,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: colors.hairline),
+                          ),
+                          child: Row(
+                            children: [
+                              const StatusMarker(status: TiketStatus.attention),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Offline. Ini data terakhir yang tersimpan di HP ($_lastUpdateTime).',
+                                  style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: colors.ink,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _loadTasks,
+                                style: TextButton.styleFrom(
+                                  minimumSize: const Size(48, 36),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                ),
+                                child: Text(
+                                  'Coba Lagi',
+                                  style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: colors.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (_tasks.isEmpty) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.assignment_outlined, size: 48, color: colors.mute),
+                              const SizedBox(height: 14),
+                              Text(
+                                'Hari ini masih kosong',
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.ink,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'SPV belum membagi tugas buat kamu. Kerjaan yang kamu kerjakan sendiri bisa dicatat lewat tombol di bawah.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 13,
+                                  color: colors.body,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Text(
+                                'Hari ini',
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.ink,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '$total tugas',
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: colors.body,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              if (_tasks.isNotEmpty)
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final task = _tasks[index];
+                      final isDone = task.isCompleted ||
+                          DailyTaskService.getCachedTasksLocally().any((ct) => ct.id == task.id && ct.isCompleted);
+                      final isKhusus = task.kategori == 'khusus' || task.templateId == null || task.templateId!.isEmpty;
+                      final ongoing = !isDone ? DailyTaskService.getOngoingMaintenance(task) : null;
+                      final jamSelesai = (task.jamSelesai ?? '').trim();
+
+                      final statusText = isDone
+                          ? (jamSelesai.isNotEmpty ? 'Selesai $jamSelesai' : 'Selesai')
+                          : (ongoing != null ? 'Proses ${ongoing.doneCount}/${ongoing.totalPoints} poin' : 'Belum dikerjakan');
+
+                      final statusColor = isDone
+                          ? colors.okText
+                          : (ongoing != null ? colors.signalText : colors.body);
+
+                      final metaList = [
+                        task.posName,
+                        isKhusus ? 'Tugas Khusus' : 'Maintenance',
+                        if (task.tanggal != _todayStr()) _formatTaskDateBadge(task.tanggal),
+                        if (task.isShared) 'Bersama ${task.pesertaList.join(', ')}',
+                        if (task.isHandover) 'Lanjutan dari ${task.handoverDari ?? '-'}',
+                      ].where((e) => e.trim().isNotEmpty).toList();
+
+                      return TiketRow(
+                        leading: StatusMarker(
+                          status: isDone
+                              ? TiketStatus.ok
+                              : (ongoing != null ? TiketStatus.attention : TiketStatus.notStarted),
+                        ),
+                        title: task.judul,
+                        meta: metaList,
+                        status: (statusText, statusColor),
+                        onTap: isDone ? () => CompletedDailyTaskModal.show(context, task) : () => _startTask(task),
+                        trailing: isDone
+                            ? TiketPill(
+                                label: 'Lihat Bukti',
+                                kind: TiketPillKind.secondary,
+                                height: 44,
+                                onPressed: () => CompletedDailyTaskModal.show(context, task),
+                              )
+                            : (ongoing != null
+                                ? TiketPill(
+                                    label: 'Lanjutkan',
+                                    kind: TiketPillKind.primary,
+                                    height: 44,
+                                    onPressed: () => _startTask(task),
+                                  )
+                                : TiketPill(
+                                    label: 'Kerjakan',
+                                    kind: TiketPillKind.primary,
+                                    height: 44,
+                                    onPressed: () => _startTask(task),
+                                  )),
+                        below: isDone
+                            ? null
+                            : Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: TiketPill(
+                                  label: 'Belum Selesai',
+                                  kind: TiketPillKind.secondary,
+                                  height: 44,
+                                  onPressed: () => _serahkanTugas(task),
+                                ),
+                              ),
+                      );
+                    },
+                    childCount: _tasks.length,
+                  ),
+                ),
+              if (_openTasks.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Shift sebelumnya',
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: colors.ink,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${_openTasks.length} belum',
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: colors.body,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final task = _openTasks[index];
+                      final lastLog = task.handoverList.isNotEmpty ? task.handoverList.last : null;
+                      final asal = lastLog != null
+                          ? 'Dilepas ${task.handoverDari ?? '-'}${lastLog.alasan.isNotEmpty ? ' · ${lastLog.alasan}' : ''}'
+                          : 'Dari shift sebelumnya';
+
+                      return TiketRow(
+                        leading: const StatusMarker(status: TiketStatus.notStarted),
+                        title: task.judul,
+                        meta: [task.posName, asal],
+                        status: ('Belum dikerjakan', colors.body),
+                        onTap: () => _ambilTugas(task),
+                        trailing: TiketPill(
+                          label: 'Kerjakan',
+                          kind: TiketPillKind.primary,
+                          height: 44,
+                          onPressed: () => _ambilTugas(task),
+                        ),
+                      );
+                    },
+                    childCount: _openTasks.length,
+                  ),
+                ),
               ],
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 84),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TeknisiSliverBand extends StatelessWidget {
+  final Widget? leading;
+  final List<Widget> actions;
+  final String? caption;
+  final Widget? hero;
+  final Widget? footer;
+  final String compactTitle;
+  final double expandedHeight;
+
+  const _TeknisiSliverBand({
+    this.leading,
+    this.actions = const [],
+    this.caption,
+    this.hero,
+    this.footer,
+    required this.compactTitle,
+    this.expandedHeight = 220.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final topInset = MediaQuery.paddingOf(context).top;
+    return SliverPersistentHeader(
+      pinned: true,
+      delegate: _TeknisiSliverBandDelegate(
+        leading: leading,
+        actions: actions,
+        caption: caption,
+        hero: hero,
+        footer: footer,
+        compactTitle: compactTitle,
+        expandedHeight: expandedHeight,
+        topInset: topInset,
+      ),
+    );
+  }
+}
+
+class _TeknisiSliverBandDelegate extends SliverPersistentHeaderDelegate {
+  final Widget? leading;
+  final List<Widget> actions;
+  final String? caption;
+  final Widget? hero;
+  final Widget? footer;
+  final String compactTitle;
+  final double expandedHeight;
+  final double topInset;
+
+  _TeknisiSliverBandDelegate({
+    this.leading,
+    this.actions = const [],
+    this.caption,
+    this.hero,
+    this.footer,
+    required this.compactTitle,
+    required this.expandedHeight,
+    required this.topInset,
+  });
+
+  @override
+  double get minExtent => topInset + 56.0;
+
+  @override
+  double get maxExtent => expandedHeight + topInset;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final colors = TiketColors.of(context);
+    final type = TiketType.of(context);
+    final horizontalPad = TiketSpace.padOf(context);
+
+    final maxShrink = (maxExtent - minExtent).clamp(1.0, double.infinity);
+    final progress = (shrinkOffset / maxShrink).clamp(0.0, 1.0);
+    final isCollapsed = progress > 0.8;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(color: colors.band),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: ExcludeSemantics(
+            child: CustomPaint(
+              size: const Size(double.infinity, 10),
+              painter: PerforationPainter(canvasColor: colors.canvas),
             ),
           ),
         ),
-        Divider(height: 1, thickness: 1, color: line),
+        if (progress < 0.9)
+          Positioned(
+            top: topInset + 56.0,
+            left: horizontalPad,
+            right: horizontalPad,
+            bottom: 16.0,
+            child: Opacity(
+              opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (caption != null) ...[
+                    Text(
+                      caption!,
+                      style: type.caption(color: colors.bandCaption),
+                    ),
+                    const SizedBox(height: 4.0),
+                  ],
+                  if (hero != null) ...[
+                    hero!,
+                    const SizedBox(height: 12.0),
+                  ],
+                  ?footer,
+                ],
+              ),
+            ),
+          ),
+        Positioned(
+          top: topInset,
+          left: 0,
+          right: 0,
+          height: 56.0,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: NavigationToolbar(
+              leading: leading,
+              middle: Opacity(
+                opacity: isCollapsed ? ((progress - 0.8) / 0.2).clamp(0.0, 1.0) : 0.0,
+                child: Text(
+                  compactTitle,
+                  style: type.section(color: colors.onBand),
+                ),
+              ),
+              trailing: actions.isNotEmpty
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (int i = 0; i < actions.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 8.0),
+                          actions[i],
+                        ],
+                      ],
+                    )
+                  : null,
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _openTaskRow(
-    DailyTaskModel task, {
-    required Color line,
-    required Color textHead,
-    required Color textSub,
-  }) {
-    final lastLog = task.handoverList.isNotEmpty ? task.handoverList.last : null;
-    final asal = lastLog != null
-        ? 'Dilepas ${task.handoverDari ?? '-'}${lastLog.alasan.isNotEmpty ? ' · ${lastLog.alasan}' : ''}'
-        : 'Dari shift sebelumnya';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                task.judul,
-                style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
-                  fontSize: 13.5,
-                  height: 1.35,
-                  fontWeight: FontWeight.w700,
-                  color: textHead,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                '${task.posName} · $asal',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11.5, height: 1.35, color: textSub),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  const Text(
-                    'Belum selesai',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.danger),
-                  ),
-                  const Spacer(),
-                  FilledButton.icon(
-                    onPressed: () => _ambilTugas(task),
-                    icon: const Icon(Icons.pan_tool_alt_outlined, size: 15),
-                    label: const Text(
-                      'Ambil & Kerjakan',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      minimumSize: const Size(0, 40),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        Divider(height: 1, thickness: 1, color: line),
-      ],
-    );
+  @override
+  bool shouldRebuild(covariant _TeknisiSliverBandDelegate oldDelegate) {
+    return oldDelegate.compactTitle != compactTitle ||
+        oldDelegate.caption != caption ||
+        oldDelegate.hero != hero ||
+        oldDelegate.footer != footer ||
+        oldDelegate.topInset != topInset ||
+        oldDelegate.expandedHeight != expandedHeight;
   }
 }

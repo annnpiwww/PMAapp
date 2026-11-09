@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/tiket_colors.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../data/services/whats_new_service.dart';
 import '../../maintenance/widgets/ai_logo_mark.dart';
 
@@ -51,201 +52,199 @@ class WhatsNewSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final surface = dark ? AppColors.darkSurface : AppColors.surface;
-    final textPrimary =
-        dark ? AppColors.textDarkPrimary : AppColors.textPrimary;
-    final textMuted = dark ? AppColors.textDarkMuted : AppColors.textMuted;
-    final border = dark ? AppColors.darkBorder : AppColors.cardBorder;
-    final divider = dark ? AppColors.darkBorder : const Color(0xFFEDE7D9);
+    final colors = TiketColors.of(context);
+    final type = TiketType.of(context);
+    final horizontalPad = TiketSpace.padOf(context);
 
     return Container(
       decoration: BoxDecoration(
-        color: surface,
+        color: colors.canvas,
         borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(AppColors.radiusBottomSheet),
+          top: Radius.circular(20),
         ),
       ),
-      padding: EdgeInsets.fromLTRB(
-        20,
-        10,
-        20,
-        16 + MediaQuery.of(context).padding.bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: border,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const AiLogoMark(size: 42),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Apa yang baru',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.6,
-                          height: 1.15,
-                          color: textPrimary,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1. Top Ticket Band with Perforation
+          Stack(
+            children: [
+              Container(
+                color: colors.band,
+                width: double.infinity,
+                padding: EdgeInsets.fromLTRB(horizontalPad, 10, horizontalPad, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 38,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colors.white.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                      const SizedBox(height: 4),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Apa yang baru',
+                      style: type.screenTitle(color: colors.white),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Versi ${release.version} · ${release.date}',
+                      style: type.caption(color: colors.bandCaption),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: CustomPaint(
+                  size: const Size(double.infinity, 10),
+                  painter: PerforationPainter(canvasColor: colors.canvas),
+                ),
+              ),
+            ],
+          ),
+
+          // 2. Scrollable Content
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPad,
+                16,
+                horizontalPad,
+                16 + MediaQuery.of(context).padding.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel('Fitur baru', colors.ink),
+                  const SizedBox(height: 4),
+                  for (final feature in release.features)
+                    _Bullet(feature, colors.ink, colors.primary),
+
+                  if (release.aiNote != null) ...[
+                    const SizedBox(height: 16),
+                    _SectionLabel('Analisa AI di preview', colors.ink),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: colors.soft,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: colors.hairline, width: 1.0),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const AiLogoMark(size: 24),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              release.aiNote!,
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                height: 1.45,
+                                color: colors.ink,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  if (release.mapNote != null) ...[
+                    const SizedBox(height: 16),
+                    _SectionLabel('Map Maintenance baru', colors.ink),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: colors.soft,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: colors.hairline, width: 1.0),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.map_outlined,
+                            size: 24,
+                            color: colors.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              release.mapNote!,
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                height: 1.45,
+                                color: colors.ink,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 16),
+                  _SectionLabel('Perbaikan', colors.ink),
+                  const SizedBox(height: 6),
+                  Text(
+                    release.bugfix,
+                    style: TextStyle(
+                      fontFamily: TiketType.fontFamily,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      height: 1.5,
+                      color: colors.ink,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Icon(Icons.schedule_rounded, size: 14, color: colors.mute),
+                      const SizedBox(width: 6),
                       Text(
-                        'Versi ${release.version} · ${release.date}',
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.accent,
+                        'Muncul sekali tiap ada versi baru',
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: colors.mute,
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-            Container(height: 1, color: divider, margin: const EdgeInsets.symmetric(vertical: 14)),
-
-            _SectionLabel('Fitur baru', textMuted),
-            for (final feature in release.features)
-              _Bullet(feature, textPrimary, textMuted),
-
-            if (release.aiNote != null) ...[
-              const SizedBox(height: 12),
-              _SectionLabel('Analisa AI di preview', textMuted),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
-                decoration: _noteBoxDecoration(dark),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const AiLogoMark(size: 25),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        release.aiNote!,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          height: 1.45,
-                          color: dark ? AppColors.textDarkSecondary : const Color(0xFF2B4C8F),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            if (release.mapNote != null) ...[
-              const SizedBox(height: 12),
-              _SectionLabel('Map Maintenance baru', textMuted),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
-                decoration: _noteBoxDecoration(dark),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.map_outlined,
-                      size: 25,
-                      color: dark ? AppColors.primaryLight : AppColors.primary,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        release.mapNote!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          height: 1.45,
-                          color: dark ? AppColors.textDarkSecondary : const Color(0xFF2B4C8F),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 12),
-            _SectionLabel('Perbaikan', textMuted),
-            const SizedBox(height: 7),
-            Text(
-              release.bugfix,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                height: 1.5,
-                color: textPrimary,
-              ),
-            ),
-
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Icon(Icons.schedule_rounded, size: 12, color: textMuted),
-                const SizedBox(width: 6),
-                Text(
-                  'Muncul sekali tiap ada versi baru',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    color: textMuted,
+                  const SizedBox(height: 16),
+                  TiketPill(
+                    label: 'Mengerti',
+                    kind: TiketPillKind.primary,
+                    height: 52,
+                    expand: true,
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 46,
-              child: FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                ),
-                child: const Text(
-                  'Mengerti',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-                ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  BoxDecoration _noteBoxDecoration(bool dark) {
-    return BoxDecoration(
-      color: dark ? AppColors.darkSurfaceContainer : const Color(0xFFF2F6FF),
-      borderRadius: BorderRadius.circular(11),
-      border: Border.all(
-        color: dark ? AppColors.darkBorderMuted : const Color(0xFFDCE6FA),
+          ),
+        ],
       ),
     );
   }
@@ -259,27 +258,9 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 5,
-          height: 5,
-          decoration: const BoxDecoration(
-            color: AppColors.accent,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 7),
-        Text(
-          text.toUpperCase(),
-          style: TextStyle(
-            fontSize: 9.5,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.4,
-            color: color,
-          ),
-        ),
-      ],
+    return Text(
+      text,
+      style: TiketType.sectionStyle(color: color),
     );
   }
 }
@@ -294,27 +275,28 @@ class _Bullet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 7),
+      padding: const EdgeInsets.only(top: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 4,
-            height: 4,
-            margin: const EdgeInsets.only(top: 7),
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
+            width: 5,
+            height: 5,
+            margin: const EdgeInsets.only(top: 6),
+            decoration: BoxDecoration(
+              color: dotColor,
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 9),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                height: 1.5,
+                fontFamily: TiketType.fontFamily,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                height: 1.45,
                 color: textColor,
               ),
             ),

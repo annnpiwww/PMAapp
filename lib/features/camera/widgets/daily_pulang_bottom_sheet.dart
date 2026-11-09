@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/services/theme_service.dart';
+import '../../../core/constants/tiket_colors.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../data/services/absensi_setup_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/models/daily_task_model.dart';
@@ -64,6 +64,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
     if (isHandoverToday) {
       if (setup.pekerjaanSelesai.isNotEmpty && setup.pekerjaanSelesai != '-') {
         _selesaiCtrl.text = setup.pekerjaanSelesai;
+        _syncedCompletedCount = 2;
       }
       if (setup.pekerjaanBelum.isNotEmpty && setup.pekerjaanBelum != '-') {
         _adaPekerjaanBelum = true;
@@ -223,43 +224,18 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final isDark = ThemeService.isDarkMode(context);
-
-    final sheetBg = isDark ? AppColors.darkSurface : Colors.white;
-    final textTitle = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
-    final textSub = isDark ? AppColors.textDarkSecondary : AppColors.textSecondary;
-    final cardBg = isDark ? AppColors.darkSurfaceContainer : AppColors.surfaceContainerLow;
-    final cardBorder = isDark ? AppColors.darkBorderMuted : AppColors.cardBorder;
-    final inputBg = isDark ? AppColors.darkSurfaceContainer : Colors.white;
-    final inputBorder = isDark ? AppColors.darkBorderMuted : AppColors.cardBorder;
-    final inputTextColor = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
-    final hintColor = isDark ? AppColors.textDarkMuted : AppColors.textMuted;
-    final dividerColor = isDark ? AppColors.darkBorder : AppColors.cardBorder;
-    final handleColor = isDark ? AppColors.darkBorderMuted : AppColors.cardBorder;
-    final toggleCardBg = isDark ? AppColors.darkSurfaceContainer : AppColors.creamContainer;
-    final toggleInnerBg = isDark ? AppColors.darkBackground : Colors.white;
+    final colors = TiketColors.of(context);
 
     return Container(
       padding: EdgeInsets.only(bottom: bottomInset),
       decoration: BoxDecoration(
-        color: sheetBg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        border: const Border(
-          top: BorderSide(color: AppColors.accent, width: 3.0),
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x22000000),
-            blurRadius: 30,
-            spreadRadius: 2,
-            offset: Offset(0, -6),
-          ),
-        ],
+        color: colors.dialog,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -268,33 +244,19 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
               Center(
                 child: Container(
                   width: 44,
-                  height: 4.5,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: handleColor,
-                    borderRadius: BorderRadius.circular(3),
+                    color: colors.hairline,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
               // Header Title & Close Button
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(9),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                    ),
-                    child: const Icon(
-                      Icons.assignment_turned_in_rounded,
-                      color: AppColors.primary,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,9 +264,9 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                         Text(
                           'Handover & Laporan Pulang',
                           style: TextStyle(
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w800,
-                            color: textTitle,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: colors.ink,
                             fontFamily: 'PlusJakartaSans',
                           ),
                         ),
@@ -312,8 +274,8 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                         Text(
                           'Ringkasan tugas & serah terima shift',
                           style: TextStyle(
-                            fontSize: 11.5,
-                            color: textSub,
+                            fontSize: 13,
+                            color: colors.body,
                             fontFamily: 'PlusJakartaSans',
                           ),
                         ),
@@ -322,20 +284,9 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                   ),
                   IconButton(
                     tooltip: 'Tutup',
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                    icon: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E293B) : AppColors.surfaceContainerLow,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: cardBorder),
-                      ),
-                      child: Center(
-                        child: Icon(Icons.close_rounded, color: textSub, size: 18),
-                      ),
-                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                    icon: Icon(Icons.close_rounded, color: colors.mute, size: 22),
                     onPressed: () {
                       HapticFeedback.lightImpact();
                       Navigator.of(context).pop(false);
@@ -344,28 +295,28 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                 ],
               ),
               const SizedBox(height: 12),
-              Divider(color: dividerColor, height: 1),
+              Divider(color: colors.hairline, height: 1),
               const SizedBox(height: 14),
 
               // Error banner jika validasi gagal
               if (_errorMessage != null) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AppColors.dangerLight,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.dangerBorder),
+                    color: colors.soft,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: colors.danger, width: 1.5),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 18),
+                      Icon(Icons.error_outline_rounded, color: colors.danger, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.danger,
+                            color: colors.danger,
                             fontFamily: 'PlusJakartaSans',
                             fontWeight: FontWeight.w600,
                             height: 1.3,
@@ -379,84 +330,65 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
               ],
 
               // 1. Teknisi Shift Selanjutnya
-              Row(
-                children: [
-                  const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.primary),
-                  const SizedBox(width: 6),
-                  Text.rich(
-                    TextSpan(
-                      text: 'Teknisi Shift Selanjutnya ',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: textTitle,
-                        fontFamily: 'PlusJakartaSans',
-                      ),
-                      children: const [
-                        TextSpan(
-                          text: '*',
-                          style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
+              Text.rich(
+                TextSpan(
+                  text: 'Teknisi shift selanjutnya ',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: colors.ink,
+                    fontFamily: 'PlusJakartaSans',
                   ),
-                ],
+                  children: [
+                    TextSpan(
+                      text: '*',
+                      style: TextStyle(color: colors.danger, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                 decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: cardBorder, width: 1.2),
+                  color: colors.soft,
+                  border: Border(
+                    bottom: BorderSide(color: colors.body, width: 2.0),
+                  ),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedNextShift,
                     isExpanded: true,
-                    dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+                    dropdownColor: colors.dialog,
+                    hint: Text(
+                      'Pilih teknisi',
+                      style: TextStyle(
+                        color: colors.body,
+                        fontSize: 13.5,
+                        fontFamily: 'PlusJakartaSans',
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    icon: Icon(Icons.keyboard_arrow_down_rounded, color: colors.ink),
                     style: TextStyle(
                       fontSize: 13.5,
-                      color: textTitle,
+                      color: colors.ink,
                       fontFamily: 'PlusJakartaSans',
                       fontWeight: FontWeight.w600,
                     ),
                     items: _rekanItOptions.map((name) {
-                      final isNoOne = name.contains('Tidak Ada');
                       return DropdownMenuItem<String>(
                         value: name,
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 12,
-                              backgroundColor: isNoOne
-                                  ? AppColors.textMuted
-                                  : AppColors.primary,
-                              child: Text(
-                                isNoOne
-                                    ? '-'
-                                    : name.split(' ').map((p) => p.isNotEmpty ? p[0] : '').take(2).join(),
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                name,
-                                style: TextStyle(
-                                  color: textTitle,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          name,
+                          style: TextStyle(
+                            color: colors.ink,
+                            fontSize: 13.5,
+                            fontFamily: 'PlusJakartaSans',
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       );
                     }).toList(),
@@ -477,280 +409,189 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
               // 2. Pekerjaan yang Selesai
               Row(
                 children: [
-                  const Icon(Icons.assignment_outlined, size: 16, color: AppColors.primary),
-                  const SizedBox(width: 6),
-                  Text.rich(
-                    TextSpan(
-                      text: 'Pekerjaan Selesai Hari Ini ',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: textTitle,
-                        fontFamily: 'PlusJakartaSans',
-                      ),
-                      children: const [
-                        TextSpan(
-                          text: '*',
-                          style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        text: 'Pekerjaan selesai hari ini ',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: colors.ink,
+                          fontFamily: 'PlusJakartaSans',
                         ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: _isLoadingDailyTasks ? null : () => _autoFillFromDailyTasks(force: true),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: isDark ? 0.4 : 0.25),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          _isLoadingDailyTasks
-                              ? const SizedBox(
-                                  width: 10,
-                                  height: 10,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 1.5,
-                                    color: AppColors.primary,
-                                  ),
-                                )
-                              : const Icon(Icons.sync_rounded, size: 12, color: AppColors.primary),
-                          const SizedBox(width: 4),
-                          Text(
-                            _syncedCompletedCount > 0
-                                ? 'Sinkron ($_syncedCompletedCount Selesai)'
-                                : 'Sinkron Daily Task',
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
-                            ),
+                          TextSpan(
+                            text: '*',
+                            style: TextStyle(color: colors.danger, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  TiketPill(
+                    kind: TiketPillKind.secondary,
+                    icon: Icons.refresh_rounded,
+                    label: _syncedCompletedCount > 0
+                        ? 'Sinkron ($_syncedCompletedCount Selesai)'
+                        : 'Sinkron',
+                    onPressed: _isLoadingDailyTasks ? null : () => _autoFillFromDailyTasks(force: true),
+                  ),
                 ],
               ),
               const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-                decoration: BoxDecoration(
-                  color: inputBg,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: inputBorder, width: 1.2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+              TextField(
+                controller: _selesaiCtrl,
+                maxLines: 4,
+                minLines: 3,
+                maxLength: 2000,
+                buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colors.ink,
+                  fontFamily: 'PlusJakartaSans',
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    TextField(
-                      controller: _selesaiCtrl,
-                      maxLines: 4,
-                      minLines: 3,
-                      maxLength: 2000,
-                      buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: inputTextColor,
-                        fontFamily: 'PlusJakartaSans',
-                        fontWeight: FontWeight.w600,
-                        height: 1.4,
-                      ),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        hintText: 'Tulis pekerjaan yang selesai hari ini...\nContoh: Pengecekan gate barrier, pembersihan printer pos, update sistem',
-                        hintStyle: TextStyle(
-                          fontSize: 12,
-                          color: hintColor,
-                          fontFamily: 'PlusJakartaSans',
-                          height: 1.4,
-                        ),
-                        contentPadding: EdgeInsets.zero,
-                        border: InputBorder.none,
-                      ),
-                      onChanged: (_) {
-                        setState(() {
-                          if (_errorMessage != null) _errorMessage = null;
-                        });
-                      },
-                    ),
-                    Text(
-                      '${_selesaiCtrl.text.length}/2000',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        color: hintColor,
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: colors.soft,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  hintText: 'Tulis pekerjaan yang selesai hari ini...\nContoh: Pengecekan gate barrier, pembersihan printer pos, update sistem',
+                  hintStyle: TextStyle(
+                    fontSize: 12,
+                    color: colors.mute,
+                    fontFamily: 'PlusJakartaSans',
+                    height: 1.4,
+                  ),
+                  border: UnderlineInputBorder(
+                    borderSide: BorderSide(color: colors.body, width: 2.0),
+                  ),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: colors.body, width: 2.0),
+                  ),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: colors.primary, width: 2.0),
+                  ),
+                ),
+                onChanged: (_) {
+                  setState(() {
+                    if (_errorMessage != null) _errorMessage = null;
+                  });
+                },
+              ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '${_selesaiCtrl.text.length}/2000',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: colors.mute,
+                    fontFamily: 'PlusJakartaSans',
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               const SizedBox(height: 14),
 
               // 3. Pekerjaan Belum Selesai (Toggle)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: toggleCardBg,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: _adaPekerjaanBelum
-                        ? AppColors.accent.withValues(alpha: 0.6)
-                        : cardBorder,
-                    width: 1.2,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Ada pekerjaan belum selesai?',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: colors.ink,
+                        fontFamily: 'PlusJakartaSans',
+                      ),
+                    ),
+                  ),
+                  Switch(
+                    value: _adaPekerjaanBelum,
+                    activeThumbColor: colors.white,
+                    activeTrackColor: colors.primary,
+                    inactiveThumbColor: colors.mute,
+                    inactiveTrackColor: colors.soft,
+                    trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+                    onChanged: (val) {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _adaPekerjaanBelum = val;
+                        if (!val) {
+                          _belumCtrl.clear();
+                        }
+                      });
+                    },
+                  ),
+                ],
+              ),
+              if (_adaPekerjaanBelum) ...[
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _belumCtrl,
+                  maxLines: 3,
+                  minLines: 2,
+                  maxLength: 2000,
+                  buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colors.ink,
+                    fontFamily: 'PlusJakartaSans',
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: colors.soft,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    hintText:
+                        '1. Nama pekerjaan (Pos)\nAlasan: kenapa belum selesai',
+                    hintStyle: TextStyle(
+                      fontSize: 12,
+                      color: colors.mute,
+                      fontFamily: 'PlusJakartaSans',
+                      height: 1.4,
+                    ),
+                    border: UnderlineInputBorder(
+                      borderSide: BorderSide(color: colors.body, width: 2.0),
+                    ),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: colors.body, width: 2.0),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: colors.primary, width: 2.0),
+                    ),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '${_belumCtrl.text.length}/2000',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: colors.mute,
+                      fontFamily: 'PlusJakartaSans',
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.pending_actions_rounded,
-                          size: 18,
-                          color: _adaPekerjaanBelum ? AppColors.accent : textSub,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Ada pekerjaan belum selesai?',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: textTitle,
-                              fontFamily: 'PlusJakartaSans',
-                            ),
-                          ),
-                        ),
-                        Switch(
-                          value: _adaPekerjaanBelum,
-                          activeThumbColor: AppColors.accent,
-                          activeTrackColor: AppColors.accent.withValues(alpha: 0.35),
-                          inactiveThumbColor: Colors.white,
-                          inactiveTrackColor: cardBorder,
-                          onChanged: (val) {
-                            HapticFeedback.selectionClick();
-                            setState(() {
-                              _adaPekerjaanBelum = val;
-                              if (!val) {
-                                _belumCtrl.clear();
-                              }
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                    if (_adaPekerjaanBelum) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-                        decoration: BoxDecoration(
-                          color: toggleInnerBg,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.accent.withValues(alpha: 0.5), width: 1.2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            TextField(
-                              controller: _belumCtrl,
-                              maxLines: 3,
-                              minLines: 2,
-                              maxLength: 2000,
-                              buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: inputTextColor,
-                                fontFamily: 'PlusJakartaSans',
-                                fontWeight: FontWeight.w600,
-                                height: 1.4,
-                              ),
-                              decoration: InputDecoration(
-                                isDense: true,
-                                hintText:
-                                    '1. Nama pekerjaan (Pos)\nAlasan: kenapa belum selesai',
-                                hintStyle: TextStyle(
-                                  fontSize: 12,
-                                  color: hintColor,
-                                  fontFamily: 'PlusJakartaSans',
-                                  height: 1.4,
-                                ),
-                                contentPadding: EdgeInsets.zero,
-                                border: InputBorder.none,
-                              ),
-                              onChanged: (_) => setState(() {}),
-                            ),
-                            Text(
-                              '${_belumCtrl.text.length}/2000',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                color: hintColor,
-                                fontFamily: 'monospace',
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              ],
               const SizedBox(height: 20),
 
-              // Tombol Simpan (Safety Orange Tactile Button)
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _handleSave,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: 3,
-                    shadowColor: AppColors.accent.withValues(alpha: 0.4),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.check_circle_rounded, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        'Simpan & Lanjut Foto Pulang',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          fontFamily: 'PlusJakartaSans',
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              // Tombol Simpan
+              TiketPill(
+                kind: TiketPillKind.primary,
+                expand: true,
+                icon: Icons.check_circle_rounded,
+                label: 'Simpan & Lanjut Foto Pulang',
+                onPressed: _handleSave,
               ),
             ],
           ),

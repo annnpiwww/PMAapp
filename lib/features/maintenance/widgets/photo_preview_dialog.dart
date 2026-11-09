@@ -1,17 +1,18 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../../../core/constants/app_theme.dart';
+import '../../../core/constants/tiket_colors.dart';
 import '../../../core/utils/image_watermark_processor.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/utils/web_bytes/web_bytes.dart';
 import '../../../core/widgets/app_file_image.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../data/models/maintenance_submission.dart';
 import '../../../data/models/submission_model.dart';
 import '../../../data/services/ai_vision_service.dart';
 import 'ai_analyzing_dialog.dart';
-import 'ai_logo_mark.dart';
 import 'ai_result_dialog.dart';
 
 class PhotoPreviewDialog extends StatefulWidget {
@@ -41,9 +42,9 @@ class PhotoPreviewDialog extends StatefulWidget {
     VoidCallback? onRetake,
     Future<AiVerificationResult> Function(String imageBase64)? onAnalyze,
   }) {
-    showDialog(
+    showDialog<void>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.92),
+      barrierColor: Colors.black,
       builder: (_) => PhotoPreviewDialog(
         imagePath: imagePath,
         title: title,
@@ -59,31 +60,23 @@ class PhotoPreviewDialog extends StatefulWidget {
 }
 
 class _PhotoPreviewDialogState extends State<PhotoPreviewDialog> {
-  late MaintenancePointResult? _pointResult = widget.pointResult;
   bool _analyzing = false;
+  late MaintenancePointResult? _pointResult;
 
-  /// Ambil foto dari path apa pun jadi base64 ringan (512px) buat AI.
+  @override
+  void initState() {
+    super.initState();
+    _pointResult = widget.pointResult;
+  }
+
   Future<String?> _resolveBase64() async {
-    // Paling andal: base64 yang masih tersimpan di memori hasil verifikasi.
-    final stored = widget.pointResult?.imageBase64;
-    if (stored != null && stored.isNotEmpty) return stored;
-
     final path = widget.imagePath;
-    if (path.isEmpty) return null;
+    if (path.startsWith('data:image')) return path;
     Uint8List? bytes;
-    if (path.startsWith('data:image')) {
-      final comma = path.indexOf(',');
-      if (comma < 0) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) {
       try {
-        bytes = base64Decode(path.substring(comma + 1));
-      } catch (_) {
-        return null;
-      }
-    } else if (path.startsWith('http://') || path.startsWith('https://')) {
-      try {
-        final res = await http.get(Uri.parse(path));
-        if (res.statusCode != 200) return null;
-        bytes = res.bodyBytes;
+        final res = await http.get(Uri.parse(path)).timeout(const Duration(seconds: 15));
+        if (res.statusCode == 200) bytes = res.bodyBytes;
       } catch (_) {
         return null;
       }
@@ -98,13 +91,14 @@ class _PhotoPreviewDialogState extends State<PhotoPreviewDialog> {
   Future<void> _analyze() async {
     if (_analyzing) return;
     final messenger = ScaffoldMessenger.of(context);
+    final dangerColor = TiketColors.of(context).danger;
     setState(() => _analyzing = true);
     try {
       final payload = await _resolveBase64();
       if (payload == null || payload.isEmpty) {
-        messenger.showSnackBar(const SnackBar(
-          content: Text('Foto tidak bisa dibaca ulang dari perangkat ini.'),
-          backgroundColor: Color(0xFFDC2626),
+        messenger.showSnackBar(SnackBar(
+          content: const Text('Foto tidak bisa dibaca ulang dari perangkat ini.'),
+          backgroundColor: dangerColor,
         ));
         return;
       }
@@ -155,9 +149,9 @@ class _PhotoPreviewDialogState extends State<PhotoPreviewDialog> {
         builder: (_) => AiResultDialog(result: result, title: widget.title),
       );
     } catch (_) {
-      messenger.showSnackBar(const SnackBar(
-        content: Text('Analisa ulang gagal: koneksi AI terputus.'),
-        backgroundColor: Color(0xFFDC2626),
+      messenger.showSnackBar(SnackBar(
+        content: const Text('Analisa ulang gagal: koneksi AI terputus.'),
+        backgroundColor: dangerColor,
       ));
     } finally {
       if (mounted && _analyzing) setState(() => _analyzing = false);
@@ -177,208 +171,174 @@ class _PhotoPreviewDialogState extends State<PhotoPreviewDialog> {
     final isSesuai = _pointResult?.status == PointStatus.sesuai;
     final isTidakSesuai = _pointResult?.status == PointStatus.tidakSesuai;
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Top Header Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        widget.title,
-                        style: const TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          color: Colors.white,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
+    return Theme(
+      data: AppTheme.darkTheme,
+      child: Builder(
+        builder: (context) {
+          final colors = TiketColors.of(context);
+          return Dialog.fullscreen(
+            backgroundColor: Colors.black,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // Top Row
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TiketIconButton(
+                          icon: Icons.arrow_back_rounded,
+                          semanticLabel: 'Kembali',
+                          onPressed: () => Navigator.of(context).pop(),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 5),
-                      // Solid Status Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isSesuai
-                              ? const Color(0xFF16A34A) // Solid green
-                              : (isTidakSesuai ? const Color(0xFFDC2626) : const Color(0xFFD97706)),
-                          borderRadius: BorderRadius.circular(6),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TiketPill(
+                              key: const Key('analyze-photo-button'),
+                              label: 'Analisa ulang',
+                              icon: Icons.document_scanner_outlined,
+                              kind: TiketPillKind.band,
+                              height: 44,
+                              onPressed: _analyzing ? null : _analyze,
+                            ),
+                            const SizedBox(width: 8),
+                            TiketIconButton(
+                              icon: Icons.download_rounded,
+                              semanticLabel: 'Download ke Galeri HP',
+                              onPressed: () async {
+                                final messenger = ScaffoldMessenger.of(context);
+                                final success = await ShareHelper.savePhotoToGallery(widget.imagePath);
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(success
+                                        ? (kIsWeb ? 'Foto diunduh ke Files/Downloads (bukan Galeri)' : 'Foto tersimpan di Galeri HP')
+                                        : (kIsWeb ? 'Gagal mengunduh foto' : 'Gagal menyimpan foto ke Galeri HP')),
+                                    backgroundColor: success ? colors.ok : colors.danger,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                         ),
-                        child: Text(
-                          isSesuai
-                              ? '✓ SESUAI SOP'
-                              : (isTidakSesuai ? '✕ TIDAK SESUAI' : '⚠ PERLU CEK MANUAL'),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Analisa ulang foto yang sedang dipreview, tepat di samping
-                // tombol download. Selalu tampil di semua layar preview.
-                InkWell(
-                  key: const Key('analyze-photo-button'),
-                  borderRadius: const BorderRadius.all(Radius.circular(9)),
-                  onTap: _analyzing ? null : _analyze,
-                  // Progres tampil di modal loading; tombol ini hanya
-                  // mengunci diri supaya tidak ter-tap dua kali.
-                  child: const Tooltip(
-                    message: 'Analisa Ulang Foto Ini dengan AI',
-                    child: SizedBox(
-                      width: 34,
-                      height: 34,
-                      child: Center(child: AiLogoMark(size: 32, ring: true)),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                IconButton(
-                  icon: const Icon(Icons.download_rounded, color: Colors.white, size: 22),
-                  tooltip: 'Download ke Galeri HP',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () async {
-                    final messenger = ScaffoldMessenger.of(context);
-                    final success = await ShareHelper.savePhotoToGallery(widget.imagePath);
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text(success
-                            ? (kIsWeb ? 'Foto diunduh ke Files/Downloads (bukan Galeri)' : 'Foto tersimpan di Galeri HP')
-                            : (kIsWeb ? 'Gagal mengunduh foto' : 'Gagal menyimpan foto ke Galeri HP')),
-                        backgroundColor: success ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 12),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-          ),
 
-          // Uncropped Full-View Image Viewport
-          Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.60,
-            ),
-            decoration: const BoxDecoration(
-              color: Colors.black,
-              border: Border(
-                left: BorderSide(color: Colors.white24),
-                right: BorderSide(color: Colors.white24),
+                  // Uncropped Full-View Image Viewport fills width
+                  Expanded(
+                    child: exists
+                        ? ClipRect(
+                            child: InteractiveViewer(
+                              panEnabled: true,
+                              minScale: 1.0,
+                              maxScale: 4.5,
+                              child: Center(
+                                child: AppFileImage(
+                                  path: widget.imagePath,
+                                  cacheWidth: 1280,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                          )
+                        : const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(40),
+                              child: Text(
+                                'File foto tidak ditemukan pada penyimpanan perangkat.',
+                                style: TextStyle(color: Colors.white70, fontSize: 12),
+                              ),
+                            ),
+                          ),
+                  ),
+
+                  // Below photo: title (white 16 bold, wraps) + meta line (grey); status chip only when result exists; bottom center 'Foto Ulang'
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    widget.title,
+                                    style: const TextStyle(
+                                      fontFamily: 'PlusJakartaSans',
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Foto verifikasi maintenance',
+                                    style: TextStyle(
+                                      fontFamily: 'PlusJakartaSans',
+                                      color: colors.body,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (_pointResult != null) ...[
+                              const SizedBox(width: 12),
+                              StatusChip(
+                                label: isSesuai
+                                    ? 'Sesuai'
+                                    : (isTidakSesuai ? 'Tidak sesuai' : 'Perlu cek manual'),
+                                kind: isSesuai
+                                    ? TiketChipKind.ok
+                                    : (isTidakSesuai ? TiketChipKind.attention : TiketChipKind.neutral),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (_pointResult != null && _pointResult!.alasan.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Catatan: ${_pointResult!.alasan}',
+                            style: TextStyle(
+                              fontFamily: 'PlusJakartaSans',
+                              color: colors.body,
+                              fontSize: 13,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                        if (!isSesuai && widget.onRetake != null) ...[
+                          const SizedBox(height: 20),
+                          Center(
+                            child: TiketPill(
+                              label: 'Foto Ulang',
+                              icon: Icons.camera_alt_rounded,
+                              kind: TiketPillKind.secondary,
+                              height: 48,
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                widget.onRetake!();
+                              },
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: exists
-                ? ClipRect(
-                    child: InteractiveViewer(
-                      panEnabled: true,
-                      minScale: 1.0,
-                      maxScale: 4.5,
-                      child: Center(
-                        child: AppFileImage(
-                          path: widget.imagePath,
-                          cacheWidth: 1280,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  )
-                : const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(40),
-                      child: Text(
-                        'File foto tidak ditemukan pada penyimpanan perangkat.',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                    ),
-                  ),
-          ),
-
-          // Bottom Action Panel & Compact Note
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Compact Note
-                if (_pointResult != null && _pointResult!.alasan.isNotEmpty) ...[
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Catatan: ${_pointResult!.alasan}',
-                      style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.3),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-
-                // Hanya tampilkan tombol Foto Ulang jika status BELUM SESUAI
-                if (!isSesuai && widget.onRetake != null) ...[
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        widget.onRetake!();
-                      },
-                      icon: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.white70),
-                      label: const Text(
-                        'Foto Ulang',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Colors.white),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.white30),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

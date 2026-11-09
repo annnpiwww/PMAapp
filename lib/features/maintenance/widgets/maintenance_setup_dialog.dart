@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/tiket_colors.dart';
 import '../../../core/services/theme_service.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../data/models/template_model.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/branch_service.dart';
@@ -395,6 +397,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
     required bool isDark,
     required Color textSub,
   }) {
+    final colors = TiketColors.of(context);
     final selected = _gateRoles[unit] == role;
     final accent = role == 'IN' ? AppColors.success : AppColors.accent;
     return Material(
@@ -414,25 +417,20 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
+            color: selected ? colors.primary : colors.soft,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: selected
-                  ? accent
-                  : (isDark
-                        ? const Color(0xFF334155)
-                        : const Color(0xFFCBD5E1)),
+              color: selected ? colors.primary : colors.hairline,
               width: selected ? 1.4 : 1,
             ),
           ),
           child: Text(
             role,
             style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
+              fontFamily: TiketType.fontFamily,
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
-              color: selected
-                  ? (isDark ? const Color(0xFFE2E8F0) : accent)
-                  : textSub,
+              color: selected ? colors.onPrimary : textSub,
             ),
           ),
         ),
@@ -449,10 +447,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
     required Color textTitle,
     required VoidCallback onTap,
   }) {
-    final accent = isDark ? const Color(0xFF38BDF8) : AppColors.primary;
-    final innerCardBorder = isDark
-        ? const Color(0xFF334155)
-        : AppColors.cardBorder;
+    final colors = TiketColors.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -460,18 +455,18 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
         padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1)
-              : (isDark ? const Color(0xFF0B1120) : Colors.white),
+              ? colors.primary.withValues(alpha: isDark ? 0.25 : 0.1)
+              : colors.canvas,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? accent : innerCardBorder,
+            color: selected ? colors.primary : colors.hairline,
             width: selected ? 1.6 : 1.0,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 16, color: selected ? accent : textTitle),
+            Icon(icon, size: 16, color: selected ? colors.primary : textTitle),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -479,10 +474,10 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
+                  fontFamily: TiketType.fontFamily,
                   fontSize: 12,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? accent : textTitle,
+                  color: selected ? colors.primary : textTitle,
                 ),
               ),
             ),
@@ -506,7 +501,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
         Text(
           'Pilih SOP Manless',
           style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
+            fontFamily: TiketType.fontFamily,
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: textTitle,
@@ -515,7 +510,11 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
         const SizedBox(height: 3),
         Text(
           'IN = cek rutin • OUT = IN + 4 perangkat • PEP = fisik pulau',
-          style: TextStyle(fontSize: 10.5, color: textSub),
+          style: TextStyle(
+            fontFamily: TiketType.fontFamily,
+            fontSize: 10.5,
+            color: textSub,
+          ),
         ),
         const SizedBox(height: 10),
         Row(
@@ -579,36 +578,35 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
     required VoidCallback? onPressed,
     required bool isDark,
     double size = 44,
-    double iconSize = 22,
+    double iconSize = 20,
   }) {
+    final colors = TiketColors.of(context);
     final isEnabled = onPressed != null;
-    final btnBg = isEnabled
-        ? (isDark ? const Color(0xFF334155) : const Color(0xFFEFF6FF))
-        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9));
-    final btnBorder = isEnabled
-        ? (isDark
-              ? const Color(0xFF475569)
-              : AppColors.primary.withValues(alpha: 0.3))
-        : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0));
-    final iconColor = isEnabled
-        ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
-        : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8));
+    final btnBorder = isEnabled ? colors.primary : colors.hairline;
+    final iconColor = isEnabled ? colors.primary : colors.mute;
 
-    return Material(
-      color: btnBg,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: size,
-          height: size,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: btnBorder, width: 1.2),
+    return Semantics(
+      button: true,
+      enabled: isEnabled,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onPressed,
+            child: Container(
+              width: size,
+              height: size,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: btnBorder, width: 1.5),
+              ),
+              child: Icon(icon, color: iconColor, size: iconSize),
+            ),
           ),
-          child: Icon(icon, color: iconColor, size: iconSize),
         ),
       ),
     );
@@ -618,30 +616,18 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
   Widget build(BuildContext context) {
     final locations = LocationService.availablePosList;
     final isDark = ThemeService.isDarkMode(context);
-    final dialogBg = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-    final cardBg = isDark
-        ? const Color(0xFF1E293B)
-        : AppColors.surfaceContainerLow;
-    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final inputFill = isDark ? const Color(0xFF1E293B) : Colors.grey.shade50;
-    final inputBorderColor = isDark
-        ? const Color(0xFF334155)
-        : AppColors.cardBorder;
-    final innerCardBg = isDark ? const Color(0xFF0B1120) : Colors.white;
-    final innerCardBorder = isDark
-        ? const Color(0xFF334155)
-        : AppColors.cardBorder;
-    final stepperBoxBg = isDark
-        ? const Color(0xFF1E293B)
-        : const Color(0xFFF8FAFC);
-    final stepperBoxBorder = isDark
-        ? const Color(0xFF334155)
-        : AppColors.cardBorder;
-    final stepperNumberColor = isDark
-        ? const Color(0xFF38BDF8)
-        : AppColors.primary;
+    final colors = TiketColors.of(context);
+    final dialogBg = colors.dialog;
+    final textTitle = colors.ink;
+    final textSub = colors.mute;
+    final cardBg = colors.soft;
+    final cardBorder = colors.hairline;
+    final inputFill = colors.soft;
+    final innerCardBg = colors.canvas;
+    final innerCardBorder = colors.hairline;
+    final stepperBoxBg = colors.soft;
+    final stepperBoxBorder = colors.hairline;
+    final stepperNumberColor = colors.ink;
 
     return Dialog(
       backgroundColor: dialogBg,
@@ -656,18 +642,22 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: colors.hairline,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
               // Header
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(_unitIcon, color: AppColors.primary, size: 24),
-                  ),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -678,15 +668,13 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                               ? _unitTitle
                               : widget.initialTemplate.nama,
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
+                            fontFamily: TiketType.fontFamily,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 18,
                             color: textTitle,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
                           widget.initialTemplate.jenis ==
                                   TemplateCategory.maintServer
@@ -694,47 +682,58 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                               : (_isLengkap
                                     ? 'Atur cakupan: Gate + Manless + Pos (+ Server)'
                                     : 'Atur Pengecekan $_unitNoun'),
-                          style: TextStyle(fontSize: 11, color: textSub),
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 13,
+                            color: textSub,
+                          ),
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: textTitle),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
 
               // Input Nama Teknisi / Support
+              Text(
+                'Nama Teknisi / Support',
+                style: TextStyle(
+                  fontFamily: TiketType.fontFamily,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: textTitle,
+                ),
+              ),
+              const SizedBox(height: 6),
               TextFormField(
                 controller: _supportNameController,
                 decoration: InputDecoration(
-                  labelText: 'Nama Teknisi / Support',
-                  labelStyle: TextStyle(
-                    color: textSub,
-                    fontWeight: FontWeight.w600,
-                  ),
                   hintText: 'Contoh: Farhan Lakoro',
-                  prefixIcon: const Icon(
-                    Icons.person_rounded,
-                    size: 20,
-                    color: AppColors.primary,
+                  hintStyle: TextStyle(
+                    fontFamily: TiketType.fontFamily,
+                    color: textSub,
+                    fontSize: 14,
                   ),
                   isDense: true,
                   filled: true,
                   fillColor: inputFill,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: inputBorderColor),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: inputBorderColor),
+                  border: UnderlineInputBorder(
+                    borderSide: BorderSide(color: colors.body, width: 2.0),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: AppColors.primary,
-                      width: 1.5,
-                    ),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: colors.body, width: 2.0),
+                  ),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: colors.primary, width: 2.0),
                   ),
                 ),
                 onTap: () {
@@ -746,817 +745,470 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                   }
                 },
                 style: TextStyle(
-                  fontSize: 13,
+                  fontFamily: TiketType.fontFamily,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  color: textTitle,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-              // Dropdown Lokasi (Affordance ditingkatkan: icon chevron besar kontras, area tap luas)
-              DropdownButtonFormField<PosLocation>(
-                initialValue: _selectedLocation,
-                isExpanded: true,
-                dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-                icon: const Icon(
-                  Icons.arrow_drop_down_circle_outlined,
-                  size: 20,
-                  color: AppColors.primary,
+              // Dropdown Lokasi
+              Text(
+                'Lokasi Parkir',
+                style: TextStyle(
+                  fontFamily: TiketType.fontFamily,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: textTitle,
                 ),
-                decoration: InputDecoration(
-                  labelText: 'Lokasi Parkir',
-                  labelStyle: TextStyle(
-                    color: textSub,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.location_on_rounded,
-                    size: 20,
-                    color: AppColors.primary,
-                  ),
-                  isDense: true,
-                  filled: true,
-                  fillColor: inputFill,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: inputBorderColor),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: inputBorderColor),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: AppColors.primary,
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-                items: locations.map((loc) {
-                  return DropdownMenuItem(
-                    value: loc,
-                    child: Text(
-                      '${loc.locationTag} • ${loc.posName}',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: textTitle,
+              ),
+              const SizedBox(height: 6),
+              Semantics(
+                button: true,
+                label: 'Lokasi Parkir: ${_selectedLocation.posName}',
+                child: Material(
+                  color: inputFill,
+                  child: InkWell(
+                    splashColor: colors.primaryPressed.withValues(alpha: 0.12),
+                    highlightColor: colors.primaryPressed.withValues(alpha: 0.06),
+                    onTap: () async {
+                      final picked = await showTiketPickerDialog<PosLocation>(
+                        context: context,
+                        title: 'Lokasi Parkir',
+                        selected: _selectedLocation,
+                        options: locations
+                            .map(
+                              (loc) => TiketOption<PosLocation>(
+                                value: loc,
+                                label: loc.posName,
+                                trailingText: loc.locationTag,
+                              ),
+                            )
+                            .toList(),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _selectedLocation = picked;
+                          LocationService.setCurrentPos(picked);
+                          LocationService.clearLocationCache();
+                        });
+                      }
+                    },
+                    child: Container(
+                      height: 52.0,
+                      padding: const EdgeInsets.symmetric(horizontal: 14.0),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: colors.body,
+                            width: 2.0,
+                          ),
+                        ),
                       ),
-                      overflow: TextOverflow.ellipsis,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _selectedLocation.posName,
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 14.0,
+                                fontWeight: FontWeight.w600,
+                                color: textTitle,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            _selectedLocation.locationTag,
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 13.0,
+                              fontWeight: FontWeight.w600,
+                              color: textSub,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.keyboard_arrow_down,
+                            size: 20.0,
+                            color: colors.body,
+                          ),
+                        ],
+                      ),
                     ),
-                  );
-                }).toList(),
-                onChanged: (loc) {
-                  if (loc != null) {
-                    setState(() {
-                      _selectedLocation = loc;
-                      LocationService.setCurrentPos(loc);
-                      LocationService.clearLocationCache();
-                    });
-                  }
-                },
+                  ),
+                ),
               ),
-              const SizedBox(height: 14),
-
+              const SizedBox(height: 16),
               // Section Setup Unit / Server & Kasir
               if (widget.initialTemplate.jenis ==
                   TemplateCategory.maintServer) ...[
+                const SizedBox(height: 16),
                 Text(
-                  _unitTitle,
+                  'Pilih Perangkat',
                   style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    fontWeight: FontWeight.w700,
+                    fontFamily: TiketType.fontFamily,
                     fontSize: 13,
+                    fontWeight: FontWeight.w700,
                     color: textTitle,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
-                  _unitSubtitle,
-                  style: TextStyle(fontSize: 11, color: textSub),
+                  'Pilih cek Server & Kasir atau khusus PC Kasir saja',
+                  style: TextStyle(
+                    fontFamily: TiketType.fontFamily,
+                    fontSize: 11,
+                    color: textSub,
+                  ),
                 ),
                 const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: cardBorder),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                TiketSegmented<bool>(
+                  options: const [
+                    (false, 'Server & Kasir'),
+                    (true, 'Hanya Kasir'),
+                  ],
+                  selected: _isOnlyKasir,
+                  onChanged: (val) => setState(() => _isOnlyKasir = val),
+                ),
+                const SizedBox(height: 16),
+
+                if (!_isOnlyKasir) ...[
+                  // Toggle: PC Server & PC Kasir Terpisah
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Pilihan Ruang Lingkup Maintenance: Server & Kasir vs Hanya Kasir
-                      Text(
-                        'Pilih Perangkat',
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: textTitle,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Pilih cek Server & Kasir atau khusus PC Kasir saja',
-                        style: TextStyle(fontSize: 10.5, color: textSub),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => setState(() => _isOnlyKasir = false),
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 9,
-                                  horizontal: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: !_isOnlyKasir
-                                      ? AppColors.primary.withValues(
-                                          alpha: isDark ? 0.25 : 0.1,
-                                        )
-                                      : innerCardBg,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: !_isOnlyKasir
-                                        ? (isDark
-                                              ? const Color(0xFF38BDF8)
-                                              : AppColors.primary)
-                                        : innerCardBorder,
-                                    width: !_isOnlyKasir ? 1.6 : 1.0,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.dns_rounded,
-                                      size: 16,
-                                      color: !_isOnlyKasir
-                                          ? (isDark
-                                                ? const Color(0xFF38BDF8)
-                                                : AppColors.primary)
-                                          : textSub,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Flexible(
-                                      child: Text(
-                                        'Server & Kasir',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontFamily: 'PlusJakartaSans',
-                                          fontSize: 12,
-                                          fontWeight: !_isOnlyKasir
-                                              ? FontWeight.w700
-                                              : FontWeight.w500,
-                                          color: !_isOnlyKasir
-                                              ? (isDark
-                                                    ? const Color(0xFF38BDF8)
-                                                    : AppColors.primary)
-                                              : textTitle,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => setState(() => _isOnlyKasir = true),
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 9,
-                                  horizontal: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _isOnlyKasir
-                                      ? AppColors.primary.withValues(
-                                          alpha: isDark ? 0.25 : 0.1,
-                                        )
-                                      : innerCardBg,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: _isOnlyKasir
-                                        ? (isDark
-                                              ? const Color(0xFF38BDF8)
-                                              : AppColors.primary)
-                                        : innerCardBorder,
-                                    width: _isOnlyKasir ? 1.6 : 1.0,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.point_of_sale_rounded,
-                                      size: 16,
-                                      color: _isOnlyKasir
-                                          ? (isDark
-                                                ? const Color(0xFF38BDF8)
-                                                : AppColors.primary)
-                                          : textSub,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Flexible(
-                                      child: Text(
-                                        'Hanya Kasir',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontFamily: 'PlusJakartaSans',
-                                          fontSize: 12,
-                                          fontWeight: _isOnlyKasir
-                                              ? FontWeight.w700
-                                              : FontWeight.w500,
-                                          color: _isOnlyKasir
-                                              ? (isDark
-                                                    ? const Color(0xFF38BDF8)
-                                                    : AppColors.primary)
-                                              : textTitle,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Divider(height: 1, color: innerCardBorder),
-                      const SizedBox(height: 14),
-
-                      if (!_isOnlyKasir) ...[
-                        // Toggle: PC Server & PC Kasir Terpisah
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'PC Server & PC Kasir Terpisah',
-                                    maxLines: 2,
-                                    style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                      color: textTitle,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 7,
-                                      vertical: 2.5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _isServerKasirTerpisah
-                                          ? AppColors.primary.withValues(
-                                              alpha: isDark ? 0.25 : 0.12,
-                                            )
-                                          : (isDark
-                                                ? const Color(0xFF0B1120)
-                                                : const Color(0xFFF1F5F9)),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: _isServerKasirTerpisah
-                                            ? (isDark
-                                                  ? const Color(0xFF38BDF8)
-                                                  : AppColors.primary
-                                                        .withValues(alpha: 0.3))
-                                            : innerCardBorder,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      _isServerKasirTerpisah
-                                          ? 'ON: Terpisah (Komputer Berbeda)'
-                                          : 'OFF: Gabung (1 Komputer)',
-                                      style: TextStyle(
-                                        fontFamily: 'PlusJakartaSans',
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: _isServerKasirTerpisah
-                                            ? (isDark
-                                                  ? const Color(0xFF38BDF8)
-                                                  : AppColors.primary)
-                                            : textSub,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    _isServerKasirTerpisah
-                                        ? 'Komputer berbeda (PC Server & PC Kasir terpisah)'
-                                        : '1 Komputer merangkap PC Server sekaligus PC Kasir',
-                                    style: TextStyle(
-                                      fontSize: 10.5,
-                                      color: textSub,
-                                    ),
-                                  ),
-                                ],
+                            Text(
+                              'PC Server & PC Kasir Terpisah',
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13.5,
+                                color: textTitle,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Switch(
-                              value: _isServerKasirTerpisah,
-                              activeThumbColor: Colors.white,
-                              activeTrackColor: isDark
-                                  ? const Color(0xFF0284C7)
-                                  : AppColors.primary,
-                              inactiveThumbColor: Colors.white,
-                              inactiveTrackColor: innerCardBorder,
-                              trackOutlineColor:
-                                  WidgetStateProperty.resolveWith((states) {
-                                    if (states.contains(WidgetState.selected)) {
-                                      return isDark
-                                          ? const Color(0xFF38BDF8)
-                                          : AppColors.primary;
-                                    }
-                                    return innerCardBorder;
-                                  }),
-                              onChanged: (val) {
-                                setState(() {
-                                  _isServerKasirTerpisah = val;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-
-                        // Jika Terpisah: Tampilkan 1 PC Server + Stepper Jumlah PC Kasir
-                        if (!_isServerKasirGabung) ...[
-                          Divider(height: 20, color: innerCardBorder),
-                          // Penjelasan PC Server Mandiri
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(
-                                    alpha: isDark ? 0.25 : 0.1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Icon(
-                                  Icons.dns_rounded,
-                                  size: 16,
-                                  color: isDark
-                                      ? const Color(0xFF38BDF8)
-                                      : AppColors.primary,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '1 PC Server (6 foto)',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: textTitle,
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? const Color(0xFF0B1120)
-                                      : const Color(0xFFE2E8F0),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: innerCardBorder),
-                                ),
-                                child: Text(
-                                  '1 Unit',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: textTitle,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Jumlah PC Kasir',
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: textTitle,
-                                      ),
-                                    ),
-                                    Text(
-                                      'PC Kasir 1, PC Kasir 2, dst (6 foto / unit)',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        color: textSub,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Row(
-                                children: [
-                                  _buildStepperButton(
-                                    icon: Icons.remove_rounded,
-                                    isDark: isDark,
-                                    onPressed: _kasirCount > 1
-                                        ? () => setState(() => _kasirCount--)
-                                        : null,
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                    ),
-                                    child: Container(
-                                      constraints: const BoxConstraints(
-                                        minWidth: 44,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 8,
-                                      ),
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: stepperBoxBg,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: stepperBoxBorder,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        '$_kasirCount',
-                                        style: TextStyle(
-                                          fontFamily: 'PlusJakartaSans',
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w800,
-                                          color: stepperNumberColor,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  _buildStepperButton(
-                                    icon: Icons.add_rounded,
-                                    isDark: isDark,
-                                    onPressed: _kasirCount < 10
-                                        ? () => setState(() => _kasirCount++)
-                                        : null,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-
-                        Divider(height: 18, color: innerCardBorder),
-                        // Selector OS PC Server
-                        Text(
-                          'Sistem Operasi PC Server',
-                          style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: textTitle,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          _isServerKasirGabung
-                              ? 'Pilih OS untuk PC Server & PC Kasir All-in-One'
-                              : 'Pilih OS untuk PC Server (PC Kasir otomatis Windows)',
-                          style: TextStyle(fontSize: 10.5, color: textSub),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                onTap: () =>
-                                    setState(() => _serverOs = 'linux'),
-                                borderRadius: BorderRadius.circular(10),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                    horizontal: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _serverOs == 'linux'
-                                        ? AppColors.primary.withValues(
-                                            alpha: isDark ? 0.25 : 0.1,
-                                          )
-                                        : innerCardBg,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: _serverOs == 'linux'
-                                          ? (isDark
-                                                ? const Color(0xFF38BDF8)
-                                                : AppColors.primary)
-                                          : innerCardBorder,
-                                      width: _serverOs == 'linux' ? 1.6 : 1.0,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.terminal_rounded,
-                                        size: 16,
-                                        color: _serverOs == 'linux'
-                                            ? (isDark
-                                                  ? const Color(0xFF38BDF8)
-                                                  : AppColors.primary)
-                                            : textSub,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Flexible(
-                                        child: Text(
-                                          'Linux Server',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontFamily: 'PlusJakartaSans',
-                                            fontSize: 12,
-                                            fontWeight: _serverOs == 'linux'
-                                                ? FontWeight.w700
-                                                : FontWeight.w500,
-                                            color: _serverOs == 'linux'
-                                                ? (isDark
-                                                      ? const Color(0xFF38BDF8)
-                                                      : AppColors.primary)
-                                                : textTitle,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: InkWell(
-                                onTap: () =>
-                                    setState(() => _serverOs = 'windows'),
-                                borderRadius: BorderRadius.circular(10),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                    horizontal: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _serverOs == 'windows'
-                                        ? AppColors.primary.withValues(
-                                            alpha: isDark ? 0.25 : 0.1,
-                                          )
-                                        : innerCardBg,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: _serverOs == 'windows'
-                                          ? (isDark
-                                                ? const Color(0xFF38BDF8)
-                                                : AppColors.primary)
-                                          : innerCardBorder,
-                                      width: _serverOs == 'windows' ? 1.6 : 1.0,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.desktop_windows_rounded,
-                                        size: 16,
-                                        color: _serverOs == 'windows'
-                                            ? (isDark
-                                                  ? const Color(0xFF38BDF8)
-                                                  : AppColors.primary)
-                                            : textSub,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Flexible(
-                                        child: Text(
-                                          'Windows',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontFamily: 'PlusJakartaSans',
-                                            fontSize: 12,
-                                            fontWeight: _serverOs == 'windows'
-                                                ? FontWeight.w700
-                                                : FontWeight.w500,
-                                            color: _serverOs == 'windows'
-                                                ? (isDark
-                                                      ? const Color(0xFF38BDF8)
-                                                      : AppColors.primary)
-                                                : textTitle,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _isServerKasirTerpisah
+                                  ? 'Komputer berbeda (PC Server & PC Kasir terpisah)'
+                                  : '1 Komputer merangkap PC Server sekaligus PC Kasir',
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 11,
+                                color: textSub,
                               ),
                             ),
                           ],
                         ),
-                      ] else ...[
-                        // Tampilan Khusus: Hanya Maintenance PC Kasir
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Jumlah PC Kasir',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: textTitle,
-                                    ),
-                                  ),
-                                  Text(
-                                    'PC Kasir 1, PC Kasir 2, dst (6 foto / unit)',
-                                    style: TextStyle(
-                                      fontSize: 10.5,
-                                      color: textSub,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                      ),
+                      const SizedBox(width: 8),
+                      Switch.adaptive(
+                        value: _isServerKasirTerpisah,
+                        activeTrackColor: colors.primary,
+                        inactiveThumbColor: Colors.white,
+                        inactiveTrackColor: colors.hairline,
+                        onChanged: (val) {
+                          setState(() {
+                            _isServerKasirTerpisah = val;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+
+                  // Jika Terpisah: Tampilkan 1 PC Server + Stepper Jumlah PC Kasir
+                  if (!_isServerKasirGabung) ...[
+                    const SizedBox(height: 12),
+                    Divider(height: 1, thickness: 1, color: colors.hairline),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '1 PC Server (6 foto)',
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: textTitle,
                             ),
-                            Row(
-                              children: [
-                                _buildStepperButton(
-                                  icon: Icons.remove_rounded,
-                                  isDark: isDark,
-                                  onPressed: _kasirCount > 1
-                                      ? () => setState(() => _kasirCount--)
-                                      : null,
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
-                                  child: Container(
-                                    constraints: const BoxConstraints(
-                                      minWidth: 44,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 8,
-                                    ),
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      color: stepperBoxBg,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: stepperBoxBorder,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      '$_kasirCount',
-                                      style: TextStyle(
-                                        fontFamily: 'PlusJakartaSans',
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w800,
-                                        color: stepperNumberColor,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                _buildStepperButton(
-                                  icon: Icons.add_rounded,
-                                  isDark: isDark,
-                                  onPressed: _kasirCount < 10
-                                      ? () => setState(() => _kasirCount++)
-                                      : null,
-                                ),
-                              ],
-                            ),
-                          ],
+                          ),
                         ),
-                        const SizedBox(height: 10),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
-                            vertical: 6,
+                            vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: innerCardBg,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: innerCardBorder),
+                            color: colors.soft,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Row(
+                          child: Text(
+                            '1 Unit',
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: colors.body,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                Icons.info_outline_rounded,
-                                size: 14,
-                                color: textSub,
+                              Text(
+                                'Jumlah PC Kasir',
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: textTitle,
+                                ),
                               ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'PC Kasir otomatis menggunakan checklist OS Windows',
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    color: textSub,
-                                  ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'PC Kasir 1, PC Kasir 2, dst (6 foto / unit)',
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 11,
+                                  color: textSub,
                                 ),
                               ),
                             ],
                           ),
                         ),
+                        Row(
+                          children: [
+                            _buildStepperButton(
+                              icon: Icons.remove,
+                              isDark: isDark,
+                              onPressed: _kasirCount > 1
+                                  ? () => setState(() => _kasirCount--)
+                                  : null,
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Text(
+                                '$_kasirCount',
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: textTitle,
+                                ),
+                              ),
+                            ),
+                            _buildStepperButton(
+                              icon: Icons.add,
+                              isDark: isDark,
+                              onPressed: _kasirCount < 10
+                                  ? () => setState(() => _kasirCount++)
+                                  : null,
+                            ),
+                          ],
+                        ),
                       ],
+                    ),
+                  ],
 
-                      const SizedBox(height: 12),
-                      // Baris Ringkasan Hijau Real-time
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF064E3B).withValues(alpha: 0.35)
-                              : const Color(0xFFECFDF5),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isDark
-                                ? const Color(0xFF059669)
-                                : const Color(0xFFA7F3D0),
-                          ),
-                        ),
-                        child: Row(
+                  const SizedBox(height: 14),
+                  Divider(height: 1, thickness: 1, color: colors.hairline),
+                  const SizedBox(height: 14),
+                  // Selector OS PC Server
+                  Text(
+                    'Sistem Operasi PC Server',
+                    style: TextStyle(
+                      fontFamily: TiketType.fontFamily,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: textTitle,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _isServerKasirGabung
+                        ? 'Pilih OS untuk PC Server & PC Kasir All-in-One'
+                        : 'Pilih OS untuk PC Server (PC Kasir otomatis Windows)',
+                    style: TextStyle(
+                      fontFamily: TiketType.fontFamily,
+                      fontSize: 11,
+                      color: textSub,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TiketSegmented<String>(
+                    options: const [
+                      ('linux', 'Linux Server'),
+                      ('windows', 'Windows'),
+                    ],
+                    selected: _serverOs,
+                    onChanged: (val) => setState(() => _serverOs = val),
+                  ),
+                ] else ...[
+                  // Tampilan Khusus: Hanya Maintenance PC Kasir
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              Icons.check_circle_rounded,
-                              size: 15,
-                              color: isDark
-                                  ? const Color(0xFF6EE7B7)
-                                  : const Color(0xFF059669),
+                            Text(
+                              'Jumlah PC Kasir',
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: textTitle,
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _isOnlyKasir
-                                        ? 'Target: $_totalPoints Foto ($_kasirCount PC Kasir)'
-                                        : (_isServerKasirGabung
-                                              ? 'Target: 6 Foto (1 PC Server & Kasir All-in-One)'
-                                              : 'Target: $_totalPoints Foto (1 PC Server + $_kasirCount PC Kasir)'),
-                                    style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: isDark
-                                          ? const Color(0xFF6EE7B7)
-                                          : const Color(0xFF065F46),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _isOnlyKasir
-                                        ? '$_totalPoints foto PC Kasir ($_kasirCount unit × 6 foto)'
-                                        : (_isServerKasirGabung
-                                              ? '6 foto PC Server & Kasir (1 komputer)'
-                                              : '6 foto PC Server + ${_kasirCount * 6} foto PC Kasir ($_kasirCount unit × 6 foto)'),
-                                    style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark
-                                          ? const Color(0xFFA7F3D0)
-                                          : const Color(0xFF047857),
-                                    ),
-                                  ),
-                                ],
+                            const SizedBox(height: 3),
+                            Text(
+                              'PC Kasir 1, PC Kasir 2, dst (6 foto / unit)',
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 11,
+                                color: textSub,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          _buildStepperButton(
+                            icon: Icons.remove,
+                            isDark: isDark,
+                            onPressed: _kasirCount > 1
+                                ? () => setState(() => _kasirCount--)
+                                : null,
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                            ),
+                            child: Text(
+                              '$_kasirCount',
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: textTitle,
+                              ),
+                            ),
+                          ),
+                          _buildStepperButton(
+                            icon: Icons.add,
+                            isDark: isDark,
+                            onPressed: _kasirCount < 10
+                                ? () => setState(() => _kasirCount++)
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.soft,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.hairline),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 14,
+                          color: textSub,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'PC Kasir otomatis menggunakan checklist OS Windows',
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 10.5,
+                              color: textSub,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 14),
+                // Baris Ringkasan Real-time
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.soft,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: colors.hairline),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.check_circle_rounded,
+                        size: 16,
+                        color: colors.ok,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _isOnlyKasir
+                                  ? 'Target: $_totalPoints Foto ($_kasirCount PC Kasir)'
+                                  : (_isServerKasirGabung
+                                        ? 'Target: 6 Foto (1 PC Server & Kasir All-in-One)'
+                                        : 'Target: $_totalPoints Foto (1 PC Server + $_kasirCount PC Kasir)'),
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: colors.ink,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _isOnlyKasir
+                                  ? '$_totalPoints foto PC Kasir ($_kasirCount unit × 6 foto)'
+                                  : (_isServerKasirGabung
+                                        ? '6 foto PC Server & Kasir (1 komputer)'
+                                        : '6 foto PC Server + ${_kasirCount * 6} foto PC Kasir ($_kasirCount unit × 6 foto)'),
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: textSub,
                               ),
                             ),
                           ],
@@ -1582,21 +1234,10 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                     children: [
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(
-                                alpha: isDark ? 0.25 : 0.1,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              _unitIcon,
-                              color: isDark
-                                  ? const Color(0xFF38BDF8)
-                                  : AppColors.primary,
-                              size: 20,
-                            ),
+                          Icon(
+                            _unitIcon,
+                            color: colors.primary,
+                            size: 20,
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -1893,14 +1534,10 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF064E3B).withValues(alpha: 0.35)
-                              : const Color(0xFFECFDF5),
+                          color: colors.soft,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: isDark
-                                ? const Color(0xFF059669)
-                                : const Color(0xFFA7F3D0),
+                            color: colors.hairline,
                           ),
                         ),
                         child: Row(
@@ -1909,9 +1546,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                             Icon(
                               Icons.check_circle_rounded,
                               size: 15,
-                              color: isDark
-                                  ? const Color(0xFF6EE7B7)
-                                  : const Color(0xFF059669),
+                              color: colors.ok,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -1925,12 +1560,10 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                               ? 'Cek $_unitNoun $_startUnit saja (${_unitNumbers.length} $_unitNoun)'
                                               : 'Cek ${_unitNumbers.length} $_unitNoun: $_unitNoun $_startUnit s/d $_unitNoun $_endUnit'),
                                     style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
+                                      fontFamily: TiketType.fontFamily,
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w700,
-                                      color: isDark
-                                          ? const Color(0xFF6EE7B7)
-                                          : const Color(0xFF065F46),
+                                      color: colors.ink,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -1939,12 +1572,10 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                         ? 'Target: $_totalPoints Foto (gate×9 + manless×$_manlessPointsPerUnit + pos×9${_includeServer ? ' + server×6' : ''})'
                                         : 'Target: $_totalPoints Foto (${_unitNumbers.length} $_unitNoun × $_pointsPerUnit foto)',
                                     style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
+                                      fontFamily: TiketType.fontFamily,
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w600,
-                                      color: isDark
-                                          ? const Color(0xFFA7F3D0)
-                                          : const Color(0xFF047857),
+                                      color: textSub,
                                     ),
                                   ),
                                 ],
@@ -2025,21 +1656,10 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                       children: [
                         Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(
-                                  alpha: isDark ? 0.25 : 0.1,
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                Icons.cleaning_services_rounded,
-                                color: isDark
-                                    ? const Color(0xFF38BDF8)
-                                    : AppColors.primary,
-                                size: 20,
-                              ),
+                            Icon(
+                              Icons.cleaning_services_rounded,
+                              color: colors.primary,
+                              size: 20,
                             ),
                             const SizedBox(width: 10),
                             Expanded(
@@ -2121,8 +1741,8 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                   const SizedBox(height: 2),
                                   Text(
                                     _includeServer
-                                        ? 'Ikut dicek: 1 PC Server (6 foto) — cakupan 4 area'
-                                        : 'Tidak dicek — cakupan 3 area (Gate + Manless + Pos)',
+                                        ? 'Ikut dicek: 1 PC Server (6 foto) · cakupan 4 area'
+                                        : 'Tidak dicek · cakupan 3 area (Gate + Manless + Pos)',
                                     style: TextStyle(
                                       fontSize: 10.5,
                                       color: textSub,
@@ -2131,16 +1751,11 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                 ],
                               ),
                             ),
-                            Switch(
+                            Switch.adaptive(
                               value: _includeServer,
-                              activeThumbColor: Colors.white,
-                              activeTrackColor: isDark
-                                  ? const Color(0xFF0284C7)
-                                  : AppColors.primary,
+                              activeTrackColor: colors.primary,
                               inactiveThumbColor: Colors.white,
-                              inactiveTrackColor: isDark
-                                  ? const Color(0xFF334155)
-                                  : Colors.grey.shade300,
+                              inactiveTrackColor: colors.hairline,
                               onChanged: (v) =>
                                   setState(() => _includeServer = v),
                             ),
@@ -2222,54 +1837,20 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
               const SizedBox(height: 20),
 
               // Action Buttons (Batal & Mulai Checklist Unit Berdampingan Horizontal)
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        side: BorderSide(color: cardBorder, width: 1.2),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: Text(
-                        'Batal',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: textSub,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      onPressed: _generateAndOpenChecklist,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isDark
-                            ? const Color(0xFF0284C7)
-                            : AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text(
-                        'Mulai Checklist',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              TiketPill(
+                label: 'Mulai Checklist',
+                kind: TiketPillKind.primary,
+                height: 52,
+                expand: true,
+                onPressed: _generateAndOpenChecklist,
+              ),
+              const SizedBox(height: 10),
+              TiketPill(
+                label: 'Batal',
+                kind: TiketPillKind.secondary,
+                height: 52,
+                expand: true,
+                onPressed: () => Navigator.pop(context),
               ),
             ],
           ),

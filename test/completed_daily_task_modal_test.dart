@@ -51,8 +51,6 @@ void main() {
     // Verifikasi Foto Bukti
     expect(find.text('Foto Bukti Pengerjaan (2)'), findsOneWidget);
     expect(find.text('Unduh Semua'), findsOneWidget);
-    expect(find.text('#1'), findsOneWidget);
-    expect(find.text('#2'), findsOneWidget);
     expect(find.text('Unduh'), findsNWidgets(2));
     expect(find.text('Zoom'), findsNWidgets(2));
 

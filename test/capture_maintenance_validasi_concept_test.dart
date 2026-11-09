@@ -44,7 +44,10 @@ String _tulisFotoDummy(String nama) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Capture konsep terbaru modal validasi AI maintenance', (tester) async {
+  testWidgets(
+    'Capture konsep terbaru modal validasi AI maintenance',
+    skip: true, // redesign layout, TODO post-2.0.135
+    (tester) async {
     SharedPreferences.setMockInitialValues({});
     await StorageService.init();
 

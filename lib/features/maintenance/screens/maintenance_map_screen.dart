@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/constants/tiket_colors.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../data/services/branch_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/maintenance_log_service.dart';
@@ -112,11 +114,13 @@ class MaintenanceTemuanItem {
 class MaintenanceMapScreen extends StatefulWidget {
   final DraggableScrollableController? sheetController;
   final MapController? mapController;
+  final bool showTileLayer;
 
   const MaintenanceMapScreen({
     super.key,
     this.sheetController,
     this.mapController,
+    this.showTileLayer = true,
   });
 
   @visibleForTesting
@@ -764,547 +768,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = MaintenanceMapPalette.bgOf(context);
-    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
-    final dividerColor = MaintenanceMapPalette.dividerOf(context);
-    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
-    final primaryColor = MaintenanceMapPalette.primaryOf(context);
-
-    return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        backgroundColor: surfaceColor,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: textPrimaryColor,
-          ),
-          onPressed: () => Navigator.maybePop(context),
-        ),
-        titleSpacing: 4,
-        title: Text(
-          'Map Maintenance',
-          style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: textPrimaryColor,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.refresh_rounded,
-              color: textPrimaryColor,
-            ),
-            tooltip: 'Perbarui data',
-            onPressed: _loadMonthData,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Loading indicator
-          if (_isLoading)
-            LinearProgressIndicator(
-              minHeight: 2,
-              backgroundColor: Colors.transparent,
-              valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-            ),
-
-          // Offline banner
-          if (_isOffline) _buildOfflineBanner(),
-
-          // Top filter row: Month switcher + Wilayah chips (44dp)
-          _buildTopFilterBar(),
-
-          // Phase Strip (Flat, <= 64dp, 1px bottom divider)
-          _buildPhaseStrip(),
-
-          // Body: Map + Floating Controls
-          Expanded(
-            child: Stack(
-              children: [
-                // FlutterMap always mounted (Light OSM)
-                FlutterMap(
-                  mapController: _mapController,
-                  options: _mapOptions,
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      retinaMode: RetinaMode.isHighDensity(context),
-                      userAgentPackageName:
-                          'com.bssparking.timemark.bssparking_timemark',
-                    ),
-                    const RichAttributionWidget(
-                      attributions: [
-                        TextSourceAttribution(
-                            'OpenStreetMap contributors'),
-                      ],
-                    ),
-                    MarkerLayer(
-                      markers: _buildMarkers(),
-                    ),
-                  ],
-                ),
-
-                if (_filteredStatuses.isEmpty && _selectedStatusRank != null)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: surfaceColor,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: dividerColor,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Tidak ada lokasi ${_statusRankLabel(_selectedStatusRank!)} di $_selectedWilayah',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: textPrimaryColor,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            TextButton(
-                              onPressed: () {
-                                setState(() {
-                                  _selectedStatusRank = null;
-                                });
-                                _fitMapToCurrentFilter();
-                              },
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                minimumSize: const Size(44, 36),
-                              ),
-                              child: Text(
-                                'Tampilkan semua',
-                                style: TextStyle(
-                                  fontFamily: 'PlusJakartaSans',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: primaryColor,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // Floating Map Controls Positioned bottom-right
-                Positioned(
-                  right: 12,
-                  bottom: 16,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildFloatingControlButton(
-                        icon: Icons.center_focus_strong,
-                        tooltip: 'Pusatkan Peta',
-                        onTap: _fitMapToCurrentFilter,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildZoomControlsPill(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOfflineBanner() {
-    final findingBg = MaintenanceMapPalette.findingBgOf(context);
-    final findingText = MaintenanceMapPalette.findingTextOf(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: findingBg,
-      child: Row(
-        children: [
-          Icon(
-            Icons.cloud_off_rounded,
-            size: 16,
-            color: findingText,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _lastFetchTime != null
-                  ? 'Offline, menampilkan data lokal · Update ${_formatJamMenit(_lastFetchTime!)}'
-                  : 'Offline, menampilkan data lokal',
-              style: TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: findingText,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: _loadMonthData,
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              minimumSize: const Size(44, 32),
-            ),
-            child: Text(
-              'Coba lagi',
-              style: TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: findingText,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopFilterBar() {
-    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
-    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
-    final dividerColor = MaintenanceMapPalette.dividerOf(context);
-    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
-    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
-    final primaryColor = MaintenanceMapPalette.primaryOf(context);
-
-    return Container(
-      constraints: const BoxConstraints(minHeight: 48),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: surfaceColor,
-        border: Border(
-          bottom: BorderSide(
-            color: dividerColor,
-            width: 0.5,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          _buildCompactMonthSwitcher(),
-          const SizedBox(width: 6),
-          SizedBox(
-            height: 20,
-            child: VerticalDivider(
-              width: 1,
-              color: dividerColor,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Semantics(
-              button: true,
-              label: 'Filter wilayah, $_selectedWilayah',
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _showWilayahDialog,
-                  borderRadius: BorderRadius.circular(999),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 48),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        constraints: const BoxConstraints(minHeight: 32),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: surfaceRaisedColor,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.place_outlined,
-                              size: 16,
-                              color: primaryColor,
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                _selectedWilayah,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontFamily: 'PlusJakartaSans',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: textPrimaryColor,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.expand_more_rounded,
-                              size: 18,
-                              color: textSecondaryColor,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showWilayahDialog() async {
-    final list = _availableWilayahList;
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        final screenHeight = MediaQuery.sizeOf(ctx).height;
-        final surfaceColor = MaintenanceMapPalette.surfaceOf(ctx);
-        final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(ctx);
-        final dividerColor = MaintenanceMapPalette.dividerOf(ctx);
-        final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(ctx);
-        final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(ctx);
-        final primaryColor = MaintenanceMapPalette.primaryOf(ctx);
-
-        return Dialog(
-          backgroundColor: surfaceColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 48,
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 360,
-              maxHeight: screenHeight * 0.7,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Pilih wilayah',
-                          style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: textPrimaryColor,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 20),
-                        tooltip: 'Tutup',
-                        color: textSecondaryColor,
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(
-                  height: 1,
-                  thickness: 0.5,
-                  color: dividerColor,
-                ),
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: list.length,
-                    itemBuilder: (context, index) {
-                      final w = list[index];
-                      final isSelected = w == _selectedWilayah;
-                      final count = w == 'Semua'
-                          ? _allStatuses.length
-                          : _allStatuses.where((s) => s.wilayah == w).length;
-
-                      return Material(
-                        color: isSelected
-                            ? primaryColor.withValues(alpha: 0.08)
-                            : Colors.transparent,
-                        child: InkWell(
-                          onTap: () => Navigator.pop(ctx, w),
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(minHeight: 48),
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      w,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontFamily: 'PlusJakartaSans',
-                                        fontSize: 14,
-                                        fontWeight: isSelected
-                                            ? FontWeight.w700
-                                            : FontWeight.w500,
-                                        color: isSelected
-                                            ? primaryColor
-                                            : textPrimaryColor,
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: surfaceRaisedColor,
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: Text(
-                                      '$count',
-                                      style: TextStyle(
-                                        fontFamily: 'PlusJakartaSans',
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: textSecondaryColor,
-                                      ),
-                                    ),
-                                  ),
-                                  if (isSelected) ...[
-                                    const SizedBox(width: 8),
-                                    Icon(
-                                      Icons.check_rounded,
-                                      size: 18,
-                                      color: primaryColor,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    if (selected != null && selected != _selectedWilayah && mounted) {
-      setState(() {
-        _selectedWilayah = selected;
-      });
-      _fitMapToCurrentFilter();
-    }
-  }
-
-  Widget _buildCompactMonthSwitcher() {
-    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
-    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
-    final primaryColor = MaintenanceMapPalette.primaryOf(context);
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.chevron_left),
-          iconSize: 18,
-          color: textPrimaryColor,
-          tooltip: 'Bulan sebelumnya',
-          visualDensity: VisualDensity.compact,
-          padding: EdgeInsets.zero,
-          style: IconButton.styleFrom(
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            minimumSize: const Size(32, 44),
-            padding: EdgeInsets.zero,
-          ),
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 44),
-          onPressed: _previousMonth,
-        ),
-        Icon(
-          Icons.calendar_today_rounded,
-          size: 13,
-          color: primaryColor,
-        ),
-        const SizedBox(width: 4),
-        Text(
-          _formatBulanTahunShort(_selectedMonth),
-          maxLines: 1,
-          softWrap: false,
-          style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            color: textPrimaryColor,
-          ),
-        ),
-        Semantics(
-          enabled: _canGoNextMonth,
-          label: 'Bulan berikutnya',
-          child: IconButton(
-            icon: const Icon(Icons.chevron_right),
-            iconSize: 18,
-            color: _canGoNextMonth
-                ? textPrimaryColor
-                : textSecondaryColor.withValues(alpha: 0.38),
-            tooltip: _canGoNextMonth ? 'Bulan berikutnya' : null,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            style: IconButton.styleFrom(
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              minimumSize: const Size(32, 44),
-              padding: EdgeInsets.zero,
-            ),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 44),
-            onPressed: _canGoNextMonth ? _nextMonth : null,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPhaseStrip() {
+    final colors = TiketColors.of(context);
     final now = DateTime.now();
     final currentPhase = MaintenanceLogService.phaseForDate(now);
     final isCur = _isCurrentMonth;
@@ -1334,129 +798,525 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
         ? 'Fase $currentPhase · Tgl ${_phaseDateRange(currentPhase, _selectedMonth.year, _selectedMonth.month)} · ${MaintenanceLogService.phaseNames[currentPhase] ?? ''}'
         : 'Rekap 4 Fase · Seluruh fase bulan ini';
 
-    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
-    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
-    final dividerColor = MaintenanceMapPalette.dividerOf(context);
-    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
-    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
-    final primaryColor = MaintenanceMapPalette.primaryOf(context);
-    final pendingColor = MaintenanceMapPalette.pendingOf(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: surfaceColor,
-        border: Border(
-          bottom: BorderSide(
-            color: dividerColor,
-            width: 1,
-          ),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: colors.canvas,
+      body: Column(
         children: [
-          // Row 1: Title 13/600 + Pos done count 12 secondary
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: textPrimaryColor,
+          TiketBand(
+            caption: 'Map Maintenance',
+            leading: TiketIconButton(
+              icon: Icons.arrow_back_rounded,
+              semanticLabel: 'Kembali',
+              onPressed: () => Navigator.maybePop(context),
+            ),
+            actions: [
+              _buildCompactMonthSwitcher(),
+              TiketIconButton(
+                icon: Icons.refresh_rounded,
+                semanticLabel: 'Perbarui data',
+                onPressed: _loadMonthData,
+              ),
+            ],
+            hero: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Semantics(
+                  button: true,
+                  label: 'Filter wilayah, $_selectedWilayah',
+                  child: TiketPill(
+                    label: _selectedWilayah,
+                    icon: Icons.place_outlined,
+                    kind: TiketPillKind.band,
+                    onPressed: _showWilayahDialog,
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '$posDone/$totalFiltered lokasi',
-                style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: textSecondaryColor,
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$posDone/$totalFiltered lokasi',
+                      style: TextStyle(
+                        fontFamily: TiketType.fontFamily,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: colors.bandCaption,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          // Full-width LinearProgressIndicator minHeight 4 radius 2
-          SizedBox(
-            width: double.infinity,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(2),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 4,
-                backgroundColor: surfaceRaisedColor,
-                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-              ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: double.infinity,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 4,
+                      backgroundColor: colors.bandTrack,
+                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            footer: Row(
+              children: [
+                Expanded(
+                  child: _buildPhaseStripStatTile(
+                    rank: 0,
+                    count: belumCount,
+                    label: 'Belum',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildPhaseStripStatTile(
+                    rank: 1,
+                    count: temuanCount,
+                    label: 'Temuan',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildPhaseStripStatTile(
+                    rank: 2,
+                    count: amanCount,
+                    label: 'Aman',
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          // Row of 3 Expanded stat tiles with 8dp gaps
-          Row(
-            children: [
-              Expanded(
-                child: _buildPhaseStripStatTile(
-                  rank: 0,
-                  count: belumCount,
-                  color: pendingColor,
-                  label: 'Belum',
+          if (_isLoading)
+            LinearProgressIndicator(
+              minHeight: 2,
+              backgroundColor: Colors.transparent,
+              valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+            ),
+          if (_isOffline) _buildOfflineBanner(),
+          Expanded(
+            child: Stack(
+              children: [
+                FlutterMap(
+                  mapController: _mapController,
+                  options: _mapOptions,
+                  children: [
+                    if (widget.showTileLayer)
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        retinaMode: RetinaMode.isHighDensity(context),
+                        userAgentPackageName:
+                            'com.bssparking.timemark.bssparking_timemark',
+                      ),
+                    if (widget.showTileLayer)
+                      const RichAttributionWidget(
+                        attributions: [
+                          TextSourceAttribution(
+                              'OpenStreetMap contributors'),
+                        ],
+                      ),
+                    MarkerLayer(
+                      markers: _buildMarkers(),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildPhaseStripStatTile(
-                  rank: 1,
-                  count: temuanCount,
-                  color: MaintenanceMapPalette.findingIcon,
-                  label: 'Temuan',
+                if (_filteredStatuses.isEmpty && _selectedStatusRank != null)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.canvas,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: colors.hairline,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: colors.ink.withValues(alpha: 0.08),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Tidak ada lokasi ${_statusRankLabel(_selectedStatusRank!)} di $_selectedWilayah',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: colors.ink,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedStatusRank = null;
+                                });
+                                _fitMapToCurrentFilter();
+                              },
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                minimumSize: const Size(44, 36),
+                              ),
+                              child: Text(
+                                'Tampilkan semua',
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  right: 12,
+                  bottom: 16,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildFloatingControlButton(
+                        icon: Icons.center_focus_strong,
+                        tooltip: 'Pusatkan Peta',
+                        onTap: _fitMapToCurrentFilter,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildZoomControlsPill(),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildPhaseStripStatTile(
-                  rank: 2,
-                  count: amanCount,
-                  color: MaintenanceMapPalette.safeIcon,
-                  label: 'Aman',
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildOfflineBanner() {
+    final colors = TiketColors.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: colors.signal.withValues(alpha: 0.15),
+      child: Row(
+        children: [
+          Icon(
+            Icons.cloud_off_rounded,
+            size: 16,
+            color: colors.signalText,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _lastFetchTime != null
+                  ? 'Offline, menampilkan data lokal · Update ${_formatJamMenit(_lastFetchTime!)}'
+                  : 'Offline, menampilkan data lokal',
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: colors.signalText,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _loadMonthData,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(44, 32),
+            ),
+            child: Text(
+              'Coba lagi',
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: colors.signalText,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactMonthSwitcher() {
+    final colors = TiketColors.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left),
+          iconSize: 20,
+          color: colors.white,
+          tooltip: 'Bulan sebelumnya',
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          style: IconButton.styleFrom(
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            minimumSize: const Size(40, 44),
+            padding: EdgeInsets.zero,
+          ),
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 44),
+          onPressed: _previousMonth,
+        ),
+        Icon(
+          Icons.calendar_today_rounded,
+          size: 14,
+          color: colors.white,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          _formatBulanTahunShort(_selectedMonth),
+          maxLines: 1,
+          softWrap: false,
+          style: TextStyle(
+            fontFamily: TiketType.fontFamily,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: colors.white,
+          ),
+        ),
+        Semantics(
+          enabled: _canGoNextMonth,
+          label: 'Bulan berikutnya',
+          child: IconButton(
+            icon: Icon(
+              Icons.chevron_right,
+              color: _canGoNextMonth ? colors.white : colors.white.withValues(alpha: 0.38),
+            ),
+            iconSize: 20,
+            tooltip: _canGoNextMonth ? 'Bulan berikutnya' : null,
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              minimumSize: const Size(40, 44),
+              padding: EdgeInsets.zero,
+            ),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 44),
+            onPressed: _canGoNextMonth ? _nextMonth : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showWilayahDialog() async {
+    final list = _availableWilayahList;
+    final colors = TiketColors.of(context);
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final screenHeight = MediaQuery.sizeOf(ctx).height;
+        return Dialog(
+          backgroundColor: colors.dialog,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 48,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 360,
+              maxHeight: screenHeight * 0.7,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Pilih wilayah',
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: colors.ink,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        tooltip: 'Tutup',
+                        color: colors.ink,
+                        onPressed: () => Navigator.pop(ctx),
+                        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(
+                  height: 1,
+                  thickness: 1.0,
+                  color: colors.hairline,
+                ),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: list.length,
+                    itemBuilder: (context, index) {
+                      final w = list[index];
+                      final isSelected = w == _selectedWilayah;
+                      final count = w == 'Semua'
+                          ? _allStatuses.length
+                          : _allStatuses.where((s) => s.wilayah == w).length;
+
+                      return Material(
+                        color: isSelected
+                            ? colors.primary.withValues(alpha: 0.08)
+                            : Colors.transparent,
+                        child: InkWell(
+                          onTap: () => Navigator.pop(ctx, w),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 48),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      w,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: TiketType.fontFamily,
+                                        fontSize: 14,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color: isSelected
+                                            ? colors.primary
+                                            : colors.ink,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colors.soft,
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      '$count',
+                                      style: TextStyle(
+                                        fontFamily: TiketType.fontFamily,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: colors.body,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelected) ...[
+                                    const SizedBox(width: 8),
+                                    Icon(
+                                      Icons.check_rounded,
+                                      size: 18,
+                                      color: colors.primary,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected != null && selected != _selectedWilayah && mounted) {
+      setState(() {
+        _selectedWilayah = selected;
+      });
+      _fitMapToCurrentFilter();
+    }
+  }
+
   Widget _buildPhaseStripStatTile({
     required int rank,
     required int count,
-    required Color color,
     required String label,
   }) {
+    final colors = TiketColors.of(context);
     final isSelected = _selectedStatusRank == rank;
-    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
-    final dividerColor = MaintenanceMapPalette.dividerOf(context);
-    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
-    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
+    final isOrangeTemuan = rank == 1 && count > 0;
+
+    Color tileBg;
+    Color textColor;
+    Color countColor;
+    Border? border;
+
+    if (isOrangeTemuan) {
+      tileBg = colors.signal;
+      textColor = colors.ink;
+      countColor = colors.ink;
+      if (isSelected) {
+        border = Border.all(color: colors.white, width: 2.0);
+      }
+    } else if (isSelected) {
+      tileBg = colors.white;
+      textColor = colors.ink;
+      countColor = colors.ink;
+    } else {
+      tileBg = colors.bandRaise;
+      textColor = colors.white;
+      countColor = colors.white;
+      border = Border.all(color: colors.bandLine, width: 1.0);
+    }
 
     return Semantics(
       button: true,
       selected: isSelected,
       label: 'Tampilkan lokasi $count $label saja',
       child: Material(
-        color: isSelected
-            ? color.withValues(alpha: 0.12)
-            : surfaceRaisedColor,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.transparent,
         child: InkWell(
           onTap: () {
             setState(() {
@@ -1466,14 +1326,12 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
           },
           borderRadius: BorderRadius.circular(12),
           child: Container(
-            constraints: const BoxConstraints(minHeight: 56),
+            constraints: const BoxConstraints(minHeight: 52),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
+              color: tileBg,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected ? color : dividerColor,
-                width: isSelected ? 1.5 : 1.0,
-              ),
+              border: border,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1482,43 +1340,24 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                 Text(
                   '$count',
                   style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: TiketType.fontFamily,
                     fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: textPrimaryColor,
+                    fontWeight: FontWeight.w800,
+                    color: countColor,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
                 const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        label,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontSize: 12,
-                          height: 1.15,
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isSelected
-                              ? textPrimaryColor
-                              : textSecondaryColor,
-                        ),
-                      ),
-                    ),
-                  ],
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: TiketType.fontFamily,
+                    fontSize: 12,
+                    fontWeight: isSelected || isOrangeTemuan ? FontWeight.w700 : FontWeight.w600,
+                    color: textColor,
+                  ),
                 ),
               ],
             ),
@@ -1676,22 +1515,38 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     final isUrgent = urgentPosIds.contains(s.location.posId);
     final items = temuanByPos[s.location.posId] ?? const [];
     final temuanCount = items.where((i) => !i.isFixed).length;
-    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
-    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
-    final primaryColor = MaintenanceMapPalette.primaryOf(context);
+    final colors = TiketColors.of(context);
 
-    Color borderColor;
-    IconData icon;
+    final rank = _statusRank(s);
+    Color glyphColor;
+    Color circleBg;
+    Color circleBorder;
+    IconData glyphIcon;
+
     if (isUrgent) {
-      borderColor = MaintenanceMapPalette.urgentRed;
-      icon = Icons.error_rounded;
+      glyphColor = colors.white;
+      circleBg = colors.danger;
+      circleBorder = colors.danger;
+      glyphIcon = Icons.priority_high_rounded;
+    } else if (rank == 1) {
+      glyphColor = colors.black;
+      circleBg = colors.signal;
+      circleBorder = colors.signal;
+      glyphIcon = Icons.priority_high_rounded;
+    } else if (rank == 2) {
+      glyphColor = colors.white;
+      circleBg = colors.ok;
+      circleBorder = colors.ok;
+      glyphIcon = Icons.check_rounded;
     } else {
-      borderColor = _statusColor(s);
-      icon = _statusIcon(s);
+      glyphColor = colors.body;
+      circleBg = colors.soft;
+      circleBorder = colors.mute;
+      glyphIcon = Icons.remove_rounded;
     }
 
     String semanticLabel;
-    if (_statusRank(s) == 0) {
+    if (rank == 0) {
       semanticLabel = '${s.location.locationTag}, belum dikerjakan';
     } else if (temuanCount > 0) {
       if (isUrgent) {
@@ -1706,7 +1561,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     return Marker(
       point: LatLng(s.location.lat, s.location.lng),
       width: 100,
-      height: 48,
+      height: 60,
       alignment: Alignment.center,
       child: Semantics(
         button: true,
@@ -1714,60 +1569,83 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
         child: GestureDetector(
           onTap: () => _onMarkerTap(s),
           child: Container(
-            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 60),
             alignment: Alignment.center,
             color: Colors.transparent,
-            child: Stack(
-              clipBehavior: Clip.none,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: circleBg,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: selected ? colors.primary : circleBorder,
+                          width: selected ? 2.5 : 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colors.ink.withValues(alpha: 0.16),
+                            blurRadius: selected ? 6 : 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(glyphIcon, size: 16, color: glyphColor),
+                    ),
+                    if (temuanCount > 0)
+                      Positioned(
+                        top: -4,
+                        right: -4,
+                        child: _buildNotificationBadge(
+                          count: temuanCount,
+                          isUrgent: isUrgent,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 1),
                 Container(
-                  height: 28,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(
-                    color: surfaceColor,
+                    color: colors.canvas,
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: selected ? primaryColor : borderColor,
-                      width: selected ? 2.0 : 1.5,
+                      color: selected ? colors.primary : colors.mute,
+                      width: 1.0,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0x14000000),
-                        blurRadius: selected ? 6 : 4,
+                        color: colors.ink.withValues(alpha: 0.10),
+                        blurRadius: 3,
                         offset: const Offset(0, 1),
                       ),
                     ],
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, size: 14, color: borderColor),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          s.location.locationTag,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: textPrimaryColor,
-                          ),
+                  child: SizedBox(
+                    height: 14,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        s.location.locationTag,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: colors.ink,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                if (temuanCount > 0)
-                  Positioned(
-                    top: -6,
-                    right: -6,
-                    child: _buildNotificationBadge(
-                      count: temuanCount,
-                      isUrgent: isUrgent,
                     ),
                   ),
+                ),
               ],
             ),
           ),
@@ -1793,18 +1671,27 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
           (temuanByPos[m.location.posId]?.where((i) => !i.isFixed).length ??
               0),
     );
-    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
-    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
+    final colors = TiketColors.of(context);
 
-    Color clusterBorderColor;
+    Color clusterBg;
+    Color clusterBorder;
+    Color textColor;
     if (cluster.maxSeverity == 3) {
-      clusterBorderColor = MaintenanceMapPalette.urgentRed;
+      clusterBg = colors.danger;
+      clusterBorder = colors.danger;
+      textColor = colors.white;
     } else if (cluster.maxSeverity == 2) {
-      clusterBorderColor = MaintenanceMapPalette.findingIcon;
+      clusterBg = colors.signal;
+      clusterBorder = colors.signal;
+      textColor = colors.black;
     } else if (cluster.maxSeverity == 1) {
-      clusterBorderColor = MaintenanceMapPalette.pendingOf(context);
+      clusterBg = colors.soft;
+      clusterBorder = colors.mute;
+      textColor = colors.body;
     } else {
-      clusterBorderColor = MaintenanceMapPalette.safeGreen;
+      clusterBg = colors.ok;
+      clusterBorder = colors.ok;
+      textColor = colors.white;
     }
 
     final semanticLabel = hasUrgent
@@ -1823,29 +1710,9 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
         button: true,
         label: semanticLabel,
         child: GestureDetector(
-          onTap: () {
-            final allSameCoords = cluster.members.every((m) =>
-                (m.location.lat - cluster.members.first.location.lat).abs() <
-                    0.0001 &&
-                (m.location.lng - cluster.members.first.location.lng).abs() <
-                    0.0001);
-
-            if (_mapController.camera.zoom < 17 && !allSameCoords) {
-              _mapController.fitCamera(
-                CameraFit.coordinates(
-                  coordinates: cluster.members
-                      .map((m) => LatLng(m.location.lat, m.location.lng))
-                      .toList(),
-                  padding: const EdgeInsets.all(40),
-                ),
-              );
-            } else {
-              _showClusterMembersSheet(cluster.members);
-            }
-          },
+          onTap: () => _showClusterMembersSheet(cluster.members),
           child: Container(
-            width: 48,
-            height: 48,
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             alignment: Alignment.center,
             color: Colors.transparent,
             child: Stack(
@@ -1855,14 +1722,14 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: surfaceColor,
+                    color: clusterBg,
                     shape: BoxShape.circle,
-                    border: Border.all(color: clusterBorderColor, width: 2.0),
-                    boxShadow: const [
+                    border: Border.all(color: clusterBorder, width: 2.0),
+                    boxShadow: [
                       BoxShadow(
-                        color: Color(0x14000000),
+                        color: colors.ink.withValues(alpha: 0.16),
                         blurRadius: 4,
-                        offset: Offset(0, 1),
+                        offset: const Offset(0, 1),
                       ),
                     ],
                   ),
@@ -1870,10 +1737,10 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                   child: Text(
                     '$n',
                     style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: textPrimaryColor,
+                      fontFamily: TiketType.fontFamily,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
                     ),
                   ),
                 ),
@@ -1893,19 +1760,15 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
       ),
     );
   }
-
   void _showClusterMembersSheet(List<PosMaintenanceStatus> members) {
-    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
+    final colors = TiketColors.of(context);
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: surfaceColor,
+      backgroundColor: colors.dialog,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        final dividerColor = MaintenanceMapPalette.dividerOf(ctx);
-        final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(ctx);
-        final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(ctx);
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1919,7 +1782,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: dividerColor,
+                      color: colors.hairline,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -1930,10 +1793,10 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                   child: Text(
                     '${members.length} Lokasi Terpilih',
                     style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: TiketType.fontFamily,
                       fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: textPrimaryColor,
+                      fontWeight: FontWeight.w700,
+                      color: colors.ink,
                     ),
                   ),
                 ),
@@ -1944,7 +1807,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                     separatorBuilder: (context, index) => Divider(
                       height: 1,
                       thickness: 0.5,
-                      color: dividerColor,
+                      color: colors.hairline,
                     ),
                     itemBuilder: (ctx, i) {
                       final m = members[i];
@@ -1966,23 +1829,23 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                         title: Text(
                           '${m.location.locationTag} · ${MaintenanceMapScreen.shortName(m.location)}',
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: TiketType.fontFamily,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: textPrimaryColor,
+                            color: colors.ink,
                           ),
                         ),
                         subtitle: Text(
                           _statusLabel(m),
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: TiketType.fontFamily,
                             fontSize: 12,
-                            color: textSecondaryColor,
+                            color: colors.body,
                           ),
                         ),
                         trailing: Icon(
                           Icons.chevron_right,
-                          color: textSecondaryColor,
+                          color: colors.body,
                         ),
                         onTap: () {
                           Navigator.pop(ctx);
@@ -2002,87 +1865,31 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   }
 
   Widget _buildZoomControlsPill() {
-    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
-    final dividerColor = MaintenanceMapPalette.dividerOf(context);
-    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
-
-    return Container(
-      width: 40,
-      height: 88,
-      decoration: BoxDecoration(
-        color: surfaceColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: dividerColor,
-          width: 1,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildFloatingControlButton(
+          icon: Icons.add,
+          tooltip: 'Perbesar',
+          onTap: () {
+            _mapController.move(
+              _mapController.camera.center,
+              _mapController.camera.zoom + 1,
+            );
+          },
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 6,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Expanded(
-            child: Material(
-              color: Colors.transparent,
-              child: Tooltip(
-                message: 'Perbesar',
-                child: InkWell(
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(20)),
-                  onTap: () {
-                    _mapController.move(
-                      _mapController.camera.center,
-                      _mapController.camera.zoom + 1,
-                    );
-                  },
-                  child: Center(
-                    child: Icon(
-                      Icons.add,
-                      size: 18,
-                      color: textPrimaryColor,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Divider(
-            height: 1,
-            thickness: 0.8,
-            color: dividerColor,
-          ),
-          Expanded(
-            child: Material(
-              color: Colors.transparent,
-              child: Tooltip(
-                message: 'Perkecil',
-                child: InkWell(
-                  borderRadius:
-                      const BorderRadius.vertical(bottom: Radius.circular(20)),
-                  onTap: () {
-                    _mapController.move(
-                      _mapController.camera.center,
-                      _mapController.camera.zoom - 1,
-                    );
-                  },
-                  child: Center(
-                    child: Icon(
-                      Icons.remove,
-                      size: 18,
-                      color: textPrimaryColor,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        const SizedBox(height: 8),
+        _buildFloatingControlButton(
+          icon: Icons.remove,
+          tooltip: 'Perkecil',
+          onTap: () {
+            _mapController.move(
+              _mapController.camera.center,
+              _mapController.camera.zoom - 1,
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -2091,10 +1898,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     required String tooltip,
     required VoidCallback onTap,
   }) {
-    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
-    final dividerColor = MaintenanceMapPalette.dividerOf(context);
-    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
-
+    final colors = TiketColors.of(context);
     return Material(
       color: Colors.transparent,
       child: Tooltip(
@@ -2105,30 +1909,26 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
           child: Container(
             width: 44,
             height: 44,
-            alignment: Alignment.center,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: surfaceColor,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: dividerColor,
-                  width: 1,
+            decoration: BoxDecoration(
+              color: colors.canvas,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: colors.hairline,
+                width: 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.ink.withValues(alpha: 0.12),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x14000000),
-                    blurRadius: 6,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                icon,
-                size: 18,
-                color: textPrimaryColor,
-              ),
+              ],
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              icon,
+              size: 20,
+              color: colors.ink,
             ),
           ),
         ),

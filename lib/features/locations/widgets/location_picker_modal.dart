@@ -1,8 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/services/theme_service.dart';
+import '../../../core/constants/tiket_colors.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/branch_service.dart';
 import '../screens/location_management_screen.dart';
@@ -27,14 +28,15 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
   List<Map<String, dynamic>> _rankedLocations = [];
   String _searchQuery = '';
 
-  static const List<Color> _palette = [
-    Color(0xFFF59E0B), // Amber / Gold
-    Color(0xFF3B82F6), // Blue
-    Color(0xFF10B981), // Emerald Green
-    Color(0xFF8B5CF6), // Purple
-    Color(0xFFEF4444), // Red
-    Color(0xFF0F172A), // Dark Slate
+  static final List<Color> _palette = [
+    const Color.fromARGB(255, 245, 158, 11), // Amber / Gold
+    const Color.fromARGB(255, 59, 130, 246), // Blue
+    const Color.fromARGB(255, 16, 185, 129), // Emerald Green
+    const Color.fromARGB(255, 139, 92, 246), // Purple
+    const Color.fromARGB(255, 239, 68, 68), // Red
+    const Color.fromARGB(255, 15, 23, 42), // Dark Slate
   ];
+
   @override
   void initState() {
     super.initState();
@@ -66,7 +68,8 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
           : 'POS-${Random().nextInt(90) + 10}',
     );
     final cabangController = TextEditingController(text: currentBranch.name);
-    Color selectedColor = const Color(0xFFF59E0B);
+    Color selectedColor = _palette.first;
+    final colors = TiketColors.of(context);
 
     showDialog(
       context: context,
@@ -74,11 +77,16 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
         return StatefulBuilder(
           builder: (ctx, setDlgState) {
             return AlertDialog(
-              title: const Row(
+              backgroundColor: colors.dialog,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
                 children: [
-                  Icon(Icons.add_location_alt_rounded, color: AppColors.primary),
-                  SizedBox(width: 8),
-                  Text('Simpan Lokasi GPS Saat Ini', style: TextStyle(fontSize: 15)),
+                  Icon(Icons.add_location_alt_rounded, color: colors.ink),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Simpan Lokasi GPS Saat Ini',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: colors.ink),
+                  ),
                 ],
               ),
               content: SingleChildScrollView(
@@ -88,7 +96,17 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                   children: [
                     TextField(
                       controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Nama Lokasi *', isDense: true),
+                      style: TextStyle(color: colors.ink),
+                      decoration: InputDecoration(
+                        labelText: 'Nama Lokasi *',
+                        labelStyle: TextStyle(color: colors.body),
+                        isDense: true,
+                        filled: true,
+                        fillColor: colors.soft,
+                        border: UnderlineInputBorder(
+                          borderSide: BorderSide(color: colors.hairline, width: 2.0),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Row(
@@ -96,22 +114,42 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                         Expanded(
                           child: TextField(
                             controller: tagController,
-                            decoration: const InputDecoration(labelText: 'Tag Card *', isDense: true),
+                            style: TextStyle(color: colors.ink),
+                            decoration: InputDecoration(
+                              labelText: 'Tag Card *',
+                              labelStyle: TextStyle(color: colors.body),
+                              isDense: true,
+                              filled: true,
+                              fillColor: colors.soft,
+                              border: UnderlineInputBorder(
+                                borderSide: BorderSide(color: colors.hairline, width: 2.0),
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextField(
                             controller: cabangController,
-                            decoration: const InputDecoration(labelText: 'Cabang / Area', isDense: true),
+                            style: TextStyle(color: colors.ink),
+                            decoration: InputDecoration(
+                              labelText: 'Cabang / Area',
+                              labelStyle: TextStyle(color: colors.body),
+                              isDense: true,
+                              filled: true,
+                              fillColor: colors.soft,
+                              border: UnderlineInputBorder(
+                                borderSide: BorderSide(color: colors.hairline, width: 2.0),
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 10),
-                    const Text(
+                    Text(
                       'Pilih Warna Tag Badge Card:',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: colors.body),
                     ),
                     const SizedBox(height: 6),
                     Row(
@@ -127,12 +165,12 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                               color: c,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: isSel ? Colors.black : Colors.transparent,
+                                color: isSel ? colors.ink : Colors.transparent,
                                 width: 2.5,
                               ),
                             ),
                             child: isSel
-                                ? const Icon(Icons.check, color: Colors.white, size: 14)
+                                ? Icon(Icons.check, color: colors.canvas, size: 14)
                                 : null,
                           ),
                         );
@@ -144,9 +182,13 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dlgCtx).pop(),
-                  child: const Text('Batal'),
+                  child: Text('Batal', style: TextStyle(color: colors.body)),
                 ),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    foregroundColor: colors.onPrimary,
+                  ),
                   onPressed: () async {
                     if (nameController.text.trim().isEmpty || tagController.text.trim().isEmpty) return;
 
@@ -174,7 +216,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('Lokasi "${newPos.posName}" disimpan dan jadi aktif!'),
-                          backgroundColor: AppColors.success,
+                          backgroundColor: colors.ok,
                         ),
                       );
                     }
@@ -202,77 +244,105 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
           pos.fullAddress.toLowerCase().contains(q);
     }).toList();
 
-    final isDark = ThemeService.isDarkMode(context);
-    final sheetBg = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final textPrimary = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-    final textMuted = isDark ? const Color(0xFF64748B) : AppColors.textMuted;
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final searchFill = isDark ? const Color(0xFF1E293B) : Colors.grey.shade100;
-    final searchBorder = isDark ? const Color(0xFF334155) : Colors.grey.shade300;
+    final colors = TiketColors.of(context);
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: BoxDecoration(
-        color: sheetBg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        color: colors.dialog,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
               child: Container(
-                width: 40,
+                width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                  color: colors.hairline,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
 
-            // Header with GPS Status
+            // Header with GPS Status and Close Button
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.near_me_rounded, color: AppColors.primary, size: 22),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Pilih Lokasi (${BranchService.instance.currentBranch.name})',
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w800,
-                        color: textPrimary,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Pilih Lokasi',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: colors.ink,
+                              fontFamily: 'PlusJakartaSans',
+                            ),
+                          ),
+                          Flexible(
+                            child: Text(
+                              ' (${BranchService.instance.currentBranch.name})',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: colors.body,
+                                fontFamily: 'PlusJakartaSans',
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        'Pilih atau simpan titik lokasi aktif',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colors.body,
+                          fontFamily: 'PlusJakartaSans',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.refresh_rounded, size: 20, color: textPrimary),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                  icon: Icon(Icons.refresh_rounded, size: 20, color: colors.mute),
                   onPressed: _fetchGpsAndRank,
                   tooltip: 'Refresh GPS',
                 ),
+                IconButton(
+                  tooltip: 'Tutup',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                  icon: Icon(Icons.close_rounded, color: colors.mute, size: 22),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.of(context).pop();
+                  },
+                ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
+            Divider(color: colors.hairline, height: 1),
+            const SizedBox(height: 10),
 
-            // Live GPS Status Banner
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : AppColors.primaryLight.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.primary.withValues(alpha: 0.2)),
-              ),
+            // Live GPS Status Banner (flat on canvas)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
-                  const Icon(Icons.gps_fixed, color: AppColors.accent, size: 20),
+                  Icon(Icons.check_circle, color: colors.ok, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -280,72 +350,71 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                       children: [
                         Text(
                           _isLoadingGps
-                              ? 'Mencari sinyal GPS perangkat...'
-                              : 'GPS: ${_currentGps!.lat.toStringAsFixed(6)}°N, ${_currentGps!.lng.toStringAsFixed(6)}°E',
+                              ? 'Mencari sinyal GPS...'
+                              : '${_currentGps!.lat.toStringAsFixed(4)}, ${_currentGps!.lng.toStringAsFixed(4)}',
                           style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'monospace',
-                            color: isDark ? const Color(0xFF38BDF8) : AppColors.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'PlusJakartaSans',
+                            color: colors.ink,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           _isLoadingGps
-                              ? 'Mengukur jarak ke lokasi terdekat...'
+                              ? 'Mengukur jarak...'
                               : _currentGps!.fullAddress,
                           style: TextStyle(
-                            fontSize: 11,
-                            color: textSecondary,
+                            fontSize: 11.5,
+                            color: colors.body,
+                            fontFamily: 'PlusJakartaSans',
                           ),
                           maxLines: 2,
-                          softWrap: true,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
                   if (!_isLoadingGps)
-                    TextButton.icon(
+                    TiketPill(
+                      kind: TiketPillKind.secondary,
+                      icon: Icons.location_on_outlined,
+                      label: 'Simpan Lokasi',
                       onPressed: _saveCurrentGpsAsNewPos,
-                      icon: const Icon(Icons.add_location, size: 14),
-                      label: const Text('Simpan Lokasi', style: TextStyle(fontSize: 10.5)),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        visualDensity: VisualDensity.compact,
-                      ),
                     ),
                 ],
               ),
             ),
             const SizedBox(height: 10),
 
-            // Search Bar for 100+ locations
-            TextField(
-              style: TextStyle(color: textPrimary, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'Cari nama lokasi, tag, cabang...',
-                hintStyle: TextStyle(color: textMuted, fontSize: 12.5),
-                prefixIcon: Icon(Icons.search, size: 18, color: textMuted),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.clear, size: 16, color: textMuted),
-                        onPressed: () => setState(() => _searchQuery = ''),
-                      )
-                    : null,
-                isDense: true,
-                filled: true,
-                fillColor: searchFill,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: searchBorder),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: searchBorder),
+            // Search Bar for locations (Input language: soft fill, radius 0, 2px bottom rule)
+            Container(
+              decoration: BoxDecoration(
+                color: colors.soft,
+                border: Border(
+                  bottom: BorderSide(color: colors.body, width: 2.0),
                 ),
               ),
-              onChanged: (val) => setState(() => _searchQuery = val),
+              child: TextField(
+                style: TextStyle(color: colors.ink, fontSize: 13, fontFamily: 'PlusJakartaSans'),
+                decoration: InputDecoration(
+                  hintText: 'Cari nama lokasi, tag, cabang...',
+                  hintStyle: TextStyle(color: colors.mute, fontSize: 12.5, fontFamily: 'PlusJakartaSans'),
+                  prefixIcon: Icon(Icons.search, size: 18, color: colors.mute),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                          icon: Icon(Icons.clear, size: 16, color: colors.mute),
+                          onPressed: () => setState(() => _searchQuery = ''),
+                        )
+                      : null,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                  border: InputBorder.none,
+                ),
+                onChanged: (val) => setState(() => _searchQuery = val),
+              ),
             ),
             const SizedBox(height: 10),
 
@@ -353,15 +422,21 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Daftar Lokasi (Urut Jarak Terdekat):',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.bold,
-                    color: textMuted,
+                Expanded(
+                  child: Text(
+                    'Daftar lokasi (urut jarak terdekat)',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: colors.body,
+                      fontFamily: 'PlusJakartaSans',
+                    ),
                   ),
                 ),
                 TextButton(
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                  ),
                   onPressed: () {
                     Navigator.of(context).pop();
                     Navigator.of(context).push(
@@ -372,13 +447,16 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                       ),
                     );
                   },
-                  child: const Text('Kelola Semua Lokasi', style: TextStyle(fontSize: 11)),
+                  child: Text(
+                    'Kelola Semua Lokasi',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: colors.ink, fontFamily: 'PlusJakartaSans'),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
 
-            // Ranked List of Locations
+            // Ranked List of Locations (flat rows with hairline dividers)
             Expanded(
               child: _isLoadingGps
                   ? const Center(
@@ -395,98 +473,113 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                                 : 'Belum ada daftar lokasi',
                             style: TextStyle(
                               fontSize: 12.5,
-                              color: textSecondary,
+                              color: colors.body,
+                              fontFamily: 'PlusJakartaSans',
                             ),
                           ),
                         )
-                      : ListView.builder(
+                      : ListView.separated(
                           itemCount: filteredRanked.length,
+                          separatorBuilder: (context, index) => Divider(color: colors.hairline, height: 1),
                           itemBuilder: (ctx, idx) {
                             final item = filteredRanked[idx];
                             final pos = item['location'] as PosLocation;
                             final distText = item['distanceText'] as String;
                             final isCurrent = pos.posId == activePos.posId;
 
-                            return Card(
-                              color: cardBg,
-                              margin: const EdgeInsets.only(bottom: 8),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                side: BorderSide(
-                                  color: isCurrent ? AppColors.primary : cardBorder,
-                                  width: isCurrent ? 2 : 1,
-                                ),
-                              ),
-                              child: ListTile(
-                                dense: true,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                leading: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: pos.tagColor,
-                                    borderRadius: BorderRadius.circular(6),
+                            return InkWell(
+                              onTap: () {
+                                LocationService.currentPos = pos;
+                                widget.onLocationSelected(pos);
+                                Navigator.of(context).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Lokasi aktif: ${pos.posName} [${pos.locationTag}]'),
+                                    backgroundColor: colors.primary,
+                                    duration: const Duration(seconds: 1),
                                   ),
-                                  child: Text(
-                                    pos.locationTag,
-                                    style: const TextStyle(
-                                      color: Colors.black87,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ),
-                                title: Text(
-                                  pos.posName,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600,
-                                    color: isCurrent ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary) : textPrimary,
-                                  ),
-                                  softWrap: true,
-                                  maxLines: 2,
-                                ),
-                                subtitle: Text(
-                                  pos.fullAddress,
-                                  style: TextStyle(fontSize: 10.5, color: textSecondary),
-                                  softWrap: true,
-                                  maxLines: 2,
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                child: Row(
                                   children: [
+                                    // Code as neutral soft pill
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: isDark ? const Color(0xFF334155) : Colors.grey.shade100,
-                                        borderRadius: BorderRadius.circular(4),
+                                        color: colors.soft,
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
-                                        distText,
+                                        pos.locationTag,
                                         style: TextStyle(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: isDark ? const Color(0xFF38BDF8) : AppColors.primary,
+                                          color: colors.ink,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 11,
+                                          fontFamily: 'PlusJakartaSans',
                                         ),
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
+                                    // Status dot
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: isCurrent ? colors.primary : colors.signal,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    // Name & Address
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            pos.posName,
+                                            style: TextStyle(
+                                              fontSize: 13.5,
+                                              fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w700,
+                                              color: colors.ink,
+                                              fontFamily: 'PlusJakartaSans',
+                                            ),
+                                            softWrap: true,
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            pos.fullAddress,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: colors.body,
+                                              fontFamily: 'PlusJakartaSans',
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            softWrap: true,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Distance as trailing meta text
+                                    Text(
+                                      distText,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: colors.body,
+                                        fontFamily: 'PlusJakartaSans',
+                                      ),
+                                    ),
+                                    // Selected = StatusMarker ok trailing
                                     if (isCurrent) ...[
-                                      const SizedBox(width: 6),
-                                      const Icon(Icons.check_circle, color: AppColors.primary, size: 18),
+                                      const SizedBox(width: 8),
+                                      Icon(Icons.check_circle, color: colors.ok, size: 18),
                                     ],
                                   ],
                                 ),
-                                onTap: () {
-                                  LocationService.currentPos = pos;
-                                  widget.onLocationSelected(pos);
-                                  Navigator.of(context).pop();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Lokasi aktif: ${pos.posName} [${pos.locationTag}]'),
-                                      backgroundColor: AppColors.primary,
-                                      duration: const Duration(seconds: 1),
-                                    ),
-                                  );
-                                },
                               ),
                             );
                           },

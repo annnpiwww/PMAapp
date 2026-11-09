@@ -7,11 +7,11 @@ import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/tiket_colors.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../core/utils/verification_code.dart';
 import '../../../core/utils/share_helper.dart';
-import '../../../core/widgets/verification_step_card.dart';
 import '../../../core/widgets/app_file_image.dart';
 import '../../../core/utils/timemark_formatter.dart';
 import '../../../core/utils/image_watermark_processor.dart';
@@ -33,7 +33,6 @@ import '../../../data/services/secure_time_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/daily_task_service.dart';
 import '../widgets/interactive_watermark.dart';
-import '../widgets/sop_verification_modal.dart';
 import '../widgets/ios_pwa_install_modal.dart';
 import '../../history/screens/gallery_screen.dart';
 import '../../locations/widgets/location_picker_modal.dart';
@@ -89,9 +88,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   // Camera Settings State
   FlashMode _flashMode = FlashMode.off;
-  double _currentZoom = 1.0;
-  double _minZoom = 1.0;
-  double _maxZoom = 5.0;
 
   // Aspect Ratio Selector (Default: 3:4 portrait standard)
   CameraAspectRatio _aspectRatio = CameraAspectRatio.ratio3x4;
@@ -373,12 +369,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       } catch (_) {}
 
       try {
-        _minZoom = await controller.getMinZoomLevel();
-        _maxZoom = await controller.getMaxZoomLevel();
-      } catch (_) {
-        _minZoom = 1.0;
-        _maxZoom = 5.0;
-      }
+        final minZoom = await controller.getMinZoomLevel();
+        await controller.setZoomLevel(minZoom);
+      } catch (_) {}
 
       if (mounted) {
         setState(() {
@@ -454,17 +447,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           ),
         ),
       );
-  }
-
-  Future<void> _setZoom(double zoom) async {
-    if (_cameraController == null || !_isCameraInitialized) return;
-    try {
-      final target = zoom.clamp(_minZoom, _maxZoom);
-      await _cameraController!.setZoomLevel(target);
-      setState(() {
-        _currentZoom = target;
-      });
-    } catch (_) {}
   }
 
   void _onTemplateRepoChange() {
@@ -572,18 +554,18 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          backgroundColor: const Color(0xFF0F2C59),
+          backgroundColor: TiketColors.dark.dialog,
           title: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.2),
+                  color: TiketColors.dark.dangerTint,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.location_off_rounded,
-                  color: Colors.redAccent,
+                  color: TiketColors.dark.danger,
                   size: 24,
                 ),
               ),
@@ -664,8 +646,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF38BDF8),
-                foregroundColor: const Color(0xFF071731),
+                backgroundColor: TiketColors.dark.primary,
+                foregroundColor: TiketColors.dark.onPrimary,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 10,
@@ -740,11 +722,11 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.security_rounded, color: AppColors.primary, size: 24),
-            SizedBox(width: 8),
-            Text(
+            Icon(Icons.security_rounded, color: TiketColors.dark.primary, size: 24),
+            const SizedBox(width: 8),
+            const Text(
               'Izin Diperlukan',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
@@ -765,8 +747,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
+              backgroundColor: TiketColors.dark.primary,
+              foregroundColor: TiketColors.dark.onPrimary,
             ),
             onPressed: () async {
               Navigator.of(ctx).pop();
@@ -888,10 +870,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚡ Sinyal Lemah: Foto dialihkan ke cek manual SPV.'),
-            duration: Duration(seconds: 2),
-            backgroundColor: Color(0xFF1E293B),
+          SnackBar(
+            content: const Text('⚡ Sinyal Lemah: Foto dialihkan ke cek manual SPV.'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: TiketColors.dark.dialog,
           ),
         );
       }
@@ -905,11 +887,11 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.danger),
-            SizedBox(width: 8),
-            Text(
+            Icon(Icons.warning_amber_rounded, color: TiketColors.dark.danger),
+            const SizedBox(width: 8),
+            const Text(
               'Lokasi Tidak Valid (Fake GPS Terdeteksi)',
               style: TextStyle(fontSize: 15),
             ),
@@ -926,7 +908,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
+              backgroundColor: TiketColors.dark.danger,
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -966,15 +948,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              title: const Row(
+              title: Row(
                 children: [
                   Icon(
                     Icons.warning_amber_rounded,
-                    color: Color(0xFFEF4444),
+                    color: TiketColors.dark.danger,
                     size: 24,
                   ),
-                  SizedBox(width: 8),
-                  Text(
+                  const SizedBox(width: 8),
+                  const Text(
                     'Belum Ada Absen Masuk',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
@@ -1022,15 +1004,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              title: const Row(
+              title: Row(
                 children: [
                   Icon(
                     Icons.warning_amber_rounded,
-                    color: Color(0xFFEF4444),
+                    color: TiketColors.dark.danger,
                     size: 24,
                   ),
-                  SizedBox(width: 8),
-                  Text(
+                  const SizedBox(width: 8),
+                  const Text(
                     'Belum Waktunya Pulang',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
@@ -1069,12 +1051,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             _handleCapturePhoto();
           } else if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
+              SnackBar(
+                content: const Text(
                   'Selesaikan Daily Task dulu, baru bisa absen pulang.',
                 ),
-                backgroundColor: Color(0xFFF59E0B),
-                duration: Duration(seconds: 2),
+                backgroundColor: TiketColors.dark.signal,
+                duration: const Duration(seconds: 2),
               ),
             );
           }
@@ -1119,15 +1101,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  title: const Row(
+                  title: Row(
                     children: [
                       Icon(
                         Icons.info_outline_rounded,
-                        color: Color(0xFFF59E0B),
+                        color: TiketColors.dark.signal,
                         size: 24,
                       ),
-                      SizedBox(width: 8),
-                      Text(
+                      const SizedBox(width: 8),
+                      const Text(
                         'Sedang Shift Aktif',
                         style: TextStyle(
                           fontSize: 16,
@@ -1178,15 +1160,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                title: const Row(
+                title: Row(
                   children: [
                     Icon(
                       Icons.schedule_rounded,
-                      color: Color(0xFFF59E0B),
+                      color: TiketColors.dark.signal,
                       size: 24,
                     ),
-                    SizedBox(width: 8),
-                    Text(
+                    const SizedBox(width: 8),
+                    const Text(
                       'Shift Kamu Sudah Benar?',
                       style: TextStyle(
                         fontSize: 16,
@@ -1199,11 +1181,11 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Shift dipilih',
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.textMuted,
+                        color: TiketColors.dark.mute,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -1832,7 +1814,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
       }());
     }
 
-    // Show Verification Result Modal
+    // Show Verification Result Modal (Tiket Design 11a/11b/11c)
     if (!mounted) return;
     await showModalBottomSheet(
       context: context,
@@ -1842,7 +1824,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
       enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (modalCtx) {
-        return SopVerificationModal(
+        return _TiketVerificationSheet(
           template: _selectedTemplate.jenis == TemplateCategory.absensi
               ? _selectedTemplate.copyWith(
                   nama:
@@ -2000,10 +1982,10 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                   SnackBar(
                     content: Text('Laporan tersimpan. ${outcome.saveHint}'),
                     backgroundColor: outcome == WebShareOutcome.failed
-                        ? Colors.redAccent
+                        ? TiketColors.dark.danger
                         : outcome == WebShareOutcome.cancelled
-                        ? AppColors.warning
-                        : AppColors.success,
+                        ? TiketColors.dark.signal
+                        : TiketColors.dark.ok,
                     behavior: SnackBarBehavior.floating,
                     duration: const Duration(seconds: 4),
                   ),
@@ -2033,7 +2015,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                       ),
                     ],
                   ),
-                  backgroundColor: AppColors.success,
+                  backgroundColor: TiketColors.dark.ok,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -2058,10 +2040,8 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
 
     final currentAddress = _location?.fullAddress ?? _activePos.fullAddress;
     final isDark = ThemeService.isDarkMode(context);
-    final scaffoldBg = isDark
-        ? const Color(0xFF0F172A)
-        : const Color(0xFFFAF8F5);
-    final barBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    // Chrome is ALWAYS black in both themes per DESIGN.md:65
+    const scaffoldBg = Colors.black;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -2073,9 +2053,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
             final totalW = constraints.maxWidth;
             final totalH = constraints.maxHeight;
 
-            // Reserve fixed slot for top bar (~64) and bottom bar (~158 incl. timer row).
+            // Reserve fixed slot for top bar (~64) and bottom bar (~150).
             const topBarH = 64.0;
-            const bottomBarH = 158.0;
+            const bottomBarH = 150.0;
             final midH = totalH - topBarH - bottomBarH;
 
             final isFull = _aspectRatio == CameraAspectRatio.ratioFull;
@@ -2103,8 +2083,8 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
 
             return Stack(
               children: [
-                // 1. Adaptive background fill (White di Light Mode, Navy di Dark Mode)
-                Container(color: isFull ? const Color(0xFF0F172A) : scaffoldBg),
+                // 1. Black background fill per DESIGN.md:65
+                Container(color: Colors.black),
 
                 // 2. Viewfinder (vertically centered between top & bottom bars)
                 Positioned(
@@ -2148,7 +2128,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                           )
                         else
                           Container(
-                            color: const Color(0xFF0F172A),
+                            color: Colors.black,
                             child: const Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -2157,7 +2137,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                     width: 32,
                                     height: 32,
                                     child: CircularProgressIndicator(
-                                      color: AppColors.primary,
+                                      color: Colors.white,
                                       strokeWidth: 3,
                                     ),
                                   ),
@@ -2210,27 +2190,26 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                       height: 56,
                                       decoration: BoxDecoration(
                                         border: Border.all(
-                                          color: const Color(0xFFFACC15),
+                                          color: TiketColors.dark.signal,
                                           width: 1.8,
                                         ),
                                         borderRadius: BorderRadius.circular(8),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: const Color(
-                                              0xFFFACC15,
-                                            ).withValues(alpha: 0.35),
+                                            color: TiketColors.dark.signal
+                                                .withValues(alpha: 0.35),
                                             blurRadius: 8,
                                             spreadRadius: 1,
                                           ),
                                         ],
                                       ),
-                                      child: const Center(
+                                      child: Center(
                                         child: DecoratedBox(
                                           decoration: BoxDecoration(
-                                            color: Color(0xFFFACC15),
+                                            color: TiketColors.dark.signal,
                                             shape: BoxShape.circle,
                                           ),
-                                          child: SizedBox(width: 5, height: 5),
+                                          child: const SizedBox(width: 5, height: 5),
                                         ),
                                       ),
                                     ),
@@ -2269,7 +2248,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                             ),
                           ),
 
-                        // Floating Shortcut Location Button (Bottom-Right of Viewfinder: 48dp touch hitbox, sleek visual)
+                        // Floating Shortcut Location Button (Bottom-Right of Viewfinder: 64x32 visual inside 64x48 hit box)
                         if (_isCameraInitialized && _cameraController != null)
                           Positioned(
                             right: 8,
@@ -2280,39 +2259,29 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                               child: GestureDetector(
                                 behavior: HitTestBehavior.opaque,
                                 onTap: _showRealtimeLocationPicker,
-                                child: Container(
-                                  width: 48,
-                                  height: 48,
-                                  alignment: Alignment.center,
-                                  child: Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.7,
-                                      ),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: AppColors.accent.withValues(
-                                          alpha: 0.9,
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    minWidth: 64,
+                                    minHeight: 48,
+                                  ),
+                                  child: Center(
+                                    child: Container(
+                                      width: 64,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        color: TiketColors.dark.bandRaise,
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: TiketColors.dark.bandLine,
+                                          width: 1.5,
                                         ),
-                                        width: 1.4,
                                       ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.35,
-                                          ),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 2),
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.location_on_rounded,
+                                          color: Colors.white,
+                                          size: 16,
                                         ),
-                                      ],
-                                    ),
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.my_location_rounded,
-                                        color: AppColors.accent,
-                                        size: 16,
                                       ),
                                     ),
                                   ),
@@ -2325,418 +2294,246 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                   ),
                 ),
 
-                // 3. Top Floating Overlay Bar (Hamburger, Quick Ratio Pill, Flash, Flip)
+                // 3. Top Floating Overlay Bar (Labelled 'Menu' band pill with pending badge)
                 Positioned(
                   top: 0,
                   left: 0,
                   right: 0,
                   height: topBarH,
                   child: Container(
-                    color: isFull ? Colors.transparent : barBg,
+                    color: isFull ? Colors.transparent : Colors.black,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Hamburger Menu / Sidebar Drawer Icon dengan realtime badge Daily Task
                         ValueListenableBuilder<int>(
                           valueListenable:
                               DailyTaskService.pendingCountNotifier,
                           builder: (context, pendingCount, _) {
-                            return Semantics(
-                              label: 'Buka menu utama',
-                              button: true,
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Container(
-                                    width: 38,
-                                    height: 38,
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? Colors.black.withValues(alpha: 0.45)
-                                          : const Color(0xFFF1F5F9),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: isDark
-                                            ? Colors.white24
-                                            : AppColors.cardBorder,
-                                        width: 0.8,
-                                      ),
-                                    ),
-                                    child: IconButton(
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(
-                                        minWidth: 44,
-                                        minHeight: 44,
-                                      ),
-                                      icon: Icon(
-                                        Icons.menu_rounded,
-                                        color: isDark
-                                            ? Colors.white
-                                            : AppColors.textPrimary,
-                                        size: 20,
-                                      ),
-                                      onPressed: () => _scaffoldKey.currentState
-                                          ?.openDrawer(),
-                                    ),
-                                  ),
-                                  if (pendingCount > 0)
-                                    Positioned(
-                                      top: -2,
-                                      right: -2,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(4),
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFFEF4444),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        constraints: const BoxConstraints(
-                                          minWidth: 16,
-                                          minHeight: 16,
-                                        ),
-                                        child: Text(
-                                          pendingCount > 99
-                                              ? '99+'
-                                              : '$pendingCount',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w900,
-                                            height: 1.0,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ),
-                                    ),
-                                ],
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                extensions: const [TiketColors.dark],
+                              ),
+                              child: TiketPill(
+                                label: 'Menu',
+                                icon: Icons.menu_rounded,
+                                kind: TiketPillKind.band,
+                                badge: pendingCount > 0
+                                    ? (pendingCount > 99
+                                        ? '99+'
+                                        : '$pendingCount')
+                                    : null,
+                                onPressed: () =>
+                                    _scaffoldKey.currentState?.openDrawer(),
                               ),
                             );
                           },
-                        ),
-
-                        const SizedBox(width: 6),
-
-                        // Quick Ratio & Timer Selector Pills (44dp touch targets)
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Flexible(
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: _showRatioPickerModal,
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      minHeight: 44,
-                                      minWidth: 44,
-                                    ),
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      widthFactor: 1.0,
-                                      child: Container(
-                                        height: 38,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: isDark
-                                              ? Colors.black.withValues(alpha: 0.45)
-                                              : AppColors.surfaceContainerLow,
-                                          borderRadius: BorderRadius.circular(19),
-                                          border: Border.all(
-                                            color: isDark
-                                                ? Colors.white24
-                                                : AppColors.cardBorder,
-                                            width: 0.8,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              _aspectRatio.icon,
-                                              color: AppColors.accent,
-                                              size: 15,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Flexible(
-                                              child: Text(
-                                                _aspectRatio.label,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  color: isDark
-                                                      ? Colors.white
-                                                      : AppColors.textPrimary,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w800,
-                                                  fontFamily: 'PlusJakartaSans',
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 2),
-                                            Icon(
-                                              Icons.arrow_drop_down_rounded,
-                                              color: isDark
-                                                  ? Colors.white70
-                                                  : AppColors.textSecondary,
-                                              size: 16,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: _isCountingDown ? null : _showTimerPickerModal,
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      minHeight: 44,
-                                      minWidth: 44,
-                                    ),
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      widthFactor: 1.0,
-                                      child: Container(
-                                        height: 38,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _timerSeconds > 0
-                                              ? AppColors.accent.withValues(alpha: 0.22)
-                                              : (isDark
-                                                    ? Colors.black.withValues(alpha: 0.45)
-                                                    : AppColors.surfaceContainerLow),
-                                          borderRadius: BorderRadius.circular(19),
-                                          border: Border.all(
-                                            color: _timerSeconds > 0
-                                                ? AppColors.accent
-                                                : (isDark
-                                                      ? Colors.white24
-                                                      : AppColors.cardBorder),
-                                            width: 0.8,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              _timerSeconds > 0
-                                                  ? Icons.timer_rounded
-                                                  : Icons.timer_outlined,
-                                              color: _timerSeconds > 0
-                                                  ? AppColors.accent
-                                                  : (isDark
-                                                        ? Colors.white70
-                                                        : AppColors.textSecondary),
-                                              size: 15,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Flexible(
-                                              child: Text(
-                                                _timerSeconds > 0
-                                                    ? '${_timerSeconds}s'
-                                                    : 'Timer',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  color: _timerSeconds > 0
-                                                      ? AppColors.accent
-                                                      : (isDark
-                                                            ? Colors.white
-                                                            : AppColors.textPrimary),
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w800,
-                                                  fontFamily: 'PlusJakartaSans',
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 2),
-                                            Icon(
-                                              Icons.arrow_drop_down_rounded,
-                                              color: _timerSeconds > 0
-                                                  ? AppColors.accent
-                                                  : (isDark
-                                                        ? Colors.white70
-                                                        : AppColors.textSecondary),
-                                              size: 16,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(width: 6),
-
-                        // Flash Toggle Button (Off -> Auto -> On -> Torch Senter)
-                        Semantics(
-                          label: 'Pengaturan lampu kilat kamera',
-                          button: true,
-                          child: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.black.withValues(alpha: 0.45)
-                                  : const Color(0xFFF1F5F9),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.white24
-                                    : AppColors.cardBorder,
-                                width: 0.8,
-                              ),
-                            ),
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 44,
-                                minHeight: 44,
-                              ),
-                              icon: Icon(
-                                _flashMode == FlashMode.off
-                                    ? Icons.flash_off_rounded
-                                    : (_flashMode == FlashMode.auto
-                                          ? Icons.flash_auto_rounded
-                                          : (_flashMode == FlashMode.torch
-                                                ? Icons.flashlight_on_rounded
-                                                : Icons.flash_on_rounded)),
-                                color: _flashMode == FlashMode.off
-                                    ? (isDark
-                                          ? Colors.white70
-                                          : AppColors.textSecondary)
-                                    : (_flashMode == FlashMode.torch
-                                          ? Colors.cyanAccent
-                                          : Colors.amber),
-                                size: 18,
-                              ),
-                              onPressed: _toggleFlash,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 8),
-
-                        // Camera Flip Switch
-                        Semantics(
-                          label: 'Putar kamera depan atau belakang',
-                          button: true,
-                          child: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.black.withValues(alpha: 0.45)
-                                  : const Color(0xFFF1F5F9),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.white24
-                                    : AppColors.cardBorder,
-                                width: 0.8,
-                              ),
-                            ),
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 44,
-                                minHeight: 44,
-                              ),
-                              icon: Icon(
-                                Icons.flip_camera_ios_rounded,
-                                color: isDark
-                                    ? Colors.white
-                                    : AppColors.textPrimary,
-                                size: 18,
-                              ),
-                              onPressed: _toggleCameraFlip,
-                            ),
-                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
 
-                // 4. Right-side Zoom Controls (Accessible 44dp hit area, sleek 36px visual circle)
+                // 4. Top-right Control Column (Timer, Flash, Flip, Ratio)
                 Positioned(
-                  right: 10,
-                  top: topBarH + (midH - 24 - 130) / 2,
+                  top: 10,
+                  right: 14,
                   child: Column(
-                    children: [1.0, 2.0, 5.0].map((zoomVal) {
-                      final isSelected = (_currentZoom - zoomVal).abs() < 0.2;
-                      return Semantics(
-                        label: 'Zoom ${zoomVal.toInt()} kali',
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 1. Timer Button (44 visual, 48 hit)
+                      Semantics(
+                        label: _timerSeconds > 0
+                            ? 'Timer foto ${_timerSeconds}s'
+                            : 'Pengaturan timer foto',
                         button: true,
-                        selected: isSelected,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => _setZoom(zoomVal),
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            alignment: Alignment.center,
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? Colors.white
-                                    : Colors.black.withValues(alpha: 0.5),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : Colors.white.withValues(alpha: 0.3),
-                                  width: 1.2,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minWidth: 48,
+                            minHeight: 48,
+                          ),
+                          child: Center(
+                            child: Material(
+                              color: _timerSeconds > 0
+                                  ? TiketColors.dark.signal
+                                      .withValues(alpha: 0.22)
+                                  : TiketColors.dark.bandRaise,
+                              shape: CircleBorder(
+                                side: BorderSide(
+                                  color: _timerSeconds > 0
+                                      ? TiketColors.dark.signal
+                                      : TiketColors.dark.bandLine,
+                                  width: 1.5,
                                 ),
-                                boxShadow: isSelected
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.35,
-                                          ),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ]
-                                    : null,
                               ),
-                              child: Center(
-                                child: Text(
-                                  '${zoomVal.toInt()}x',
-                                  style: TextStyle(
-                                    color: isSelected
-                                        ? const Color(0xFF0F2C59)
-                                        : Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    fontFamily: 'PlusJakartaSans',
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: _isCountingDown
+                                    ? null
+                                    : _showTimerPickerModal,
+                                child: SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: Center(
+                                    child: _timerSeconds > 0
+                                        ? Text(
+                                            '${_timerSeconds}s',
+                                            style: TextStyle(
+                                              color: TiketColors.dark.signal,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w800,
+                                              fontFamily: 'PlusJakartaSans',
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.timer_outlined,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      );
-                    }).toList(),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // 2. Flash Toggle Button (44 visual, 48 hit)
+                      Semantics(
+                        label: 'Pengaturan lampu kilat kamera',
+                        button: true,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minWidth: 48,
+                            minHeight: 48,
+                          ),
+                          child: Center(
+                            child: Material(
+                              color: TiketColors.dark.bandRaise,
+                              shape: CircleBorder(
+                                side: BorderSide(
+                                  color: TiketColors.dark.bandLine,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: _toggleFlash,
+                                child: SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: Center(
+                                    child: Icon(
+                                      _flashMode == FlashMode.off
+                                          ? Icons.flash_off_rounded
+                                          : (_flashMode == FlashMode.auto
+                                              ? Icons.flash_auto_rounded
+                                              : (_flashMode == FlashMode.torch
+                                                  ? Icons.flashlight_on_rounded
+                                                  : Icons.flash_on_rounded)),
+                                      color: _flashMode == FlashMode.off
+                                          ? Colors.white
+                                          : (_flashMode == FlashMode.torch
+                                              ? Colors.cyanAccent
+                                              : Colors.amber),
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // 3. Camera Flip Switch (44 visual, 48 hit)
+                      Semantics(
+                        label: 'Putar kamera depan atau belakang',
+                        button: true,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minWidth: 48,
+                            minHeight: 48,
+                          ),
+                          child: Center(
+                            child: Material(
+                              color: TiketColors.dark.bandRaise,
+                              shape: CircleBorder(
+                                side: BorderSide(
+                                  color: TiketColors.dark.bandLine,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: _toggleCameraFlip,
+                                child: const SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.flip_camera_ios_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // 4. Aspect Ratio Button (44 visual, 48 hit)
+                      Semantics(
+                        label: 'Pilih rasio foto',
+                        tooltip: 'Pilih rasio foto',
+                        button: true,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minWidth: 48,
+                            minHeight: 48,
+                          ),
+                          child: Center(
+                            child: Material(
+                              color: TiketColors.dark.bandRaise,
+                              shape: CircleBorder(
+                                side: BorderSide(
+                                  color: TiketColors.dark.bandLine,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: _showRatioPickerModal,
+                                child: SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: Center(
+                                    child: Text(
+                                      _aspectRatio.label,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                        fontFamily: 'PlusJakartaSans',
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
-                // 5. Bottom Controls Bar (fixed at bottom)
+                // 5. Bottom Controls Bar (fixed at bottom, chrome always black)
                 Positioned(
                   left: 0,
                   right: 0,
@@ -2744,7 +2541,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                   height: bottomBarH,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isFull ? Colors.transparent : barBg,
+                      color: isFull ? Colors.transparent : Colors.black,
                       gradient: isFull
                           ? LinearGradient(
                               begin: Alignment.topCenter,
@@ -2785,26 +2582,26 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF7F1D1D).withValues(alpha: 0.94),
+                        color: TiketColors.dark.dangerTint,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: const Color(0xFFF87171),
+                          color: TiketColors.dark.danger,
                           width: 1.2,
                         ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.location_off_rounded,
-                            color: Colors.white,
+                            color: TiketColors.dark.danger,
                             size: 20,
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               _absensiShutterBlockMessage!,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: TiketColors.dark.ink,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 fontFamily: 'PlusJakartaSans',
@@ -2814,8 +2611,8 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                           const SizedBox(width: 8),
                           TextButton(
                             style: TextButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF7F1D1D),
+                              backgroundColor: TiketColors.dark.primary,
+                              foregroundColor: TiketColors.dark.onPrimary,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
                                 vertical: 6,
@@ -2839,29 +2636,21 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                     ),
                   ),
                 if (_isProcessingAI)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 120,
-                    child: Center(
-                      child: VerificationStepCard(
-                        currentStep: _captureStep,
-                        statusText: _captureStep == 1
-                            ? 'Memproses foto'
-                            : _captureStep == 2
-                            ? 'Mengirim ke AI'
-                            : _captureStep == 3
-                            ? 'Sedang diverifikasi'
-                            : 'Selesai',
-                        templateName:
-                            _selectedTemplate.jenis == TemplateCategory.absensi
-                            ? AbsensiSetupService
+                  Positioned.fill(
+                    child: _TiketProcessingOverlay(
+                      currentStep: _captureStep,
+                      templateName:
+                          _selectedTemplate.jenis == TemplateCategory.absensi
+                              ? AbsensiSetupService
                                   .instance
                                   .selectedKategori
                                   .displayName
-                            : _selectedTemplate.nama,
-                        onFastBypass: _triggerFastBypass,
-                      ),
+                              : _selectedTemplate.nama,
+                      categoryName:
+                          _selectedTemplate.jenis == TemplateCategory.absensi
+                              ? 'Absensi'
+                              : _selectedTemplate.jenis.displayName,
+                      onFastBypass: _triggerFastBypass,
                     ),
                   ),
                 // Countdown overlay
@@ -2986,16 +2775,14 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
             ? 'Pulang (Kerja: $shiftShort)'
             : 'Pulang (Kerja: $shiftShort) • Isi daily dulu ya!';
         accentColor = hasDaily
-            ? const Color(0xFF38BDF8) // Sky blue
-            : const Color(0xFFF59E0B); // Amber peringatan
+            ? TiketColors.dark.okText
+            : TiketColors.dark.signal;
       } else {
         if (absSetup.tipeLaporan != 'Masuk') {
           absSetup.updateTipe('Masuk');
         }
         label = 'Kerja : $shiftShort (${hours}j ${minutes}m)';
-        accentColor = const Color(
-          0xFFF59E0B,
-        ); // Amber hangat (sedang dinas aktif)
+        accentColor = TiketColors.dark.signal;
       }
     } else {
       // Tidak sedang berdinas / sudah absen pulang
@@ -3003,7 +2790,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
         absSetup.updateTipe('Masuk');
       }
       label = 'Masuk : $shiftShort';
-      accentColor = const Color(0xFF4ADE80); // Emerald green
+      accentColor = TiketColors.dark.okText;
     }
 
     final isModePulangTap =
@@ -3041,42 +2828,27 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
           widthFactor: 1,
           child: Container(
             constraints: const BoxConstraints(minHeight: 48),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: isTransparent
-                  ? Colors.black.withValues(alpha: 0.75)
-                  : (isDark ? const Color(0xFF1E293B) : const Color(0xFF0F172A)),
+              color: TiketColors.dark.bandRaise,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: accentColor.withValues(alpha: 0.8),
-                width: 1.2,
+                color: TiketColors.dark.bandLine,
+                width: 1.5,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: accentColor.withValues(alpha: 0.25),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 7,
-                  height: 7,
+                  width: 8,
+                  height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: accentColor,
-                    boxShadow: [
-                      BoxShadow(
-                        color: accentColor.withValues(alpha: 0.8),
-                        blurRadius: 4,
-                      ),
-                    ],
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     label,
@@ -3084,18 +2856,18 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontFamily: 'PlusJakartaSans',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
                       color: Colors.white,
                       letterSpacing: 0.2,
                     ),
                   ),
                 ),
-                const SizedBox(width: 3),
+                const SizedBox(width: 4),
                 const Icon(
                   Icons.arrow_drop_down_rounded,
                   color: Colors.white70,
-                  size: 16,
+                  size: 18,
                 ),
               ],
             ),
@@ -3132,61 +2904,36 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
-                      color: isTransparent
-                          ? Colors.black.withValues(alpha: 0.45)
-                          : (isDark
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFFF1F5F9)),
-                      borderRadius: BorderRadius.circular(14),
+                      color: TiketColors.dark.bandRaise,
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: isTransparent
-                            ? Colors.white38
-                            : (isDark
-                                  ? const Color(0xFF334155)
-                                  : AppColors.cardBorder),
+                        color: TiketColors.dark.bandLine,
                         width: 1.5,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(
-                            alpha: isTransparent ? 0.3 : 0.06,
-                          ),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
                     ),
                     child:
                         (lastSubmission != null &&
                             lastSubmission.imagePath != null &&
                             lastSubmission.imagePath!.isNotEmpty)
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8),
                             child: AppFileImage(
                               path: lastSubmission.imagePath!,
                               cacheWidth: 800,
                               fit: BoxFit.cover,
-                              errorBuilder: (ctx, err, stack) => Icon(
+                              errorBuilder: (ctx, err, stack) => const Icon(
                                 Icons.photo_library_outlined,
-                                color: isTransparent
-                                    ? Colors.white
-                                    : (isDark
-                                          ? Colors.white
-                                          : AppColors.primary),
+                                color: Colors.white,
                                 size: 22,
                               ),
                             ),
                           )
-                        : Icon(
+                        : const Icon(
                             Icons.photo_library_outlined,
-                            color: isTransparent
-                                ? Colors.white70
-                                : (isDark
-                                      ? Colors.white70
-                                      : AppColors.textSecondary),
+                            color: Colors.white,
                             size: 22,
                           ),
                   ),
@@ -3195,13 +2942,9 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                     'Galeri',
                     style: TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       fontFamily: 'PlusJakartaSans',
-                      color: isTransparent
-                          ? Colors.white70
-                          : (isDark
-                                ? const Color(0xFF94A3B8)
-                                : AppColors.textSecondary),
+                      color: TiketColors.dark.body,
                     ),
                   ),
                 ],
@@ -3210,7 +2953,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
           ),
         ),
 
-        // Center: Floating Attendance Shift Shortcut Pill + Pro Dual-Ring Shutter Button
+        // Center: Floating Attendance Shift Shortcut Pill + Shutter Button
         Flexible(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -3245,33 +2988,17 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                         color: Colors.transparent,
                         border: Border.all(
                           color: (_isProcessingAI || _isAbsensiShutterBlocked)
-                              ? (isDark ? Colors.white24 : Colors.black26)
-                              : AppColors.accent,
+                              ? Colors.white24
+                              : TiketColors.dark.signal,
                           width: 3.5,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color:
-                                ((_isProcessingAI || _isAbsensiShutterBlocked)
-                                        ? Colors.black
-                                        : AppColors.accent)
-                                    .withValues(alpha: 0.35),
-                            blurRadius: 12,
-                            spreadRadius: 1.0,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
                       ),
                       padding: const EdgeInsets.all(4.5),
                       child: Container(
                         decoration: BoxDecoration(
                           color: (_isProcessingAI || _isAbsensiShutterBlocked)
-                              ? Colors.grey.shade600
-                              : (isTransparent
-                                    ? Colors.white
-                                    : (isDark
-                                          ? AppColors.primary
-                                          : const Color(0xFF1E448D))),
+                              ? Colors.grey.shade700
+                              : Colors.white,
                           shape: BoxShape.circle,
                         ),
                         child: Center(
@@ -3282,16 +3009,14 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.5,
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
+                                      Colors.black,
                                     ),
                                   ),
                                 )
-                              : Icon(
+                              : const Icon(
                                   Icons.camera_alt_rounded,
-                                  color: isTransparent
-                                      ? const Color(0xFF0F2C59)
-                                      : Colors.white,
-                                  size: 30,
+                                  color: Colors.black,
+                                  size: 28,
                                 ),
                         ),
                       ),
@@ -3319,39 +3044,20 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
-                      color: isTransparent
-                          ? Colors.black.withValues(alpha: 0.45)
-                          : (isDark
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFFF1F5F9)),
-                      borderRadius: BorderRadius.circular(14),
+                      color: TiketColors.dark.bandRaise,
+                      shape: BoxShape.circle,
                       border: Border.all(
-                        color: isTransparent
-                            ? Colors.white38
-                            : (isDark
-                                  ? const Color(0xFF334155)
-                                  : AppColors.cardBorder),
+                        color: TiketColors.dark.bandLine,
                         width: 1.5,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(
-                            alpha: isTransparent ? 0.3 : 0.06,
-                          ),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.assignment_outlined,
-                      color: isTransparent
-                          ? Colors.white
-                          : (isDark ? Colors.white : AppColors.primary),
-                      size: 24,
+                      color: Colors.white,
+                      size: 22,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -3359,17 +3065,792 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                     'SOP',
                     style: TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       fontFamily: 'PlusJakartaSans',
-                      color: isTransparent
-                          ? Colors.white70
-                          : (isDark
-                                ? const Color(0xFF94A3B8)
-                                : AppColors.textSecondary),
+                      color: TiketColors.dark.body,
                     ),
                   ),
                 ],
               ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// State 10a/10b: In-screen AI Processing Dialog Card (Tiket Redesign)
+class _TiketProcessingOverlay extends StatelessWidget {
+  final int currentStep;
+  final String templateName;
+  final String categoryName;
+  final VoidCallback? onFastBypass;
+
+  const _TiketProcessingOverlay({
+    required this.currentStep,
+    required this.templateName,
+    required this.categoryName,
+    this.onFastBypass,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = TiketColors.dark;
+
+    return Container(
+      color: Colors.black.withValues(alpha: 0.72),
+      child: Center(
+        child: Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: colors.dialog,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: colors.bandLine, width: 1.0),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black54,
+                blurRadius: 20,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                categoryName,
+                style: TextStyle(
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: colors.body,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Analisa AI',
+                style: TextStyle(
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Step 1: Foto disiapkan
+              _buildStepItem(
+                label: 'Foto disiapkan',
+                isDone: currentStep >= 2,
+                isActive: currentStep == 1,
+                colors: colors,
+              ),
+              const SizedBox(height: 14),
+
+              // Step 2: Mengirim foto ke server AI
+              _buildStepItem(
+                label: 'Mengirim foto ke server AI',
+                isDone: currentStep >= 3,
+                isActive: currentStep == 2,
+                colors: colors,
+              ),
+              const SizedBox(height: 14),
+
+              // Step 3: AI memeriksa kesesuaian dengan SOP
+              _buildStepItem(
+                label: 'AI memeriksa kesesuaian dengan SOP',
+                isDone: currentStep >= 4,
+                isActive: currentStep == 3,
+                colors: colors,
+              ),
+
+              const SizedBox(height: 18),
+              Divider(color: colors.hairline, height: 1),
+              const SizedBox(height: 16),
+
+              const Text(
+                'Foto sedang diperiksa AI. Jangan tutup halaman ini.',
+                style: TextStyle(
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Biasanya selesai dalam 5-15 detik.',
+                style: TextStyle(
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 12,
+                  color: colors.body,
+                ),
+              ),
+
+              if (currentStep >= 2 && onFastBypass != null) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: TiketPill(
+                    label: 'Sinyal Lemah? Lewati & Simpan Cepat',
+                    kind: TiketPillKind.secondary,
+                    expand: true,
+                    onPressed: onFastBypass,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepItem({
+    required String label,
+    required bool isDone,
+    required bool isActive,
+    required TiketColors colors,
+  }) {
+    Widget leading;
+    if (isDone) {
+      leading = const StatusMarker(status: TiketStatus.ok, size: 18);
+    } else if (isActive) {
+      leading = const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(
+          strokeWidth: 2.2,
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        ),
+      );
+    } else {
+      leading = const StatusMarker(status: TiketStatus.notStarted, size: 18);
+    }
+
+    return Row(
+      children: [
+        leading,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 14,
+              fontWeight: isDone || isActive ? FontWeight.w600 : FontWeight.w500,
+              color: isDone || isActive ? Colors.white : colors.mute,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// State 11a/11b/11c: Attendance AI Verification Result Sheet (Tiket Redesign)
+class _TiketVerificationSheet extends StatefulWidget {
+  final TemplateModel template;
+  final AiVerificationResult result;
+  final String kodeVerifikasi;
+  final String? imagePath;
+  final Uint8List? imageBytes;
+  final Future<AiVerificationResult> Function()? onRetryAi;
+  final VoidCallback onRetake;
+  final VoidCallback onCancel;
+  final VoidCallback onSave;
+  final VoidCallback? onShareWhatsApp;
+  final VoidCallback? onShareTelegram;
+
+  const _TiketVerificationSheet({
+    required this.template,
+    required this.result,
+    required this.kodeVerifikasi,
+    this.imagePath,
+    this.imageBytes,
+    this.onRetryAi,
+    required this.onRetake,
+    required this.onCancel,
+    required this.onSave,
+    this.onShareWhatsApp,
+    this.onShareTelegram,
+  });
+
+  @override
+  State<_TiketVerificationSheet> createState() =>
+      _TiketVerificationSheetState();
+}
+
+class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
+  late AiVerificationResult _result = widget.result;
+  bool _isRetrying = false;
+
+  Future<void> _handleRetry() async {
+    if (widget.onRetryAi == null || _isRetrying) return;
+    setState(() => _isRetrying = true);
+    AiVerificationResult? updated;
+    try {
+      updated = await widget.onRetryAi!();
+    } catch (_) {
+      updated = null;
+    }
+    if (!mounted) return;
+    setState(() {
+      if (updated != null) _result = updated;
+      _isRetrying = false;
+    });
+  }
+
+  void _showZoomPreview() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: widget.imageBytes != null
+                  ? Image.memory(
+                      widget.imageBytes!,
+                      fit: BoxFit.contain,
+                    )
+                  : (widget.imagePath != null
+                      ? AppFileImage(
+                          path: widget.imagePath!,
+                          fit: BoxFit.contain,
+                        )
+                      : const SizedBox.shrink()),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = TiketColors.dark;
+
+    final isLolos = _result.isSesuai && !_result.isFallback;
+    final isFallback = _result.isFallback ||
+        _result.status == VerificationStatus.perluCekManual;
+    final isBelumLolos = !_result.isSesuai && !_result.isFallback;
+
+    final screenH = MediaQuery.of(context).size.height;
+    final maxSheetH = screenH > 0 ? screenH * 0.90 : 680.0;
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        extensions: const [TiketColors.dark],
+      ),
+      child: SafeArea(
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxSheetH),
+          child: Container(
+            decoration: BoxDecoration(
+              color: colors.dialog,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border(
+                top: BorderSide(color: colors.bandLine, width: 1.0),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colors.hairline,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.template.nama,
+                          style: const TextStyle(
+                            fontFamily: 'PlusJakartaSans',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 22),
+                        onPressed: widget.onCancel,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(color: colors.hairline, height: 16),
+
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Status Card (11a / 11b / 11c)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: colors.soft,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isLolos
+                                  ? colors.ok
+                                  : colors.signal,
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              StatusMarker(
+                                status: isLolos
+                                    ? TiketStatus.ok
+                                    : TiketStatus.attention,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      isLolos
+                                          ? 'Foto lolos validasi'
+                                          : (isFallback
+                                              ? 'Verifikasi AI terputus'
+                                              : 'Foto belum lolos validasi'),
+                                      style: const TextStyle(
+                                        fontFamily: 'PlusJakartaSans',
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      isLolos
+                                          ? 'Verifikasi selesai, foto siap dikirim ke laporan · keyakinan AI ${(_result.confidenceScore * 100).toInt()}%'
+                                          : (isFallback
+                                              ? 'Foto dialihkan untuk cek manual oleh Supervisor'
+                                              : '${_result.poinGagal.isNotEmpty ? _result.poinGagal.length : 1} hal perlu diperbaiki · keyakinan AI ${(_result.confidenceScore * 100).toInt()}%'),
+                                      style: TextStyle(
+                                        fontFamily: 'PlusJakartaSans',
+                                        fontSize: 12,
+                                        color: colors.body,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Foto saat ini + Kode Verifikasi
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _showZoomPreview,
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: colors.soft,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: colors.hairline, width: 1.0),
+                            ),
+                            child: Row(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: SizedBox(
+                                    width: 48,
+                                    height: 48,
+                                    child: widget.imageBytes != null
+                                        ? Image.memory(
+                                            widget.imageBytes!,
+                                            fit: BoxFit.cover,
+                                          )
+                                        : (widget.imagePath != null
+                                            ? AppFileImage(
+                                                path: widget.imagePath!,
+                                                fit: BoxFit.cover,
+                                              )
+                                            : Container(
+                                                color: colors.hairline,
+                                                child: const Icon(
+                                                  Icons.photo_rounded,
+                                                  color: Colors.white70,
+                                                ),
+                                              )),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Foto saat ini (tap: perbesar)',
+                                        style: TextStyle(
+                                          fontFamily: 'PlusJakartaSans',
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white70,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Kode ${widget.kodeVerifikasi}',
+                                        style: const TextStyle(
+                                          fontFamily: 'PlusJakartaSans',
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white,
+                                          fontFeatures: [FontFeature.tabularFigures()],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.zoom_in_rounded,
+                                  color: Colors.white54,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Fallback notice (11c)
+                        if (isFallback) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: colors.signal.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: colors.signal, width: 1.0),
+                            ),
+                            child: Text(
+                              'Server AI offline. Foto tetap aman, coba lagi atau simpan untuk cek manual.',
+                              style: TextStyle(
+                                fontFamily: 'PlusJakartaSans',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: colors.signalText,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Main feedback section (Alasan AI / Catatan Sistem)
+                        Text(
+                          isLolos
+                              ? 'Hasil verifikasi AI'
+                              : (isFallback
+                                  ? 'Catatan sistem'
+                                  : 'Alasan AI menolak foto'),
+                          style: TextStyle(
+                            fontFamily: 'PlusJakartaSans',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: colors.body,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _result.alasan.isNotEmpty
+                              ? _result.alasan
+                              : (isLolos
+                                  ? 'Foto memenuhi kriteria SOP.'
+                                  : 'Foto belum memenuhi standar verifikasi.'),
+                          style: const TextStyle(
+                            fontFamily: 'PlusJakartaSans',
+                            fontSize: 13.5,
+                            color: Colors.white,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Section 11a: Yang perlu diperbaiki
+                        if (isBelumLolos && _result.poinGagal.isNotEmpty) ...[
+                          Text(
+                            'Yang perlu diperbaiki',
+                            style: TextStyle(
+                              fontFamily: 'PlusJakartaSans',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: colors.body,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ..._result.poinGagal.map((poin) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Padding(
+                                      padding: EdgeInsets.only(top: 2),
+                                      child: StatusMarker(
+                                        status: TiketStatus.attention,
+                                        size: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        poin,
+                                        style: const TextStyle(
+                                          fontFamily: 'PlusJakartaSans',
+                                          fontSize: 13,
+                                          color: Colors.white,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                          const SizedBox(height: 8),
+                        ],
+
+                        // Section 11a: Tips agar lolos
+                        if (isBelumLolos) ...[
+                          Text(
+                            'Tips agar lolos',
+                            style: TextStyle(
+                              fontFamily: 'PlusJakartaSans',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: colors.body,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildBulletPoint(
+                            'Pakai seragam resmi BSS, kemeja rapi berkerah, atau baju polo. Jaket dan hoodie tidak lolos.',
+                            colors,
+                          ),
+                          const SizedBox(height: 6),
+                          _buildBulletPoint(
+                            'Tahan HP dengan mantap dan tap layar agar fokus, lalu foto ulang.',
+                            colors,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Section 11b: Bagikan Laporan
+                        if (isLolos &&
+                            (widget.onShareWhatsApp != null ||
+                                widget.onShareTelegram != null)) ...[
+                          Text(
+                            'Bagikan Laporan:',
+                            style: TextStyle(
+                              fontFamily: 'PlusJakartaSans',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: colors.body,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              if (widget.onShareWhatsApp != null)
+                                Expanded(
+                                  child: TiketPill(
+                                    label: 'WhatsApp',
+                                    icon: Icons.chat_rounded,
+                                    kind: TiketPillKind.secondary,
+                                    expand: true,
+                                    onPressed: widget.onShareWhatsApp,
+                                  ),
+                                ),
+                              if (widget.onShareWhatsApp != null &&
+                                  widget.onShareTelegram != null)
+                                const SizedBox(width: 10),
+                              if (widget.onShareTelegram != null)
+                                Expanded(
+                                  child: TiketPill(
+                                    label: 'Telegram',
+                                    icon: Icons.send_rounded,
+                                    kind: TiketPillKind.secondary,
+                                    expand: true,
+                                    onPressed: widget.onShareTelegram,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Section 11c: Analisa Ulang Button
+                        if (isFallback && widget.onRetryAi != null) ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: TiketPill(
+                              label: _isRetrying
+                                  ? 'Menganalisa Ulang...'
+                                  : 'Analisa Ulang Foto Ini dengan AI',
+                              icon: Icons.refresh_rounded,
+                              kind: TiketPillKind.secondary,
+                              expand: true,
+                              onPressed: _isRetrying ? null : _handleRetry,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Bottom Action Bar
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  decoration: BoxDecoration(
+                    color: colors.bar,
+                    border: Border(
+                      top: BorderSide(color: colors.hairline, width: 1.0),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isLolos) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: TiketPill(
+                            label: 'Simpan & Kirim Laporan',
+                            kind: TiketPillKind.primary,
+                            expand: true,
+                            onPressed: widget.onSave,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: TiketPill(
+                            label: 'Foto Ulang',
+                            icon: Icons.camera_alt_rounded,
+                            kind: TiketPillKind.secondary,
+                            expand: true,
+                            onPressed: widget.onRetake,
+                          ),
+                        ),
+                      ] else if (isFallback) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: TiketPill(
+                            label: 'Simpan Laporan (Perlu Cek Manual)',
+                            kind: TiketPillKind.primary,
+                            expand: true,
+                            onPressed: widget.onSave,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: TiketPill(
+                            label: 'Foto Ulang',
+                            icon: Icons.camera_alt_rounded,
+                            kind: TiketPillKind.secondary,
+                            expand: true,
+                            onPressed: widget.onRetake,
+                          ),
+                        ),
+                      ] else ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: TiketPill(
+                            label: 'Foto Ulang',
+                            icon: Icons.camera_alt_rounded,
+                            kind: TiketPillKind.primary,
+                            expand: true,
+                            onPressed: widget.onRetake,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: TiketPill(
+                            label: 'Batal / Tutup',
+                            kind: TiketPillKind.secondary,
+                            expand: true,
+                            onPressed: widget.onCancel,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBulletPoint(String text, TiketColors colors) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 6),
+          width: 5,
+          height: 5,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: colors.body,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 12.5,
+              color: colors.body,
+              height: 1.35,
             ),
           ),
         ),

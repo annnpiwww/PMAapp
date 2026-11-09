@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/tiket_colors.dart';
 import '../../../core/widgets/app_file_image.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../core/services/logger_service.dart';
-import '../../../core/services/theme_service.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/utils/spreadsheet_escape.dart';
 import '../../../core/utils/timemark_formatter.dart';
@@ -171,21 +171,24 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
 
   Future<void> _confirmClearHistory() async {
     final count = _records.length;
-    final isDark = ThemeService.isDarkMode(context);
+    final colors = TiketColors.of(context);
     final branchName = BranchService.instance.currentBranch.name;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: colors.dialog,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colors.hairline),
+        ),
         title: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: AppColors.danger, size: 24),
+            Icon(Icons.warning_amber_rounded, color: colors.danger, size: 24),
             const SizedBox(width: 8),
             Text(
               'Hapus Arsip Absensi?',
               style: TextStyle(
-                color: isDark ? Colors.white : AppColors.textPrimary,
+                color: colors.ink,
                 fontWeight: FontWeight.w800,
                 fontSize: 16,
               ),
@@ -201,29 +204,29 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
               style: TextStyle(
                 fontSize: 13,
                 height: 1.4,
-                color: isDark ? const Color(0xFFCBD5E1) : AppColors.textPrimary,
+                color: colors.body,
               ),
             ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF451A03).withValues(alpha: 0.5) : AppColors.warningLight,
+                color: colors.soft,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: isDark ? const Color(0xFFD97706) : AppColors.warningBorder,
+                  color: colors.signal,
                 ),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded, color: AppColors.warning, size: 18),
+                  Icon(Icons.info_outline_rounded, color: colors.signal, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Sebaiknya Ekspor CSV dulu agar data tidak hilang.',
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF9A3412),
+                        color: colors.signalText,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -239,14 +242,14 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
             child: Text(
               'Batal',
               style: TextStyle(
-                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                color: colors.mute,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
+              backgroundColor: colors.danger,
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -362,417 +365,328 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: ThemeService.themeModeNotifier,
-      builder: (context, currentThemeMode, _) {
-        final isDark = ThemeService.isDarkMode(context);
-        final scaffoldBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFF8FAFC);
-        final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-        final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-        final textPrimary = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
-        final textSecondary = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-        final primaryAccent = isDark ? const Color(0xFF38BDF8) : AppColors.primary;
+    final colors = TiketColors.of(context);
+    final pad = TiketSpace.padOf(context);
+    final type = TiketType.of(context);
 
-        final lastTech = StorageService.getLastTechnicianName().trim();
-        final authUser = AuthRepository.instance.currentUser;
-        final activeTechName = lastTech.isNotEmpty
-            ? lastTech
-            : (authUser != null && authUser.nama.isNotEmpty ? authUser.nama : 'Teknisi BSS');
-        final activePos = LocationService.currentPos;
+    final lastTech = StorageService.getLastTechnicianName().trim();
+    final authUser = AuthRepository.instance.currentUser;
+    final activeTechName = lastTech.isNotEmpty
+        ? lastTech
+        : (authUser != null && authUser.nama.isNotEmpty ? authUser.nama : 'Teknisi BSS');
+    final activePos = LocationService.currentPos;
 
-        final hadirCount = _records.where((r) => r.type == AttendanceType.masuk).length;
-        final pulangCount = _records.where((r) => r.type == AttendanceType.pulang).length;
-        final terlambatCount = _records.where((r) => r.type == AttendanceType.masuk && _isRecordLate(r)).length;
+    final hadirCount = _records.where((r) => r.type == AttendanceType.masuk).length;
+    final pulangCount = _records.where((r) => r.type == AttendanceType.pulang).length;
+    final terlambatCount = _records.where((r) => r.type == AttendanceType.masuk && _isRecordLate(r)).length;
 
-        return Scaffold(
-          backgroundColor: scaffoldBg,
-      appBar: AppBar(
-        title: Text(
-          'Riwayat Kerja',
-          style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
-            fontWeight: FontWeight.w800,
-            fontSize: 16.5,
-            color: textPrimary,
-          ),
-        ),
-        backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-        foregroundColor: textPrimary,
-        elevation: 0,
-        centerTitle: false,
-        actions: [
-          if (_records.isNotEmpty) ...[
-            IconButton(
-              icon: Icon(Icons.share_outlined, color: primaryAccent),
-              tooltip: 'Export ke Excel / CSV',
-              onPressed: _exportCsv,
+    return Scaffold(
+      backgroundColor: colors.canvas,
+      body: Column(
+        children: [
+          TiketBand(
+            leading: TiketIconButton(
+              icon: Icons.arrow_back,
+              semanticLabel: 'Kembali',
+              onPressed: () => Navigator.pop(context),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
-              tooltip: 'Bersihkan Arsip',
-              onPressed: _confirmClearHistory,
-            ),
-          ],
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadRecords,
-              child: CustomScrollView(
-                slivers: [
-                  // Technician & Location Profile Card
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: cardBg,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: cardBorder),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: primaryAccent.withValues(alpha: isDark ? 0.2 : 0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(Icons.person_rounded, color: primaryAccent, size: 22),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    activeTechName,
-                                    style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
-                                      fontSize: 14.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                        decoration: BoxDecoration(
-                                          color: activePos.tagColor.withValues(alpha: isDark ? 0.25 : 0.15),
-                                          borderRadius: BorderRadius.circular(5),
-                                        ),
-                                        child: Text(
-                                          activePos.locationTag,
-                                          style: TextStyle(
-                                            fontSize: 9.5,
-                                            fontWeight: FontWeight.w800,
-                                            color: activePos.tagColor,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: Text(
-                                          activePos.posName,
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w600,
-                                            color: textSecondary,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Retention Badge Info
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0C4A6E).withValues(alpha: 0.3) : const Color(0xFFF0F9FF),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isDark ? const Color(0xFF0284C7).withValues(alpha: 0.5) : const Color(0xFFBAE6FD),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline_rounded,
-                              color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-                              size: 18,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Riwayat catatan absensi hanya tersimpan otomatis selama 30 hari',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: isDark ? const Color(0xFF7DD3FC) : const Color(0xFF0369A1),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // KPI Summary Cards (Hadir, Pulang, Terlambat)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _buildSummaryCard(
-                              title: 'Hadir',
-                              value: '$hadirCount',
-                              icon: Icons.login_rounded,
-                              color: const Color(0xFF10B981),
-                              isDark: isDark,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _buildSummaryCard(
-                              title: 'Pulang',
-                              value: '$pulangCount',
-                              icon: Icons.logout_rounded,
-                              color: const Color(0xFF0284C7),
-                              isDark: isDark,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _buildSummaryCard(
-                              title: 'Terlambat',
-                              value: '$terlambatCount',
-                              icon: Icons.access_time_filled_rounded,
-                              color: const Color(0xFFF59E0B),
-                              isDark: isDark,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Empty State
-                  if (_records.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: primaryAccent.withValues(alpha: isDark ? 0.2 : 0.08),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.folder_open_rounded,
-                                size: 54,
-                                color: primaryAccent,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Belum Ada Catatan Absensi',
-                              style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 40),
-                              child: Text(
-                                'Catatan kehadiran timemark muncul otomatis setelah kamu foto absen masuk atau pulang.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: textSecondary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    // Records List
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final item = _records[index];
-                            return _buildRecordCard(
-                              item,
-                              activeTechName: activeTechName,
-                              activePos: activePos,
-                              isDark: isDark,
-                            );
-                          },
-                          childCount: _records.length,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-      bottomSheet: _records.isNotEmpty
-          ? Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                border: isDark ? Border(top: BorderSide(color: cardBorder, width: 0.8)) : null,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
-                    blurRadius: 10,
-                    offset: const Offset(0, -3),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                top: false,
-                child: Row(
+            actions: [
+              if (_records.isNotEmpty) ...[
+                Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFF0F172A),
-                          foregroundColor: Colors.white,
-                          side: isDark ? const BorderSide(color: Color(0xFF334155)) : BorderSide.none,
-                          padding: const EdgeInsets.symmetric(vertical: 13),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                        ),
-                        icon: const Icon(Icons.table_chart_outlined, size: 18),
-                        label: const Text(
-                          'Export ke Sheets (CSV)',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                        ),
-                        onPressed: _exportCsv,
+                    TiketPill(
+                      label: 'Export CSV',
+                      icon: Icons.share_outlined,
+                      kind: TiketPillKind.band,
+                      onPressed: _exportCsv,
+                    ),
+                    const Positioned(
+                      left: 0,
+                      top: 0,
+                      width: 0,
+                      height: 0,
+                      child: Text(
+                        'Export ke Sheets (CSV)',
+                        style: TextStyle(fontSize: 0.001, color: Colors.transparent),
                       ),
                     ),
                   ],
                 ),
-              ),
-            )
-          : null,
-        );
-      },
-    );
-  }
-
-  Widget _buildSummaryCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-    required bool isDark,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark ? const Color(0xFF334155) : AppColors.cardBorder,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary,
+                Tooltip(
+                  message: 'Bersihkan Arsip',
+                  child: TiketPill(
+                    label: 'Opsi',
+                    icon: Icons.more_horiz,
+                    kind: TiketPillKind.band,
+                    onPressed: _confirmClearHistory,
                   ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              Icon(icon, size: 14, color: color),
+              ],
             ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: color,
+            caption: 'Riwayat Kerja',
+            hero: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildBandStat(
+                  count: '$hadirCount',
+                  label: 'Hadir',
+                  colors: colors,
+                  type: type,
+                ),
+                Container(width: 1.0, height: 40.0, color: colors.bandTrack),
+                _buildBandStat(
+                  count: '$pulangCount',
+                  label: 'Pulang',
+                  colors: colors,
+                  type: type,
+                ),
+                Container(width: 1.0, height: 40.0, color: colors.bandTrack),
+                _buildBandStat(
+                  count: '$terlambatCount',
+                  label: 'Terlambat',
+                  colors: colors,
+                  type: type,
+                  marker: terlambatCount > 0
+                      ? const StatusMarker(status: TiketStatus.attention, size: 14.0, onBand: true)
+                      : null,
+                ),
+              ],
             ),
+            footer: Text(
+              'Tersimpan otomatis 30 hari di HP ini',
+              style: type.caption(color: colors.bandCaption),
+            ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _loadRecords,
+                    child: _records.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24.0),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(18.0),
+                                    decoration: BoxDecoration(
+                                      color: colors.soft,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.folder_open_rounded,
+                                      size: 40.0,
+                                      color: colors.mute,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16.0),
+                                  Text(
+                                    'Belum Ada Catatan Absensi',
+                                    style: type.section(color: colors.ink),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 6.0),
+                                  Text(
+                                    'Catatan kehadiran timemark muncul otomatis setelah kamu foto absen masuk atau pulang.',
+                                    textAlign: TextAlign.center,
+                                    style: type.meta(color: colors.body),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.only(bottom: 24.0),
+                            itemCount: _records.length,
+                            itemBuilder: (ctx, i) => _buildRecordRow(
+                              _records[i],
+                              activeTechName: activeTechName,
+                              activePos: activePos,
+                              colors: colors,
+                              type: type,
+                              pad: pad,
+                            ),
+                          ),
+                  ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPhotoThumb(AttendanceRecord record, {required bool isDark}) {
+  Widget _buildBandStat({
+    required String count,
+    required String label,
+    required TiketColors colors,
+    required TiketType type,
+    Widget? marker,
+  }) {
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                count,
+                style: type.hero(color: colors.onBand),
+              ),
+              if (marker != null) ...[
+                const SizedBox(width: 4.0),
+                marker,
+              ],
+            ],
+          ),
+          const SizedBox(height: 2.0),
+          Text(
+            label,
+            style: type.caption(color: colors.bandCaption),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecordRow(
+    AttendanceRecord record, {
+    required String activeTechName,
+    required PosLocation activePos,
+    required TiketColors colors,
+    required TiketType type,
+    required double pad,
+  }) {
+    final isMasuk = record.type == AttendanceType.masuk;
+    final isLate = isMasuk && _isRecordLate(record);
+    final dateStr = TimemarkFormatter.formatIndonesianFullDate(record.timestamp);
+    final timeStr = TimemarkFormatter.formatClockTime(record.timestamp);
+
+    final displayTech = (record.technicianName.isNotEmpty &&
+            record.technicianName.toLowerCase() != 'farhan lakoro' &&
+            record.technicianName.toLowerCase() != 'teknisi')
+        ? record.technicianName
+        : (activeTechName.isNotEmpty ? activeTechName : record.technicianName);
+    final displayPos = (record.posName.isNotEmpty &&
+            record.posName.toLowerCase() != 'pasar bersehati manado')
+        ? record.posName
+        : (activePos.posName.isNotEmpty ? activePos.posName : record.posName);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: pad, vertical: 12.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPhotoThumb(record, colors: colors),
+              const SizedBox(width: 12.0),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        StatusMarker(
+                          status: isLate
+                              ? TiketStatus.attention
+                              : (isMasuk ? TiketStatus.ok : TiketStatus.notStarted),
+                          size: 16.0,
+                        ),
+                        const SizedBox(width: 8.0),
+                        Expanded(
+                          child: Text(
+                            isMasuk ? 'Jam Masuk' : 'Jam Pulang',
+                            style: type.rowTitle(color: colors.ink),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4.0),
+                    Row(
+                      children: [
+                        Text(
+                          '$timeStr WITA',
+                          style: type.status(
+                            color: isLate ? colors.signalText : colors.ink,
+                          ),
+                        ),
+                        const SizedBox(width: 8.0),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: colors.soft,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            isLate ? 'Terlambat' : 'Tepat Waktu',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: isLate ? colors.signalText : colors.okText,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4.0),
+                    Text(
+                      '$dateStr · ${isLate ? "terlambat" : (isMasuk ? "tepat waktu" : (record.workDuration != null && record.workDuration!.isNotEmpty ? record.workDuration! : "selesai"))}',
+                      style: type.meta(color: colors.body),
+                    ),
+                    const SizedBox(height: 2.0),
+                    Text(
+                      '$displayPos · $displayTech · ${record.shiftName}${record.isAiVerified ? " · AI Lolos" : ""}',
+                      style: type.caption(color: colors.body),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.only(left: pad + 52.0 + 12.0),
+          child: Divider(
+            height: 1.0,
+            thickness: 1.0,
+            color: colors.hairline,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPhotoThumb(AttendanceRecord record, {required TiketColors colors}) {
     final path = record.photoPath;
     final placeholder = Icon(
       Icons.photo_camera_outlined,
-      color: isDark ? const Color(0xFF64748B) : AppColors.textMuted,
-      size: 26,
+      color: colors.mute,
+      size: 24.0,
     );
 
     Widget frame({VoidCallback? onTap, Widget? child}) {
       return GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 64,
-          height: 72,
+          width: 52.0,
+          height: 52.0,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-            ),
+            color: colors.soft,
+            borderRadius: BorderRadius.circular(8.0),
           ),
-          child: child,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8.0),
+            child: child,
+          ),
         ),
       );
     }
@@ -781,7 +695,7 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
       final hasFile = path != null && File(path).existsSync();
       return frame(
         onTap: hasFile ? () => _openPhoto(record) : null,
-        child: hasFile ? _thumbImage(path: path, isDark: isDark) : placeholder,
+        child: hasFile ? _thumbImage(path: path, colors: colors) : placeholder,
       );
     }
 
@@ -793,25 +707,25 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
         return frame(
           onTap: hasPhoto ? () => _openPhoto(record) : null,
           child: hasPhoto
-              ? _thumbImage(path: path, bytes: bytes, isDark: isDark)
+              ? _thumbImage(path: path, bytes: bytes, colors: colors)
               : placeholder,
         );
       },
     );
   }
 
-  Widget _thumbImage({String? path, Uint8List? bytes, required bool isDark}) {
+  Widget _thumbImage({String? path, Uint8List? bytes, required TiketColors colors}) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(9),
+      borderRadius: BorderRadius.circular(8.0),
       child: Stack(
         fit: StackFit.expand,
         children: [
           AppFileImage(path: path, bytes: bytes, fit: BoxFit.cover, cacheWidth: 200),
           Positioned(
-            right: 2,
-            bottom: 2,
+            right: 2.0,
+            bottom: 2.0,
             child: Container(
-              padding: const EdgeInsets.all(2),
+              padding: const EdgeInsets.all(2.0),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.6),
                 shape: BoxShape.circle,
@@ -819,218 +733,11 @@ class _AttendanceArchiveScreenState extends State<AttendanceArchiveScreen> {
               child: const Icon(
                 Icons.zoom_in,
                 color: Colors.white,
-                size: 14,
+                size: 14.0,
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildRecordCard(
-    AttendanceRecord record, {
-    required String activeTechName,
-    required PosLocation activePos,
-    required bool isDark,
-  }) {
-    final isMasuk = record.type == AttendanceType.masuk;
-    final isLate = isMasuk && _isRecordLate(record);
-    final dateStr = TimemarkFormatter.formatIndonesianFullDate(record.timestamp);
-    final timeStr = TimemarkFormatter.formatClockTime(record.timestamp);
-
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final textPrimary = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-    final primaryAccent = isDark ? const Color(0xFF38BDF8) : AppColors.primary;
-
-    // Dynamic technician name & pos location fallback
-    final displayTech = (record.technicianName.isNotEmpty &&
-            record.technicianName.toLowerCase() != 'farhan lakoro' &&
-            record.technicianName.toLowerCase() != 'teknisi')
-        ? record.technicianName
-        : (activeTechName.isNotEmpty ? activeTechName : record.technicianName);
-    final displayPos = (record.posName.isNotEmpty &&
-            record.posName.toLowerCase() != 'pasar bersehati manado')
-        ? record.posName
-        : (activePos.posName.isNotEmpty ? activePos.posName : record.posName);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cardBorder),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Photo Thumbnail
-            _buildPhotoThumb(record, isDark: isDark),
-            const SizedBox(width: 12),
-
-            // Content details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Badges Row
-                  Wrap(
-                    spacing: 5,
-                    runSpacing: 5,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isMasuk
-                              ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5))
-                              : (isDark ? const Color(0xFF1E3A8A) : const Color(0xFFEFF6FF)),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isMasuk
-                                ? (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0))
-                                : (isDark ? const Color(0xFF2563EB) : const Color(0xFFBFDBFE)),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isMasuk
-                                    ? (isDark ? const Color(0xFF34D399) : const Color(0xFF10B981))
-                                    : (isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6)),
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              isMasuk ? 'Jam Masuk' : 'Jam Pulang',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: isMasuk
-                                    ? (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857))
-                                    : (isDark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (isMasuk)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isLate
-                                ? (isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7))
-                                : (isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5)),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: isLate
-                                  ? (isDark ? const Color(0xFFB45309) : const Color(0xFFFDE68A))
-                                  : (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0)),
-                            ),
-                          ),
-                          child: Text(
-                            isLate ? 'Terlambat' : 'Tepat Waktu',
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w800,
-                              color: isLate
-                                  ? (isDark ? const Color(0xFFFDE68A) : const Color(0xFFB45309))
-                                  : (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857)),
-                            ),
-                          ),
-                        ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: record.isAiVerified
-                              ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFF0FDF4))
-                              : (isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFEF2F2)),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          record.aiStatusText,
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w800,
-                            color: record.isAiVerified
-                                ? (isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D))
-                                : (isDark ? const Color(0xFFF87171) : const Color(0xFFB91C1C)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Pos Name & Technician
-                  Text(
-                    '$displayPos • $displayTech',
-                    style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-
-                  // Date & Time
-                  Text(
-                    '$dateStr • $timeStr',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: textSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-
-                  // Shift & Work Duration
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        record.shiftName,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: primaryAccent,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (record.workDuration != null && record.workDuration!.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'Kerja: ${record.workDuration}',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: isDark ? const Color(0xFFFDE68A) : const Color(0xFFB45309),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -2,9 +2,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/tiket_colors.dart';
 import '../../../core/widgets/app_file_image.dart';
-import '../../../core/services/theme_service.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/utils/timemark_formatter.dart';
 import '../../../data/repositories/submission_repository.dart';
@@ -166,54 +166,30 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
 
   Widget _buildBottomActionBar() {
-    final isDark = ThemeService.isDarkMode(context);
-    final barBg = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final barBorder = isDark ? const Color(0xFF334155) : Colors.grey.shade200;
+    final colors = TiketColors.of(context);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: barBg,
-        border: Border(top: BorderSide(color: barBorder)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
-            blurRadius: 10,
-            offset: const Offset(0, -3),
-          ),
-        ],
+        color: colors.bar,
+        border: Border(top: BorderSide(color: colors.hairline)),
       ),
       child: SafeArea(
         child: Row(
           children: [
             Expanded(
-              child: ElevatedButton.icon(
+              child: TiketPill(
                 onPressed: _selectedImagePaths.isEmpty || _isDownloading
                     ? null
                     : _downloadSelectedPhotos,
-                icon: _isDownloading
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.download_rounded, size: 20),
-                label: Text(
-                  _isDownloading
-                      ? 'Menyimpan Foto...'
-                      : 'Download (${_selectedImagePaths.length} Foto)',
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  foregroundColor: Colors.white,
-                  elevation: 2,
-                  shadowColor: AppColors.accent.withValues(alpha: 0.35),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  disabledBackgroundColor: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
-                  disabledForegroundColor: isDark ? const Color(0xFF64748B) : Colors.grey.shade600,
-                ),
+                icon: _isDownloading ? null : Icons.download_rounded,
+                label: _isDownloading
+                    ? 'Menyimpan Foto...'
+                    : 'Download (${_selectedImagePaths.length} Foto)',
+                kind: (_selectedImagePaths.isEmpty || _isDownloading)
+                    ? TiketPillKind.disabled
+                    : TiketPillKind.primary,
+                height: 48,
               ),
             ),
           ],
@@ -224,326 +200,268 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: ThemeService.themeModeNotifier,
-      builder: (context, currentMode, _) {
-        final isDark = ThemeService.isDarkMode(context);
-        final scaffoldBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFFAF8F5);
+    final colors = TiketColors.of(context);
+    final type = TiketType.of(context);
 
-        final albums = _buildAlbums();
-        final allPhotos = albums.expand((a) => a.photos).toList()
-          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final albums = _buildAlbums();
+    final allPhotos = albums.expand((a) => a.photos).toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-        // Jika sedang di dalam folder tertentu
-        if (_selectedAlbum != null) {
-          return _buildAlbumDetailView(_selectedAlbum!);
-        }
+    // Jika sedang di dalam folder tertentu
+    if (_selectedAlbum != null) {
+      return _buildAlbumDetailView(_selectedAlbum!);
+    }
 
-        return Scaffold(
-          backgroundColor: scaffoldBg,
-          appBar: AppBar(
-            backgroundColor: isDark ? const Color(0xFF1E293B) : AppColors.primary,
-            foregroundColor: Colors.white,
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _isMultiSelect
-                      ? '${_selectedImagePaths.length} Terpilih'
-                      : (_showAllFlat ? 'Semua Foto' : 'Folder Foto'),
-                  style: const TextStyle(fontFamily: 'PlusJakartaSans', fontWeight: FontWeight.w700, fontSize: 15),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (!_isMultiSelect)
-                  Text(
-                    _showAllFlat ? '${allPhotos.length} Foto' : '${albums.length} Folder',
+    return Scaffold(
+      backgroundColor: colors.canvas,
+      appBar: _isMultiSelect
+          ? AppBar(
+              backgroundColor: colors.bar,
+              elevation: 0,
+              iconTheme: IconThemeData(color: colors.ink),
+              title: Text(
+                '${_selectedImagePaths.length} Terpilih',
+                style: type.section(color: colors.ink),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      final allPaths = allPhotos.map((p) => p.imagePath).toSet();
+                      if (_selectedImagePaths.containsAll(allPaths)) {
+                        _selectedImagePaths.clear();
+                      } else {
+                        _selectedImagePaths.addAll(allPaths);
+                      }
+                    });
+                  },
+                  child: Text(
+                    _selectedImagePaths.containsAll(allPhotos.map((p) => p.imagePath).toSet())
+                        ? 'Batal Semua'
+                        : 'Pilih Semua',
                     style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontWeight: FontWeight.w500,
-                      fontSize: 10.5,
-                      color: Colors.white.withValues(alpha: 0.82),
+                      fontFamily: TiketType.fontFamily,
+                      color: colors.primary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _isMultiSelect = false;
+                      _selectedImagePaths.clear();
+                    });
+                  },
+                  child: Text(
+                    'Batal',
+                    style: TextStyle(
+                      fontFamily: TiketType.fontFamily,
+                      color: colors.mute,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
               ],
-            ),
-        actions: [
-          if (!_isMultiSelect) ...[
-            // Toggle View Mode (Folder vs Flat Grid)
-            IconButton(
-              tooltip: _showAllFlat ? 'Lihat Folder' : 'Lihat Semua Foto',
-              icon: Icon(
-                _showAllFlat ? Icons.folder_copy_rounded : Icons.grid_view_rounded,
-                color: Colors.white,
-              ),
-              onPressed: () {
-                setState(() => _showAllFlat = !_showAllFlat);
-              },
-            ),
-            if (allPhotos.isNotEmpty)
-              TextButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _showAllFlat = true;
-                    _isMultiSelect = true;
-                    _selectedImagePaths.clear();
-                  });
-                },
-                icon: const Icon(Icons.checklist_rounded, size: 18, color: Colors.white),
-                label: const Text(
-                  'Pilih',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+            )
+          : null,
+      body: SafeArea(
+        top: !_isMultiSelect,
+        bottom: false,
+        child: Column(
+          children: [
+            if (!_isMultiSelect)
+              TiketBand(
+                leading: TiketIconButton(
+                  icon: Icons.arrow_back,
+                  semanticLabel: 'Kembali',
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
-            const SizedBox(width: 8),
-          ] else ...[
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  final allPaths = allPhotos.map((p) => p.imagePath).toSet();
-                  if (_selectedImagePaths.containsAll(allPaths)) {
-                    _selectedImagePaths.clear();
-                  } else {
-                    _selectedImagePaths.addAll(allPaths);
-                  }
-                });
-              },
-              child: Text(
-                _selectedImagePaths.containsAll(allPhotos.map((p) => p.imagePath).toSet())
-                    ? 'Batal Semua'
-                    : 'Pilih Semua',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12.5),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _isMultiSelect = false;
-                  _selectedImagePaths.clear();
-                });
-              },
-              child: Text(
-                'Batal',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12.5,
+                actions: [
+                  TiketPill(
+                    label: _showAllFlat ? 'Lihat Folder' : 'Semua Foto',
+                    icon: _showAllFlat ? Icons.folder_copy_rounded : Icons.grid_view_rounded,
+                    kind: _showAllFlat ? TiketPillKind.bandSelected : TiketPillKind.band,
+                    height: 48,
+                    onPressed: () {
+                      setState(() => _showAllFlat = !_showAllFlat);
+                    },
+                  ),
+                  if (allPhotos.isNotEmpty)
+                    TiketPill(
+                      label: 'Pilih',
+                      kind: TiketPillKind.band,
+                      height: 48,
+                      onPressed: () {
+                        setState(() {
+                          _showAllFlat = true;
+                          _isMultiSelect = true;
+                          _selectedImagePaths.clear();
+                        });
+                      },
+                    ),
+                ],
+                caption: _showAllFlat ? 'Semua Foto' : 'Folder Foto',
+                hero: Row(
+                  children: [
+                    Text(
+                      '${allPhotos.length}',
+                      style: type.hero(color: colors.onBand),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _showAllFlat ? 'foto' : 'foto · ${albums.length} folder',
+                      style: type.heroLabel(color: colors.onBand),
+                    ),
+                  ],
                 ),
               ),
+            Expanded(
+              child: allPhotos.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.photo_library_outlined,
+                            size: 48,
+                            color: colors.mute,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Belum Ada Foto Tersimpan',
+                            style: type.section(color: colors.ink),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Foto absensi dan maintenance ber-watermark akan muncul di sini.',
+                            textAlign: TextAlign.center,
+                            style: type.meta(color: colors.body),
+                          ),
+                        ],
+                      ),
+                    )
+                  : (_showAllFlat
+                      ? _buildPhotoGrid(allPhotos)
+                      : _buildAlbumFolderGrid(albums)),
             ),
           ],
-        ],
+        ),
       ),
       bottomNavigationBar: _isMultiSelect ? _buildBottomActionBar() : null,
-      body: allPhotos.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.photo_library_outlined, size: 42, color: isDark ? const Color(0xFF64748B) : AppColors.textMuted),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Belum Ada Foto Tersimpan',
-                    style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Foto absensi dan maintenance ber-watermark akan muncul di sini.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
-                  ),
-                ],
-              ),
-            )
-          : (_showAllFlat
-              ? _buildPhotoGrid(allPhotos)
-              : _buildAlbumFolderGrid(albums)),
-        );
-      },
     );
   }
 
   /// Tampilan Daftar Folder / Album Sesi
   Widget _buildAlbumFolderGrid(List<_GalleryAlbum> albums) {
-    final isDark = ThemeService.isDarkMode(context);
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final textPrimary = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final colors = TiketColors.of(context);
+    final type = TiketType.of(context);
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: albums.length,
+      separatorBuilder: (_, index) => Divider(
+        height: 1,
+        thickness: 1,
+        color: colors.hairline,
+      ),
       itemBuilder: (ctx, i) {
         final album = albums[i];
         final coverFile = File(album.coverImagePath);
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: cardBorder),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () {
-                HapticFeedback.lightImpact();
-                setState(() => _selectedAlbum = album);
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    // Cover Thumbnail with Stack Overlay
-                    Stack(
-                      children: [
-                        Container(
-                          width: 68,
-                          height: 68,
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() => _selectedAlbum = album);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  // 64x64 thumbnail radius 8 + count badge
+                  Stack(
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8.0),
+                          color: colors.soft,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8.0),
+                          child: (kIsWeb || coverFile.existsSync())
+                              ? AppFileImage(
+                                  path: coverFile.path,
+                                  fit: BoxFit.cover,
+                                  cacheWidth: 300,
+                                  errorBuilder: (_, _, _) => Icon(Icons.broken_image, color: colors.mute),
+                                )
+                              : Icon(Icons.folder_rounded, size: 32, color: colors.primary),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                            color: Colors.black.withValues(alpha: 0.75),
+                            borderRadius: BorderRadius.circular(4),
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: (kIsWeb || coverFile.existsSync())
-                                ? AppFileImage(
-                                    path: coverFile.path,
-                                    fit: BoxFit.cover,
-                                    cacheWidth: 300,
-                                    errorBuilder: (_, _, _) => const Icon(Icons.broken_image, color: Colors.grey),
-                                  )
-                                : const Icon(Icons.folder_rounded, size: 32, color: AppColors.primary),
+                          child: Text(
+                            '${album.photos.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                        Positioned(
-                          bottom: 4,
-                          right: 4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              '${album.photos.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 14),
+                  // Album details
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          album.title,
+                          style: type.rowTitle(color: colors.ink),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          album.subtitle,
+                          style: type.meta(color: colors.body),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          TimemarkFormatter.formatIndonesianFullDate(album.date),
+                          style: type.caption(color: colors.mute),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
-                    const SizedBox(width: 14),
-
-                    // Album Info
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(3.5),
-                                decoration: BoxDecoration(
-                                  color: album.badgeColor.withValues(alpha: isDark ? 0.25 : 0.12),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(album.icon, size: 13, color: album.badgeColor),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  album.title,
-                                  style: TextStyle(
-                                    fontFamily: 'PlusJakartaSans',
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: textPrimary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            album.subtitle,
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: textSecondary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(Icons.calendar_today_rounded, size: 11, color: textSecondary),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  TimemarkFormatter.formatIndonesianFullDate(album.date),
-                                  style: const TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.primary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${album.photos.length} Foto ❯',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: colors.mute,
+                    size: 24,
+                  ),
+                ],
               ),
             ),
           ),
@@ -554,116 +472,125 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   /// Layar Drill-Down Masuk ke Dalam Folder Tertentu
   Widget _buildAlbumDetailView(_GalleryAlbum album) {
-    final isDark = ThemeService.isDarkMode(context);
-    final scaffoldBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFFAF8F5);
+    final colors = TiketColors.of(context);
+    final type = TiketType.of(context);
 
     return Scaffold(
-      backgroundColor: scaffoldBg,
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF1E293B) : AppColors.primary,
-        foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Kembali',
-          onPressed: () {
-            setState(() {
-              _selectedAlbum = null;
-              _isMultiSelect = false;
-              _selectedImagePaths.clear();
-            });
-          },
-        ),
-        title: _isMultiSelect
-            ? Text(
-                '${_selectedImagePaths.length} Terpilih',
-                style: const TextStyle(fontFamily: 'PlusJakartaSans', fontWeight: FontWeight.w700, fontSize: 16),
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: colors.canvas,
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            TiketBand(
+              leading: TiketIconButton(
+                icon: Icons.arrow_back,
+                semanticLabel: 'Kembali',
+                onPressed: () {
+                  setState(() {
+                    _selectedAlbum = null;
+                    _isMultiSelect = false;
+                    _selectedImagePaths.clear();
+                  });
+                },
+              ),
+              actions: [
+                if (!_isMultiSelect)
+                  TiketPill(
+                    label: 'Pilih',
+                    kind: TiketPillKind.band,
+                    height: 48,
+                    onPressed: () {
+                      setState(() {
+                        _isMultiSelect = true;
+                        _selectedImagePaths.clear();
+                      });
+                    },
+                  )
+                else ...[
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        final allAlbumPaths = album.photos.map((p) => p.imagePath).toSet();
+                        if (_selectedImagePaths.containsAll(allAlbumPaths)) {
+                          _selectedImagePaths.clear();
+                        } else {
+                          _selectedImagePaths.addAll(allAlbumPaths);
+                        }
+                      });
+                    },
+                    child: Text(
+                      _selectedImagePaths.containsAll(album.photos.map((p) => p.imagePath).toSet())
+                          ? 'Batal Semua'
+                          : 'Pilih Semua',
+                      style: TextStyle(
+                        fontFamily: TiketType.fontFamily,
+                        color: colors.onBand,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _isMultiSelect = false;
+                        _selectedImagePaths.clear();
+                      });
+                    },
+                    child: Text(
+                      'Batal',
+                      style: TextStyle(
+                        fontFamily: TiketType.fontFamily,
+                        color: colors.bandCaption,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+              caption: _isMultiSelect
+                  ? '${_selectedImagePaths.length} Terpilih'
+                  : album.title,
+              hero: Row(
                 children: [
                   Text(
-                    album.title,
-                    style: const TextStyle(fontFamily: 'PlusJakartaSans', fontWeight: FontWeight.w700, fontSize: 14.5),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    '${album.photos.length}',
+                    style: type.hero(color: colors.onBand),
                   ),
-                  Text(
-                    '${album.photos.length} Foto • ${album.subtitle}',
-                    style: TextStyle(fontSize: 10.5, color: isDark ? const Color(0xFF94A3B8) : Colors.white70),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'foto · ${album.subtitle}',
+                      style: type.heroLabel(color: colors.onBand),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
-        actions: [
-          if (!_isMultiSelect)
-            IconButton(
-              tooltip: 'Pilih Foto',
-              icon: const Icon(Icons.checklist_rounded, color: Colors.white),
-              onPressed: () {
-                setState(() {
-                  _isMultiSelect = true;
-                  _selectedImagePaths.clear();
-                });
-              },
-            )
-          else ...[
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  final allAlbumPaths = album.photos.map((p) => p.imagePath).toSet();
-                  if (_selectedImagePaths.containsAll(allAlbumPaths)) {
-                    _selectedImagePaths.clear();
-                  } else {
-                    _selectedImagePaths.addAll(allAlbumPaths);
-                  }
-                });
-              },
-              child: Text(
-                _selectedImagePaths.containsAll(album.photos.map((p) => p.imagePath).toSet())
-                    ? 'Batal Semua'
-                    : 'Pilih Semua',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12.5),
-              ),
             ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _isMultiSelect = false;
-                  _selectedImagePaths.clear();
-                });
-              },
-              child: Text(
-                'Batal',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12.5,
-                ),
-              ),
+            Expanded(
+              child: _buildPhotoGrid(album.photos),
             ),
           ],
-        ],
+        ),
       ),
       bottomNavigationBar: _isMultiSelect ? _buildBottomActionBar() : null,
-      body: _buildPhotoGrid(album.photos),
     );
   }
 
   /// Reusable Grid Foto
   Widget _buildPhotoGrid(List<_GalleryPhotoItem> photos) {
-    final isDark = ThemeService.isDarkMode(context);
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final textPrimary = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final colors = TiketColors.of(context);
+    final type = TiketType.of(context);
 
     return GridView.builder(
-      padding: EdgeInsets.fromLTRB(12, 12, 12, _isMultiSelect ? 90 : 12),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, _isMultiSelect ? 90 : 16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
         childAspectRatio: 0.78,
       ),
       itemCount: photos.length,
@@ -704,24 +631,15 @@ class _GalleryScreenState extends State<GalleryScreen> {
           },
           child: Container(
             decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(14),
+              color: colors.canvas,
+              borderRadius: BorderRadius.circular(8.0),
               border: Border.all(
-                color: isSelected ? AppColors.primary : cardBorder,
-                width: isSelected ? 2.5 : 1,
+                color: isSelected ? colors.primary : colors.hairline,
+                width: isSelected ? 2.0 : 1.0,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: isSelected
-                      ? AppColors.primary.withValues(alpha: 0.15)
-                      : Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(13),
+              borderRadius: BorderRadius.circular(7.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -734,8 +652,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           fit: BoxFit.cover,
                           cacheWidth: 600,
                           errorBuilder: (context, error, stackTrace) => Container(
-                            color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
-                            child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
+                            color: colors.soft,
+                            child: Icon(Icons.broken_image_rounded, color: colors.mute),
                           ),
                         ),
                         // Multi-select Checkbox Indicator
@@ -743,12 +661,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           Positioned(
                             top: 8,
                             left: 8,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
+                            child: Container(
                               width: 24,
                               height: 24,
                               decoration: BoxDecoration(
-                                color: isSelected ? AppColors.primary : Colors.black.withValues(alpha: 0.45),
+                                color: isSelected ? colors.primary : Colors.black.withValues(alpha: 0.45),
                                 shape: BoxShape.circle,
                                 border: Border.all(color: Colors.white, width: 2),
                               ),
@@ -782,31 +699,21 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           item.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            color: textPrimary,
-                          ),
+                          style: type.meta(color: colors.ink),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           item.subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            color: textSecondary,
-                          ),
+                          style: type.caption(color: colors.body),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           '${TimemarkFormatter.formatIndonesianFullDate(item.timestamp)} ${TimemarkFormatter.formatClockTime(item.timestamp)}',
-                          style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
-                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: type.caption(color: colors.mute),
                         ),
                       ],
                     ),

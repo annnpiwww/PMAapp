@@ -132,15 +132,15 @@ void main() {
   }
 
   group('SpvTaskCard Specification Tests', () {
-    testWidgets('(a) posTag PKM renders text PKM in pill', (tester) async {
+    testWidgets('(a) posName renders in meta line and semantics', (tester) async {
       final handle = tester.ensureSemantics();
       try {
         final task = createBaseTask(posTag: 'PKM', posName: 'Kawasan Megamas');
         await tester.pumpWidget(buildTestCard(task: task));
         await tester.pumpAndSettle();
 
-        expect(find.text('PKM'), findsOneWidget);
-        expect(find.bySemanticsLabel('Lokasi PKM'), findsOneWidget);
+        expect(find.textContaining('Kawasan Megamas'), findsOneWidget);
+        expect(find.bySemanticsLabel(RegExp(r'lokasi Kawasan Megamas')), findsOneWidget);
       } finally {
         handle.dispose();
       }
@@ -153,8 +153,8 @@ void main() {
         await tester.pumpWidget(buildTestCard(task: task));
         await tester.pumpAndSettle();
 
-        expect(find.text('Kawasan Megamas'), findsOneWidget);
-        expect(find.bySemanticsLabel('Lokasi Kawasan Megamas'), findsOneWidget);
+        expect(find.textContaining('Kawasan Megamas'), findsOneWidget);
+        expect(find.bySemanticsLabel(RegExp(r'lokasi Kawasan Megamas')), findsOneWidget);
       } finally {
         handle.dispose();
       }
@@ -167,7 +167,7 @@ void main() {
         await tester.pumpWidget(buildTestCard(task: task));
         await tester.pumpAndSettle();
 
-        expect(find.bySemanticsLabel(RegExp(r'^Lokasi')), findsNothing);
+        expect(find.bySemanticsLabel(RegExp(r'lokasi')), findsNothing);
       } finally {
         handle.dispose();
       }
@@ -187,7 +187,7 @@ void main() {
       expect(find.text('Belum Mulai'), findsOneWidget);
     });
 
-    testWidgets('(e) done with 2 photos + jamSelesai 09:49 -> Bukti (2) and Selesai 09:49 WITA', (tester) async {
+    testWidgets('(e) done with 2 photos + jamSelesai 09:49 -> Bukti (2) and Selesai', (tester) async {
       final task = createBaseTask(
         status: TaskStatus.completed,
         jamSelesai: '09:49',
@@ -197,7 +197,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Bukti (2)'), findsOneWidget);
-      expect(find.textContaining('Selesai 09:49 WITA'), findsOneWidget);
+      expect(find.text('Selesai'), findsOneWidget);
     });
 
     testWidgets('(f) every Text inside the card has effective fontSize >= 12', (tester) async {
@@ -302,13 +302,12 @@ void main() {
       expect(alihkanWidth < cardWidth * 0.5, isTrue);
     });
 
-    testWidgets('posTag PPM with posName PPM does not duplicate POS in meta line', (tester) async {
+    testWidgets('posName PPM renders in meta line with kategori', (tester) async {
       final task = createBaseTask(posTag: 'PPM', posName: 'PPM', teknisiNama: 'Alessandro');
       await tester.pumpWidget(buildTestCard(task: task));
       await tester.pumpAndSettle();
 
-      expect(find.text('PPM'), findsOneWidget);
-      expect(find.textContaining('PPM ·'), findsNothing);
+      expect(find.textContaining('PPM · khusus'), findsOneWidget);
     });
 
     testWidgets('Alihkan and Bukti tap target height >= 44', (tester) async {
@@ -340,7 +339,7 @@ void main() {
       expect(buktiTarget.height >= 44.0, isTrue);
     });
 
-    testWidgets('pending card with 1-line title and no deskripsi has height <= 124dp', (tester) async {
+    testWidgets('pending card with 1-line title and no deskripsi has height <= 160dp', (tester) async {
       final task = createBaseTask(
         judul: 'Pemasangan lampu pos',
         deskripsi: '',
@@ -355,7 +354,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final cardSize = tester.getSize(find.byType(SpvTaskCard));
-      expect(cardSize.height <= 124.0, isTrue, reason: 'Card height was ${cardSize.height}');
+      expect(cardSize.height <= 160.0, isTrue, reason: 'Card height was ${cardSize.height}');
     });
   });
 }

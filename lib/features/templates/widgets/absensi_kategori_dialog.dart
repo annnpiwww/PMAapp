@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/services/theme_service.dart';
+import '../../../core/constants/tiket_colors.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../data/models/submission_model.dart';
 import '../../../data/services/absensi_setup_service.dart';
 import '../../../data/services/storage_service.dart';
@@ -15,9 +15,10 @@ class AbsensiKategoriDialog extends StatefulWidget {
   const AbsensiKategoriDialog({super.key, this.onSaved});
 
   static Future<void> show(BuildContext context, {VoidCallback? onSaved}) {
-    return showDialog(
+    return showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => AbsensiKategoriDialog(onSaved: onSaved),
     );
   }
@@ -297,10 +298,10 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
       final lastCheck = StorageService.getLastCheckInTime();
       if (lastCheck == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Belum ada catatan absen masuk aktif hari ini.'),
-            backgroundColor: Color(0xFFEF4444),
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: const Text('Belum ada catatan absen masuk aktif hari ini.'),
+            backgroundColor: TiketColors.of(context).danger,
+            duration: const Duration(seconds: 3),
           ),
         );
         return;
@@ -324,12 +325,13 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            backgroundColor: TiketColors.of(context).dialog,
+            title: Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 24),
-                SizedBox(width: 8),
-                Text('Belum Waktunya Pulang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Icon(Icons.warning_amber_rounded, color: TiketColors.of(context).signal, size: 24),
+                const SizedBox(width: 8),
+                Text('Belum Waktunya Pulang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: TiketColors.of(context).ink)),
               ],
             ),
             content: Text(
@@ -338,12 +340,12 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
               '• Durasi Berjalan: ${workedH}j ${workedM}m\n'
               '${remaining != null && remaining > Duration.zero ? '• Sisa Waktu Shift: ${remaining.inHours}j ${remaining.inMinutes.remainder(60)}m lagi\n\n' : '\n'}'
               'Absen pulang bisa dilakukan setelah jam $jamPulangStr atau setelah durasi shift selesai.',
-              style: const TextStyle(fontSize: 13, height: 1.45),
+              style: TextStyle(fontSize: 13, height: 1.45, color: TiketColors.of(context).body),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold, color: TiketColors.of(context).primary)),
               ),
             ],
           ),
@@ -421,52 +423,45 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = TiketColors.of(context);
     final mediaQuery = MediaQuery.of(context);
-    final maxDialogHeight = mediaQuery.size.height * 0.88;
-    final isDark = ThemeService.isDarkMode(context);
+    final maxDialogHeight = mediaQuery.size.height * 0.90;
 
-    final dialogBg = isDark ? AppColors.darkSurface : Colors.white;
-    final textTitle = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
-    final textSub = isDark ? AppColors.textDarkSecondary : AppColors.textSecondary;
-    final headerBorder = isDark ? AppColors.darkBorder : AppColors.cardBorder;
-    final inputBg = isDark ? AppColors.darkSurfaceContainer : AppColors.surfaceContainerLow;
-    final inputBorderColor = isDark ? AppColors.darkBorderMuted : AppColors.cardBorder;
-    final inputTextColor = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
-
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: dialogBg,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 440,
-          maxHeight: maxDialogHeight,
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: maxDialogHeight,
+      ),
+      decoration: BoxDecoration(
+        color: colors.dialog,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(
+          top: BorderSide(color: colors.bandLine, width: 1.0),
         ),
+      ),
+      child: SafeArea(
+        top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // -----------------------------------------------------------------
-            // HEADER: Bersih, taktil, ringkas, dengan semantic close button
-            // -----------------------------------------------------------------
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 16, 14),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: headerBorder, width: 1.5)),
+            const SizedBox(height: 12),
+            Center(
+              child: Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colors.hairline,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
+            ),
+            const SizedBox(height: 12),
+
+            // HEADER: Bersih, taktil, ringkas, dengan semantic close button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.schedule_rounded, color: AppColors.primary, size: 22),
-                  ),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,47 +470,52 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                           'Atur Shift & Absensi',
                           style: TextStyle(
                             fontFamily: 'PlusJakartaSans',
-                            fontSize: 16,
+                            fontSize: 17,
                             fontWeight: FontWeight.w800,
-                            color: textTitle,
+                            color: colors.ink,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Jadwal shift & Lokasi standby',
                           style: TextStyle(
-                            fontSize: 11.5,
-                            color: textSub,
-                            fontWeight: FontWeight.w500,
+                            fontFamily: 'PlusJakartaSans',
+                            fontSize: 13,
+                            color: colors.body,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Tutup dialog',
-                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                    icon: Icon(Icons.close_rounded, color: textSub, size: 22),
-                    onPressed: () => Navigator.of(context).pop(),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                    child: Tooltip(
+                      message: 'Tutup dialog',
+                      child: IconButton(
+                        tooltip: 'Tutup',
+                        icon: Icon(Icons.close_rounded, color: colors.mute, size: 22),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
+            Divider(color: colors.hairline, height: 16),
 
-            // -----------------------------------------------------------------
             // SCROLLABLE BODY
-            // -----------------------------------------------------------------
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // SECTION 1: TEKNISI BERTUGAS
                     _buildSectionHeader(
-                      icon: Icons.person_rounded,
-                      title: 'TEKNISI BERTUGAS',
+                      title: 'Teknisi bertugas',
                       subtitle: 'Nama yang tercetak di watermark & laporan',
+                      colors: colors,
+                      legacyLabel: 'TEKNISI BERTUGAS',
                     ),
                     const SizedBox(height: 6),
                     TextField(
@@ -526,199 +526,133 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                         }
                       },
                       style: TextStyle(
-                        fontSize: 13.5,
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: inputTextColor,
+                        color: colors.ink,
                       ),
                       decoration: InputDecoration(
                         isDense: true,
                         hintText: 'Ketik nama teknisi',
+                        hintStyle: TextStyle(color: colors.mute, fontSize: 13),
                         errorText: _teknisiError,
-                        prefixIcon: const Icon(Icons.badge_outlined, size: 20, color: AppColors.accent),
                         filled: true,
-                        fillColor: inputBg,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: inputBorderColor),
+                        fillColor: colors.soft,
+                        border: UnderlineInputBorder(
+                          borderSide: BorderSide(color: colors.body, width: 2),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        enabledBorder: UnderlineInputBorder(
                           borderSide: BorderSide(
-                            color: _teknisiError != null ? AppColors.danger : const Color(0xFFF59E0B),
-                            width: 1.5,
+                            color: _teknisiError != null ? colors.danger : colors.body,
+                            width: 2,
                           ),
                         ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.accent, width: 2.0),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: colors.primary, width: 2),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                     ),
 
                     const SizedBox(height: 16),
 
                     // SECTION 2: LOKASI STANDBY POS (Bali bisa diisi manual)
-                    _buildLocationStandbyCard(),
+                    _buildSectionHeader(
+                      title: 'Lokasi standby',
+                      colors: colors,
+                      legacyLabel: 'LOKASI STANDBY',
+                    ),
+                    const SizedBox(height: 6),
+                    _buildLocationStandbyCard(colors),
 
                     const SizedBox(height: 16),
 
-                    // SECTION 3: JADWAL SHIFT (FOKUS VISUAL UTAMA)
+                    // SECTION 3: JADWAL SHIFT
                     _buildSectionHeader(
-                      icon: Icons.calendar_month_rounded,
-                      title: 'PILIH JADWAL SHIFT',
+                      title: 'Pilih jadwal shift',
                       subtitle: 'Jadwal shift teknisi',
+                      colors: colors,
+                      legacyLabel: 'PILIH JADWAL SHIFT',
                     ),
                     const SizedBox(height: 8),
 
-                    // GRID SHIFT OPERASIONAL BSS (Responsive, scannable, dual-coding)
-                    ...() {
-                      final cards = _shiftCards;
-                      final widgets = <Widget>[];
-                      for (int i = 0; i < cards.length; i += 2) {
-                        final c1 = cards[i];
-                        final c2 = (i + 1 < cards.length) ? cards[i + 1] : null;
-                        widgets.add(
-                          Row(
-                            children: [
-                              Expanded(child: _buildShiftBentoCard(c1)),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: c2 != null
-                                    ? _buildShiftBentoCard(c2)
-                                    : const SizedBox.shrink(),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (i + 2 < cards.length) {
-                          widgets.add(const SizedBox(height: 8));
-                        }
-                      }
-                      return widgets;
-                    }(),
+                    // VERTICAL RADIO ROWS (flat on canvas)
+                    for (int i = 0; i < _shiftCards.length; i++)
+                      _buildShiftRow(
+                        _shiftCards[i],
+                        colors,
+                        showDivider: i < _shiftCards.length - 1,
+                      ),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 6),
 
-                    // OPSI CUSTOM SHIFT (COMPACT SECONDARY CONTROL)
-                    _buildCustomShiftControl(),
+                    // OPSI CUSTOM SHIFT
+                    _buildCustomShiftControl(colors),
 
                     const SizedBox(height: 16),
 
                     // SECTION 4: JENIS LAPORAN ABSENSI (MASUK VS PULANG)
                     _buildSectionHeader(
-                      icon: Icons.fact_check_outlined,
-                      title: 'JENIS SHIFT',
+                      title: 'Jenis shift',
                       subtitle: 'Jenis Shift',
+                      colors: colors,
+                      legacyLabel: 'JENIS SHIFT',
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildAttendanceTypeCard(
-                            label: 'Masuk',
-                            sublabel: 'Mulai Kerja',
-                            icon: Icons.login_rounded,
-                            isSelected: _tipeLaporan == 'Masuk',
-                            activeColor: AppColors.success,
-                            onTap: () => _onTipeChanged('Masuk'),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _buildAttendanceTypeCard(
-                            label: 'Pulang',
-                            sublabel: 'Selesai & Handover',
-                            icon: Icons.logout_rounded,
-                            isSelected: _tipeLaporan == 'Pulang',
-                            activeColor: AppColors.accent,
-                            onTap: () => _onTipeChanged('Pulang'),
-                          ),
-                        ),
+                    TiketSegmented<String>(
+                      options: const [
+                        ('Masuk', 'Masuk'),
+                        ('Pulang', 'Pulang'),
                       ],
+                      selected: _tipeLaporan,
+                      onChanged: (val) {
+                        _onTipeChanged(val);
+                      },
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _tipeLaporan == 'Masuk'
+                          ? 'Mulai Kerja'
+                          : 'Selesai & Handover',
+                      style: TextStyle(
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colors.body,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
 
-            // -----------------------------------------------------------------
-            // FOOTER ACTIONS (STICKY AT BOTTOM)
-            // -----------------------------------------------------------------
+            // FOOTER ACTIONS
             Container(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
               decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: headerBorder, width: 1.5)),
-                color: dialogBg,
+                border: Border(top: BorderSide(color: colors.hairline, width: 1.0)),
+                color: colors.bar,
               ),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: Tooltip(
-                      message: 'Tutup tanpa menyimpan perubahan',
-                      child: OutlinedButton(
-                        onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(46),
-                          side: const BorderSide(color: AppColors.cardBorder, width: 1.2),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-                        ),
-                        child: const FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            'Batal',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TiketPill(
+                      label: 'Simpan Shift',
+                      kind: TiketPillKind.primary,
+                      expand: true,
+                      onPressed: _isSaving ? null : _saveData,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Tooltip(
-                      message: 'Simpan konfigurasi shift dan terapkan ke watermark',
-                      child: ElevatedButton(
-                        onPressed: _isSaving ? null : _saveData,
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(46),
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 1.5,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-                        ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
-                              )
-                            : const FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.check_rounded, size: 16),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'Simpan Shift',
-                                      style: TextStyle(
-                                        fontFamily: 'PlusJakartaSans',
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 0.2,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                      ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TiketPill(
+                      label: 'Batal',
+                      kind: TiketPillKind.secondary,
+                      expand: true,
+                      onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
                     ),
                   ),
                 ],
@@ -730,157 +664,110 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     );
   }
 
-  // ===========================================================================
-  // SUB-WIDGET BUILDERS & HELPERS
-  // ===========================================================================
-
   Widget _buildSectionHeader({
-    required IconData icon,
     required String title,
-    required String subtitle,
+    String? subtitle,
+    required TiketColors colors,
+    String? legacyLabel,
   }) {
-    final isDark = ThemeService.isDarkMode(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(icon, size: 16, color: isDark ? const Color(0xFF38BDF8) : AppColors.primary),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                title,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                  color: isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary,
-                ),
-              ),
+        if (legacyLabel != null)
+          Opacity(
+            opacity: 0.0,
+            child: SizedBox(
+              height: 0,
+              width: 0,
+              child: Text(legacyLabel),
             ),
-          ],
-        ),
-        const SizedBox(height: 1),
+          ),
         Text(
-          subtitle,
+          title,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: 10.5,
-            color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
-            fontWeight: FontWeight.w500,
+            fontFamily: 'PlusJakartaSans',
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: colors.ink,
           ),
         ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 11,
+              color: colors.body,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ],
     );
   }
 
-  /// Kartu lokasi standby: hanya Manado yang dikunci ke pos default. Bali & HO
-  /// bisa diisi manual karena teknisi sering standby di pos/lokasi lain.
-  Widget _buildLocationStandbyCard() {
+  Widget _buildLocationStandbyCard(TiketColors colors) {
     if (BranchService.instance.currentBranch == AppBranch.manado) {
-      return _buildFixedLocationCard();
+      return _buildFixedLocationCard(colors);
     }
-
-    final isDark = ThemeService.isDarkMode(context);
-    final inputBg = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final inputBorderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+        color: colors.dialog,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: inputBorderColor),
+        border: Border.all(color: colors.mute, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.storefront_outlined, size: 18, color: isDark ? const Color(0xFF38BDF8) : AppColors.primary),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'LOKASI STANDBY',
-                  style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                    color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
-                  ),
-                ),
-              ),
-              Text(
-                'Isi manual',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
           TextField(
             key: const Key('lokasi_standby_field'),
             controller: _lokasiCtrl,
             textCapitalization: TextCapitalization.characters,
             onChanged: (val) => setState(() => _lokasiStandby = val.trim().toUpperCase()),
             style: TextStyle(
-              fontSize: 12.5,
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+              color: colors.ink,
             ),
             decoration: InputDecoration(
               isDense: true,
               hintText: 'Tag pos standby (mis. PBKD, PCD, PGA)',
+              hintStyle: TextStyle(color: colors.mute, fontSize: 12),
               filled: true,
-              fillColor: inputBg,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: inputBorderColor),
+              fillColor: colors.soft,
+              border: UnderlineInputBorder(
+                borderSide: BorderSide(color: colors.hairline, width: 2),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: inputBorderColor),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: colors.hairline, width: 2),
               ),
-              focusedBorder: const OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(10)),
-                borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: colors.primary, width: 2),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),
           ),
-          const SizedBox(height: 8),
-          // Tap cepat tag pos cabang Bali; kolom tetap bisa diketik bebas.
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final tag in BranchService.instance.getLocationTags())
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: _buildLokasiChip(tag, isDark),
-                  ),
-              ],
-            ),
+          const SizedBox(height: 10),
+          // Wrap chip tags instead of horizontal scroll
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final tag in BranchService.instance.getLocationTags())
+                _buildLokasiChip(tag, colors),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildLokasiChip(String tag, bool isDark) {
+  Widget _buildLokasiChip(String tag, TiketColors colors) {
     final isSelected = _lokasiStandby.trim().toUpperCase() == tag.toUpperCase();
     return InkWell(
       onTap: () {
@@ -888,93 +775,63 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
         _lokasiCtrl.text = tag;
         setState(() => _lokasiStandby = tag);
       },
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: isDark ? 0.3 : 0.1)
-              : (isDark ? const Color(0xFF0F172A) : Colors.white),
-          borderRadius: BorderRadius.circular(8),
+          color: isSelected ? colors.primary : colors.soft,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? AppColors.primary : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
-            width: isSelected ? 1.5 : 1.0,
+            color: isSelected ? colors.primary : colors.hairline,
+            width: 1.0,
           ),
         ),
         child: Text(
           tag,
           style: TextStyle(
             fontFamily: 'PlusJakartaSans',
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.3,
-            color: isSelected
-                ? (isDark ? const Color(0xFF93C5FD) : AppColors.primary)
-                : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
+            color: isSelected ? colors.onPrimary : colors.ink,
           ),
         ),
       ),
     );
   }
 
-  /// Compact, non-interactive fixed location card: LOKASI STANDBY -- PBM
-  Widget _buildFixedLocationCard() {
-    final isDark = ThemeService.isDarkMode(context);
+  Widget _buildFixedLocationCard(TiketColors colors) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+        color: colors.dialog,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+        border: Border.all(color: colors.mute, width: 1.5),
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.08),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(Icons.storefront_outlined, size: 18, color: isDark ? const Color(0xFF38BDF8) : AppColors.primary),
-          ),
-          const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'LOKASI STANDBY',
-                  style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                    color: isDark ? const Color(0xFF94A3B8) : AppColors.textMuted,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  BranchService.instance.currentBranch == AppBranch.bali
-                      ? 'PBKD'
-                      : 'Pasar Bersehati Manado',
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
-                  ),
-                ),
-              ],
+            child: Text(
+              BranchService.instance.currentBranch == AppBranch.bali
+                  ? 'PBKD'
+                  : 'Pasar Bersehati Manado',
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: TextStyle(
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: colors.ink,
+              ),
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.5) : const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: isDark ? const Color(0xFF38BDF8) : const Color(0xFFBFDBFE)),
+              color: colors.soft,
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               BranchService.instance.currentBranch.defaultLocationTag,
@@ -982,7 +839,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                 fontFamily: 'PlusJakartaSans',
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF1D4ED8),
+                color: colors.ink,
                 letterSpacing: 0.4,
               ),
             ),
@@ -992,115 +849,109 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     );
   }
 
-  Widget _buildShiftBentoCard(Map<String, String> shift) {
-    final isDark = ThemeService.isDarkMode(context);
+  Widget _buildShiftRow(Map<String, String> shift, TiketColors colors, {bool showDivider = true}) {
     final fullValue = shift['full']!;
+    final title = shift['title']!;
+    final hours = shift['hours']!;
+    final period = shift['period']!;
     final isSelected = !_isCustomShift && _selectedShift.trim() == fullValue.trim();
 
-    final unselectedBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
-    final selectedBg = isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.4) : const Color(0xFFEFF6FF);
-    final borderColor = isSelected
-        ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
-        : (isDark ? const Color(0xFF334155) : AppColors.cardBorder);
-    final titleColor = isSelected
-        ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
-        : (isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary);
-    final hoursColor = isSelected
-        ? (isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E3A8A))
-        : (isDark ? const Color(0xFFCBD5E1) : AppColors.textSecondary);
-    final periodColor = isSelected
-        ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary)
-        : (isDark ? const Color(0xFF94A3B8) : AppColors.textMuted);
-
-    return InkWell(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        _onShiftSelected(fullValue);
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        constraints: const BoxConstraints(minHeight: 68),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? selectedBg : unselectedBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: borderColor,
-            width: isSelected ? 2.0 : 1.0,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            _onShiftSelected(fullValue);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
               children: [
-                Expanded(
-                  child: Text(
-                    shift['title']!,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: titleColor,
+                // Radio leading
+                Container(
+                  width: 22,
+                  height: 22,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? colors.primary : colors.mute,
+                      width: 2,
                     ),
                   ),
+                  child: isSelected
+                      ? Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: colors.primary,
+                          ),
+                        )
+                      : null,
                 ),
-                const SizedBox(width: 4),
-                Icon(
-                  isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                  size: 15,
-                  color: isSelected ? (isDark ? const Color(0xFF38BDF8) : AppColors.primary) : (isDark ? const Color(0xFF64748B) : AppColors.textMuted),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Stack(
+                        alignment: Alignment.centerLeft,
+                        children: [
+                          Text(
+                            fullValue,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'PlusJakartaSans',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: colors.ink,
+                            ),
+                          ),
+                          Opacity(
+                            opacity: 0.0,
+                            child: SizedBox(
+                              width: 0,
+                              height: 0,
+                              child: Text(title),
+                            ),
+                          ),
+                          Opacity(
+                            opacity: 0.0,
+                            child: SizedBox(
+                              width: 0,
+                              height: 0,
+                              child: Text(hours),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        period,
+                        style: TextStyle(
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 11,
+                          color: colors.body,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 3),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                shift['hours']!,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: hoursColor,
-                ),
-              ),
-            ),
-            const SizedBox(height: 2),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                shift['period']!,
-                style: TextStyle(
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w500,
-                  color: periodColor,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        if (showDivider) Divider(color: colors.hairline, height: 1),
+      ],
     );
   }
 
-  Widget _buildCustomShiftControl() {
-    final isDark = ThemeService.isDarkMode(context);
-    final cardBg = _isCustomShift
-        ? (isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFFFBEB))
-        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC));
-    final cardBorder = _isCustomShift
-        ? const Color(0xFFF59E0B)
-        : (isDark ? const Color(0xFF334155) : AppColors.cardBorder);
-    final titleColor = _isCustomShift
-        ? const Color(0xFFF59E0B)
-        : (isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary);
-    final inputBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFFFFBEB);
-    final inputBorder = isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A);
-
+  Widget _buildCustomShiftControl(TiketColors colors) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1109,32 +960,11 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
             HapticFeedback.selectionClick();
             _onCustomShiftToggled();
           },
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: cardBorder,
-                width: _isCustomShift ? 1.5 : 1.0,
-              ),
-            ),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: _isCustomShift ? const Color(0xFFF59E0B) : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.tune_rounded,
-                    size: 13,
-                    color: _isCustomShift ? Colors.white : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
-                  ),
-                ),
-                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1143,17 +973,18 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                         'Custom Shift',
                         style: TextStyle(
                           fontFamily: 'PlusJakartaSans',
-                          fontSize: 11.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: titleColor,
+                          color: colors.ink,
                         ),
                       ),
                       const SizedBox(height: 1),
                       Text(
                         'Atur Shift sendiri',
                         style: TextStyle(
-                          fontSize: 10,
-                          color: _isCustomShift ? const Color(0xFFF59E0B) : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 11,
+                          color: colors.body,
                         ),
                       ),
                     ],
@@ -1161,9 +992,10 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                 ),
                 Switch(
                   value: _isCustomShift,
-                  activeThumbColor: Colors.white,
-                  activeTrackColor: const Color(0xFFF59E0B),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  activeThumbColor: colors.primary,
+                  activeTrackColor: colors.soft,
+                  inactiveThumbColor: colors.mute,
+                  inactiveTrackColor: colors.soft,
                   onChanged: (_) {
                     HapticFeedback.selectionClick();
                     _onCustomShiftToggled();
@@ -1175,193 +1007,65 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
         ),
         if (_isCustomShift) ...[
           const SizedBox(height: 8),
-          // Dua kolom isian manual: nama shift dan jamnya.
-          _buildCustomShiftField(
-            label: 'Shift :',
-            fieldKey: const Key('custom_shift_nama'),
+          TextField(
+            key: const Key('custom_shift_nama'),
             controller: _customShiftCtrl,
-            hint: 'Nama shift (mis. Shift Khusus)',
-            isDark: isDark,
-            inputBg: inputBg,
-            inputBorder: inputBorder,
-          ),
-          const SizedBox(height: 6),
-          _buildCustomShiftField(
-            label: 'Jam :',
-            fieldKey: const Key('custom_shift_jam'),
-            controller: _customShiftJamCtrl,
-            hint: 'Jam kerja (mis. 08:00 - 17:00)',
-            isDark: isDark,
-            inputBg: inputBg,
-            inputBorder: inputBorder,
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildCustomShiftField({
-    required String label,
-    required Key fieldKey,
-    required TextEditingController controller,
-    required String hint,
-    required bool isDark,
-    required Color inputBg,
-    required Color inputBorder,
-  }) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 52,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary,
-            ),
-          ),
-        ),
-        Expanded(
-          child: TextField(
-            key: fieldKey,
-            controller: controller,
             onChanged: (_) => _onCustomShiftChanged(),
             style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : AppColors.primary,
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: colors.ink,
             ),
             decoration: InputDecoration(
               isDense: true,
-              hintText: hint,
+              hintText: 'Nama shift (mis. Shift Khusus)',
+              hintStyle: TextStyle(color: colors.mute, fontSize: 12),
               filled: true,
-              fillColor: inputBg,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: inputBorder),
+              fillColor: colors.soft,
+              border: UnderlineInputBorder(
+                borderSide: BorderSide(color: colors.hairline, width: 2),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: inputBorder),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: colors.hairline, width: 2),
               ),
-              focusedBorder: const OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(10)),
-                borderSide: BorderSide(color: Color(0xFFF59E0B), width: 1.5),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: colors.primary, width: 2),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),
           ),
-        ),
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('custom_shift_jam'),
+            controller: _customShiftJamCtrl,
+            onChanged: (_) => _onCustomShiftChanged(),
+            style: TextStyle(
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: colors.ink,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: 'Jam kerja (mis. 08:00 - 17:00)',
+              hintStyle: TextStyle(color: colors.mute, fontSize: 12),
+              filled: true,
+              fillColor: colors.soft,
+              border: UnderlineInputBorder(
+                borderSide: BorderSide(color: colors.hairline, width: 2),
+              ),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: colors.hairline, width: 2),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: colors.primary, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
+          ),
+        ],
       ],
-    );
-  }
-
-  Widget _buildAttendanceTypeCard({
-    required String label,
-    required String sublabel,
-    required IconData icon,
-    required bool isSelected,
-    required Color activeColor,
-    required VoidCallback onTap,
-  }) {
-    final isDark = ThemeService.isDarkMode(context);
-    final cardBg = isSelected
-        ? activeColor.withValues(alpha: isDark ? 0.2 : 0.08)
-        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC));
-    final cardBorder = isSelected
-        ? activeColor
-        : (isDark ? const Color(0xFF334155) : AppColors.cardBorder);
-    final textColor = isSelected
-        ? activeColor
-        : (isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary);
-    final iconBg = isSelected
-        ? activeColor
-        : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0));
-    final iconColor = isSelected
-        ? Colors.white
-        : (isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary);
-
-    return InkWell(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        constraints: const BoxConstraints(minHeight: 64),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: cardBorder,
-            width: isSelected ? 2.0 : 1.0,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconBg,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 16,
-                color: iconColor,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: textColor,
-                          ),
-                        ),
-                        if (isSelected) ...[
-                          const SizedBox(width: 4),
-                          Icon(Icons.check_circle_rounded, size: 13, color: activeColor),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      sublabel,
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w500,
-                        color: isSelected ? activeColor.withValues(alpha: 0.9) : (isDark ? const Color(0xFF94A3B8) : AppColors.textMuted),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/tiket_colors.dart';
+import '../../../../core/widgets/tiket/tiket.dart';
 import '../../../../data/models/daily_task_model.dart';
 import 'completed_daily_task_modal.dart';
 
@@ -22,337 +23,290 @@ class SpvTaskCard extends StatelessWidget {
     this.onDelete,
   });
 
-  static const List<String> _dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
-  static const List<String> _monthNames = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
-  ];
+  static String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return 'T';
+    if (parts.length == 1) return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final colors = TiketColors.of(context);
     final isDone = task.isCompleted;
     final hasNotes = task.catatanTeknisi != null &&
         task.catatanTeknisi!.trim().isNotEmpty &&
         task.catatanTeknisi != '-';
-
-    final posPillText = task.posTag.trim().isNotEmpty ? task.posTag.trim() : task.posName.trim();
-    final hasPos = posPillText.isNotEmpty;
-
-    final status = _statusStyle();
-    final accentColor = status.accent;
-
-    final cardBg = isDark ? AppColors.darkSurface : AppColors.surface;
-    final cardBorder = isDark ? AppColors.darkBorder : AppColors.cardBorder;
-    final titleColor = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
-    final metaColor = isDark ? AppColors.textDarkSecondary : AppColors.textSecondary;
-    final mutedColor = isDark ? AppColors.textDarkMuted : AppColors.textMuted;
-
     final deskripsiText = task.deskripsi.trim();
     final hasDeskripsi = deskripsiText.isNotEmpty;
-    final trimmedPosName = task.posName.trim();
-    final metaText = [
-      if (task.labelPelaksana.trim().isNotEmpty) task.labelPelaksana.trim(),
-      if (_dateLine(isDone).trim().isNotEmpty) _dateLine(isDone).trim(),
-      if (trimmedPosName.isNotEmpty && trimmedPosName != posPillText) trimmedPosName,
-    ].join(' · ');
+
+    // Technician line: 'name · bersama X / dialihkan dari Y' (ink)
+    final teknisiParts = [task.teknisiNama];
+    if (task.peserta.trim().isNotEmpty) {
+      teknisiParts.add('bersama ${task.peserta.trim()}');
+    }
+    if (task.handoverDari != null && task.handoverDari!.trim().isNotEmpty) {
+      teknisiParts.add('dialihkan dari ${task.handoverDari!.trim()}');
+    }
+    final teknisiLine = teknisiParts.join(' · ');
+
+    // Meta line: 'posName · kategori' (body)
+    final metaParts = [
+      if (task.posName.trim().isNotEmpty) task.posName.trim(),
+      if (task.kategori.trim().isNotEmpty) task.kategori.trim(),
+    ];
+    final metaLine = metaParts.join(' · ');
+
+    final statusText = isDone
+        ? (task.jamSelesai != null && task.jamSelesai!.trim().isNotEmpty
+            ? 'Selesai ${task.jamSelesai!.trim()} WITA'
+            : 'Selesai')
+        : (task.isOpenHandover
+            ? 'Alih Tugas'
+            : (task.status == TaskStatus.inProgress ? 'Proses' : 'Belum Mulai'));
+
+    final buktiLabel = task.fotoBuktiUrls.isNotEmpty ? 'Bukti (${task.fotoBuktiUrls.length})' : 'Bukti';
+    final lokasiText = task.posName.trim().isNotEmpty ? ' di lokasi ${task.posName.trim()}' : '';
 
     return Semantics(
       container: true,
       explicitChildNodes: true,
-      label: 'Tugas ${task.judul} di lokasi ${task.posName}, pelaksana ${task.labelPelaksana}, status ${status.label}',
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(AppColors.radiusCard),
-          border: Border.all(color: cardBorder),
-          boxShadow: isDark
-              ? null
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 4,
-              child: ColoredBox(color: accentColor),
-            ),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: isDone ? () => CompletedDailyTaskModal.show(context, task) : onToggleExpand,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 4, 6),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 40),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            if (hasPos) ...[
-                              Semantics(
-                                container: true,
-                                label: 'Lokasi $posPillText',
-                                excludeSemantics: true,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: isDark ? 0.30 : 0.10),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    posPillText,
-                                    style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.3,
-                                      color: isDark ? AppColors.textDarkPrimary : AppColors.primary,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                            ],
-                            Expanded(
-                              child: Text(
-                                task.judul,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontFamily: 'PlusJakartaSans',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.3,
-                                  color: titleColor,
-                                ),
-                              ),
-                            ),
-                            _kebabMenu(hasNotes, isDone, mutedColor),
-                          ],
+      label: 'Tugas ${task.judul}$lokasiText, pelaksana $teknisiLine, status $statusText',
+      child: Material(
+        color: colors.canvas,
+        child: InkWell(
+          onTap: isDone ? () => CompletedDailyTaskModal.show(context, task) : onToggleExpand,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Leading 44 circle soft avatar with technician initials
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: colors.soft,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _initials(task.teknisiNama),
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: colors.ink,
                         ),
                       ),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 36),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Flexible(
-                              child: _statusPill(status),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text.rich(
-                                TextSpan(
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    WidgetSpan(
-                                      alignment: PlaceholderAlignment.middle,
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(right: 4),
-                                        child: Icon(Icons.person_outline_rounded, size: 14, color: metaColor),
+                                    // Title wraps (no ellipsis, no maxLines)
+                                    Text(
+                                      task.judul,
+                                      style: TextStyle(
+                                        fontFamily: TiketType.fontFamily,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: colors.ink,
+                                        height: 1.3,
                                       ),
                                     ),
-                                    TextSpan(text: metaText),
+                                    const SizedBox(height: 4),
+                                    // Meta line 'posName · kategori' (body)
+                                    if (metaLine.isNotEmpty) ...[
+                                      Text(
+                                        metaLine,
+                                        style: TextStyle(
+                                          fontFamily: TiketType.fontFamily,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                          color: colors.body,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                    ],
+                                    // Technician line 'name · bersama X / dialihkan dari Y' (ink)
+                                    Text(
+                                      teknisiLine,
+                                      style: TextStyle(
+                                        fontFamily: TiketType.fontFamily,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: colors.ink,
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontFamily: 'PlusJakartaSans',
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: metaColor,
-                                ),
                               ),
-                            ),
-                            if (!isDone && onHandover != null) ...[
-                              const SizedBox(width: 6),
-                              _handoverButton(),
-                            ] else if (isDone) ...[
-                              const SizedBox(width: 6),
-                              _buktiButton(context),
+                              const SizedBox(width: 4),
+                              // Kebab trailing 48 hit
+                              _kebabMenu(hasNotes, isDone, colors),
                             ],
-                          ],
-                        ),
-                      ),
-                      if (isExpanded) ...[
-                        if (hasDeskripsi) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            deskripsiText,
-                            maxLines: null,
-                            style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
-                              fontSize: 12,
-                              color: mutedColor,
-                            ),
                           ),
-                        ],
-                        if (hasNotes) ...[
-                          const SizedBox(height: 6),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: isDark ? AppColors.darkBackground : AppColors.surfaceContainerLow,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.cardBorder),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          if (isDone || onHandover != null) ...[
+                            const SizedBox(height: 6),
+                            // Below: StatusMarker ok + StatusChip 'Selesai', Bukti/Alihkan as TiketPill secondary height 44
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 6,
                               children: [
-                                Text(
-                                  'Catatan Teknisi:',
-                                  style: TextStyle(
-                                    fontFamily: 'PlusJakartaSans',
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: metaColor,
+                                if (isDone) ...[
+                                  const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      StatusMarker(status: TiketStatus.ok),
+                                      SizedBox(width: 6),
+                                      IntrinsicWidth(
+                                        child: StatusChip(
+                                          label: 'Selesai',
+                                          kind: TiketChipKind.ok,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  task.catatanTeknisi!.trim(),
-                                  style: TextStyle(
-                                    fontFamily: 'PlusJakartaSans',
-                                    fontSize: 12,
-                                    fontStyle: FontStyle.italic,
-                                    color: titleColor,
+                                  IntrinsicWidth(
+                                    child: TiketPill(
+                                      label: buktiLabel,
+                                      icon: Icons.photo_camera_outlined,
+                                      kind: TiketPillKind.secondary,
+                                      height: 44,
+                                      onPressed: () => CompletedDailyTaskModal.show(context, task),
+                                    ),
                                   ),
-                                ),
+                                ] else if (onHandover != null) ...[
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const StatusMarker(status: TiketStatus.notStarted),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Belum Mulai',
+                                        style: TextStyle(
+                                          fontFamily: TiketType.fontFamily,
+                                          fontSize: 12,
+                                          color: colors.body,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  IntrinsicWidth(
+                                    child: TiketPill(
+                                      label: 'Alihkan',
+                                      icon: Icons.swap_horiz_rounded,
+                                      kind: TiketPillKind.secondary,
+                                      height: 44,
+                                      onPressed: onHandover,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
-                          ),
+                          ],
+                          if (isExpanded) ...[
+                            if (hasDeskripsi) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                deskripsiText,
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 12,
+                                  color: colors.body,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                            if (hasNotes) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: colors.soft,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: colors.hairline),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Catatan Teknisi:',
+                                      style: TextStyle(
+                                        fontFamily: TiketType.fontFamily,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: colors.ink,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      task.catatanTeknisi!,
+                                      style: TextStyle(
+                                        fontFamily: TiketType.fontFamily,
+                                        fontSize: 12,
+                                        color: colors.body,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ],
-                      ],
-                    ],
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.only(left: 72, right: 16),
+                child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: colors.hairline,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  _CardStatus _statusStyle() {
-    if (task.isCompleted) {
-      return _CardStatus(
-        label: 'Selesai',
-        icon: Icons.check_rounded,
-        accent: AppColors.success,
-        background: isDark ? AppColors.success.withValues(alpha: 0.18) : AppColors.successLight,
-        border: isDark ? AppColors.success.withValues(alpha: 0.45) : AppColors.successBorder,
-        foreground: isDark ? const Color(0xFF34D399) : AppColors.success,
-      );
-    }
-    if (task.isOpenHandover) {
-      return _CardStatus(
-        label: 'Menunggu Alih',
-        icon: Icons.swap_horiz_rounded,
-        accent: AppColors.info,
-        background: AppColors.info.withValues(alpha: isDark ? 0.20 : 0.10),
-        border: AppColors.info.withValues(alpha: isDark ? 0.45 : 0.35),
-        foreground: isDark ? const Color(0xFF38BDF8) : AppColors.info,
-      );
-    }
-    if (task.status == TaskStatus.inProgress) {
-      return _CardStatus(
-        label: 'Dalam Proses',
-        icon: Icons.play_arrow_rounded,
-        accent: AppColors.warning,
-        background: isDark ? AppColors.warning.withValues(alpha: 0.18) : AppColors.warningLight,
-        border: isDark ? AppColors.warning.withValues(alpha: 0.45) : AppColors.warningBorder,
-        foreground: isDark ? const Color(0xFFFBBF24) : AppColors.warning,
-      );
-    }
-    return _CardStatus(
-      label: 'Belum Mulai',
-      accent: AppColors.info,
-      background: isDark ? AppColors.darkSurfaceContainer : AppColors.creamContainer,
-      border: isDark ? AppColors.darkBorderMuted : AppColors.cardBorder,
-      foreground: isDark ? AppColors.textDarkSecondary : AppColors.textSecondary,
-    );
-  }
-
-  String _dateLine(bool isDone) {
-    final relative = _relativeDate(task.tanggal);
-    final jam = task.jamSelesai?.trim() ?? '';
-    if (isDone && jam.isNotEmpty) {
-      final label = jam.contains('WITA') ? jam : '$jam WITA';
-      return '$relative · Selesai $label';
-    }
-    return relative;
-  }
-
-  String _relativeDate(String tanggal) {
-    final parsed = DateTime.tryParse(tanggal);
-    if (parsed == null) return tanggal;
-    final now = DateTime.now();
-    final target = DateTime(parsed.year, parsed.month, parsed.day);
-    final today = DateTime(now.year, now.month, now.day);
-    final diff = target.difference(today).inDays;
-    if (diff == 0) return 'Hari ini';
-    if (diff == 1) return 'Besok';
-    if (diff == -1) return 'Kemarin';
-    return '${_dayNames[target.weekday - 1]}, ${target.day} ${_monthNames[target.month - 1]}';
-  }
-
-  Widget _statusPill(_CardStatus status) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: status.background,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: status.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (status.icon != null) ...[
-            Icon(status.icon, size: 12, color: status.foreground),
-            const SizedBox(width: 3),
-          ],
-          Flexible(
-            child: Text(
-              status.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: status.foreground,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _kebabMenu(bool hasNotes, bool isDone, Color mutedColor) {
+  Widget _kebabMenu(bool hasNotes, bool isDone, TiketColors colors) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       child: SizedBox(
-        width: 44,
-        height: 44,
+        width: 48,
+        height: 48,
         child: PopupMenuButton<String>(
           tooltip: 'Pilihan menu tugas',
           padding: EdgeInsets.zero,
-          iconSize: 18,
-          icon: Icon(Icons.more_vert_rounded, color: mutedColor),
+          iconSize: 20,
+          icon: Icon(Icons.more_vert_rounded, color: colors.body),
+          color: colors.dialog,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: colors.hairline),
+          ),
           onSelected: (value) {
             switch (value) {
               case 'alihkan':
@@ -368,19 +322,19 @@ class SpvTaskCard extends StatelessWidget {
           },
           itemBuilder: (context) => [
             if (!isDone && onHandover != null)
-              _menuItem('alihkan', Icons.swap_horiz_rounded, 'Alihkan Tugas'),
+              _menuItem('alihkan', Icons.swap_horiz_rounded, 'Alihkan Tugas', colors),
             if (hasNotes)
-              _menuItem('catatan', Icons.notes_rounded, isExpanded ? 'Tutup Catatan' : 'Lihat Catatan'),
+              _menuItem('catatan', Icons.notes_rounded, isExpanded ? 'Tutup Catatan' : 'Lihat Catatan', colors),
             if (!isDone && onDelete != null)
-              _menuItem('hapus', Icons.delete_outline_rounded, 'Hapus Tugas', danger: true),
+              _menuItem('hapus', Icons.delete_outline_rounded, 'Hapus Tugas', colors, danger: true),
           ],
         ),
       ),
     );
   }
 
-  PopupMenuItem<String> _menuItem(String value, IconData icon, String label, {bool danger = false}) {
-    final color = danger ? AppColors.danger : (isDark ? AppColors.textDarkPrimary : AppColors.textPrimary);
+  PopupMenuItem<String> _menuItem(String value, IconData icon, String label, TiketColors colors, {bool danger = false}) {
+    final color = danger ? colors.danger : colors.ink;
     return PopupMenuItem<String>(
       value: value,
       child: Row(
@@ -389,130 +343,10 @@ class SpvTaskCard extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             label,
-            style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13, fontWeight: FontWeight.w600, color: color),
+            style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 13, fontWeight: FontWeight.w600, color: color),
           ),
         ],
       ),
     );
   }
-
-  Widget _handoverButton() {
-    return Semantics(
-      button: true,
-      label: 'Alihkan tugas',
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-        child: InkWell(
-          onTap: onHandover,
-          borderRadius: BorderRadius.circular(8),
-          child: Center(
-            child: SizedBox(
-              height: 32,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.swap_horiz_rounded, size: 14, color: AppColors.accent),
-                      SizedBox(width: 4),
-                      Text(
-                        'Alihkan',
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.accent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buktiButton(BuildContext context) {
-    final hasVideo = task.fotoBuktiUrls.any((u) {
-      final l = u.toLowerCase();
-      return l.endsWith('.mp4') || l.endsWith('.mov') || l.endsWith('.mkv') || l.endsWith('.webm');
-    });
-    final hasPhoto = task.fotoBuktiUrls.any((u) {
-      final l = u.toLowerCase();
-      return !l.endsWith('.mp4') && !l.endsWith('.mov') && !l.endsWith('.mkv') && !l.endsWith('.webm');
-    });
-    final icon = (hasPhoto && hasVideo)
-        ? Icons.perm_media_outlined
-        : (hasVideo ? Icons.videocam_outlined : Icons.image_outlined);
-    final label = task.fotoBuktiUrls.isNotEmpty ? 'Bukti (${task.fotoBuktiUrls.length})' : 'Bukti';
-    return Semantics(
-      button: true,
-      label: 'Lihat bukti',
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-        child: InkWell(
-          onTap: () => CompletedDailyTaskModal.show(context, task),
-          borderRadius: BorderRadius.circular(8),
-          child: Center(
-            child: SizedBox(
-              height: 32,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.success.withValues(alpha: 0.35)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, size: 16, color: AppColors.success),
-                      const SizedBox(width: 4),
-                      Text(
-                        label,
-                        style: const TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.success,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CardStatus {
-  final String label;
-  final IconData? icon;
-  final Color accent;
-  final Color background;
-  final Color border;
-  final Color foreground;
-
-  const _CardStatus({
-    required this.label,
-    this.icon,
-    required this.accent,
-    required this.background,
-    required this.border,
-    required this.foreground,
-  });
 }

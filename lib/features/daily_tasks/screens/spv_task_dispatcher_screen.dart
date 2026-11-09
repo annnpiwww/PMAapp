@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../../core/constants/app_colors.dart';
+
+import '../../../core/constants/tiket_colors.dart';
 import '../../../core/services/theme_service.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../data/models/daily_task_model.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/repositories/auth_repository.dart';
-import '../../../data/services/daily_task_service.dart';
 import '../../../data/services/branch_service.dart';
+import '../../../data/services/daily_task_service.dart';
 import '../../../data/services/storage_service.dart';
-import '../widgets/app_outlined_form_field.dart';
-import '../widgets/spv_progress_ring_card.dart';
-import '../widgets/spv_status_segment_bar.dart';
 import '../widgets/spv_task_card.dart';
-import '../widgets/spv_tech_filter_strip.dart';
 import '../widgets/task_handover_dialog.dart';
 
 class SpvTaskDispatcherScreen extends StatefulWidget {
@@ -23,9 +21,8 @@ class SpvTaskDispatcherScreen extends StatefulWidget {
   State<SpvTaskDispatcherScreen> createState() => _SpvTaskDispatcherScreenState();
 }
 
-class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with SingleTickerProviderStateMixin {
+class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
   bool _isLoading = false;
-  late final AnimationController _pulse;
   List<DailyTaskModel> _tasksToday = [];
 
   // Filter States
@@ -44,7 +41,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   String _taskCategory = 'khusus'; // 'khusus' atau 'maintenance'
   String? _selectedTemplateId = 'tpl_maint_pos';
   final Set<String> _pesertaTerpilih = {}; // teknisi tambahan (tugas bareng)
-  bool _pesertaTerbuka = true; // daftar teknisi tambahan terbuka/tertutup
+  bool _pesertaTerbuka = false; // daftar teknisi tambahan terbuka/tertutup
 
   final List<Map<String, String>> _templates = [
     {'id': 'tpl_maint_pos', 'nama': 'Maintenance Pos Parkir & Booth'},
@@ -70,13 +67,11 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     _technicians = List.from(BranchService.instance.getTechnicians());
     _selectedTech = _technicians.isNotEmpty ? _technicians.first : 'Teknisi';
     _lokasiCtrl = TextEditingController(text: BranchService.instance.currentBranch.defaultLocationTag);
-    _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
     _loadTasks();
   }
 
   @override
   void dispose() {
-    _pulse.dispose();
     _lokasiCtrl.dispose();
     _pekerjaanCtrl.dispose();
     _catatanCtrl.dispose();
@@ -121,8 +116,6 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     return list;
   }
 
-  /// Tugas hari ini milik teknisi cabang aktif. Tugas cabang lain tidak ikut
-  /// dihitung dan tidak ikut ke rekap, biar SPV Bali tidak melihat pekerjaan Manado.
   List<DailyTaskModel> get _teamTasks =>
       DailyTaskService.tasksForBranch(_tasksToday);
 
@@ -134,8 +127,6 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     }).toList();
   }
 
-  /// Tugas tim yang tampil saat filter teknisi aktif. Teknisi tambahan (peserta)
-  /// ikut dihitung sebagai pelaksana tugas itu.
   List<DailyTaskModel> get _techScopedTasks {
     if (_selectedTechFilter == 'SEMUA') return _teamTasks;
     final tech = _selectedTechFilter;
@@ -149,15 +140,8 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
 
   Future<void> _loadTasks() async {
     setState(() => _isLoading = true);
-    // MediaQuery tidak boleh dibaca di initState, jadi pulse dijadwalkan setelah frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_isLoading || _pulse.isAnimating) return;
-      if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) return;
-      _pulse.repeat(reverse: true);
-    });
     final dateKey = _formatDateToKey(_selectedDate);
     final tasks = await DailyTaskService.getAllTasksToday(dateKey);
-    _pulse.stop();
     if (mounted) {
       setState(() {
         _tasksToday = tasks;
@@ -166,8 +150,36 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     }
   }
 
-  /// SPV memindahkan tugas yang belum selesai ke teknisi shift berikutnya.
+  Future<void> _openTechFilterDialog() async {
+    final pendingAll = _pendingForTech('SEMUA');
+    final selected = await showTiketPickerDialog<String>(
+      context: context,
+      title: 'Pilih teknisi',
+      subtitle: 'Angka di kanan = tugas belum selesai hari ini',
+      options: [
+        TiketOption(
+          value: 'SEMUA',
+          label: 'Semua teknisi',
+          trailingText: pendingAll > 0 ? '$pendingAll belum' : 'beres',
+          status: pendingAll > 0 ? TiketStatus.attention : TiketStatus.ok,
+        ),
+        for (final tech in _technicians)
+          TiketOption(
+            value: tech,
+            label: tech,
+            trailingText: _pendingForTech(tech) > 0 ? '${_pendingForTech(tech)} belum' : 'beres',
+            status: _pendingForTech(tech) > 0 ? TiketStatus.attention : TiketStatus.ok,
+          ),
+      ],
+      selected: _selectedTechFilter,
+    );
+    if (selected != null && mounted) {
+      setState(() => _selectedTechFilter = selected);
+    }
+  }
+
   Future<void> _alihkanTugas(DailyTaskModel task) async {
+    final colors = TiketColors.of(context);
     final spv = AuthRepository.instance.currentUser;
     await TaskHandoverDialog.show(
       context,
@@ -193,7 +205,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                     ? (penerus.isEmpty ? 'Tugas dilepas ke daftar terbuka.' : 'Tugas dialihkan ke $penerus.')
                     : 'Gagal mengalihkan tugas, coba lagi saat sinyal stabil.',
               ),
-              backgroundColor: ok ? AppColors.success : AppColors.danger,
+              backgroundColor: ok ? colors.ok : colors.danger,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -206,39 +218,47 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
 
   Future<void> _hapusTugas(DailyTaskModel task) async {
     if (task.isCompleted) return;
-    final isDark = ThemeService.isDarkMode(context);
+    final colors = TiketColors.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: colors.dialog,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           'Hapus Tugas?',
           style: TextStyle(
+            fontFamily: TiketType.fontFamily,
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            color: colors.ink,
           ),
         ),
         content: Text(
           'Tugas "${task.judul}" untuk ${task.teknisiNama} akan dihapus permanen.',
           style: TextStyle(
+            fontFamily: TiketType.fontFamily,
             fontSize: 13,
-            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+            color: colors.body,
           ),
         ),
         actions: [
-          TextButton(
+          TiketPill(
+            label: 'Batal',
+            kind: TiketPillKind.secondary,
+            height: 40,
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Batal'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
-              foregroundColor: Colors.white,
+          const SizedBox(width: 8),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.danger,
+              foregroundColor: colors.white,
+              minimumSize: const Size(0, 40),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Hapus'),
+            child: const Text('Hapus', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -254,7 +274,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
               ? 'Tugas "${task.judul}" dihapus.'
               : 'Gagal menghapus tugas, coba lagi saat sinyal stabil.',
         ),
-        backgroundColor: deleted ? AppColors.success : AppColors.danger,
+        backgroundColor: deleted ? colors.ok : colors.danger,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -264,30 +284,31 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   }
 
   Future<void> _pickCustomDate() async {
+    final colors = TiketColors.of(context);
+    final isDark = ThemeService.isDarkMode(context);
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2024),
       lastDate: DateTime.now().add(const Duration(days: 30)),
       builder: (context, child) {
-        final isDark = ThemeService.isDarkMode(context);
         return Theme(
           data: isDark
               ? ThemeData.dark().copyWith(
-                  colorScheme: const ColorScheme.dark(
-                    primary: AppColors.accent,
-                    onPrimary: Colors.white,
-                    surface: Color(0xFF1E293B),
-                    onSurface: Colors.white,
+                  colorScheme: ColorScheme.dark(
+                    primary: colors.primary,
+                    onPrimary: colors.onPrimary,
+                    surface: colors.dialog,
+                    onSurface: colors.ink,
                   ),
-                  dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF0F172A)),
+                  dialogTheme: DialogThemeData(backgroundColor: colors.dialog),
                 )
               : ThemeData.light().copyWith(
-                  colorScheme: const ColorScheme.light(
-                    primary: AppColors.accent,
-                    onPrimary: Colors.white,
-                    surface: Colors.white,
-                    onSurface: Color(0xFF1E293B),
+                  colorScheme: ColorScheme.light(
+                    primary: colors.primary,
+                    onPrimary: colors.onPrimary,
+                    surface: colors.dialog,
+                    onSurface: colors.ink,
                   ),
                 ),
           child: child!,
@@ -304,11 +325,12 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   }
 
   void _shareRecap() {
+    final colors = TiketColors.of(context);
     if (_teamTasks.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Belum ada tugas pada tanggal ini.'),
-          backgroundColor: Color(0xFFE11D48),
+        SnackBar(
+          content: const Text('Belum ada tugas pada tanggal ini.'),
+          backgroundColor: colors.danger,
         ),
       );
       return;
@@ -329,6 +351,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   }
 
   void _showMorningDispatchBottomSheet(bool isDark) {
+    final colors = TiketColors.of(context);
     final teamTasks = _teamTasks;
 
     if (teamTasks.isEmpty) {
@@ -341,7 +364,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
               Expanded(child: Text('Belum ada tugas pada tanggal ini untuk dibagikan.')),
             ],
           ),
-          backgroundColor: const Color(0xFFF59E0B),
+          backgroundColor: colors.signal,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
@@ -352,7 +375,6 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     final branchShifts = BranchService.instance.getShifts();
     final savedShifts = Map<String, String>.from(StorageService.getSpvTechShifts());
 
-    // Pastikan semua teknisi aktif punya default shift jika belum ada di cache
     final activeTechs = teamTasks.map((t) => t.teknisiNama.trim()).toSet().toList();
     for (int i = 0; i < activeTechs.length; i++) {
       final tech = activeTechs[i];
@@ -360,15 +382,6 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
         savedShifts[tech] = (i < branchShifts.length) ? branchShifts[i] : (branchShifts.isNotEmpty ? branchShifts.first : 'Shift 1');
       }
     }
-
-    final sheetBg = isDark ? const Color(0xFF111827) : Colors.white;
-    final handleColor = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
-    final titleColor = isDark ? Colors.white : const Color(0xFF0F172A);
-    final subColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final cardBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFF8FAFC);
-    final cardBorder = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
-    final previewBg = isDark ? const Color(0xFF030712) : const Color(0xFFF1F5F9);
-    final previewBorder = isDark ? const Color(0xFF1F2937) : const Color(0xFFCBD5E1);
 
     showModalBottomSheet(
       context: context,
@@ -389,29 +402,26 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
               ),
               padding: const EdgeInsets.only(top: 10, left: 16, right: 16, bottom: 24),
               decoration: BoxDecoration(
-                color: sheetBg,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                border: Border(top: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
+                color: colors.dialog,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border(top: BorderSide(color: colors.hairline)),
               ),
               child: SafeArea(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Handle Bar
                     Center(
                       child: Container(
                         width: 38,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: handleColor,
+                          color: colors.mute,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
-
-                    // Title Header
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -420,10 +430,10 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                             Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF25D366).withValues(alpha: 0.15),
+                                color: colors.ok.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.share_rounded, size: 18, color: Color(0xFF25D366)),
+                              child: Icon(Icons.share_rounded, size: 18, color: colors.ok),
                             ),
                             const SizedBox(width: 8),
                             Column(
@@ -432,17 +442,19 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                 Text(
                                   'Format Briefing Tim (WA/Telegram)',
                                   style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
                                     fontSize: 14.5,
                                     fontWeight: FontWeight.w800,
-                                    color: titleColor,
+                                    color: colors.ink,
                                   ),
                                 ),
                                 Text(
                                   '${teamTasks.length} tugas • ${activeTechs.length} teknisi aktif',
                                   style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w500,
-                                    color: subColor,
+                                    color: colors.body,
                                   ),
                                 ),
                               ],
@@ -450,28 +462,27 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                           ],
                         ),
                         IconButton(
+                          tooltip: 'Tutup',
                           onPressed: () => Navigator.pop(bottomSheetContext),
-                          icon: Icon(Icons.close_rounded, size: 20, color: subColor),
+                          icon: Icon(Icons.close_rounded, size: 20, color: colors.body),
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
+                          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                         ),
                       ],
                     ),
                     const SizedBox(height: 14),
-
-                    // Scrollable Content
                     Flexible(
                       child: SingleChildScrollView(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // Section: Atur Shift Teknisi
                             Text(
                               'ATUR SHIFT TEKNISI HARI INI',
                               style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w700,
-                                color: subColor,
+                                color: colors.body,
                                 letterSpacing: 0.5,
                               ),
                             ),
@@ -479,9 +490,9 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
-                                color: cardBg,
+                                color: colors.soft,
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: cardBorder),
+                                border: Border.all(color: colors.hairline),
                               ),
                               child: Column(
                                 children: activeTechs.map((tech) {
@@ -492,7 +503,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                     padding: const EdgeInsets.symmetric(vertical: 4),
                                     child: Row(
                                       children: [
-                                        const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.accent),
+                                        Icon(Icons.person_outline_rounded, size: 16, color: colors.primary),
                                         const SizedBox(width: 6),
                                         Expanded(
                                           child: Column(
@@ -501,16 +512,18 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                               Text(
                                                 tech,
                                                 style: TextStyle(
+                                                  fontFamily: TiketType.fontFamily,
                                                   fontSize: 12.5,
                                                   fontWeight: FontWeight.w700,
-                                                  color: titleColor,
+                                                  color: colors.ink,
                                                 ),
                                               ),
                                               Text(
                                                 '$techTaskCount tugas',
                                                 style: TextStyle(
+                                                  fontFamily: TiketType.fontFamily,
                                                   fontSize: 10.5,
-                                                  color: subColor,
+                                                  color: colors.body,
                                                 ),
                                               ),
                                             ],
@@ -520,24 +533,25 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: sheetBg,
+                                            color: colors.dialog,
                                             borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: cardBorder),
+                                            border: Border.all(color: colors.hairline),
                                           ),
                                           child: DropdownButtonHideUnderline(
                                             child: DropdownButton<String>(
                                               value: branchShifts.contains(currentShift) ? currentShift : branchShifts.first,
                                               isDense: true,
                                               style: TextStyle(
+                                                fontFamily: TiketType.fontFamily,
                                                 fontSize: 11.5,
                                                 fontWeight: FontWeight.w600,
-                                                color: titleColor,
+                                                color: colors.ink,
                                               ),
-                                              dropdownColor: sheetBg,
+                                              dropdownColor: colors.dialog,
                                               items: branchShifts.map((s) {
                                                 return DropdownMenuItem(
                                                   value: s,
-                                                  child: Text(s, style: TextStyle(color: titleColor, fontSize: 11.5)),
+                                                  child: Text(s, style: TextStyle(color: colors.ink, fontSize: 11.5)),
                                                 );
                                               }).toList(),
                                               onChanged: (val) {
@@ -557,23 +571,22 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                               ),
                             ),
                             const SizedBox(height: 14),
-
-                            // Section: Live Preview Teks
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
                                   'PREVIEW PESAN SIAP KIRIM',
                                   style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.w700,
-                                    color: subColor,
+                                    color: colors.body,
                                     letterSpacing: 0.5,
                                   ),
                                 ),
-                                const Text(
+                                Text(
                                   'Auto-grouped by Shift',
-                                  style: TextStyle(fontSize: 10, color: AppColors.accent, fontWeight: FontWeight.w600),
+                                  style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 10, color: colors.primary, fontWeight: FontWeight.w600),
                                 ),
                               ],
                             ),
@@ -581,9 +594,9 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: previewBg,
+                                color: colors.soft,
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: previewBorder),
+                                border: Border.all(color: colors.hairline),
                               ),
                               child: SelectableText(
                                 previewText,
@@ -591,7 +604,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                   fontFamily: 'monospace',
                                   fontSize: 12,
                                   height: 1.45,
-                                  color: titleColor,
+                                  color: colors.ink,
                                 ),
                               ),
                             ),
@@ -600,12 +613,15 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                       ),
                     ),
                     const SizedBox(height: 14),
-
-                    // Action Buttons
                     Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: TiketPill(
+                            label: 'Salin Format',
+                            icon: Icons.copy_rounded,
+                            kind: TiketPillKind.secondary,
+                            height: 44,
+                            expand: true,
                             onPressed: () {
                               Clipboard.setData(ClipboardData(text: previewText));
                               Navigator.pop(bottomSheetContext);
@@ -618,25 +634,22 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                       Text('Format briefing tersalin.'),
                                     ],
                                   ),
-                                  backgroundColor: const Color(0xFF10B981),
+                                  backgroundColor: colors.ok,
                                   behavior: SnackBarBehavior.floating,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
                               );
                             },
-                            icon: const Icon(Icons.copy_rounded, size: 16),
-                            label: const Text('Salin Format'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.accent,
-                              side: const BorderSide(color: AppColors.accent, width: 1.2),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: ElevatedButton.icon(
+                          child: TiketPill(
+                            label: 'Kirim ke WA',
+                            icon: Icons.send_rounded,
+                            kind: TiketPillKind.primary,
+                            height: 44,
+                            expand: true,
                             onPressed: () {
                               Navigator.pop(bottomSheetContext);
                               SharePlus.instance.share(
@@ -646,15 +659,6 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                 ),
                               );
                             },
-                            icon: const Icon(Icons.send_rounded, size: 16),
-                            label: const Text('Kirim ke WA'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF25D366),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              elevation: 0,
-                            ),
                           ),
                         ),
                       ],
@@ -670,30 +674,31 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   }
 
   Future<void> _pickTargetDispatchDate() async {
+    final colors = TiketColors.of(context);
+    final isDark = ThemeService.isDarkMode(context);
     final picked = await showDatePicker(
       context: context,
       initialDate: _targetDispatchDate,
       firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 30)),
       builder: (context, child) {
-        final isDark = ThemeService.isDarkMode(context);
         return Theme(
           data: isDark
               ? ThemeData.dark().copyWith(
-                  colorScheme: const ColorScheme.dark(
-                    primary: AppColors.accent,
-                    onPrimary: Colors.white,
-                    surface: Color(0xFF1E293B),
-                    onSurface: Colors.white,
+                  colorScheme: ColorScheme.dark(
+                    primary: colors.primary,
+                    onPrimary: colors.onPrimary,
+                    surface: colors.dialog,
+                    onSurface: colors.ink,
                   ),
-                  dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF0F172A)),
+                  dialogTheme: DialogThemeData(backgroundColor: colors.dialog),
                 )
               : ThemeData.light().copyWith(
-                  colorScheme: const ColorScheme.light(
-                    primary: AppColors.accent,
-                    onPrimary: Colors.white,
-                    surface: Colors.white,
-                    onSurface: Color(0xFF1E293B),
+                  colorScheme: ColorScheme.light(
+                    primary: colors.primary,
+                    onPrimary: colors.onPrimary,
+                    surface: colors.dialog,
+                    onSurface: colors.ink,
                   ),
                 ),
           child: child!,
@@ -711,24 +716,29 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   Widget _buildRoutineTaskItem({
     required String num,
     required String title,
-    required bool isDark,
+    required TiketColors colors,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 18,
-          height: 18,
+          width: 22,
+          height: 22,
           margin: const EdgeInsets.only(top: 1.5),
           decoration: BoxDecoration(
-            color: AppColors.accent.withValues(alpha: 0.15),
+            color: colors.soft,
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.accent.withValues(alpha: 0.5), width: 1),
+            border: Border.all(color: colors.primary, width: 1.5),
           ),
           child: Center(
             child: Text(
               num,
-              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.accent),
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: colors.primary,
+              ),
             ),
           ),
         ),
@@ -737,9 +747,10 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
           child: Text(
             title,
             style: TextStyle(
-              fontSize: 11.5,
+              fontFamily: TiketType.fontFamily,
+              fontSize: 12.5,
               fontWeight: FontWeight.w600,
-              color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
+              color: colors.ink,
               height: 1.3,
             ),
           ),
@@ -750,25 +761,27 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
 
   Future<bool> _dispatchShift1ManadoRoutine(String selectedTech) async {
     if (_isLoading) return false;
+    final colors = TiketColors.of(context);
 
-    final isDark = ThemeService.isDarkMode(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: colors.dialog,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
-              const Icon(Icons.bolt_rounded, color: AppColors.accent, size: 24),
+              Icon(Icons.bolt_rounded, color: colors.signal, size: 24),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Tugaskan Rutin Shift 1',
                   style: TextStyle(
+                    fontFamily: TiketType.fontFamily,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    color: colors.ink,
                   ),
                 ),
               ),
@@ -780,21 +793,22 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
             children: [
               Text(
                 'Kirim 2 tugas rutin Shift 1 ke teknisi:',
-                style: TextStyle(fontSize: 13, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 13, color: colors.body),
               ),
               const SizedBox(height: 6),
               Text(
                 '👤 $selectedTech',
                 style: TextStyle(
+                  fontFamily: TiketType.fontFamily,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  color: colors.ink,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 '📅 Target: ${_formatDateDisplay(_targetDispatchDate)}',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.accent),
+                style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 13, fontWeight: FontWeight.w600, color: colors.primary),
               ),
               const SizedBox(height: 12),
               const Text(
@@ -804,18 +818,18 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
             ],
           ),
           actions: [
-            TextButton(
+            TiketPill(
+              label: 'Batal',
+              kind: TiketPillKind.secondary,
+              height: 40,
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Batal', style: TextStyle(color: Color(0xFF94A3B8))),
             ),
-            ElevatedButton(
+            const SizedBox(width: 8),
+            TiketPill(
+              label: 'Kirim Sekarang',
+              kind: TiketPillKind.primary,
+              height: 40,
               onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: const Text('Kirim Sekarang', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -830,7 +844,6 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     DailyTaskModel? res1;
     DailyTaskModel? res2;
     try {
-      // 1. Task Gate Out 1-6 PBM
       res1 = await DailyTaskService.createTask(
         tanggal: targetDateKey,
         teknisiNama: selectedTech,
@@ -841,7 +854,6 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
         kategori: 'khusus',
       );
 
-      // 2. Task Gate Ojek
       res2 = await DailyTaskService.createTask(
         tanggal: targetDateKey,
         teknisiNama: selectedTech,
@@ -864,7 +876,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('2 Tugas Rutin Shift 1 dibuat$suffix untuk $selectedTech (${_formatDateDisplay(_targetDispatchDate)})'),
-            backgroundColor: AppColors.success,
+            backgroundColor: colors.ok,
           ),
         );
       } else {
@@ -873,7 +885,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
             content: Text(res1 != null || res2 != null
                 ? 'Sebagian tugas berhasil dikirim. Periksa Status Tim.'
                 : 'Tugas rutin gagal dikirim. Periksa koneksi lalu coba lagi.'),
-            backgroundColor: res1 != null || res2 != null ? AppColors.warning : AppColors.danger,
+            backgroundColor: res1 != null || res2 != null ? colors.signal : colors.danger,
           ),
         );
       }
@@ -884,7 +896,8 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   }
 
   Future<bool> _submitTask() async {
-    if (_isLoading) return false; // Anti-double submit
+    if (_isLoading) return false;
+    final colors = TiketColors.of(context);
 
     final lokasi = _lokasiCtrl.text.trim();
     final pekerjaan = _pekerjaanCtrl.text.trim();
@@ -933,7 +946,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Tugas dibuat$suffix untuk $_selectedTech (${_formatDateDisplay(_targetDispatchDate)})'),
-            backgroundColor: AppColors.success,
+            backgroundColor: colors.ok,
           ),
         );
         _selectedDate = _targetDispatchDate;
@@ -941,9 +954,9 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
         return true;
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal kirim tugas. Cek koneksi, coba lagi.'),
-            backgroundColor: AppColors.danger,
+          SnackBar(
+            content: const Text('Gagal kirim tugas. Cek koneksi, coba lagi.'),
+            backgroundColor: colors.danger,
           ),
         );
       }
@@ -951,207 +964,53 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     return false;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final user = AuthRepository.instance.currentUser;
-    final isDark = ThemeService.isDarkMode(context);
-
-    if (user?.role != UserRole.supervisor) {
-      return Scaffold(
-        backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-        appBar: AppBar(
-          backgroundColor: isDark ? const Color(0xFF1E293B) : AppColors.primary,
-          title: const Text('Akses Dibatasi', style: TextStyle(color: Colors.white)),
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Text(
-              'Halaman ini khusus untuk Supervisor (SPV).\nTeknisi hanya melihat tugas di layar utama kamera.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    final bgScaffold = isDark ? AppColors.darkBackground : AppColors.background;
-
-    return Scaffold(
-      backgroundColor: bgScaffold,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showBeriTugasBottomSheet(isDark),
-        tooltip: 'Buat tugas baru',
-        icon: const Icon(Icons.add_rounded, size: 20),
-        label: const Text(
-          'Buat Tugas',
-          style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        backgroundColor: isDark ? AppColors.primaryLight : AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 3,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            _buildHeaderBand(isDark),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _loadTasks,
-                color: AppColors.accent,
-                child: _buildTaskList(isDark),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderBand(bool isDark) {
-    final canPop = Navigator.of(context).canPop();
-    return Container(
-      width: double.infinity,
-      color: isDark ? AppColors.primaryDark : AppColors.primary,
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-      child: Row(
-        children: [
-          if (canPop)
-            IconButton(
-              tooltip: 'Kembali',
-              onPressed: () => Navigator.maybePop(context),
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-            ),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(left: canPop ? 4 : 12),
-              child: const Text(
-                'Daily Task',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          _headerAction(
-            tooltip: 'Format Briefing WA / Telegram',
-            icon: Icons.share_rounded,
-            onPressed: () => _showMorningDispatchBottomSheet(isDark),
-          ),
-          const SizedBox(width: 6),
-          _headerAction(
-            tooltip: 'Kontrol Tim & Rekap',
-            icon: Icons.tune_rounded,
-            onPressed: () => _showTeamControlBottomSheet(isDark),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _headerAction({required String tooltip, required IconData icon, required VoidCallback onPressed}) {
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      icon: Icon(icon, color: Colors.white, size: 20),
-      style: IconButton.styleFrom(
-        backgroundColor: Colors.white.withValues(alpha: 0.14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        minimumSize: const Size(40, 40),
-        padding: const EdgeInsets.all(8),
-      ),
-    );
-  }
-
-  Widget _formLabel(String text, Color color) => Text(
-        text.toUpperCase(),
-        style: TextStyle(
-          fontFamily: 'PlusJakartaSans',
-          fontSize: 12,
-          letterSpacing: 0.8,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
-      );
-
-  Widget _formHelper(String text, Color color) => Text(
-        text,
-        style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 12, color: color, height: 1.35),
-      );
-
-  InputDecoration _bareInput(String hint, Color hintColor) => InputDecoration(
-        isDense: true,
-        filled: false,
-        border: InputBorder.none,
-        enabledBorder: InputBorder.none,
-        focusedBorder: InputBorder.none,
-        errorBorder: InputBorder.none,
-        disabledBorder: InputBorder.none,
-        contentPadding: EdgeInsets.zero,
-        hintText: hint,
-        hintStyle: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13, color: hintColor),
-      );
-
-  /// Draf dianggap ada kalau teknisi sudah mengetik detail/catatan atau memilih
-  /// rekan kerja. Kategori & tanggal tidak dihitung supaya sheet tetap bisa
-  /// ditutup tanpa dialog.
   bool get _isFormDirty =>
       _pekerjaanCtrl.text.trim().isNotEmpty ||
       _catatanCtrl.text.trim().isNotEmpty ||
       _pesertaTerpilih.isNotEmpty;
 
   Future<bool> _confirmDiscardDraft() async {
-    final isDark = ThemeService.isDarkMode(context);
+    final colors = TiketColors.of(context);
     final discard = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: colors.dialog,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           'Buang draf tugas?',
           style: TextStyle(
+            fontFamily: TiketType.fontFamily,
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            color: colors.ink,
           ),
         ),
         content: Text(
           'Isian yang sudah diketik akan hilang.',
           style: TextStyle(
+            fontFamily: TiketType.fontFamily,
             fontSize: 13,
-            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+            color: colors.body,
           ),
         ),
         actions: [
-          TextButton(
+          TiketPill(
+            label: 'Lanjut Isi',
+            kind: TiketPillKind.secondary,
+            height: 40,
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Lanjut Isi'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
-              foregroundColor: Colors.white,
+          const SizedBox(width: 8),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.danger,
+              foregroundColor: colors.white,
+              minimumSize: const Size(0, 40),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Buang'),
+            child: const Text('Buang', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -1164,128 +1023,8 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     apply(() {});
   }
 
-  Widget _pesertaRow(
-    String nama, {
-    required Color line,
-    required Color head,
-    required Color sub,
-    required bool isDark,
-    required VoidCallback onToggle,
-  }) {
-    final selected = _pesertaTerpilih.contains(nama);
-    return Column(
-      children: [
-        InkWell(
-          onTap: onToggle,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 11),
-            child: Row(
-              children: [
-                Container(
-                  width: 30,
-                  height: 30,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: selected ? AppColors.primary : (isDark ? const Color(0xFF1E293B) : Colors.white),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: selected ? AppColors.primary : line),
-                  ),
-                  child: Text(
-                    nama.characters.first.toUpperCase(),
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: selected ? Colors.white : sub),
-                  ),
-                ),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Text(
-                    nama,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                      color: head,
-                    ),
-                  ),
-                ),
-                Icon(
-                  selected ? Icons.check_circle_rounded : Icons.circle_outlined,
-                  size: 19,
-                  color: selected ? AppColors.success : (isDark ? const Color(0xFF334155) : const Color(0xFFCFCABF)),
-                ),
-              ],
-            ),
-          ),
-        ),
-        Divider(height: 1, thickness: 1, color: line),
-      ],
-    );
-  }
-
-  Widget _categoryChip({
-    required String label,
-    required IconData icon,
-    required bool active,
-    required VoidCallback onTap,
-    required bool isDark,
-  }) {
-    final selectedColor = isDark ? AppColors.primaryLight : AppColors.primary;
-    final bg = active ? selectedColor : (isDark ? AppColors.darkSurfaceContainer : AppColors.surfaceContainerLow);
-    final fg = active ? Colors.white : (isDark ? AppColors.textDarkSecondary : AppColors.textSecondary);
-    final borderColor = active ? selectedColor : (isDark ? AppColors.darkBorder : AppColors.cardBorder);
-
-    return Semantics(
-      button: true,
-      selected: active,
-      label: 'Kategori $label',
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: SizedBox(
-          height: 44,
-          child: Center(
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: borderColor),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, size: 13, color: fg),
-                  const SizedBox(width: 2),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
-                        fontSize: 12,
-                        letterSpacing: -0.5,
-                        fontWeight: active ? FontWeight.w700 : FontWeight.w600,
-                        color: fg,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showBeriTugasBottomSheet(bool isDark) {
-    final sheetBg = isDark ? AppColors.darkSurface : AppColors.surface;
-    final line = isDark ? AppColors.darkBorder : AppColors.cardBorder;
-    final titleColor = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
-    final subColor = isDark ? AppColors.textDarkSecondary : AppColors.textSecondary;
+    final colors = TiketColors.of(context);
     final isManado = BranchService.instance.currentBranch == AppBranch.manado;
 
     showModalBottomSheet<void>(
@@ -1316,6 +1055,12 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
 
             final isRutin = isManado && _formTab == 'rutin';
 
+            final categoryOptions = <(String, String)>[
+              if (isManado) ('rutin', 'Rutin'),
+              ('maintenance', 'Maintenance'),
+              ('khusus', 'Tugas Khusus'),
+            ];
+
             return Padding(
               padding: EdgeInsets.only(bottom: MediaQuery.of(modalContext).viewInsets.bottom),
               child: PopScope(
@@ -1334,9 +1079,9 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                   builder: (dragContext, scrollController) {
                     return Container(
                       decoration: BoxDecoration(
-                        color: sheetBg,
+                        color: colors.dialog,
                         borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(AppColors.radiusBottomSheet),
+                          top: Radius.circular(24),
                         ),
                       ),
                       child: Column(
@@ -1347,7 +1092,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                               width: 38,
                               height: 4,
                               decoration: BoxDecoration(
-                                color: isDark ? AppColors.darkBorderMuted : const Color(0xFFCBD5E1),
+                                color: colors.mute,
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -1356,22 +1101,6 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                             padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
                             child: Row(
                               children: [
-                                Container(
-                                  width: 34,
-                                  height: 34,
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? AppColors.primaryLight.withValues(alpha: 0.18)
-                                        : AppColors.primary.withValues(alpha: 0.10),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.add_rounded,
-                                    size: 20,
-                                    color: isDark ? AppColors.primaryLight : AppColors.primary,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1379,15 +1108,20 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                       Text(
                                         'Buat Tugas Baru',
                                         style: TextStyle(
-                                          fontFamily: 'PlusJakartaSans',
-                                          fontSize: 16,
+                                          fontFamily: TiketType.fontFamily,
+                                          fontSize: 18,
                                           fontWeight: FontWeight.w700,
-                                          color: titleColor,
+                                          color: colors.ink,
                                         ),
                                       ),
+                                      const SizedBox(height: 2),
                                       Text(
                                         'Pilih kategori dan isi detail tugas',
-                                        style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 12, color: subColor),
+                                        style: TextStyle(
+                                          fontFamily: TiketType.fontFamily,
+                                          fontSize: 13,
+                                          color: colors.body,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -1395,13 +1129,13 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                 IconButton(
                                   tooltip: 'Tutup',
                                   onPressed: handleClose,
-                                  icon: Icon(Icons.close_rounded, size: 20, color: subColor),
-                                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                                  icon: Icon(Icons.close_rounded, size: 22, color: colors.ink),
+                                  constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
                           Expanded(
                             child: SingleChildScrollView(
                               controller: scrollController,
@@ -1409,134 +1143,49 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
+                                  TiketSegmented<String>(
+                                    options: categoryOptions,
+                                    selected: _formTab,
+                                    onChanged: (val) => apply(() {
+                                      _formTab = val;
+                                      if (val != 'rutin') {
+                                        _taskCategory = val;
+                                      }
+                                    }),
+                                  ),
+                                  const SizedBox(height: 18),
+                                  _buildFormTugaskan(colors, apply: apply),
+                                  const SizedBox(height: 16),
                                   Row(
                                     children: [
-                                      if (isManado) ...[
-                                        Expanded(
-                                          child: _categoryChip(
-                                            label: 'Rutin',
-                                            icon: Icons.event_repeat_rounded,
-                                            active: _formTab == 'rutin',
-                                            onTap: () => apply(() => _formTab = 'rutin'),
-                                            isDark: isDark,
+                                      Icon(Icons.info_outline_rounded, size: 16, color: colors.body),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Pastikan data sudah sesuai sebelum menyimpan.',
+                                          style: TextStyle(
+                                            fontFamily: TiketType.fontFamily,
+                                            fontSize: 12,
+                                            color: colors.body,
                                           ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                      ],
-                                      Expanded(
-                                        child: _categoryChip(
-                                          label: 'Maintenance',
-                                          icon: Icons.build_rounded,
-                                          active: _formTab == 'maintenance',
-                                          onTap: () => apply(() {
-                                            _formTab = 'maintenance';
-                                            _taskCategory = 'maintenance';
-                                          }),
-                                          isDark: isDark,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: _categoryChip(
-                                          label: 'Tugas Khusus',
-                                          icon: Icons.star_outline_rounded,
-                                          active: _formTab == 'khusus',
-                                          onTap: () => apply(() {
-                                            _formTab = 'khusus';
-                                            _taskCategory = 'khusus';
-                                          }),
-                                          isDark: isDark,
                                         ),
                                       ),
                                     ],
-                                  ),
-                                  const SizedBox(height: 18),
-                                  _buildFormTugaskan(isDark, apply: apply),
-                                  const SizedBox(height: 14),
-                                  Container(
-                                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.info.withValues(alpha: isDark ? 0.16 : 0.08),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: AppColors.info.withValues(alpha: 0.28)),
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.info),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            'Pastikan data sudah sesuai sebelum menyimpan.',
-                                            style: TextStyle(
-                                              fontFamily: 'PlusJakartaSans',
-                                              fontSize: 12,
-                                              height: 1.35,
-                                              color: isDark ? AppColors.textDarkPrimary : AppColors.textPrimary,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-                            decoration: BoxDecoration(
-                              color: sheetBg,
-                              border: Border(top: BorderSide(color: line)),
-                            ),
-                            child: SafeArea(
-                              top: false,
-                              child: SizedBox(
-                                height: 48,
-                                width: double.infinity,
-                                child: FilledButton(
-                                  onPressed: _isLoading ? null : handleSubmit,
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: isDark ? AppColors.primaryLight : AppColors.primary,
-                                    foregroundColor: Colors.white,
-                                    disabledBackgroundColor: (isDark ? AppColors.primaryLight : AppColors.primary)
-                                        .withValues(alpha: 0.55),
-                                    disabledForegroundColor: Colors.white,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  child: _isLoading
-                                      ? const Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                            ),
-                                            SizedBox(width: 10),
-                                            Text(
-                                              'Menyimpan...',
-                                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                                            ),
-                                          ],
-                                        )
-                                      : Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(isRutin ? Icons.bolt_rounded : Icons.check_rounded, size: 18),
-                                            const SizedBox(width: 8),
-                                            Flexible(
-                                              child: Text(
-                                                isRutin ? 'Tugaskan 2 Rutin Shift 1' : 'Simpan Tugas',
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                ),
-                              ),
+                          TiketBottomBar(
+                            primary: TiketPill(
+                              label: _isLoading
+                                  ? 'Menyimpan...'
+                                  : (isRutin ? 'Tugaskan 2 Rutin Shift 1' : 'Simpan Tugas'),
+                              icon: _isLoading ? null : (isRutin ? Icons.bolt_rounded : Icons.check_rounded),
+                              kind: TiketPillKind.primary,
+                              height: 52,
+                              expand: true,
+                              onPressed: _isLoading ? null : handleSubmit,
                             ),
                           ),
                         ],
@@ -1552,80 +1201,104 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     );
   }
 
-  Widget _buildFormTugaskan(bool isDark, {required void Function(VoidCallback) apply}) {
-    final labelColor = isDark ? AppColors.textDarkSecondary : AppColors.textSecondary;
-    final inputText = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
-    final hintColor = isDark ? AppColors.textDarkMuted : AppColors.textMuted;
-    final panelBg = isDark ? AppColors.darkSurfaceContainer : AppColors.surfaceContainerLow;
-    final line = isDark ? AppColors.darkBorder : AppColors.cardBorder;
-    final inputStyle = TextStyle(
-      fontFamily: 'PlusJakartaSans',
-      fontSize: 13.5,
-      fontWeight: FontWeight.w600,
-      color: inputText,
-    );
-
+  Widget _buildFormTugaskan(TiketColors colors, {required void Function(VoidCallback) apply}) {
     final isManado = BranchService.instance.currentBranch == AppBranch.manado;
     final isRutin = isManado && _formTab == 'rutin';
 
-    Widget dropdown<T>({
-      required IconData icon,
-      required T value,
-      required List<DropdownMenuItem<T>> items,
-      required ValueChanged<T?> onChanged,
-    }) {
-      return AppOutlinedFormField(
-        isDark: isDark,
-        leadingIcon: icon,
-        trailingIcon: Icons.expand_more_rounded,
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<T>(
-            value: value,
-            isExpanded: true,
-            isDense: true,
-            icon: const SizedBox.shrink(),
-            dropdownColor: isDark ? AppColors.darkSurface : AppColors.surface,
-            style: inputStyle,
-            items: items,
-            onChanged: (val) {
-              if (val != null) onChanged(val);
-            },
+    Widget inputContainer({required String label, required Widget child}) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: colors.soft,
+          border: Border(
+            bottom: BorderSide(
+              color: colors.body,
+              width: 2.0,
+            ),
           ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                fontSize: 11.0,
+                fontWeight: FontWeight.w500,
+                color: colors.body,
+              ),
+            ),
+            const SizedBox(height: 2),
+            child,
+          ],
         ),
       );
     }
 
+    final selectedTplName = _templates.firstWhere(
+      (e) => e['id'] == _selectedTemplateId,
+      orElse: () => _templates.first,
+    )['nama']!;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _formLabel(isRutin ? 'Teknisi Shift 1' : 'Teknisi (Pemilik Tugas)', labelColor),
-        const SizedBox(height: 6),
-        dropdown<String>(
-          icon: Icons.person_outline_rounded,
+        TiketDropdownField(
+          label: isRutin ? 'Teknisi Shift 1' : 'Teknisi (Pemilik Tugas)',
           value: _selectedTech,
-          items: _technicians
-              .map((t) => DropdownMenuItem(value: t, child: Text(t, overflow: TextOverflow.ellipsis)))
-              .toList(),
-          onChanged: (val) => apply(() {
-            if (val != null) _selectedTech = val;
-            _pesertaTerpilih.remove(val);
-          }),
+          onTap: () async {
+            final picked = await showTiketPickerDialog<String>(
+              context: context,
+              title: isRutin ? 'Pilih Teknisi Shift 1' : 'Pilih Teknisi',
+              options: [
+                for (final tech in _technicians)
+                  TiketOption(value: tech, label: tech),
+              ],
+              selected: _selectedTech,
+            );
+            if (picked != null) {
+              apply(() {
+                _selectedTech = picked;
+                _pesertaTerpilih.remove(picked);
+              });
+            }
+          },
         ),
-        const SizedBox(height: 6),
-        _formHelper(isRutin ? 'Shift 1 (03:00 - 11:00 WITA) mengerjakan 2 tugas rutin.' : 'Yang pegang dokumentasi dan upload bukti.', labelColor),
-        const SizedBox(height: 18),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            isRutin ? 'Shift 1 (03:00 - 11:00 WITA) mengerjakan 2 tugas rutin.' : 'Yang pegang dokumentasi dan upload bukti.',
+            style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 12, color: colors.body),
+          ),
+        ),
+        const SizedBox(height: 16),
 
         if (isRutin) ...[
-          _formLabel('Tugas Rutin Shift 1 KC Manado', labelColor),
+          Text(
+            'TUGAS RUTIN SHIFT 1 KC MANADO',
+            style: TextStyle(
+              fontFamily: TiketType.fontFamily,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: colors.ink,
+              letterSpacing: 0.5,
+            ),
+          ),
           const SizedBox(height: 4),
-          _formHelper('Dikirim sebagai 2 tugas terpisah, masing-masing wajib ada bukti.', labelColor),
+          Text(
+            'Dikirim sebagai 2 tugas terpisah, masing-masing wajib ada bukti.',
+            style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 12, color: colors.body),
+          ),
           const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: panelBg,
+              color: colors.soft,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: line),
+              border: Border.all(color: colors.hairline),
             ),
             child: Column(
               children: [
@@ -1633,152 +1306,187 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                   'Pengecekan Sistem Gate out 1-6 PBM (bukti dokumentasi layar aplikasi kasir)',
                   'Pengecekan Sistem Gate ojek',
                 ].indexed) ...[
-                  if (i > 0) Divider(height: 1, thickness: 1, color: line),
+                  if (i > 0) Divider(height: 1, thickness: 1, color: colors.hairline),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: _buildRoutineTaskItem(num: '${i + 1}', title: judul, isDark: isDark),
+                    child: _buildRoutineTaskItem(num: '${i + 1}', title: judul, colors: colors),
                   ),
                 ],
               ],
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
         ] else ...[
           if (_taskCategory == 'maintenance') ...[
-            _formLabel('Template SOP', labelColor),
-            const SizedBox(height: 6),
-            dropdown<String>(
-              icon: Icons.handyman_outlined,
-              value: _selectedTemplateId ?? _templates.first['id']!,
-              items: _templates
-                  .map((tpl) => DropdownMenuItem(value: tpl['id'], child: Text(tpl['nama']!, overflow: TextOverflow.ellipsis)))
-                  .toList(),
-              onChanged: (val) => apply(() {
-                _selectedTemplateId = val;
-                final found = _templates.firstWhere((e) => e['id'] == val);
-                _pekerjaanCtrl.text = '${found['nama']} - ${_lokasiCtrl.text.trim()}';
-              }),
+            TiketDropdownField(
+              label: 'Template SOP',
+              value: selectedTplName,
+              onTap: () async {
+                final picked = await showTiketPickerDialog<String>(
+                  context: context,
+                  title: 'Pilih Template SOP',
+                  options: [
+                    for (final tpl in _templates)
+                      TiketOption(value: tpl['id']!, label: tpl['nama']!),
+                  ],
+                  selected: _selectedTemplateId,
+                );
+                if (picked != null) {
+                  apply(() {
+                    _selectedTemplateId = picked;
+                    final found = _templates.firstWhere((e) => e['id'] == picked);
+                    _pekerjaanCtrl.text = '${found['nama']} - ${_lokasiCtrl.text.trim()}';
+                  });
+                }
+              },
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
           ],
 
-          _formLabel('Dikerjakan Bersama (Opsional)', labelColor),
-          const SizedBox(height: 6),
-          AppOutlinedFormField(
-            isDark: isDark,
-            leadingIcon: Icons.groups_2_outlined,
-            trailingIcon: _pesertaTerbuka ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+          TiketDropdownField(
+            label: 'Dikerjakan Bersama (Opsional)',
+            value: _pesertaTerpilih.isEmpty ? 'Tidak ada teknisi tambahan' : _pesertaTerpilih.join(', '),
             onTap: () => apply(() => _pesertaTerbuka = !_pesertaTerbuka),
-            child: Text(
-              _pesertaTerpilih.isEmpty ? 'Tidak ada teknisi tambahan' : _pesertaTerpilih.join(', '),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 13.5,
-                fontWeight: _pesertaTerpilih.isEmpty ? FontWeight.w500 : FontWeight.w600,
-                color: _pesertaTerpilih.isEmpty ? hintColor : inputText,
-              ),
-            ),
           ),
           if (_pesertaTerbuka) ...[
-            const SizedBox(height: 4),
-            for (final tech in _technicians.where((t) => t != _selectedTech))
-              _pesertaRow(
-                tech,
-                line: line,
-                head: inputText,
-                sub: labelColor,
-                isDark: isDark,
-                onToggle: () => apply(() {
-                  if (_pesertaTerpilih.contains(tech)) {
-                    _pesertaTerpilih.remove(tech);
-                  } else {
-                    _pesertaTerpilih.add(tech);
-                  }
-                }),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: colors.soft,
+                borderRadius: BorderRadius.circular(12),
               ),
-          ],
-          if (_pesertaTerpilih.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.groups_2_outlined, size: 15, color: AppColors.success),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Bareng: ${_pesertaTerpilih.join(', ')} · bukti dari $_selectedTech',
-                    style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 12, height: 1.35, color: inputText),
-                  ),
-                ),
-              ],
+              child: Column(
+                children: [
+                  for (final tech in _technicians.where((t) => t != _selectedTech))
+                    InkWell(
+                      onTap: () => apply(() {
+                        if (_pesertaTerpilih.contains(tech)) {
+                          _pesertaTerpilih.remove(tech);
+                        } else {
+                          _pesertaTerpilih.add(tech);
+                        }
+                      }),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 28,
+                              height: 28,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: _pesertaTerpilih.contains(tech) ? colors.primary : colors.canvas,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: _pesertaTerpilih.contains(tech) ? colors.primary : colors.mute),
+                              ),
+                              child: Text(
+                                tech.characters.first.toUpperCase(),
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _pesertaTerpilih.contains(tech) ? colors.onPrimary : colors.body,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                tech,
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 13,
+                                  fontWeight: _pesertaTerpilih.contains(tech) ? FontWeight.w700 : FontWeight.w500,
+                                  color: colors.ink,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              _pesertaTerpilih.contains(tech) ? Icons.check_circle_rounded : Icons.circle_outlined,
+                              size: 20,
+                              color: _pesertaTerpilih.contains(tech) ? colors.ok : colors.mute,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ],
-          const SizedBox(height: 18),
+          if (_pesertaTerpilih.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                'Bareng: ${_pesertaTerpilih.join(', ')} · bukti dari $_selectedTech',
+                style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 12, color: colors.body),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
         ],
 
         if (!isRutin) ...[
-          _formLabel('Lokasi Pekerjaan', labelColor),
-          const SizedBox(height: 6),
-          AppOutlinedFormField(
-            isDark: isDark,
-            leadingIcon: Icons.place_outlined,
+          inputContainer(
+            label: 'Lokasi Pekerjaan',
             child: TextField(
               controller: _lokasiCtrl,
-              style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13.5, color: inputText),
+              style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: colors.ink),
               onChanged: (_) => apply(() {}),
-              decoration: _bareInput('Contoh: PKM, PBM, TBM', hintColor),
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                hintText: 'Contoh: PKM, PBM, TBM',
+                hintStyle: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 14, color: colors.body),
+              ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
 
-          _formLabel('Detail Pekerjaan', labelColor),
-          const SizedBox(height: 6),
-          AppOutlinedFormField(
-            isDark: isDark,
-            leadingIcon: Icons.edit_note_rounded,
-            multiline: true,
+          inputContainer(
+            label: 'Detail Pekerjaan',
             child: TextField(
               controller: _pekerjaanCtrl,
               maxLines: 2,
-              style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13.5, height: 1.4, color: inputText),
+              style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: colors.ink),
               onChanged: (_) => apply(() {}),
-              decoration: _bareInput('Contoh: Pemasangan lampu pos', hintColor),
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                hintText: 'Contoh: Pemasangan lampu pos',
+                hintStyle: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 14, color: colors.body),
+              ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
         ],
 
-        _formLabel('Tanggal Penugasan', labelColor),
-        const SizedBox(height: 6),
-        AppOutlinedFormField(
-          isDark: isDark,
-          leadingIcon: Icons.calendar_month_rounded,
-          trailingIcon: Icons.edit_calendar_rounded,
+        TiketDropdownField(
+          label: 'Tanggal Penugasan',
+          value: _formatDateDisplay(_targetDispatchDate),
           onTap: () => _pickTargetDispatchDateFromSheet(apply),
-          child: Text(
-            _formatDateDisplay(_targetDispatchDate),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13.5, fontWeight: FontWeight.w600, color: inputText),
-          ),
         ),
 
         if (!isRutin) ...[
-          const SizedBox(height: 18),
-          _formLabel('Catatan (Opsional)', labelColor),
-          const SizedBox(height: 6),
-          AppOutlinedFormField(
-            isDark: isDark,
-            leadingIcon: Icons.notes_rounded,
-            multiline: true,
+          const SizedBox(height: 16),
+          inputContainer(
+            label: 'Catatan (Opsional)',
             child: TextField(
               controller: _catatanCtrl,
               maxLines: 3,
-              style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13.5, height: 1.4, color: inputText),
+              style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: colors.ink),
               onChanged: (_) => apply(() {}),
-              decoration: _bareInput('Contoh: Lampu cadangan di gudang pos', hintColor),
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                hintText: 'Contoh: Lampu cadangan di gudang pos',
+                hintStyle: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 14, color: colors.body),
+              ),
             ),
           ),
         ],
@@ -1786,173 +1494,241 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     );
   }
 
-  Widget _buildTaskList(bool isDark) {
+  @override
+  Widget build(BuildContext context) {
+    final user = AuthRepository.instance.currentUser;
+    final colors = TiketColors.of(context);
+    final isDark = ThemeService.isDarkMode(context);
+
+    if (user?.role != UserRole.supervisor) {
+      return Scaffold(
+        backgroundColor: colors.canvas,
+        appBar: AppBar(
+          backgroundColor: colors.band,
+          title: Text('Akses Dibatasi', style: TextStyle(color: colors.white)),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Text(
+              'Halaman ini khusus untuk Supervisor (SPV).\nTeknisi hanya melihat tugas di layar utama kamera.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                color: colors.body,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final scoped = _techScopedTasks;
     final total = scoped.length;
     final completed = scoped.where((t) => t.isCompleted).length;
     final pending = total - completed;
-    final isToday = _isSameDay(_selectedDate, DateTime.now());
-    final subtitle = isToday ? 'Hari Ini' : _formatDateDisplay(_selectedDate);
-    final techSuffix = _selectedTechFilter == 'SEMUA' ? '' : ' · $_selectedTechFilter';
     final tasks = _filteredTasks;
     final allDone = total > 0 && completed == total;
+    final percentInt = total > 0 ? ((completed / total) * 100).toInt() : 0;
+    final canPop = Navigator.of(context).canPop();
+    final horizontalPad = TiketSpace.padOf(context);
 
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-      children: [
-        if (_isLoading)
-          _buildSkeletonList(isDark)
-        else ...[
-          SpvProgressRingCard(
-            completed: completed,
-            total: total,
-            subtitle: '$subtitle$techSuffix',
-            isDark: isDark,
-            onTap: () => _showTeamControlBottomSheet(isDark),
-          ),
-          const SizedBox(height: 12),
-          SpvStatusSegmentBar(
-            total: total,
-            pending: pending,
-            completed: completed,
-            selected: _selectedStatusFilter,
-            isDark: isDark,
-            onSelect: (key) => setState(() => _selectedStatusFilter = key),
-          ),
-          const SizedBox(height: 10),
-          SpvTechFilterStrip(
-            isDark: isDark,
-            selected: _selectedTechFilter,
-            entries: [
-              SpvTechFilterEntry(name: 'SEMUA', pendingCount: _pendingForTech('SEMUA')),
-              for (final tech in _technicians)
-                SpvTechFilterEntry(name: tech, pendingCount: _pendingForTech(tech)),
-            ],
-            onSelect: (tech) => setState(() {
-              _selectedTechFilter = tech == _selectedTechFilter ? 'SEMUA' : tech;
-            }),
-          ),
-          const SizedBox(height: 12),
-          if (_selectedTechFilter != 'SEMUA') ...[
-            _buildActiveTechFilterBanner(isDark),
-            const SizedBox(height: 10),
-          ],
-          if (allDone) ...[
-            _buildAllDoneBanner(completed, isDark),
-            const SizedBox(height: 10),
-          ],
-          if (_teamTasks.isEmpty)
-            _buildEmptyState(isDark)
-          else if (tasks.isEmpty)
-            _buildFilteredEmptyState(isDark)
-          else
-            for (final t in tasks)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: SpvTaskCard(
-                  task: t,
-                  isDark: isDark,
-                  isExpanded: _expandedTaskIds.contains(t.id),
-                  onHandover: t.isCompleted ? null : () => _alihkanTugas(t),
-                  onDelete: t.isCompleted ? null : () => _hapusTugas(t),
-                  onToggleExpand: () {
-                    setState(() {
-                      if (!_expandedTaskIds.remove(t.id)) _expandedTaskIds.add(t.id);
-                    });
-                  },
-                ),
-              ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildSkeletonList(bool isDark) {
-    final base = isDark ? AppColors.darkSurfaceContainer : AppColors.creamContainer;
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-
-    Widget bone(double height, {double? width}) => Container(
-          height: height,
-          width: width,
+    return Scaffold(
+      backgroundColor: colors.canvas,
+      floatingActionButton: UnconstrainedBox(
+        child: Container(
           decoration: BoxDecoration(
-            color: base.withValues(alpha: reduceMotion ? 0.6 : 0.4 + (_pulse.value * 0.4)),
-            borderRadius: BorderRadius.circular(6),
-          ),
-        );
-
-    return Semantics(
-      label: 'Memuat data tugas tim',
-      container: true,
-      child: AnimatedBuilder(
-        animation: _pulse,
-        builder: (context, _) => Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : AppColors.surface,
-                borderRadius: BorderRadius.circular(AppColors.radiusCard),
-                border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.cardBorder),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: colors.primary.withValues(alpha: 0.35),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: base.withValues(alpha: reduceMotion ? 0.6 : 0.4 + (_pulse.value * 0.4)),
+            ],
+          ),
+          child: TiketPill(
+            label: 'Buat Tugas',
+            icon: Icons.add_rounded,
+            kind: TiketPillKind.primary,
+            height: 56,
+            onPressed: () => _showBeriTugasBottomSheet(isDark),
+          ),
+        ),
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadTasks,
+        color: colors.primary,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            _SpvSliverBand(
+              expandedHeight: 180.0,
+              compactTitle: 'Daily Task',
+              leading: canPop
+                  ? TiketIconButton(
+                      icon: Icons.arrow_back_rounded,
+                      semanticLabel: 'Kembali',
+                      onPressed: () => Navigator.maybePop(context),
+                    )
+                  : null,
+              onBriefing: () => _showMorningDispatchBottomSheet(isDark),
+              onRekap: () => _showTeamControlBottomSheet(isDark),
+              caption: 'Daily Task Tim · ${_formatDateDisplay(_selectedDate)}',
+              hero: (_tasksToday.isEmpty && !_isLoading)
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '0/0',
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 36,
+                            fontWeight: FontWeight.w800,
+                            color: colors.white,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Belum ada tugas tim',
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: colors.bandCaption,
+                          ),
+                        ),
+                      ],
+                    )
+                  : FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            '$completed/$total',
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 36,
+                              fontWeight: FontWeight.w800,
+                              color: colors.white,
+                              height: 1.1,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'selesai · $percentInt%',
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              footer: null,
+            ),
+            if (_isLoading)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      bone(12, width: 120),
-                      const SizedBox(height: 6),
-                      bone(10, width: 84),
+                      CircularProgressIndicator(color: colors.primary),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Memuat tugas tim',
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: colors.ink,
+                        ),
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                for (var i = 0; i < 3; i++) ...[
-                  if (i > 0) const SizedBox(width: 6),
-                  Expanded(child: bone(34)),
-                ],
-              ],
-            ),
-            const SizedBox(height: 14),
-            for (var i = 0; i < 3; i++) ...[
-              if (i > 0) const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkSurface : AppColors.surface,
-                  borderRadius: BorderRadius.circular(AppColors.radiusCard),
-                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.cardBorder),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        bone(20, width: 42),
-                        const SizedBox(width: 8),
-                        Expanded(child: bone(14)),
+              )
+            else ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(horizontalPad, 16, horizontalPad, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TiketDropdownField(
+                        label: 'Teknisi',
+                        value: _selectedTechFilter == 'SEMUA' ? 'Semua teknisi' : _selectedTechFilter,
+                        onTap: _openTechFilterDialog,
+                      ),
+                      const SizedBox(height: 12),
+                      TiketSegmented<String>(
+                        options: [
+                          ('ALL', 'Semua $total'),
+                          ('PENDING', 'Pending $pending'),
+                          ('COMPLETED', 'Selesai $completed'),
+                        ],
+                        selected: _selectedStatusFilter,
+                        onChanged: (val) => setState(() => _selectedStatusFilter = val),
+                      ),
+                      if (_selectedTechFilter != 'SEMUA') ...[
+                        const SizedBox(height: 10),
+                        _buildActiveTechFilterBanner(colors),
                       ],
-                    ),
-                    const SizedBox(height: 10),
-                    bone(12, width: 180),
-                    const SizedBox(height: 8),
-                    bone(11, width: 110),
-                  ],
+                      if (allDone) ...[
+                        const SizedBox(height: 10),
+                        _buildAllDoneBanner(completed, colors),
+                      ],
+                    ],
+                  ),
                 ),
               ),
+              if (_teamTasks.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _buildEmptyState(colors, isDark),
+                )
+              else if (tasks.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _buildFilteredEmptyState(colors),
+                )
+              else
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(horizontalPad, 4, horizontalPad, 96),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final t = tasks[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: SpvTaskCard(
+                            task: t,
+                            isDark: isDark,
+                            isExpanded: _expandedTaskIds.contains(t.id),
+                            onHandover: t.isCompleted ? null : () => _alihkanTugas(t),
+                            onDelete: t.isCompleted ? null : () => _hapusTugas(t),
+                            onToggleExpand: () {
+                              setState(() {
+                                if (!_expandedTaskIds.remove(t.id)) {
+                                  _expandedTaskIds.add(t.id);
+                                }
+                              });
+                            },
+                          ),
+                        );
+                      },
+                      childCount: tasks.length,
+                    ),
+                  ),
+                ),
             ],
           ],
         ),
@@ -1960,32 +1736,29 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     );
   }
 
-  Widget _buildAllDoneBanner(int completed, bool isDark) {
-    final fg = isDark ? AppColors.successBorder : AppColors.success;
+  Widget _buildAllDoneBanner(int completed, TiketColors colors) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.success.withValues(alpha: 0.15) : AppColors.successLight,
-        borderRadius: BorderRadius.circular(AppColors.radiusCard),
-        border: Border.all(
-          color: isDark ? AppColors.success.withValues(alpha: 0.35) : AppColors.successBorder,
-        ),
+        color: colors.soft,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.ok),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.celebration_rounded, size: 18, color: AppColors.success),
+              Icon(Icons.celebration_rounded, size: 18, color: colors.ok),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Semua Tugas Selesai Hari Ini! ($completed/$completed)',
                   style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: TiketType.fontFamily,
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
-                    color: fg,
+                    color: colors.ok,
                   ),
                 ),
               ),
@@ -1995,25 +1768,27 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
           Text(
             'Seluruh penugasan teknisi telah selesai.',
             style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
+              fontFamily: TiketType.fontFamily,
               fontSize: 12.5,
-              color: isDark ? AppColors.textDarkSecondary : AppColors.textSecondary,
+              color: colors.body,
             ),
           ),
           const SizedBox(height: 8),
           TextButton.icon(
             onPressed: _shareRecap,
-            icon: const Icon(Icons.ios_share_rounded, size: 16),
-            label: const Text('Bagikan Rekap Tim via WA / Telegram'),
-            style: TextButton.styleFrom(
-              foregroundColor: fg,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              minimumSize: const Size(0, 44),
-              textStyle: const TextStyle(
-                fontFamily: 'PlusJakartaSans',
+            icon: Icon(Icons.ios_share_rounded, size: 16, color: colors.ok),
+            label: Text(
+              'Bagikan Rekap Tim via WA / Telegram',
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
+                color: colors.ok,
               ),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 44),
             ),
           ),
         ],
@@ -2021,139 +1796,124 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     );
   }
 
-  Widget _buildEmptyState(bool isDark) {
-    final titleColor = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
-    final subColor = isDark ? AppColors.textDarkSecondary : AppColors.textSecondary;
+  Widget _buildEmptyState(TiketColors colors, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.assignment_outlined,
             size: 48,
-            color: isDark ? AppColors.textDarkMuted : AppColors.textMuted,
+            color: colors.mute,
           ),
           const SizedBox(height: 12),
           Text(
             'Belum Ada Tugas Tim Hari Ini',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
-              fontSize: 15,
+              fontFamily: TiketType.fontFamily,
+              fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: titleColor,
+              color: colors.ink,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             'Belum ada penugasan teknisi untuk tanggal ${_formatDateDisplay(_selectedDate)}.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13, color: subColor),
+            style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 13, color: colors.body),
           ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
+          const SizedBox(height: 18),
+          TiketPill(
+            label: 'Buat Tugas Baru',
+            icon: Icons.add_rounded,
+            kind: TiketPillKind.primary,
+            height: 48,
             onPressed: () => _showBeriTugasBottomSheet(isDark),
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Buat Tugas Baru'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isDark ? AppColors.primaryLight : AppColors.primary,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(0, 48),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              textStyle: const TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFilteredEmptyState(bool isDark) {
-    final titleColor = isDark ? AppColors.textDarkPrimary : AppColors.textPrimary;
-    final subColor = isDark ? AppColors.textDarkSecondary : AppColors.textSecondary;
+  Widget _buildFilteredEmptyState(TiketColors colors) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.filter_alt_off_outlined,
             size: 44,
-            color: isDark ? AppColors.textDarkMuted : AppColors.textMuted,
+            color: colors.mute,
           ),
           const SizedBox(height: 10),
           Text(
             'Tidak Ada Tugas yang Cocok',
             style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
-              fontSize: 14,
+              fontFamily: TiketType.fontFamily,
+              fontSize: 15,
               fontWeight: FontWeight.w700,
-              color: titleColor,
+              color: colors.ink,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Tidak ada tugas dengan filter yang dipilih.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 12.5, color: subColor),
+            style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 13, color: colors.body),
           ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
+          const SizedBox(height: 16),
+          TiketPill(
+            label: 'Reset Filter',
+            icon: Icons.clear_all_rounded,
+            kind: TiketPillKind.secondary,
+            height: 44,
             onPressed: () => setState(() {
               _selectedStatusFilter = 'ALL';
               _selectedTechFilter = 'SEMUA';
             }),
-            icon: const Icon(Icons.clear_all_rounded, size: 16),
-            label: const Text('Reset Filter'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: isDark ? AppColors.textDarkPrimary : AppColors.primary,
-              side: BorderSide(color: isDark ? AppColors.darkBorderMuted : AppColors.cardBorder),
-              minimumSize: const Size(0, 44),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
           ),
         ],
       ),
     );
   }
 
-
-  Widget _buildActiveTechFilterBanner(bool isDark) {
+  Widget _buildActiveTechFilterBanner(TiketColors colors) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: isDark ? 0.12 : 0.08),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+        color: colors.soft,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.primary),
       ),
       child: Row(
         children: [
-          const Icon(Icons.person_rounded, size: 13, color: AppColors.accent),
-          const SizedBox(width: 6),
+          Icon(Icons.person_rounded, size: 16, color: colors.primary),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Filter Teknisi: $_selectedTechFilter',
               style: TextStyle(
-                fontSize: 11,
+                fontFamily: TiketType.fontFamily,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                color: colors.ink,
               ),
             ),
           ),
           InkWell(
             onTap: () => setState(() => _selectedTechFilter = 'SEMUA'),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               child: Text(
                 'Reset ✕',
                 style: TextStyle(
-                  fontSize: 10.5,
+                  fontFamily: TiketType.fontFamily,
+                  fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.accent,
+                  color: colors.signalText,
                 ),
               ),
             ),
@@ -2164,6 +1924,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
   }
 
   void _showTeamControlBottomSheet(bool isDark) {
+    final colors = TiketColors.of(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -2183,77 +1944,66 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
             final isYesterday = _isSameDay(_selectedDate, yesterday);
             final isCustom = !isToday && !isYesterday;
 
-            final sheetBg = isDark ? const Color(0xFF111827) : Colors.white;
-            final handleColor = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
-            final titleColor = isDark ? Colors.white : const Color(0xFF0F172A);
-            final closeColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-            final sectionTitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-            final recapBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFF8FAFC);
-            final recapBorder = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
-            final progressTrack = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
-
             return Container(
               padding: const EdgeInsets.only(top: 10, left: 16, right: 16, bottom: 24),
               decoration: BoxDecoration(
-                color: sheetBg,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                border: Border(top: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
+                color: colors.dialog,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border(top: BorderSide(color: colors.hairline)),
               ),
               child: SafeArea(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Handle Bar
                     Center(
                       child: Container(
                         width: 38,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: handleColor,
+                          color: colors.mute,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
-
-                    // Sheet Title
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.tune_rounded, size: 18, color: AppColors.accent),
+                            Icon(Icons.tune_rounded, size: 18, color: colors.primary),
                             const SizedBox(width: 8),
                             Text(
                               'Kontrol Tim & Rekap',
                               style: TextStyle(
-                                fontSize: 15,
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 16,
                                 fontWeight: FontWeight.w800,
-                                color: titleColor,
+                                color: colors.ink,
                               ),
                             ),
                           ],
                         ),
                         IconButton(
+                          tooltip: 'Tutup',
                           onPressed: () => Navigator.pop(bottomSheetContext),
-                          icon: Icon(Icons.close_rounded, size: 20, color: closeColor),
+                          icon: Icon(Icons.close_rounded, size: 22, color: colors.ink),
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
+                          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
 
-                    // Switch Cabang Aktif SPV (Hanya jika user login adalah HO, jika SPV terkunci sesuai cabangnya)
                     if (AuthRepository.instance.currentUser?.role == UserRole.ho)
                       Container(
                         margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(3),
+                        padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0B1120) : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(9),
-                          border: Border.all(color: recapBorder),
+                          color: colors.soft,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: colors.hairline),
                         ),
                         child: Row(
                           children: [
@@ -2274,10 +2024,10 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                 },
                                 borderRadius: BorderRadius.circular(7),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 6.5),
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
                                   decoration: BoxDecoration(
                                     color: BranchService.instance.currentBranch == AppBranch.manado
-                                        ? AppColors.accent
+                                        ? colors.primary
                                         : Colors.transparent,
                                     borderRadius: BorderRadius.circular(7),
                                   ),
@@ -2285,13 +2035,14 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                     'KC Manado',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      fontSize: 11.5,
+                                      fontFamily: TiketType.fontFamily,
+                                      fontSize: 12,
                                       fontWeight: BranchService.instance.currentBranch == AppBranch.manado
                                           ? FontWeight.bold
                                           : FontWeight.w600,
                                       color: BranchService.instance.currentBranch == AppBranch.manado
-                                          ? Colors.white
-                                          : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                                          ? colors.onPrimary
+                                          : colors.body,
                                     ),
                                   ),
                                 ),
@@ -2314,10 +2065,10 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                 },
                                 borderRadius: BorderRadius.circular(7),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 6.5),
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
                                   decoration: BoxDecoration(
                                     color: BranchService.instance.currentBranch == AppBranch.bali
-                                        ? AppColors.accent
+                                        ? colors.primary
                                         : Colors.transparent,
                                     borderRadius: BorderRadius.circular(7),
                                   ),
@@ -2325,13 +2076,14 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                     'KC Bali',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      fontSize: 11.5,
+                                      fontFamily: TiketType.fontFamily,
+                                      fontSize: 12,
                                       fontWeight: BranchService.instance.currentBranch == AppBranch.bali
                                           ? FontWeight.bold
                                           : FontWeight.w600,
                                       color: BranchService.instance.currentBranch == AppBranch.bali
-                                          ? Colors.white
-                                          : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                                          ? colors.onPrimary
+                                          : colors.body,
                                     ),
                                   ),
                                 ),
@@ -2343,35 +2095,35 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                     else
                       Container(
                         margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0B1120) : const Color(0xFFF1F5F9),
+                          color: colors.soft,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: recapBorder),
+                          border: Border.all(color: colors.hairline),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.location_on_rounded, size: 15, color: AppColors.accent),
-                            const SizedBox(width: 6),
+                            Icon(Icons.location_on_rounded, size: 16, color: colors.primary),
+                            const SizedBox(width: 8),
                             Text(
                               'Cabang: ${BranchService.instance.currentBranch.name}',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                color: colors.ink,
                               ),
                             ),
                           ],
                         ),
                       ),
 
-                    // SECTION 1: REKAP TIM LENGKAP
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: recapBg,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: recapBorder),
+                        color: colors.soft,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: colors.hairline),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2382,17 +2134,19 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                               Text(
                                 'Progres Harian Tim',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: titleColor,
+                                  color: colors.ink,
                                 ),
                               ),
                               Text(
                                 '$percentInt% Selesai',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w800,
-                                  color: percentInt == 100 ? AppColors.success : AppColors.accent,
+                                  color: percentInt == 100 ? colors.ok : colors.primary,
                                 ),
                               ),
                             ],
@@ -2402,14 +2156,14 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                             borderRadius: BorderRadius.circular(3),
                             child: LinearProgressIndicator(
                               value: percent,
-                              minHeight: 5,
-                              backgroundColor: progressTrack,
+                              minHeight: 6,
+                              backgroundColor: colors.hairline,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                percentInt == 100 ? AppColors.success : AppColors.accent,
+                                percentInt == 100 ? colors.ok : colors.primary,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
                           Row(
                             children: [
                               Expanded(
@@ -2417,8 +2171,8 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                   label: 'Total',
                                   value: '$total',
                                   icon: Icons.assignment_outlined,
-                                  color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
-                                  isDark: isDark,
+                                  color: colors.body,
+                                  colors: colors,
                                 ),
                               ),
                               Expanded(
@@ -2426,8 +2180,8 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                   label: 'Selesai',
                                   value: '$completed',
                                   icon: Icons.check_circle_outline_rounded,
-                                  color: AppColors.success,
-                                  isDark: isDark,
+                                  color: colors.ok,
+                                  colors: colors,
                                 ),
                               ),
                               Expanded(
@@ -2435,54 +2189,48 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                                   label: 'Belum Mulai',
                                   value: '$pending',
                                   icon: Icons.schedule_rounded,
-                                  color: AppColors.accent,
-                                  isDark: isDark,
+                                  color: colors.primary,
+                                  colors: colors,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
-                          OutlinedButton.icon(
+                          const SizedBox(height: 12),
+                          TiketPill(
+                            label: 'Format Briefing Pagi (WA / Telegram)',
+                            icon: Icons.copy_rounded,
+                            kind: TiketPillKind.secondary,
+                            height: 44,
+                            expand: true,
                             onPressed: () {
                               Navigator.pop(bottomSheetContext);
                               _showMorningDispatchBottomSheet(isDark);
                             },
-                            icon: const Icon(Icons.copy_rounded, size: 14),
-                            label: const Text('Format Briefing Pagi (WA / Telegram)'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.accent,
-                              side: const BorderSide(color: AppColors.accent, width: 1.2),
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
                           ),
                           const SizedBox(height: 8),
-                          ElevatedButton.icon(
+                          TiketPill(
+                            label: 'Bagikan Rekap Tim ke WhatsApp',
+                            icon: Icons.share_rounded,
+                            kind: TiketPillKind.primary,
+                            height: 44,
+                            expand: true,
                             onPressed: () {
                               Navigator.pop(bottomSheetContext);
                               _shareRecap();
                             },
-                            icon: const Icon(Icons.share_rounded, size: 14),
-                            label: const Text('Bagikan Rekap Tim ke WhatsApp'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF25D366),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 14),
 
-                    // SECTION 2: PILIH TANGGAL
                     Text(
                       'TANGGAL OPERASIONAL',
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontFamily: TiketType.fontFamily,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: sectionTitleColor,
+                        color: colors.body,
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -2493,7 +2241,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                           child: _buildDateChip(
                             label: 'Hari Ini',
                             isSelected: isToday,
-                            isDark: isDark,
+                            colors: colors,
                             onTap: () {
                               if (!isToday) {
                                 setState(() => _selectedDate = now);
@@ -2508,7 +2256,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                           child: _buildDateChip(
                             label: 'Kemarin',
                             isSelected: isYesterday,
-                            isDark: isDark,
+                            colors: colors,
                             onTap: () {
                               if (!isYesterday) {
                                 setState(() => _selectedDate = yesterday);
@@ -2523,7 +2271,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                           child: _buildDateChip(
                             label: isCustom ? _formatDateDisplay(_selectedDate) : 'Pilih 📅',
                             isSelected: isCustom,
-                            isDark: isDark,
+                            colors: colors,
                             icon: Icons.calendar_month_rounded,
                             onTap: () async {
                               await _pickCustomDate();
@@ -2535,13 +2283,13 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                     ),
                     const SizedBox(height: 14),
 
-                    // SECTION 3: FILTER TEKNISI
                     Text(
                       'FILTER TEKNISI LAPANGAN',
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontFamily: TiketType.fontFamily,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: sectionTitleColor,
+                        color: colors.body,
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -2561,10 +2309,6 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                           chipLabel = '$tech ($done/${techTasks.length})';
                         }
 
-                        final unselectedChipBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFF1F5F9);
-                        final unselectedChipBorder = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
-                        final unselectedChipText = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155);
-
                         return InkWell(
                           onTap: () {
                             setState(() {
@@ -2574,16 +2318,12 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                           },
                           borderRadius: BorderRadius.circular(16),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: isSelected
-                                  ? AppColors.accent
-                                  : unselectedChipBg,
+                              color: isSelected ? colors.primary : colors.soft,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: isSelected
-                                    ? AppColors.accent
-                                    : unselectedChipBorder,
+                                color: isSelected ? colors.primary : colors.hairline,
                               ),
                             ),
                             child: Row(
@@ -2591,16 +2331,17 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                               children: [
                                 Icon(
                                   isAll ? Icons.group_outlined : Icons.person_outline_rounded,
-                                  size: 12,
-                                  color: isSelected ? Colors.white : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                                  size: 13,
+                                  color: isSelected ? colors.onPrimary : colors.body,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   chipLabel,
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontFamily: TiketType.fontFamily,
+                                    fontSize: 11.5,
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                    color: isSelected ? Colors.white : unselectedChipText,
+                                    color: isSelected ? colors.onPrimary : colors.ink,
                                   ),
                                 ),
                               ],
@@ -2611,19 +2352,12 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                     ),
                     const SizedBox(height: 18),
 
-                    // Tombol Terapkan / Tutup
-                    ElevatedButton(
+                    TiketPill(
+                      label: 'Terapkan & Lihat Tugas',
+                      kind: TiketPillKind.primary,
+                      height: 48,
+                      expand: true,
                       onPressed: () => Navigator.pop(bottomSheetContext),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 11),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      child: const Text(
-                        'Terapkan & Lihat Tugas',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                      ),
                     ),
                   ],
                 ),
@@ -2640,22 +2374,18 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     required bool isSelected,
     IconData? icon,
     required VoidCallback onTap,
-    required bool isDark,
+    required TiketColors colors,
   }) {
-    final unselectedBg = isDark ? const Color(0xFF0B1120) : const Color(0xFFF1F5F9);
-    final unselectedBorder = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
-    final unselectedText = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
-
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.accent.withValues(alpha: isDark ? 0.2 : 0.15) : unselectedBg,
+          color: isSelected ? colors.primary.withValues(alpha: 0.15) : colors.soft,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.accent : unselectedBorder,
+            color: isSelected ? colors.primary : colors.hairline,
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
@@ -2666,8 +2396,8 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
             if (icon != null) ...[
               Icon(
                 icon,
-                size: 13,
-                color: isSelected ? AppColors.accent : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                size: 14,
+                color: isSelected ? colors.primary : colors.body,
               ),
               const SizedBox(width: 5),
             ],
@@ -2677,9 +2407,10 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontFamily: TiketType.fontFamily,
+                  fontSize: 11.5,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? (isDark ? Colors.white : AppColors.accent) : unselectedText,
+                  color: isSelected ? colors.primary : colors.ink,
                 ),
               ),
             ),
@@ -2694,19 +2425,15 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
     required String value,
     required IconData icon,
     required Color color,
-    required bool isDark,
+    required TiketColors colors,
   }) {
-    final cardBg = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final cardBorder = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
-    final labelColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
       margin: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: cardBorder),
+        color: colors.dialog,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.hairline),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -2716,6 +2443,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
           Text(
             '$value ',
             style: TextStyle(
+              fontFamily: TiketType.fontFamily,
               fontSize: 12,
               fontWeight: FontWeight.bold,
               color: color,
@@ -2727,8 +2455,9 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
+                fontFamily: TiketType.fontFamily,
                 fontSize: 11,
-                color: labelColor,
+                color: colors.body,
               ),
             ),
           ),
@@ -2736,5 +2465,243 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> with 
       ),
     );
   }
+}
 
+class _SpvSliverBand extends StatelessWidget {
+  final Widget? leading;
+  final VoidCallback? onBriefing;
+  final VoidCallback? onRekap;
+  final String? caption;
+  final Widget? hero;
+  final Widget? footer;
+  final String compactTitle;
+  final double expandedHeight;
+
+  const _SpvSliverBand({
+    this.leading,
+    this.onBriefing,
+    this.onRekap,
+    this.caption,
+    this.hero,
+    this.footer,
+    required this.compactTitle,
+    this.expandedHeight = 180.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final topInset = MediaQuery.paddingOf(context).top;
+    return SliverPersistentHeader(
+      pinned: true,
+      delegate: _SpvSliverBandDelegate(
+        leading: leading,
+        onBriefing: onBriefing,
+        onRekap: onRekap,
+        caption: caption,
+        hero: hero,
+        footer: footer,
+        compactTitle: compactTitle,
+        expandedHeight: expandedHeight,
+        topInset: topInset,
+      ),
+    );
+  }
+}
+
+class _SpvSliverBandDelegate extends SliverPersistentHeaderDelegate {
+  final Widget? leading;
+  final VoidCallback? onBriefing;
+  final VoidCallback? onRekap;
+  final String? caption;
+  final Widget? hero;
+  final Widget? footer;
+  final String compactTitle;
+  final double expandedHeight;
+  final double topInset;
+
+  _SpvSliverBandDelegate({
+    this.leading,
+    this.onBriefing,
+    this.onRekap,
+    this.caption,
+    this.hero,
+    this.footer,
+    required this.compactTitle,
+    required this.expandedHeight,
+    required this.topInset,
+  });
+
+  @override
+  double get minExtent => topInset + 56.0;
+
+  @override
+  double get maxExtent => expandedHeight + topInset;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final colors = TiketColors.of(context);
+    final type = TiketType.of(context);
+    final horizontalPad = TiketSpace.padOf(context);
+
+    final maxShrink = (maxExtent - minExtent).clamp(1.0, double.infinity);
+    final progress = (shrinkOffset / maxShrink).clamp(0.0, 1.0);
+    final isCollapsed = progress > 0.8;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(color: colors.band),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: ExcludeSemantics(
+            child: CustomPaint(
+              size: const Size(double.infinity, 10),
+              painter: PerforationPainter(canvasColor: colors.canvas),
+            ),
+          ),
+        ),
+        if (progress < 0.9)
+          Positioned(
+            top: topInset + 56.0,
+            left: horizontalPad,
+            right: horizontalPad,
+            child: Opacity(
+              opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (caption != null) ...[
+                    Text(
+                      caption!,
+                      style: type.caption(color: colors.bandCaption),
+                    ),
+                    const SizedBox(height: 4.0),
+                  ],
+                  if (hero != null) ...[
+                    hero!,
+                    const SizedBox(height: 12.0),
+                  ],
+                  ?footer,
+                ],
+              ),
+            ),
+          ),
+        Positioned(
+          top: topInset,
+          left: 0,
+          right: 0,
+          height: 56.0,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = MediaQuery.sizeOf(context).width < 375.0 ||
+                    constraints.maxWidth < 350.0 ||
+                    MediaQuery.textScalerOf(context).scale(1.0) > 1.15;
+                final resolvedActions = [
+                  if (onBriefing != null)
+                    isCompact
+                        ? TiketIconButton(
+                            icon: Icons.share_rounded,
+                            semanticLabel: 'Briefing',
+                            onPressed: onBriefing,
+                          )
+                        : TiketPill(
+                            label: 'Briefing',
+                            icon: Icons.share_rounded,
+                            kind: TiketPillKind.band,
+                            height: 44,
+                            onPressed: onBriefing,
+                          ),
+                  if (onRekap != null)
+                    isCompact
+                        ? TiketIconButton(
+                            icon: Icons.tune_rounded,
+                            semanticLabel: 'Rekap',
+                            onPressed: onRekap,
+                          )
+                        : TiketPill(
+                            label: 'Rekap',
+                            icon: Icons.tune_rounded,
+                            kind: TiketPillKind.band,
+                            height: 44,
+                            onPressed: onRekap,
+                          ),
+                ];
+                return Row(
+                  children: [
+                    ?leading,
+                    if (isCollapsed)
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Text(
+                            compactTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: colors.white,
+                            ),
+                          ),
+                        ),
+                      )
+                    else ...[
+                      const Spacer(),
+                      Opacity(
+                        opacity: 0.0,
+                        child: SizedBox(
+                          width: 0,
+                          height: 0,
+                          child: Text(
+                            compactTitle,
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (resolvedActions.isNotEmpty && progress < 0.8)
+                      Opacity(
+                        opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (int i = 0; i < resolvedActions.length; i++) ...[
+                              if (i > 0) const SizedBox(width: 6.0),
+                              resolvedActions[i],
+                            ],
+                          ],
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _SpvSliverBandDelegate oldDelegate) {
+    return oldDelegate.compactTitle != compactTitle ||
+        oldDelegate.caption != caption ||
+        oldDelegate.hero != hero ||
+        oldDelegate.footer != footer ||
+        oldDelegate.topInset != topInset ||
+        oldDelegate.expandedHeight != expandedHeight ||
+        oldDelegate.onBriefing != onBriefing ||
+        oldDelegate.onRekap != onRekap;
+  }
 }

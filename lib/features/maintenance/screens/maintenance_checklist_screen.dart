@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/tiket_colors.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../data/models/template_model.dart';
 import '../../../data/models/maintenance_submission.dart';
@@ -15,8 +18,6 @@ import '../../../data/repositories/template_repository.dart';
 import '../../../data/services/daily_task_service.dart';
 import '../../../data/services/maintenance_log_service.dart';
 import '../widgets/photo_preview_dialog.dart';
-import '../widgets/maintenance_point_card.dart';
-import '../widgets/maintenance_share_report_card.dart';
 import 'point_camera_view.dart';
 import 'maintenance_history_screen.dart';
 
@@ -227,7 +228,7 @@ class _MaintenanceChecklistScreenState
         cabangName: widget.existingSubmission!.cabangName,
         fullAddress: widget.existingSubmission!.cabangName,
         locationTag: widget.existingSubmission!.posName,
-        tagColor: const Color(0xFF0284C7),
+        tagColor: Colors.lightBlue,
         lat: LocationService.currentPos.lat,
         lng: LocationService.currentPos.lng,
       );
@@ -1034,7 +1035,7 @@ class _MaintenanceChecklistScreenState
             backgroundColor: result.status == PointStatus.sesuai
                 ? AppColors.success
                 : (result.status == PointStatus.tidakTerpasang
-                      ? const Color(0xFF64748B)
+                      ? TiketColors.light.body
                       : AppColors.danger),
             behavior: SnackBarBehavior.floating,
           ),
@@ -1043,116 +1044,52 @@ class _MaintenanceChecklistScreenState
     }
   }
 
-  Widget _buildTacticalChip({
-    required IconData icon,
-    required String label,
-    required bool isDark,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: isDark ? 0.2 : 0.08),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Card "Kondisi Item": 3 pilihan sejajar, ikon di atas label.
+  /// Card "Kondisi Item": 3 pilihan sejajar, status marker + label.
   Widget _buildKondisiItemCard({
     required TingkatUrgensi tingkat,
     required bool isActive,
     required bool isDark,
     required VoidCallback onTap,
   }) {
-    final (Color accent, IconData icon) = switch (tingkat) {
-      TingkatUrgensi.ringan => (
-        const Color(0xFF16A34A),
-        Icons.check_circle_rounded,
-      ),
-      TingkatUrgensi.sedang => (
-        const Color(0xFFD97706),
-        Icons.warning_amber_rounded,
-      ),
-      TingkatUrgensi.urgent => (
-        const Color(0xFFDC2626),
-        Icons.autorenew_rounded,
-      ),
-      TingkatUrgensi.normal => (
-        const Color(0xFF64748B),
-        Icons.remove_circle_outline_rounded,
-      ),
+    final colors = TiketColors.of(context);
+    final status = switch (tingkat) {
+      TingkatUrgensi.ringan => TiketStatus.ok,
+      TingkatUrgensi.sedang => TiketStatus.attention,
+      TingkatUrgensi.urgent => TiketStatus.danger,
+      _ => TiketStatus.notStarted,
     };
-    const neutral = Color(0xFF64748B);
 
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        height: 82,
+        height: 72,
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: isActive
-              ? accent.withValues(alpha: isDark ? 0.26 : 0.10)
-              : (isDark ? const Color(0xFF0F172A) : Colors.white),
+          color: isActive ? colors.primary : colors.canvas,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isActive
-                ? accent
-                : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
-            width: isActive ? 1.5 : 1.0,
+            color: isActive ? colors.primary : colors.hairline,
+            width: 1.0,
           ),
         ),
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon, size: 19, color: isActive ? accent : neutral),
-                    const SizedBox(height: 5),
-                    Text(
-                      tingkat.label,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10,
-                        height: 1.2,
-                        fontWeight: FontWeight.w800,
-                        color: isActive
-                            ? accent
-                            : (isDark
-                                  ? const Color(0xFFE2E8F0)
-                                  : const Color(0xFF334155)),
-                      ),
-                    ),
-                  ],
-                ),
+            StatusMarker(status: status, size: 16),
+            Text(
+              tingkat.label,
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+                color: isActive ? colors.onPrimary : colors.ink,
+                height: 1.2,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            if (isActive)
-              Positioned(
-                top: 4,
-                right: 4,
-                child: Icon(Icons.done_rounded, size: 13, color: accent),
-              ),
           ],
         ),
       ),
@@ -1209,1042 +1146,531 @@ class _MaintenanceChecklistScreenState
   );
 
   void _showPointAction(SopPoint point, MaintenancePointResult result) {
-    final isDark = ThemeService.isDarkMode(context);
-    final sheetBg = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
+    final colors = TiketColors.of(context);
+    final hasImage = result.imagePath != null && result.imagePath!.isNotEmpty;
+    final file = hasImage ? File(result.imagePath!) : null;
+    final fileExists = file != null && file.existsSync();
+
+    final TiketChipKind chipKind = switch (result.status) {
+      PointStatus.sesuai => TiketChipKind.ok,
+      PointStatus.tidakSesuai => TiketChipKind.danger,
+      PointStatus.perluCekManual => TiketChipKind.attention,
+      _ => TiketChipKind.neutral,
+    };
+
+    final String statusLabel = switch (result.status) {
+      PointStatus.sesuai => 'Sesuai',
+      PointStatus.tidakSesuai => 'Tidak sesuai',
+      PointStatus.perluCekManual => 'Perlu cek',
+      PointStatus.tidakTerpasang => 'Tidak terpasang',
+      _ => 'Belum foto',
+    };
+
+    var urgensiTerpilih = result.urgensi;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: sheetBg,
+      backgroundColor: colors.dialog,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        Color statusBg;
-        Color statusBorder;
-        Color statusColor;
-        IconData statusIcon;
-        String statusLabelText;
-
-        if (result.status == PointStatus.sesuai) {
-          statusBg = isDark
-              ? const Color(0xFF064E3B).withValues(alpha: 0.3)
-              : const Color(0xFFF0FDF4);
-          statusBorder = isDark
-              ? const Color(0xFF059669).withValues(alpha: 0.5)
-              : const Color(0xFFBBF7D0);
-          statusColor = isDark
-              ? const Color(0xFF4ADE80)
-              : const Color(0xFF16A34A);
-          statusIcon = Icons.check_circle_rounded;
-          statusLabelText = 'SESUAI';
-        } else if (result.status == PointStatus.tidakSesuai) {
-          statusBg = isDark
-              ? const Color(0xFF7F1D1D).withValues(alpha: 0.3)
-              : const Color(0xFFFEF2F2);
-          statusBorder = isDark
-              ? const Color(0xFFDC2626).withValues(alpha: 0.5)
-              : const Color(0xFFFECACA);
-          statusColor = isDark
-              ? const Color(0xFFF87171)
-              : const Color(0xFFDC2626);
-          statusIcon = Icons.cancel_rounded;
-          statusLabelText = 'TIDAK SESUAI';
-        } else if (result.status == PointStatus.tidakTerpasang) {
-          statusBg = isDark
-              ? const Color(0xFF334155).withValues(alpha: 0.3)
-              : const Color(0xFFF1F5F9);
-          statusBorder = isDark
-              ? const Color(0xFF64748B).withValues(alpha: 0.5)
-              : const Color(0xFFCBD5E1);
-          statusColor = isDark
-              ? const Color(0xFF94A3B8)
-              : const Color(0xFF475569);
-          statusIcon = Icons.do_not_disturb_alt_rounded;
-          statusLabelText = 'BARANG TIDAK TERPASANG';
-        } else {
-          // Perlu Cek Manual / Belum Foto
-          statusBg = isDark
-              ? const Color(0xFF78350F).withValues(alpha: 0.3)
-              : const Color(0xFFFFFBEB);
-          statusBorder = isDark
-              ? const Color(0xFFD97706).withValues(alpha: 0.5)
-              : const Color(0xFFFDE68A);
-          statusColor = isDark
-              ? const Color(0xFFFBBF24)
-              : const Color(0xFFD97706);
-          statusIcon = Icons.info_rounded;
-          statusLabelText = result.status.label.toUpperCase();
-        }
-
-        final butuhPerbaikan =
-            result.status == PointStatus.tidakSesuai ||
-            result.status == PointStatus.perluCekManual;
-
-        // Deteksi masalah dari alasan AI -> dipakai untuk chip pelanggaran
-        // SEKALIGUS saran perbaikan (biar tidak ada dua logika terpisah).
-        // Hanya dijalankan untuk poin bermasalah, supaya alasan "sesuai" seperti
-        // "kipas bebas debu" tidak salah muncul jadi chip temuan.
-        final masalah = butuhPerbaikan
-            ? MaintenanceChecklistScreen.detectAiIssues(result.alasan)
-            : <({String label, IconData icon, String saran})>[];
-
-        final List<Widget> aiChips = masalah
-            .map(
-              (m) => _buildTacticalChip(
-                icon: m.icon,
-                label: m.label,
-                isDark: isDark,
-                color: statusColor,
-              ),
-            )
-            .toList();
-        if (result.status == PointStatus.tidakSesuai && aiChips.isEmpty) {
-          aiChips.add(
-            _buildTacticalChip(
-              icon: Icons.error_outline_rounded,
-              label: 'Poin Belum Sesuai',
-              isDark: isDark,
-              color: statusColor,
-            ),
-          );
-          aiChips.add(
-            _buildTacticalChip(
-              icon: Icons.handyman_outlined,
-              label: 'Perlu Cek Fisik',
-              isDark: isDark,
-              color: statusColor,
-            ),
-          );
-        } else if (result.status == PointStatus.sesuai && aiChips.isEmpty) {
-          aiChips.add(
-            _buildTacticalChip(
-              icon: Icons.check_circle_outline_rounded,
-              label: 'SOP Terpenuhi',
-              isDark: isDark,
-              color: statusColor,
-            ),
-          );
-        }
-
-        // Kartu "Cara memperbaiki" hanya untuk poin yang perlu diperbaiki.
-        final teksSaran = masalah.isEmpty
-            ? 'Periksa lagi item ini sesuai standar SOP, lalu ambil foto ulang sampai hasilnya sesuai.'
-            : masalah.take(2).map((m) => m.saran).join(' ');
-
-        // Progres foto checkpoint (mis. "Checkpoint maintenance • 1/9 foto").
-        final fotoTerisi = _submission.points
-            .where((p) => (p.imagePath ?? '').trim().isNotEmpty)
-            .length;
-        final totalPoin = _submission.points.length;
-
-        bool isCheckpointsExpanded = false;
-        var urgensiTerpilih = result.urgensi;
-
         return StatefulBuilder(
           builder: (bottomSheetCtx, setSheetState) {
             return Padding(
               padding: EdgeInsets.only(
-                left: 18,
-                right: 18,
-                top: 18,
+                left: 20,
+                right: 20,
+                top: 12,
                 bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
               ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Header Modal dengan Tombol Close Bulat
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colors.hairline,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      point.label,
+                      style: TextStyle(
+                        fontFamily: TiketType.fontFamily,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: colors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${widget.template.nama} · ${_effectiveLocation.posName}',
+                      style: TextStyle(
+                        fontFamily: TiketType.fontFamily,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: colors.body,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(
-                              alpha: isDark ? 0.25 : 0.1,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            Icons.checklist_rtl_rounded,
-                            color: isDark
-                                ? const Color(0xFF38BDF8)
-                                : AppColors.primary,
-                            size: 20,
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            width: 96,
+                            height: 96,
+                            color: colors.soft,
+                            child: fileExists
+                                ? InkWell(
+                                    onTap: () {
+                                      PhotoPreviewDialog.show(
+                                        context,
+                                        imagePath: result.imagePath!,
+                                        title: result.label,
+                                        pointResult: result,
+                                      );
+                                    },
+                                    child: Image.file(
+                                      file,
+                                      fit: BoxFit.cover,
+                                      width: 96,
+                                      height: 96,
+                                    ),
+                                  )
+                                : Center(
+                                    child: Icon(
+                                      Icons.camera_alt_rounded,
+                                      size: 32,
+                                      color: colors.mute,
+                                    ),
+                                  ),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 14),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              StatusChip(
+                                label: statusLabel,
+                                kind: chipKind,
+                              ),
+                              const SizedBox(height: 8),
                               Text(
-                                point.label,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                                result.alasan.isNotEmpty
+                                    ? 'AI: ${result.alasan}'
+                                    : (result.status == PointStatus.sesuai
+                                        ? 'Hasil foto sesuai dengan standar SOP pemeliharaan.'
+                                        : 'Foto perlu diperiksa kembali sebelum disetujui.'),
                                 style: TextStyle(
-                                  fontFamily: 'PlusJakartaSans',
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13.5,
-                                  color: textTitle,
+                                  fontFamily: TiketType.fontFamily,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: colors.ink,
+                                  height: 1.3,
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Checkpoint maintenance • $fotoTerisi/$totalPoin foto',
-                                style: TextStyle(fontSize: 11, color: textSub),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              if (point.deskripsi.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  point.deskripsi,
+                                  style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
+                                    fontSize: 12,
+                                    color: colors.body,
+                                    height: 1.3,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ],
-                          ),
-                        ),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFFF1F5F9),
-                            shape: BoxShape.circle,
-                          ),
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.close_rounded,
-                              size: 18,
-                              color: textSub,
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
-                            ),
-                            onPressed: () => Navigator.pop(ctx),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
-
-                    // Hero Status Card (Tactical HUD Verdict)
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: statusBg,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: statusBorder, width: 1.5),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Kondisi Item',
+                      style: TextStyle(
+                        fontFamily: TiketType.fontFamily,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: colors.ink,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(statusIcon, color: statusColor, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  statusLabelText,
-                                  style: TextStyle(
-                                    fontFamily: 'PlusJakartaSans',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w900,
-                                    color: statusColor,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? const Color(0xFF1E293B)
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: statusBorder),
-                                ),
-                                child: Text(
-                                  result.confidence > 0
-                                      ? 'AI Vision • ${(result.confidence * 100).toInt()}%'
-                                      : 'AI Vision',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: statusColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            result.alasan.isNotEmpty
-                                ? result.alasan
-                                : (result.status == PointStatus.sesuai
-                                      ? 'Hasil foto sesuai dengan standar SOP pemeliharaan.'
-                                      : 'Foto perlu diperiksa kembali sebelum disetujui.'),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: isDark
-                                  ? const Color(0xFFF1F5F9)
-                                  : const Color(0xFF1E293B),
-                              height: 1.35,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        for (final u in [
+                          TingkatUrgensi.ringan,
+                          TingkatUrgensi.sedang,
+                          TingkatUrgensi.urgent,
+                        ]) ...[
+                          if (u != TingkatUrgensi.ringan) const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildKondisiItemCard(
+                              tingkat: u,
+                              isActive: urgensiTerpilih == u,
+                              isDark: ThemeService.isDarkMode(context),
+                              onTap: () async {
+                                HapticFeedback.selectionClick();
+                                final baru = urgensiTerpilih == u
+                                    ? TingkatUrgensi.normal
+                                    : u;
+                                setSheetState(() => urgensiTerpilih = baru);
+                                await _setPointUrgensi(point, result, baru);
+                              },
                             ),
                           ),
-                          if (aiChips.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            Wrap(spacing: 6, runSpacing: 6, children: aiChips),
-                          ],
                         ],
-                      ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TiketDropdownField(
+                      label: 'Kendala fisik',
+                      value: (result.kendalaFisik != null && result.kendalaFisik!.isNotEmpty)
+                          ? result.kendalaFisik!
+                          : 'Kendala Fisik Belum Dirinci',
+                      onTap: () {
+                        _showDisposisiKendalaDialog(point, result);
+                      },
                     ),
                     const SizedBox(height: 12),
-
-                    // Cara memperbaiki (panduan singkat sesuai masalah yang terdeteksi)
-                    if (butuhPerbaikan) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF1E293B)
-                              : const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isDark
-                                ? const Color(0xFF334155)
-                                : const Color(0xFFBFDBFE),
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(7),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? const Color(0xFF0F172A)
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(9),
-                              ),
-                              child: const Icon(
-                                Icons.camera_alt_rounded,
-                                size: 16,
-                                color: Color(0xFF2563EB),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Cara memperbaiki',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFF2563EB),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    teksSaran,
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      height: 1.35,
-                                      color: isDark
-                                          ? const Color(0xFFE2E8F0)
-                                          : const Color(0xFF1E293B),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-
-                    // Tingkat Keparahan Temuan (diisi teknisi, dipakai supervisor
-                    // untuk memprioritaskan perbaikan)
-                    if (result.status == PointStatus.tidakSesuai ||
-                        result.status == PointStatus.perluCekManual) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF1E293B)
-                              : const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: cardBorder),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.assignment_outlined,
-                                  size: 15,
-                                  color: textSub,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Kondisi Item',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: textTitle,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '(Pilih salah satu)',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: textSub,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                for (final u in TingkatUrgensi.values.where(
-                                  (u) => u != TingkatUrgensi.normal,
-                                )) ...[
-                                  if (u != TingkatUrgensi.ringan)
-                                    const SizedBox(width: 6),
-                                  Expanded(
-                                    child: _buildKondisiItemCard(
-                                      tingkat: u,
-                                      isActive: urgensiTerpilih == u,
-                                      isDark: isDark,
-                                      onTap: () async {
-                                        HapticFeedback.selectionClick();
-                                        final baru = urgensiTerpilih == u
-                                            ? TingkatUrgensi.normal
-                                            : u;
-                                        setSheetState(() {
-                                          urgensiTerpilih = baru;
-                                        });
-                                        await _setPointUrgensi(
-                                          point,
-                                          result,
-                                          baru,
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-
-                    // Panduan Sudut Foto (Kompak & Elegan)
-                    if (point.panduanFoto.isNotEmpty) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 9,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF1E293B)
-                              : const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isDark
-                                ? const Color(0xFF334155)
-                                : const Color(0xFFE2E8F0),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.camera_alt_outlined,
-                              size: 16,
-                              color: isDark
-                                  ? const Color(0xFF60A5FA)
-                                  : const Color(0xFF2563EB),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Tips: ${point.panduanFoto}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: isDark
-                                      ? const Color(0xFFCBD5E1)
-                                      : const Color(0xFF334155),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-
-                    // Collapsible Checkpoint Accordion (Hemat Layar)
-                    if (point.checkpoints.isNotEmpty) ...[
-                      Container(
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF1E293B)
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isDark
-                                ? const Color(0xFF334155)
-                                : const Color(0xFFCBD5E1),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            InkWell(
-                              borderRadius: BorderRadius.circular(10),
-                              onTap: () {
-                                setSheetState(() {
-                                  isCheckpointsExpanded =
-                                      !isCheckpointsExpanded;
-                                });
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: isDark
-                                            ? const Color(0xFF0F172A)
-                                            : const Color(0xFFF1F5F9),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Icon(
-                                        Icons.checklist_rounded,
-                                        size: 15,
-                                        color: isDark
-                                            ? const Color(0xFF94A3B8)
-                                            : const Color(0xFF475569),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Standar SOP',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w800,
-                                              color: isDark
-                                                  ? const Color(0xFFE2E8F0)
-                                                  : const Color(0xFF334155),
-                                            ),
-                                          ),
-                                          Text(
-                                            '${point.checkpoints.length} checkpoint • Ketuk untuk melihat detail',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              color: isDark
-                                                  ? const Color(0xFF94A3B8)
-                                                  : AppColors.textSecondary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Icon(
-                                      isCheckpointsExpanded
-                                          ? Icons.keyboard_arrow_up_rounded
-                                          : Icons.keyboard_arrow_down_rounded,
-                                      size: 18,
-                                      color: isDark
-                                          ? const Color(0xFF94A3B8)
-                                          : const Color(0xFF64748B),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            if (isCheckpointsExpanded) ...[
-                              Divider(
-                                height: 1,
-                                color: isDark
-                                    ? const Color(0xFF334155)
-                                    : const Color(0xFFE2E8F0),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  10,
-                                  8,
-                                  10,
-                                  8,
-                                ),
-                                child: Column(
-                                  children: point.checkpoints
-                                      .map(
-                                        (cp) => Padding(
-                                          padding: const EdgeInsets.only(
-                                            bottom: 6,
-                                          ),
-                                          child: Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Icon(
-                                                Icons
-                                                    .radio_button_checked_rounded,
-                                                size: 13,
-                                                color: isDark
-                                                    ? const Color(0xFF38BDF8)
-                                                    : AppColors.primary,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Text(
-                                                  cp,
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    color: isDark
-                                                        ? const Color(
-                                                            0xFFCBD5E1,
-                                                          )
-                                                        : AppColors.textPrimary,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-
-                    // Tampilan status kendala fisik jika sudah ditandai sebelumnya
-                    if (result.kendalaFisik != null &&
-                        result.kendalaFisik!.isNotEmpty) ...[
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withValues(
-                            alpha: isDark ? 0.2 : 0.12,
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.orange.withValues(alpha: 0.4),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.handyman_rounded,
-                              color: Colors.orange,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Kendala Fisik Terlapor: ${result.kendalaFisik}',
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.orange,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-
-                    const SizedBox(height: 6),
-
-                    // Primary CTA: Buka Kamera / Foto Ulang
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _openCameraForPoint(point);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: butuhPerbaikan
-                              ? const Color(
-                                  0xFF059669,
-                                ) // hijau: ajakan memperbaiki foto
-                              : AppColors.primary,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.camera_alt_rounded,
-                                  size: 17,
-                                  color: Colors.white,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  result.status == PointStatus.belumFoto
-                                      ? 'Buka Kamera & Verifikasi AI'
-                                      : (butuhPerbaikan
-                                            ? 'Foto Ulang'
-                                            : 'Foto Ulang & Verifikasi AI'),
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (butuhPerbaikan) ...[
-                              const SizedBox(height: 2),
-                              const Text(
-                                'Pastikan seluruh bagian terlihat jelas.',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Secondary Row (50:50 Grid: Kendala Fisik & Catatan)
                     Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(ctx);
-                              _showDisposisiKendalaDialog(point, result);
-                            },
-                            icon: const Icon(
-                              Icons.handyman_rounded,
-                              size: 15,
-                              color: Color(0xFFD97706),
-                            ),
-                            label: const Text(
-                              'Kendala Fisik',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFFD97706),
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(
-                                color: isDark
-                                    ? const Color(
-                                        0xFFD97706,
-                                      ).withValues(alpha: 0.5)
-                                    : const Color(0xFFFDE68A),
-                                width: 1.2,
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
+                          child: InkWell(
+                            onTap: () {
                               final noteController = TextEditingController(
                                 text: result.alasan,
                               );
                               showDialog(
                                 context: context,
-                                builder: (dlgCtx) => AlertDialog(
-                                  backgroundColor: isDark
-                                      ? const Color(0xFF0F172A)
-                                      : Colors.white,
+                                builder: (dlgCtx) => Dialog(
+                                  backgroundColor: colors.dialog,
+                                  surfaceTintColor: Colors.transparent,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    side: BorderSide(color: cardBorder),
+                                    borderRadius: BorderRadius.circular(20),
                                   ),
-                                  title: Text(
-                                    'Catatan Poin: ${point.label}',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: textTitle,
-                                    ),
-                                  ),
-                                  content: TextField(
-                                    controller: noteController,
-                                    maxLines: 3,
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      color: isDark
-                                          ? Colors.white
-                                          : AppColors.textPrimary,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText:
-                                          'Misal: Palang bengkok tersenggol truk, stiker diganti baru, dll.',
-                                      hintStyle: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? const Color(0xFF64748B)
-                                            : Colors.grey,
-                                      ),
-                                      filled: true,
-                                      fillColor: isDark
-                                          ? const Color(0xFF1E293B)
-                                          : Colors.grey.shade50,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: BorderSide(
-                                          color: cardBorder,
-                                        ),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: BorderSide(
-                                          color: cardBorder,
-                                        ),
-                                      ),
-                                      focusedBorder: const OutlineInputBorder(
-                                        borderRadius: BorderRadius.all(
-                                          Radius.circular(10),
-                                        ),
-                                        borderSide: BorderSide(
-                                          color: AppColors.primary,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(dlgCtx),
-                                      child: Text(
-                                        'Batal',
-                                        style: TextStyle(color: textSub),
-                                      ),
-                                    ),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppColors.primary,
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Text(
+                                          'Catatan Poin: ${point.label}',
+                                          style: TextStyle(
+                                            fontFamily: TiketType.fontFamily,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: colors.ink,
                                           ),
                                         ),
-                                      ),
-                                      onPressed: () {
-                                        final updated = result.copyWith(
-                                          alasan: noteController.text.trim(),
-                                        );
-                                        final idx = _submission.points
-                                            .indexWhere(
-                                              (p) => p.pointId == point.id,
-                                            );
-                                        if (idx >= 0) {
-                                          setState(() {
-                                            _submission.points[idx] = updated;
-                                          });
-                                          _save();
-                                        }
-                                        Navigator.pop(dlgCtx);
-                                        Navigator.pop(ctx);
-                                      },
-                                      child: const Text('Simpan Catatan'),
+                                        const SizedBox(height: 12),
+                                        TextField(
+                                          controller: noteController,
+                                          maxLines: 3,
+                                          style: TextStyle(
+                                            fontFamily: TiketType.fontFamily,
+                                            fontSize: 13,
+                                            color: colors.ink,
+                                          ),
+                                          decoration: InputDecoration(
+                                            hintText: 'Misal: Palang bengkok tersenggol truk, stiker diganti baru, dll.',
+                                            hintStyle: TextStyle(
+                                              fontFamily: TiketType.fontFamily,
+                                              fontSize: 12,
+                                              color: colors.mute,
+                                            ),
+                                            filled: true,
+                                            fillColor: colors.soft,
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                              borderSide: BorderSide(color: colors.hairline),
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                              borderSide: BorderSide(color: colors.hairline),
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                              borderSide: BorderSide(color: colors.primary, width: 1.5),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: SizedBox(
+                                                height: 48,
+                                                child: OutlinedButton(
+                                                  onPressed: () => Navigator.pop(dlgCtx),
+                                                  style: OutlinedButton.styleFrom(
+                                                    shape: const StadiumBorder(),
+                                                    side: BorderSide(color: colors.hairline),
+                                                    foregroundColor: colors.body,
+                                                  ),
+                                                  child: const Text(
+                                                    'Batal',
+                                                    style: TextStyle(
+                                                      fontFamily: TiketType.fontFamily,
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: SizedBox(
+                                                height: 48,
+                                                child: ElevatedButton(
+                                                  onPressed: () {
+                                                    final updated = result.copyWith(
+                                                      alasan: noteController.text.trim(),
+                                                    );
+                                                    final idx = _submission.points.indexWhere(
+                                                      (p) => p.pointId == point.id,
+                                                    );
+                                                    if (idx >= 0) {
+                                                      setState(() {
+                                                        _submission.points[idx] = updated;
+                                                      });
+                                                      _save();
+                                                    }
+                                                    Navigator.pop(dlgCtx);
+                                                    Navigator.pop(ctx);
+                                                  },
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: colors.primary,
+                                                    foregroundColor: colors.onPrimary,
+                                                    elevation: 0,
+                                                    shape: const StadiumBorder(),
+                                                  ),
+                                                  child: const Text(
+                                                    'Simpan Catatan',
+                                                    style: TextStyle(
+                                                      fontFamily: TiketType.fontFamily,
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
                               );
                             },
-                            icon: Icon(
-                              Icons.edit_note_rounded,
-                              size: 17,
-                              color: isDark
-                                  ? const Color(0xFF60A5FA)
-                                  : const Color(0xFF2563EB),
-                            ),
-                            label: Text(
-                              'Ubah Catatan',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: isDark
-                                    ? const Color(0xFF60A5FA)
-                                    : const Color(0xFF2563EB),
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(
-                                color: isDark
-                                    ? const Color(
-                                        0xFF2563EB,
-                                      ).withValues(alpha: 0.5)
-                                    : const Color(0xFFBFDBFE),
-                                width: 1.2,
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // Poin sengaja dilewati: barang tidak terpasang / tidak ada di lokasi
-                    if (result.status != PointStatus.tidakTerpasang) ...[
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            HapticFeedback.selectionClick();
-                            final ok = await showDialog<bool>(
-                              context: context,
-                              builder: (dlgCtx) => AlertDialog(
-                                backgroundColor: isDark
-                                    ? const Color(0xFF0F172A)
-                                    : Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  side: BorderSide(color: cardBorder),
-                                ),
-                                title: Text(
-                                  'Barang tidak terpasang?',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: textTitle,
-                                  ),
-                                ),
-                                content: Text(
-                                  '"${point.label}" akan ditandai TIDAK TERPASANG / tidak ada di lokasi, tanpa perlu foto.',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    color: textSub,
-                                  ),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(dlgCtx, false),
-                                    child: Text(
-                                      'Batal',
-                                      style: TextStyle(color: textSub),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.edit_note_rounded, size: 16, color: colors.body),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Ubah Catatan',
+                                    style: TextStyle(
+                                      fontFamily: TiketType.fontFamily,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: colors.body,
                                     ),
-                                  ),
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF64748B),
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    onPressed: () =>
-                                        Navigator.pop(dlgCtx, true),
-                                    child: const Text('Ya, Tidak Terpasang'),
                                   ),
                                 ],
                               ),
-                            );
-                            if (ok == true && ctx.mounted) {
-                              Navigator.pop(ctx);
-                              await _setPointTidakTerpasang(point, result);
-                            }
-                          },
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: isDark
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFFF8FAFC),
-                            side: BorderSide(
-                              color: isDark
-                                  ? const Color(0xFF334155)
-                                  : const Color(0xFFCBD5E1),
-                              width: 1.0,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.do_not_disturb_alt_rounded,
-                                size: 17,
-                                color: isDark
-                                    ? const Color(0xFF94A3B8)
-                                    : const Color(0xFF475569),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'Barang Tidak Terpasang / Tidak Ada',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: isDark
-                                        ? const Color(0xFF94A3B8)
-                                        : const Color(0xFF475569),
+                        ),
+                        if (result.status != PointStatus.tidakTerpasang) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () async {
+                                HapticFeedback.selectionClick();
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (dlgCtx) => Dialog(
+                                    backgroundColor: colors.dialog,
+                                    surfaceTintColor: Colors.transparent,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(20),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                        children: [
+                                          Text(
+                                            'Barang tidak terpasang?',
+                                            style: TextStyle(
+                                              fontFamily: TiketType.fontFamily,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: colors.ink,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            '"${point.label}" akan ditandai TIDAK TERPASANG / tidak ada di lokasi, tanpa perlu foto.',
+                                            style: TextStyle(
+                                              fontFamily: TiketType.fontFamily,
+                                              fontSize: 13,
+                                              color: colors.body,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: SizedBox(
+                                                  height: 48,
+                                                  child: OutlinedButton(
+                                                    onPressed: () => Navigator.pop(dlgCtx, false),
+                                                    style: OutlinedButton.styleFrom(
+                                                      shape: const StadiumBorder(),
+                                                      side: BorderSide(color: colors.hairline),
+                                                      foregroundColor: colors.body,
+                                                    ),
+                                                    child: const Text(
+                                                      'Batal',
+                                                      style: TextStyle(
+                                                        fontFamily: TiketType.fontFamily,
+                                                        fontSize: 14,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: SizedBox(
+                                                  height: 48,
+                                                  child: ElevatedButton(
+                                                    onPressed: () => Navigator.pop(dlgCtx, true),
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: colors.primary,
+                                                      foregroundColor: colors.onPrimary,
+                                                      elevation: 0,
+                                                      shape: const StadiumBorder(),
+                                                    ),
+                                                    child: const Text(
+                                                      'Ya, Tidak Terpasang',
+                                                      style: TextStyle(
+                                                        fontFamily: TiketType.fontFamily,
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
+                                );
+                                if (ok == true && ctx.mounted) {
+                                  Navigator.pop(ctx);
+                                  await _setPointTidakTerpasang(point, result);
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.do_not_disturb_alt_rounded, size: 16, color: colors.body),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Tidak Terpasang',
+                                      style: TextStyle(
+                                        fontFamily: TiketType.fontFamily,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: colors.body,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              Icon(
-                                Icons.chevron_right_rounded,
-                                size: 18,
-                                color: isDark
-                                    ? const Color(0xFF64748B)
-                                    : const Color(0xFF94A3B8),
-                              ),
-                            ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _openCameraForPoint(point);
+                        },
+                        icon: const Icon(Icons.camera_alt_rounded, size: 18),
+                        label: Text(
+                          result.status == PointStatus.belumFoto
+                              ? 'Buka Kamera'
+                              : 'Foto Ulang',
+                          style: const TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.primary,
+                          foregroundColor: colors.onPrimary,
+                          elevation: 0,
+                          shape: const StadiumBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: TextButton.styleFrom(
+                          shape: const StadiumBorder(),
+                          foregroundColor: colors.primary,
+                        ),
+                        child: const Text(
+                          'Tutup',
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ),
@@ -2259,11 +1685,7 @@ class _MaintenanceChecklistScreenState
     SopPoint point,
     MaintenancePointResult result,
   ) {
-    final isDark = ThemeService.isDarkMode(context);
-    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-
+    final colors = TiketColors.of(context);
     final quickReasons = [
       'Butuh Pengadaan Stiker / Akrilik Baru',
       'Kerusakan Fisik / Cor Pulau Retak (Butuh Sipil)',
@@ -2275,8 +1697,7 @@ class _MaintenanceChecklistScreenState
 
     String selectedReason = quickReasons.first;
     final customCtrl = TextEditingController(
-      text:
-          (result.kendalaFisik != null &&
+      text: (result.kendalaFisik != null &&
               !quickReasons.contains(result.kendalaFisik))
           ? result.kendalaFisik
           : '',
@@ -2291,306 +1712,577 @@ class _MaintenanceChecklistScreenState
     showDialog(
       context: context,
       builder: (dlgCtx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: cardBorder),
-          ),
-          title: Row(
-            children: [
-              const Icon(
-                Icons.handyman_rounded,
-                color: Colors.orange,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Tandai Kendala Fisik',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: textTitle,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Pilih opsi ini jika alat rusak fisik atau perlu penggantian sparepart.',
-                  style: TextStyle(fontSize: 11, color: textSub, height: 1.3),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'PILIH JENIS KENDALA:',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? const Color(0xFF38BDF8) : AppColors.primary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                ...quickReasons.map((reason) {
-                  final isSelected = selectedReason == reason;
-                  return InkWell(
-                    onTap: () {
-                      setDlgState(() {
-                        selectedReason = reason;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? Colors.orange.withValues(
-                                alpha: isDark ? 0.25 : 0.12,
-                              )
-                            : (isDark
-                                  ? const Color(0xFF1E293B)
-                                  : Colors.grey.shade50),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected ? Colors.orange : cardBorder,
-                          width: isSelected ? 1.5 : 1.0,
+        builder: (ctx, setDlgState) {
+          final isExisting = result.kendalaFisik != null && result.kendalaFisik!.isNotEmpty;
+
+          return Dialog(
+            backgroundColor: colors.dialog,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Tandai Kendala Fisik',
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: colors.ink,
                         ),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isSelected
-                                ? Icons.radio_button_checked_rounded
-                                : Icons.radio_button_off_rounded,
-                            size: 16,
-                            color: isSelected ? Colors.orange : textSub,
+                      const SizedBox(height: 4),
+                      Text(
+                        'Pilih opsi ini jika alat rusak fisik atau perlu penggantian sparepart.',
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 13,
+                          color: colors.body,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Pilih jenis kendala',
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: colors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...quickReasons.map((reason) {
+                        final isSelected = selectedReason == reason;
+                        return InkWell(
+                          onTap: () {
+                            setDlgState(() => selectedReason = reason);
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isSelected ? colors.primary : colors.mute,
+                                      width: isSelected ? 2.0 : 1.5,
+                                    ),
+                                  ),
+                                  child: isSelected
+                                      ? Center(
+                                          child: Container(
+                                            width: 10,
+                                            height: 10,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: colors.primary,
+                                            ),
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    reason,
+                                    style: TextStyle(
+                                      fontFamily: TiketType.fontFamily,
+                                      fontSize: 13,
+                                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                      color: colors.ink,
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(width: 8),
+                        );
+                      }),
+                      if (selectedReason == quickReasons.last) ...[
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: customCtrl,
+                          maxLines: 2,
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 13,
+                            color: colors.ink,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Tulis rincian kendala...',
+                            hintStyle: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 12,
+                              color: colors.mute,
+                            ),
+                            filled: true,
+                            fillColor: colors.soft,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: colors.hairline),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: colors.hairline),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: colors.primary, width: 1.5),
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
                           Expanded(
-                            child: Text(
-                              reason,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: isSelected
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                                color: isSelected
-                                    ? (isDark ? Colors.white : Colors.black87)
-                                    : (isDark
-                                          ? const Color(0xFFCBD5E1)
-                                          : Colors.black87),
-                              ),
+                            child: TiketPill(
+                              label: isExisting ? 'Hapus Kendala' : 'Batal',
+                              kind: TiketPillKind.secondary,
+                              height: 48,
+                              expand: true,
+                              onPressed: () {
+                                if (isExisting) {
+                                  final updated = result.copyWith(kendalaFisik: '');
+                                  final idx = _submission.points.indexWhere(
+                                    (p) => p.pointId == point.id,
+                                  );
+                                  if (idx >= 0) {
+                                    setState(() {
+                                      _submission.points[idx] = updated;
+                                    });
+                                    _save();
+                                  }
+                                }
+                                Navigator.pop(dlgCtx);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TiketPill(
+                              label: 'Simpan Kendala',
+                              kind: TiketPillKind.primary,
+                              height: 48,
+                              expand: true,
+                              onPressed: () {
+                                final finalReason = (selectedReason == quickReasons.last)
+                                    ? (customCtrl.text.trim().isNotEmpty
+                                        ? customCtrl.text.trim()
+                                        : 'Kendala Fisik Belum Dirinci')
+                                    : selectedReason;
+
+                                final updated = result.copyWith(kendalaFisik: finalReason);
+                                final idx = _submission.points.indexWhere(
+                                  (p) => p.pointId == point.id,
+                                );
+                                if (idx >= 0) {
+                                  setState(() {
+                                    _submission.points[idx] = updated;
+                                  });
+                                  _save();
+                                }
+                                Navigator.pop(dlgCtx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Kendala fisik ditandai: $finalReason'),
+                                    backgroundColor: colors.signal,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  );
-                }),
-                if (selectedReason == quickReasons.last) ...[
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: customCtrl,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _statusFilterDisplayLabel(
+    int total,
+    int belumCount,
+    int sesuaiCount,
+    int perluCekCount,
+    int tidakAdaCount,
+  ) {
+    switch (_selectedStatusFilter) {
+      case 'BELUM':
+        return 'Belum difoto · $belumCount';
+      case 'SESUAI':
+        return 'Sesuai · $sesuaiCount';
+      case 'CEK':
+        return 'Perlu cek · $perluCekCount';
+      case 'TIDAK_ADA':
+        return 'Tidak ada · $tidakAdaCount';
+      case 'ALL':
+      default:
+        return 'Semua status';
+    }
+  }
+
+  void _openStatusFilterDialog(
+    int total,
+    int belumCount,
+    int sesuaiCount,
+    int perluCekCount,
+    int tidakAdaCount,
+  ) {
+    showTiketPickerDialog<String>(
+      context: context,
+      title: 'Status Poin',
+      options: [
+        TiketOption(value: 'ALL', label: 'Semua status', trailingText: '$total'),
+        TiketOption(value: 'SESUAI', label: 'Sesuai', trailingText: '$sesuaiCount'),
+        TiketOption(value: 'CEK', label: 'Perlu cek', trailingText: '$perluCekCount'),
+        TiketOption(value: 'BELUM', label: 'Belum difoto', trailingText: '$belumCount'),
+        if (tidakAdaCount > 0)
+          TiketOption(value: 'TIDAK_ADA', label: 'Tidak ada', trailingText: '$tidakAdaCount'),
+      ],
+      selected: _selectedStatusFilter,
+    ).then((val) {
+      if (val != null && mounted) {
+        setState(() => _selectedStatusFilter = val);
+      }
+    });
+  }
+
+  List<TiketOption<String>> _getUnitOptions(int total) {
+    final list = <TiketOption<String>>[];
+    final String allLabel;
+    if (widget.template.jenis == TemplateCategory.maintLengkap) {
+      allLabel = 'Semua Area';
+    } else if (widget.template.jenis == TemplateCategory.maintPos) {
+      allLabel = _isBoothMode ? 'Semua booth' : 'Semua pos';
+    } else if (widget.template.jenis == TemplateCategory.maintBarrier) {
+      allLabel = 'Semua gate';
+    } else if (widget.template.jenis == TemplateCategory.maintManless) {
+      allLabel = 'Semua manless';
+    } else if (widget.template.jenis == TemplateCategory.maintServer) {
+      allLabel = _isEffectiveOnlyKasir ? 'Semua PC Kasir' : 'Semua perangkat';
+    } else {
+      allLabel = 'Semua unit';
+    }
+    list.add(TiketOption(value: 'ALL', label: allLabel, trailingText: '$total'));
+
+    if (widget.template.jenis == TemplateCategory.maintServer) {
+      if (_isEffectiveOnlyKasir) {
+        final count = widget.kasirCount ?? _effectiveUnits.length;
+        for (int k = 1; k <= count; k++) {
+          final c = _submission.points.where((p) => p.pointId.contains('_${k}_')).length;
+          list.add(TiketOption(value: 'UNIT_$k', label: 'PC Kasir $k', trailingText: '$c'));
+        }
+      } else if (!widget.isServerKasirGabung) {
+        final srvCount = _submission.points.where((p) => p.pointId.contains('_1_')).length;
+        list.add(TiketOption(value: 'UNIT_1', label: 'PC Server', trailingText: '$srvCount'));
+        final count = widget.kasirCount ?? (_effectiveUnits.length - 1);
+        for (int k = 1; k <= count; k++) {
+          final c = _submission.points.where((p) => p.pointId.contains('_${k + 1}_')).length;
+          list.add(TiketOption(value: 'UNIT_${k + 1}', label: 'PC Kasir $k', trailingText: '$c'));
+        }
+      }
+    } else if (widget.template.jenis == TemplateCategory.maintLengkap) {
+      for (final entry in _lengkapAreaLabels.entries) {
+        final c = _submission.points.where((p) => _isPointInArea(p.pointId, entry.key)).length;
+        if (c > 0) {
+          list.add(TiketOption(value: 'AREA_${entry.key}', label: entry.value, trailingText: '$c'));
+        }
+      }
+    } else {
+      for (final i in _effectiveUnits) {
+        final String label;
+        if (widget.template.jenis == TemplateCategory.maintPos) {
+          label = _isBoothMode ? 'Booth $i' : 'Pos $i';
+        } else if (widget.template.jenis == TemplateCategory.maintBarrier) {
+          label = 'Gate $i${_roleSuffix(i)}';
+        } else if (widget.template.jenis == TemplateCategory.maintManless) {
+          label = 'Manless $i$_manlessRoleSuffix';
+        } else {
+          label = 'Unit $i';
+        }
+        final c = _submission.points.where((p) => p.pointId.contains('_${i}_')).length;
+        list.add(TiketOption(value: 'UNIT_$i', label: label, trailingText: '$c'));
+      }
+    }
+    return list;
+  }
+
+  String _unitFilterDisplayLabel(int total) {
+    final options = _getUnitOptions(total);
+    final opt = options.firstWhere(
+      (o) => o.value == _selectedUnitFilter,
+      orElse: () => options.first,
+    );
+    return opt.label;
+  }
+
+  void _openUnitFilterDialog(int total) {
+    showTiketPickerDialog<String>(
+      context: context,
+      title: 'Filter unit',
+      options: _getUnitOptions(total),
+      selected: _selectedUnitFilter,
+    ).then((val) {
+      if (val != null && mounted) {
+        setState(() => _selectedUnitFilter = val);
+      }
+    });
+  }
+
+  Widget _buildDashProgressBar(TiketColors colors) {
+    final total = _submission.totalPoints;
+    if (total <= 0) return const SizedBox.shrink();
+
+    final points = _submission.points;
+    final int dashCount = total <= 24 ? total : 24;
+
+    return Row(
+      children: List.generate(dashCount, (idx) {
+        Color dashColor;
+        if (total <= 24) {
+          final p = points[idx];
+          if (p.status == PointStatus.sesuai) {
+            dashColor = colors.white;
+          } else if (p.status == PointStatus.tidakSesuai ||
+              p.status == PointStatus.perluCekManual) {
+            dashColor = colors.signal;
+          } else {
+            dashColor = colors.bandRaise;
+          }
+        } else {
+          final ratio = idx / dashCount;
+          final pointIdx = (ratio * total).floor();
+          final p = points[pointIdx];
+          if (p.status == PointStatus.sesuai) {
+            dashColor = colors.white;
+          } else if (p.status == PointStatus.tidakSesuai ||
+              p.status == PointStatus.perluCekManual) {
+            dashColor = colors.signal;
+          } else {
+            dashColor = colors.bandRaise;
+          }
+        }
+
+        return Expanded(
+          child: Container(
+            height: 8,
+            margin: EdgeInsets.only(
+              left: idx == 0 ? 0 : 3,
+              right: idx == dashCount - 1 ? 0 : 3,
+            ),
+            decoration: BoxDecoration(
+              color: dashColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildPointRow(
+    SopPoint point,
+    MaintenancePointResult result,
+    TiketColors colors,
+  ) {
+    final hasImage = result.imagePath != null && result.imagePath!.isNotEmpty;
+    final file = hasImage ? File(result.imagePath!) : null;
+    final fileExists = file != null && file.existsSync();
+
+    Widget leadingWidget;
+    if (fileExists) {
+      leadingWidget = ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: () {
+            PhotoPreviewDialog.show(
+              context,
+              imagePath: result.imagePath!,
+              title: result.label,
+              pointResult: result,
+              onAnalyze: (base64) async {
+                final res = await AiVisionService.verifyMaintenancePoint(
+                  point: point,
+                  template: widget.template,
+                  imageBase64: base64,
+                );
+                final updated = result.copyWith(
+                  status: res.status == VerificationStatus.sesuai
+                      ? PointStatus.sesuai
+                      : res.status == VerificationStatus.tidakSesuai
+                          ? PointStatus.tidakSesuai
+                          : PointStatus.perluCekManual,
+                  alasan: res.alasan,
+                  confidence: res.confidenceScore,
+                  providerName: res.providerName,
+                );
+                await _updatePointResult(point, result, updated);
+                return res;
+              },
+            );
+          },
+          child: Image.file(
+            file,
+            width: 56,
+            height: 56,
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    } else {
+      leadingWidget = Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: colors.soft,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          Icons.camera_alt_outlined,
+          size: 24,
+          color: colors.body,
+        ),
+      );
+    }
+
+    Widget trailingWidget;
+    if (result.status == PointStatus.belumFoto) {
+      trailingWidget = TiketPill(
+        label: 'Foto',
+        icon: Icons.camera_alt_rounded,
+        kind: TiketPillKind.primary,
+        height: 38,
+        expand: false,
+        onPressed: () => _openCameraForPoint(point),
+      );
+    } else if (result.status == PointStatus.sesuai) {
+      trailingWidget = InkWell(
+        onTap: () => _showPointAction(point, result),
+        child: const IntrinsicWidth(
+          child: StatusChip(
+            label: 'Sesuai',
+            kind: TiketChipKind.ok,
+          ),
+        ),
+      );
+    } else if (result.status == PointStatus.tidakSesuai) {
+      trailingWidget = InkWell(
+        onTap: () => _showPointAction(point, result),
+        child: const IntrinsicWidth(
+          child: StatusChip(
+            label: 'Tidak sesuai',
+            kind: TiketChipKind.danger,
+          ),
+        ),
+      );
+    } else if (result.status == PointStatus.tidakTerpasang) {
+      trailingWidget = InkWell(
+        onTap: () => _showPointAction(point, result),
+        child: const IntrinsicWidth(
+          child: StatusChip(
+            label: 'Tidak ada',
+            kind: TiketChipKind.neutral,
+          ),
+        ),
+      );
+    } else {
+      trailingWidget = InkWell(
+        onTap: () => _showPointAction(point, result),
+        child: const IntrinsicWidth(
+          child: StatusChip(
+            label: 'Perlu cek',
+            kind: TiketChipKind.attention,
+          ),
+        ),
+      );
+    }
+
+    final String subtitleText = result.alasan.isNotEmpty
+        ? 'AI: ${result.alasan}'
+        : (point.deskripsi.isNotEmpty ? point.deskripsi : '');
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.canvas,
+        border: Border(
+          bottom: BorderSide(
+            color: colors.hairline,
+            width: 1.0,
+          ),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          leadingWidget,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  point.label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: TiketType.fontFamily,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: colors.ink,
+                  ),
+                ),
+                if (subtitleText.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitleText,
                     maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.white : AppColors.textPrimary,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Tulis rincian kendala...',
-                      hintStyle: TextStyle(fontSize: 11.5, color: textSub),
-                      filled: true,
-                      fillColor: isDark
-                          ? const Color(0xFF1E293B)
-                          : Colors.grey.shade100,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: cardBorder),
-                      ),
+                      fontFamily: TiketType.fontFamily,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: colors.body,
                     ),
                   ),
                 ],
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                if (result.kendalaFisik != null &&
-                    result.kendalaFisik!.isNotEmpty) {
-                  final updated = result.copyWith(kendalaFisik: '');
-                  final idx = _submission.points.indexWhere(
-                    (p) => p.pointId == point.id,
-                  );
-                  if (idx >= 0) {
-                    setState(() {
-                      _submission.points[idx] = updated;
-                    });
-                    _save();
-                  }
-                }
-                Navigator.pop(dlgCtx);
-              },
-              child: Text(
-                (result.kendalaFisik != null && result.kendalaFisik!.isNotEmpty)
-                    ? 'Hapus Kendala'
-                    : 'Batal',
-                style: TextStyle(
-                  color:
-                      (result.kendalaFisik != null &&
-                          result.kendalaFisik!.isNotEmpty)
-                      ? AppColors.danger
-                      : textSub,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                final finalReason = (selectedReason == quickReasons.last)
-                    ? (customCtrl.text.trim().isNotEmpty
-                          ? customCtrl.text.trim()
-                          : 'Kendala Fisik Belum Dirinci')
-                    : selectedReason;
-
-                final updated = result.copyWith(kendalaFisik: finalReason);
-                final idx = _submission.points.indexWhere(
-                  (p) => p.pointId == point.id,
-                );
-                if (idx >= 0) {
-                  setState(() {
-                    _submission.points[idx] = updated;
-                  });
-                  _save();
-                }
-                Navigator.pop(dlgCtx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Kendala fisik ditandai: $finalReason'),
-                    backgroundColor: Colors.orange.shade800,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              child: const Text('Simpan Kendala'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterUnitChip(String unitKey, String label, int count) {
-    final isDark = ThemeService.isDarkMode(context);
-    final isSelected = _selectedUnitFilter == unitKey;
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: ChoiceChip(
-        materialTapTargetSize: MaterialTapTargetSize.padded,
-        label: Text('$label ($count)'),
-        labelStyle: TextStyle(
-          fontSize: 11,
-          fontFamily: 'PlusJakartaSans',
-          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-          color: isSelected
-              ? Colors.white
-              : (isDark
-                    ? AppColors.textDarkSecondary
-                    : AppColors.textSecondary),
-        ),
-        selected: isSelected,
-        selectedColor: AppColors.primary,
-        backgroundColor: isDark ? AppColors.darkSurfaceContainer : Colors.white,
-        side: BorderSide(
-          color: isSelected
-              ? Colors.transparent
-              : (isDark ? AppColors.darkBorderMuted : AppColors.cardBorder),
-          width: 1.1,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        showCheckmark: true,
-        checkmarkColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        onSelected: (selected) {
-          if (selected) {
-            HapticFeedback.selectionClick();
-            setState(() {
-              _selectedUnitFilter = unitKey;
-            });
-          }
-        },
-      ),
-    );
-  }
-
-  Widget _buildFilterStatusChip(
-    String statusKey,
-    String label,
-    int count,
-    Color activeColor,
-  ) {
-    final isDark = ThemeService.isDarkMode(context);
-    final isSelected = _selectedStatusFilter == statusKey;
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: ChoiceChip(
-        materialTapTargetSize: MaterialTapTargetSize.padded,
-        label: Text('$label ($count)'),
-        labelStyle: TextStyle(
-          fontSize: 10.5,
-          fontFamily: 'PlusJakartaSans',
-          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-          color: isSelected
-              ? Colors.white
-              : (isDark
-                    ? AppColors.textDarkSecondary
-                    : AppColors.textSecondary),
-        ),
-        selected: isSelected,
-        selectedColor: activeColor,
-        backgroundColor: isDark ? AppColors.darkSurfaceContainer : Colors.white,
-        side: BorderSide(
-          color: isSelected
-              ? Colors.transparent
-              : (isDark ? AppColors.darkBorderMuted : AppColors.cardBorder),
-          width: 1.1,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        showCheckmark: true,
-        checkmarkColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        onSelected: (selected) {
-          if (selected) {
-            HapticFeedback.selectionClick();
-            setState(() {
-              _selectedStatusFilter = statusKey;
-            });
-          }
-        },
+          const SizedBox(width: 10),
+          trailingWidget,
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = TiketColors.of(context);
     final total = _submission.totalPoints;
     final done = _submission.doneCount;
-    final progress = _submission.progress;
 
     final belumCount = _submission.points
         .where((p) => p.status == PointStatus.belumFoto)
@@ -2610,7 +2302,6 @@ class _MaintenanceChecklistScreenState
     // Filter points based on selected unit tab and status filter
     final filteredResults = _submission.points.where((p) {
       if (_selectedUnitFilter.startsWith('AREA_')) {
-        // Maintenance Lengkap: saring per area pakai awalan id poin.
         final area = _selectedUnitFilter.replaceAll('AREA_', '');
         if (!_isPointInArea(p.pointId, area)) return false;
       } else if (_selectedUnitFilter != 'ALL') {
@@ -2619,582 +2310,224 @@ class _MaintenanceChecklistScreenState
       }
       if (_selectedStatusFilter == 'BELUM') return p.status == PointStatus.belumFoto;
       if (_selectedStatusFilter == 'SESUAI') return p.status == PointStatus.sesuai;
-      if (_selectedStatusFilter == 'CEK') return p.status == PointStatus.tidakSesuai || p.status == PointStatus.perluCekManual;
+      if (_selectedStatusFilter == 'CEK') {
+        return p.status == PointStatus.tidakSesuai || p.status == PointStatus.perluCekManual;
+      }
       if (_selectedStatusFilter == 'TIDAK_ADA') return p.status == PointStatus.tidakTerpasang;
       return true;
     }).toList();
 
-    // Kalau teknisi sedang menyaring per area (khusus Maintenance Lengkap),
-    // header ikut menampilkan progres area itu biar tidak bingung.
-    final areaFilterKey = _selectedUnitFilter.startsWith('AREA_')
-        ? _selectedUnitFilter.replaceAll('AREA_', '')
-        : null;
-    final areaFilterPoints = areaFilterKey == null
-        ? const <MaintenancePointResult>[]
-        : _submission.points
-              .where((p) => p.pointId.split('_').first == areaFilterKey)
-              .toList();
-
-    final isDark = ThemeService.isDarkMode(context);
-    final bgScaffold = isDark
-        ? const Color(0xFF0B1120)
-        : const Color(0xFFF8FAFC);
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-
-    final fullAppBarTitle =
-        widget.template.jenis == TemplateCategory.maintServer
-        ? (_isEffectiveOnlyKasir
-              ? 'Maintenance: Kasir'
-              : 'Maintenance: Server & Kasir')
-        : (widget.template.jenis == TemplateCategory.maintManless
-              ? '${widget.template.nama}$_manlessRoleSuffix'
-              : widget.template.nama);
-    final strippedTitle = fullAppBarTitle
-        .replaceFirst(
-          RegExp(
-            r'^(?:Checklist\s+)?Maintenance\s*[:\-–—]?\s*',
-            caseSensitive: false,
-          ),
-          '',
-        )
-        .trim();
-    final shortAppBarTitle = strippedTitle.isEmpty
-        ? fullAppBarTitle
-        : strippedTitle;
-
     return Scaffold(
-      backgroundColor: bgScaffold,
-      appBar: AppBar(
-        titleSpacing: 4,
-        title: Semantics(
-          label: fullAppBarTitle,
-          child: Tooltip(
-            message: fullAppBarTitle,
-            excludeFromSemantics: true,
-            child: Text(
-              shortAppBarTitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
-              ),
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history_rounded),
-            tooltip: 'Riwayat Maintenance',
-            onPressed: () {
-              Navigator.of(context)
-                  .push(
-                    MaterialPageRoute(
-                      builder: (_) => const MaintenanceHistoryScreen(),
-                    ),
-                  )
-                  .then((_) {
-                    if (mounted) {
-                      setState(() {
-                        _initSubmission();
-                      });
-                    }
-                  });
-            },
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(4),
-          child: LinearProgressIndicator(
-            value: progress,
-            backgroundColor: cardBorder,
-            color: AppColors.accent,
-            minHeight: 4,
-          ),
-        ),
-      ),
+      backgroundColor: colors.canvas,
       body: Column(
         children: [
-          // Header Card
-          Container(
-            margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: cardBorder, width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+          TiketBand(
+            leading: TiketIconButton(
+              icon: Icons.arrow_back_rounded,
+              semanticLabel: 'Kembali',
+              onPressed: () => Navigator.pop(context),
+            ),
+            actions: [
+              TiketPill(
+                label: 'Riwayat',
+                icon: Icons.schedule_rounded,
+                kind: TiketPillKind.band,
+                onPressed: () {
+                  Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (_) => const MaintenanceHistoryScreen(),
+                        ),
+                      )
+                      .then((_) {
+                        if (mounted) {
+                          setState(() {
+                            _initSubmission();
+                          });
+                        }
+                      });
+                },
+              ),
+            ],
+            caption: '${widget.template.nama} · ${_effectiveLocation.posName}',
+            hero: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      '$done/$total',
+                      style: TextStyle(
+                        fontFamily: TiketType.fontFamily,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        color: colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'foto masuk',
+                      style: TextStyle(
+                        fontFamily: TiketType.fontFamily,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildDashProgressBar(colors),
+                const SizedBox(height: 8),
+                Text(
+                  '$sesuaiCount sesuai · $perluCekCount perlu cek · $belumCount belum difoto',
+                  style: TextStyle(
+                    fontFamily: TiketType.fontFamily,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: colors.bandCaption,
+                  ),
                 ),
               ],
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(
-                      alpha: isDark ? 0.25 : 0.1,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.primary.withValues(
-                        alpha: isDark ? 0.35 : 0.15,
-                      ),
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.build_rounded,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${_submission.cabangName} • ${_submission.posName}',
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                          color: textTitle,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Builder(
-                        builder: (_) {
-                          if (widget.template.jenis ==
-                              TemplateCategory.maintLengkap) {
-                            if (areaFilterKey != null) {
-                              return Text(
-                                '${_lengkapAreaLabels[areaFilterKey]} • ${areaFilterPoints.where((p) => p.isDone).length}/${areaFilterPoints.length} foto selesai',
-                                style: TextStyle(
-                                  fontFamily: 'PlusJakartaSans',
-                                  fontSize: 11,
-                                  color: textSub,
-                                ),
-                              );
-                            }
-                            return Text(
-                              'Semua area: Barrier Gate + Manless + Pos Kasir${widget.includeServer ? ' + PC Server' : ''} • $done/$total foto selesai (${(progress * 100).toInt()}%)',
-                              style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
-                                fontSize: 11,
-                                color: textSub,
-                              ),
-                            );
-                          }
-                          final String unitNoun;
-                          if (widget.template.jenis ==
-                              TemplateCategory.maintPos) {
-                            unitNoun = _isBoothMode ? 'Booth' : 'Pos';
-                          } else if (widget.template.jenis ==
-                              TemplateCategory.maintBarrier) {
-                            unitNoun = 'Gate';
-                          } else if (widget.template.jenis ==
-                              TemplateCategory.maintManless) {
-                            unitNoun = 'Manless';
-                          } else if (widget.template.jenis ==
-                              TemplateCategory.maintServer) {
-                            unitNoun = _isEffectiveOnlyKasir
-                                ? 'PC Kasir'
-                                : (widget.isServerKasirGabung
-                                      ? 'Server & Kasir'
-                                      : 'Perangkat');
-                          } else {
-                            unitNoun = 'Unit';
-                          }
-                          final String unitDesc = _effectiveUnits.length == 1
-                              ? '$unitNoun ${_effectiveUnits.first}${_roleSuffix(_effectiveUnits.first)} dicek'
-                              : '${_effectiveUnits.length} $unitNoun ($unitNoun ${_effectiveUnits.first}${_roleSuffix(_effectiveUnits.first)} - $unitNoun ${_effectiveUnits.last}${_roleSuffix(_effectiveUnits.last)}) dicek';
-                          return Text(
-                            '$unitDesc • $done/$total foto selesai (${(progress * 100).toInt()}%)',
-                            style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
-                              fontSize: 11,
-                              color: textSub,
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _submission.isAllSesuai
-                        ? AppColors.success
-                        : AppColors.accent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    _submission.isComplete
-                        ? (_submission.isAllSesuai ? 'SELESAI' : 'SELESAI CEK')
-                        : 'PROSES',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'monospace',
-                      letterSpacing: 0.5,
-                      color: Colors.white,
+                  child: TiketDropdownField(
+                    label: 'Status',
+                    value: _statusFilterDisplayLabel(
+                      total,
+                      belumCount,
+                      sesuaiCount,
+                      perluCekCount,
+                      tidakAdaCount,
+                    ),
+                    onTap: () => _openStatusFilterDialog(
+                      total,
+                      belumCount,
+                      sesuaiCount,
+                      perluCekCount,
+                      tidakAdaCount,
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TiketDropdownField(
+                    label: 'Unit',
+                    value: _unitFilterDisplayLabel(total),
+                    onTap: () => _openUnitFilterDialog(total),
+                  ),
+                ),
               ],
             ),
           ),
-
-          // Filter Status Bar
-          Container(
-            height: 38,
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _buildFilterStatusChip(
-                  'ALL',
-                  'Semua',
-                  total,
-                  AppColors.primary,
-                ),
-                _buildFilterStatusChip(
-                  'BELUM',
-                  'Belum Foto',
-                  belumCount,
-                  const Color(0xFF64748B),
-                ),
-                _buildFilterStatusChip(
-                  'SESUAI',
-                  'Sesuai',
-                  sesuaiCount,
-                  AppColors.success,
-                ),
-                _buildFilterStatusChip(
-                  'CEK',
-                  'Perlu Cek',
-                  perluCekCount,
-                  AppColors.warning,
-                ),
-                if (tidakAdaCount > 0)
-                  _buildFilterStatusChip(
-                    'TIDAK_ADA',
-                    'Tidak Ada',
-                    tidakAdaCount,
-                    const Color(0xFF64748B),
-                  ),
-              ],
-            ),
-          ),
-
-          // Filter Tab per-Unit (jika lebih dari 1 unit / perangkat)
-          if (_effectiveUnits.length > 1)
-            Container(
-              height: 42,
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  Builder(
-                    builder: (_) {
-                      final String allLabel;
-                      if (widget.template.jenis == TemplateCategory.maintLengkap) {
-                        allLabel = 'Semua Area';
-                      } else if (widget.template.jenis == TemplateCategory.maintPos) {
-                        allLabel =
-                            'Semua ${_isBoothMode ? 'Booth' : 'Pos'} (${_effectiveUnits.first} - ${_effectiveUnits.last})';
-                      } else if (widget.template.jenis ==
-                          TemplateCategory.maintBarrier) {
-                        allLabel =
-                            'Semua Gate (${_effectiveUnits.first} - ${_effectiveUnits.last})';
-                      } else if (widget.template.jenis ==
-                          TemplateCategory.maintManless) {
-                        allLabel =
-                            'Semua Manless (${_effectiveUnits.first} - ${_effectiveUnits.last})';
-                      } else if (widget.template.jenis ==
-                          TemplateCategory.maintServer) {
-                        allLabel = _isEffectiveOnlyKasir
-                            ? 'Semua PC Kasir'
-                            : 'Semua PC Perangkat';
-                      } else {
-                        allLabel = 'Semua Unit';
-                      }
-                      return _buildFilterUnitChip('ALL', allLabel, total);
-                    },
-                  ),
-                  if (widget.template.jenis ==
-                      TemplateCategory.maintServer) ...[
-                    if (_isEffectiveOnlyKasir) ...[
-                      // Hanya Kasir: Unit 1..N adalah PC Kasir 1..N
-                      for (
-                        int k = 1;
-                        k <= (widget.kasirCount ?? _effectiveUnits.length);
-                        k++
-                      )
-                        _buildFilterUnitChip(
-                          'UNIT_$k',
-                          'PC Kasir $k',
-                          _submission.points
-                              .where((p) => p.pointId.contains('_${k}_'))
-                              .length,
-                        ),
-                    ] else if (!widget.isServerKasirGabung) ...[
-                      // Unit 1: PC Server
-                      _buildFilterUnitChip(
-                        'UNIT_1',
-                        'PC Server',
-                        _submission.points
-                            .where((p) => p.pointId.contains('_1_'))
-                            .length,
-                      ),
-                      // Unit 2+: PC Kasir
-                      for (
-                        int k = 1;
-                        k <=
-                            (widget.kasirCount ?? (_effectiveUnits.length - 1));
-                        k++
-                      )
-                        _buildFilterUnitChip(
-                          'UNIT_${k + 1}',
-                          'PC Kasir $k',
-                          _submission.points
-                              .where((p) => p.pointId.contains('_${k + 1}_'))
-                              .length,
-                        ),
-                    ],
-                  ] else if (widget.template.jenis ==
-                      TemplateCategory.maintLengkap) ...[
-                    // Maintenance Lengkap: arah kerja per area, bukan per nomor unit
-                    // (nomor unit tidak lagi mewakili satu perangkat di tugas gabungan).
-                    for (final entry in _lengkapAreaLabels.entries)
-                      if (_submission.points.any(
-                        (p) => _isPointInArea(p.pointId, entry.key),
-                      ))
-                        _buildFilterUnitChip(
-                          'AREA_${entry.key}',
-                          entry.value,
-                          _submission.points
-                              .where(
-                                (p) => _isPointInArea(p.pointId, entry.key),
-                              )
-                              .length,
-                        ),
-                  ] else ...[
-                    for (final i in _effectiveUnits)
-                      Builder(
-                        builder: (_) {
-                          final String unitLabel;
-                          if (widget.template.jenis ==
-                              TemplateCategory.maintPos) {
-                            unitLabel = _isBoothMode ? 'Booth $i' : 'Pos $i';
-                          } else if (widget.template.jenis ==
-                              TemplateCategory.maintBarrier) {
-                            unitLabel = 'Gate $i${_roleSuffix(i)}';
-                          } else if (widget.template.jenis ==
-                              TemplateCategory.maintManless) {
-                            unitLabel = 'Manless $i$_manlessRoleSuffix';
-                          } else {
-                            unitLabel = 'Unit $i';
-                          }
-                          return _buildFilterUnitChip(
-                            'UNIT_$i',
-                            unitLabel,
-                            _submission.points
-                                .where((p) => p.pointId.contains('_${i}_'))
-                                .length,
-                          );
-                        },
-                      ),
-                  ],
-                ],
-              ),
-            ),
-
-          // List Poin Checklist
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
               itemCount: filteredResults.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (ctx, i) {
                 final result = filteredResults[i];
-                // Ambil info lengkap SopPoint dari cache list
                 final point = _cachedSopPoints.firstWhere(
                   (p) => p.id == result.pointId,
                   orElse: () => widget.template.sopPoints.firstWhere(
                     (p) => p.id == result.pointId || p.label == result.label,
-                    orElse: () =>
-                        SopPoint(id: result.pointId, label: result.label),
+                    orElse: () => SopPoint(id: result.pointId, label: result.label),
                   ),
                 );
-
-                return MaintenancePointCard(
-                  result: result,
-                  point: point,
-                  isDark: isDark,
-                  onRetakePhoto: () => _openCameraForPoint(point),
-                  onPreviewPhoto: () {
-                    PhotoPreviewDialog.show(
-                      context,
-                      imagePath: result.imagePath!,
-                      title: result.label,
-                      pointResult: result,
-                      // Analisa ulang foto point ini, lalu simpan hasilnya
-                      // supaya laporan yang dibagikan ikut ter-update.
-                      onAnalyze: (base64) async {
-                        final res = await AiVisionService.verifyMaintenancePoint(
-                          point: point,
-                          template: widget.template,
-                          imageBase64: base64,
-                        );
-                        final updated = result.copyWith(
-                          status: res.status == VerificationStatus.sesuai
-                              ? PointStatus.sesuai
-                              : res.status == VerificationStatus.tidakSesuai
-                                  ? PointStatus.tidakSesuai
-                                  : PointStatus.perluCekManual,
-                          alasan: res.alasan,
-                          confidence: res.confidenceScore,
-                          providerName: res.providerName,
-                        );
-                        await _updatePointResult(point, result, updated);
-                        return res;
-                      },
-                    );
-                  },
-                  onTapCard: () {
-                    if (result.status == PointStatus.belumFoto) {
-                      _openCameraForPoint(point);
-                    } else {
-                      _showPointAction(point, result);
-                    }
-                  },
-                );
+                return _buildPointRow(point, result, colors);
               },
             ),
           ),
-
-          // Bottom Action Buttons
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Card Bagikan Laporan: Hanya muncul jika seluruh checkpoint foto telah lengkap
-                MaintenanceShareReportCard(
-                  submission: _submission,
-                  category: widget.template.jenis,
-                  effectiveUnits: _effectiveUnits,
-                  onSave: _save,
-                ),
-
-                // Tombol Simpan Laporan
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _submission.isComplete
-                        ? () async {
-                            HapticFeedback.mediumImpact();
-                            await _save();
-                            unawaited(
-                              GoogleSheetsService.syncMaintenanceToGoogleSheet(
-                                submission: _submission,
-                                category: widget.template.jenis,
-                                unitCount: _effectiveUnits.length,
-                              ),
-                            );
-
-                            // Selesaikan Daily Task jika dihubungkan dengan Daily Task
-                            final effectiveTaskId =
-                                widget.dailyTaskId ?? _submission.taskId;
-                            if (effectiveTaskId != null &&
-                                effectiveTaskId.isNotEmpty) {
-                              final photoUrls = _submission.points
-                                  .where(
-                                    (p) =>
-                                        p.imagePath != null &&
-                                        p.imagePath!.isNotEmpty,
-                                  )
-                                  .map((p) => p.imagePath!)
-                                  .toList();
-                              final now = DateTime.now();
-                              final timeStr =
-                                  '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-                              final catatanReport =
-                                  'SOP Maintenance ${_submission.templateName} selesai (${_submission.sesuaiCount}/${_submission.totalPoints} poin sesuai${_submission.tidakTerpasangCount > 0 ? ", ${_submission.tidakTerpasangCount} tidak terpasang" : ""})';
-
-                              // Update cache lokal seketika agar status & strikethrough langsung aktif
-                              await DailyTaskService.markTaskCompletedLocally(
-                                taskId: effectiveTaskId,
-                                jamSelesai: timeStr,
-                                catatan: catatanReport,
-                              );
-
-                              unawaited(
-                                DailyTaskService.completeTask(
-                                  taskId: effectiveTaskId,
-                                  jamSelesai: timeStr,
-                                  catatan: catatanReport,
-                                  localPhotoPaths: photoUrls,
-                                ),
-                              );
-                            }
-
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    '✓ Laporan ${_submission.templateName} tersimpan & disinkronkan ke Google Sheet SPV',
-                                  ),
-                                  backgroundColor: AppColors.success,
-                                ),
-                              );
-                              Navigator.pop(context, true);
-                            }
-                          }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _submission.isComplete
-                          ? AppColors.accent
-                          : AppColors.primary,
-                      foregroundColor: Colors.white,
-                      elevation: _submission.isComplete ? 3 : 0,
-                      shadowColor: AppColors.accent.withValues(alpha: 0.4),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+        ],
+      ),
+      bottomNavigationBar: TiketBottomBar(
+        helper: belumCount > 0 ? '$belumCount poin belum difoto' : null,
+        primary: SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
+            onPressed: _submission.isComplete
+                ? () async {
+                    HapticFeedback.mediumImpact();
+                    await _save();
+                    unawaited(
+                      GoogleSheetsService.syncMaintenanceToGoogleSheet(
+                        submission: _submission,
+                        category: widget.template.jenis,
+                        unitCount: _effectiveUnits.length,
                       ),
-                    ),
-                    child: Text(
-                      _submission.isComplete
-                          ? 'Simpan & Selesaikan Laporan (${_submission.sesuaiCount}/${total - tidakAdaCount} Lolos)'
-                          : 'Lengkapi $done/$total Foto Dulu',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        fontFamily: 'PlusJakartaSans',
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                    );
+
+                    final effectiveTaskId =
+                        widget.dailyTaskId ?? _submission.taskId;
+                    if (effectiveTaskId != null && effectiveTaskId.isNotEmpty) {
+                      final photoUrls = _submission.points
+                          .where(
+                            (p) =>
+                                p.imagePath != null &&
+                                p.imagePath!.isNotEmpty,
+                          )
+                          .map((p) => p.imagePath!)
+                          .toList();
+                      final now = DateTime.now();
+                      final timeStr =
+                          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+                      final catatanReport =
+                          'SOP Maintenance ${_submission.templateName} selesai (${_submission.sesuaiCount}/${_submission.totalPoints} poin sesuai${_submission.tidakTerpasangCount > 0 ? ", ${_submission.tidakTerpasangCount} tidak terpasang" : ""})';
+
+                      await DailyTaskService.markTaskCompletedLocally(
+                        taskId: effectiveTaskId,
+                        jamSelesai: timeStr,
+                        catatan: catatanReport,
+                      );
+
+                      unawaited(
+                        DailyTaskService.completeTask(
+                          taskId: effectiveTaskId,
+                          jamSelesai: timeStr,
+                          catatan: catatanReport,
+                          localPhotoPaths: photoUrls,
+                        ),
+                      );
+                    }
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '✓ Laporan ${_submission.templateName} tersimpan & disinkronkan ke Google Sheet SPV',
+                          ),
+                          backgroundColor: colors.ok,
+                        ),
+                      );
+                      Navigator.pop(context, true);
+                    }
+                  }
+                : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _submission.isComplete ? colors.primary : colors.soft,
+              foregroundColor: _submission.isComplete ? colors.onPrimary : colors.mute,
+              disabledBackgroundColor: colors.soft,
+              disabledForegroundColor: colors.mute,
+              elevation: 0,
+              shape: const StadiumBorder(),
+            ),
+            child: const Text(
+              'Simpan & Selesaikan Laporan',
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

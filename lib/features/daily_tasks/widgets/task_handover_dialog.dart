@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/services/theme_service.dart';
+import '../../../core/constants/tiket_colors.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 
-/// Bottom sheet serah terima tugas yang belum selesai ke shift berikutnya.
-/// Dipakai teknisi ("Belum Selesai & Serah Terima") maupun SPV ("Alihkan Tugas").
 class TaskHandoverDialog extends StatefulWidget {
   final String judul;
   final String lokasi;
@@ -13,8 +11,6 @@ class TaskHandoverDialog extends StatefulWidget {
   final String tujuanLabel;
   final String tombolLabel;
 
-  /// Kalau diisi, proses pengalihan dikerjakan di dalam sheet supaya ada
-  /// status loading dan tidak bisa dikirim dua kali.
   final Future<bool> Function(String alasan, String penerus)? onSubmit;
 
   const TaskHandoverDialog({
@@ -38,7 +34,6 @@ class TaskHandoverDialog extends StatefulWidget {
     'Lokasi terkunci',
   ];
 
-  /// Hasil sheet: alasan wajib, penerus kosong = dilepas ke daftar terbuka.
   static Future<({String alasan, String penerus})?> show(
     BuildContext context, {
     required String judul,
@@ -112,21 +107,15 @@ class _TaskHandoverDialogState extends State<TaskHandoverDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = ThemeService.isDarkMode(context);
-    final bg = isDark ? const Color(0xFF111827) : Colors.white;
-    final line = isDark ? const Color(0xFF1E293B) : const Color(0xFFE5E1D8);
-    final head = isDark ? Colors.white : const Color(0xFF111827);
-    final sub = isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280);
-    final pilihanBg = isDark ? AppColors.primary.withValues(alpha: 0.20) : const Color(0xFFF1F5FE);
-    final radioOff = isDark ? const Color(0xFF475569) : const Color(0xFFCFCABF);
+    final colors = TiketColors.of(context);
     final error = _triedSubmit && _alasanCtrl.text.trim().isEmpty;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         decoration: BoxDecoration(
-          color: bg,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+          color: colors.dialog,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: SafeArea(
           top: false,
@@ -135,137 +124,178 @@ class _TaskHandoverDialogState extends State<TaskHandoverDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(height: 10),
-                Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(color: isDark ? const Color(0xFF334155) : const Color(0xFFDDD8CD), borderRadius: BorderRadius.circular(2)),
+                const SizedBox(height: 12),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colors.hairline,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
                 Flexible(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           widget.judulDialog,
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: head,
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: colors.ink,
                           ),
                         ),
-                        const SizedBox(height: 5),
-                        Text(widget.judul, style: TextStyle(fontSize: 12, color: sub, height: 1.35)),
+                        const SizedBox(height: 6),
+                        Text(
+                          widget.judul,
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: colors.body,
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
                         Text(
                           widget.pemilik == null || widget.pemilik!.isEmpty
                               ? widget.lokasi
                               : '${widget.lokasi} · sekarang di ${widget.pemilik}',
-                          style: TextStyle(fontSize: 11, color: sub),
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 12,
+                            color: colors.body,
+                          ),
                         ),
                         const SizedBox(height: 16),
-                        Divider(height: 1, thickness: 1, color: line),
+                        Divider(height: 1, thickness: 1, color: colors.hairline),
                         const SizedBox(height: 18),
 
-                        _label(widget.tujuanLabel, sub),
-                        const SizedBox(height: 2),
+                        _label(widget.tujuanLabel, colors.body),
+                        const SizedBox(height: 6),
                         _opsi(
                           nama: 'Terbuka (siapa pun boleh ambil)',
                           ket: 'Masuk daftar Tugas Terbuka shift berikutnya',
                           selected: _penerus.isEmpty,
                           onTap: () => setState(() => _penerus = ''),
-                          line: line,
-                          head: head,
-                          sub: sub,
-                          pilihanBg: pilihanBg,
-                          radioOff: radioOff,
+                          colors: colors,
+                          height: 52,
                         ),
-                        for (final (i, t) in widget.teknisiOptions.indexed) ...[
-                          if (i == 0) Divider(height: 1, thickness: 1, color: line),
+                        for (final t in widget.teknisiOptions) ...[
+                          Divider(height: 1, thickness: 1, color: colors.hairline),
                           _opsi(
                             nama: t,
                             selected: _penerus == t,
                             onTap: () => setState(() => _penerus = t),
-                            line: line,
-                            head: head,
-                            sub: sub,
-                            pilihanBg: pilihanBg,
-                            radioOff: radioOff,
+                            colors: colors,
+                            height: 48,
                           ),
-                          if (i != widget.teknisiOptions.length - 1) Divider(height: 1, thickness: 1, color: line),
                         ],
 
                         const SizedBox(height: 24),
-                        _label('Alasan Serah Terima', sub),
+                        _label('Alasan Serah Terima', colors.body),
                         const SizedBox(height: 10),
                         Wrap(
-                          spacing: 7,
-                          runSpacing: 7,
+                          spacing: 8,
+                          runSpacing: 8,
                           children: TaskHandoverDialog.alasanCepat.map((a) {
                             final selected = _alasanCtrl.text.trim() == a;
-                            return InkWell(
-                              onTap: () => setState(() {
-                                _alasanCtrl.text = selected ? '' : a;
-                              }),
-                              borderRadius: BorderRadius.circular(20),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                                decoration: BoxDecoration(
-                                  color: selected ? AppColors.accent.withValues(alpha: 0.10) : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: selected ? AppColors.accent : line),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (selected) ...[
-                                      const Icon(Icons.check_rounded, size: 14, color: AppColors.accent),
-                                      const SizedBox(width: 5),
-                                    ],
-                                    Text(
-                                      a,
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        color: selected ? AppColors.accent : head,
-                                        fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                                      ),
+                            return SizedBox(
+                              height: 44,
+                              child: InkWell(
+                                onTap: () => setState(() {
+                                  _alasanCtrl.text = selected ? '' : a;
+                                }),
+                                borderRadius: BorderRadius.circular(22),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: selected ? colors.primary : colors.canvas,
+                                    borderRadius: BorderRadius.circular(22),
+                                    border: Border.all(
+                                      color: selected ? colors.primary : colors.mute,
+                                      width: 1.5,
                                     ),
-                                  ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (selected) ...[
+                                        Icon(Icons.check_rounded, size: 16, color: colors.white),
+                                        const SizedBox(width: 6),
+                                      ],
+                                      Text(
+                                        a,
+                                        style: TextStyle(
+                                          fontFamily: TiketType.fontFamily,
+                                          fontSize: 12,
+                                          color: selected ? colors.white : colors.ink,
+                                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             );
                           }).toList(),
                         ),
 
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 20),
                         Container(
-                          padding: const EdgeInsets.only(bottom: 9),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
-                            border: Border(bottom: BorderSide(color: error ? AppColors.danger : line, width: 1)),
+                            color: colors.soft,
+                            border: Border(
+                              bottom: BorderSide(
+                                color: error ? colors.danger : colors.body,
+                                width: 2.0,
+                              ),
+                            ),
                           ),
                           child: TextField(
                             controller: _alasanCtrl,
                             maxLines: 3,
                             minLines: 1,
                             onChanged: (_) => setState(() {}),
-                            style: TextStyle(color: head, fontSize: 13.5, height: 1.4),
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              color: colors.ink,
+                              fontSize: 14,
+                              height: 1.4,
+                            ),
                             decoration: InputDecoration(
                               isDense: true,
                               filled: false,
-                              fillColor: Colors.transparent,
                               border: InputBorder.none,
                               enabledBorder: InputBorder.none,
                               focusedBorder: InputBorder.none,
                               contentPadding: EdgeInsets.zero,
                               hintText: 'Tulis alasan singkat atau pilih salah satu di atas',
-                              hintStyle: TextStyle(color: sub, fontSize: 13),
+                              hintStyle: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                color: colors.body,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ),
                         if (error) ...[
                           const SizedBox(height: 6),
-                          const Text('Alasan wajib diisi', style: TextStyle(fontSize: 11, color: AppColors.danger)),
+                          Text(
+                            'Alasan wajib diisi',
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: colors.danger,
+                            ),
+                          ),
                         ],
                         const SizedBox(height: 12),
                       ],
@@ -273,51 +303,75 @@ class _TaskHandoverDialogState extends State<TaskHandoverDialog> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                   child: Column(
                     children: [
                       if (_gagal) ...[
-                        const Text(
+                        Text(
                           'Gagal menyimpan, periksa sinyal lalu coba lagi.',
-                          style: TextStyle(fontSize: 11.5, color: AppColors.danger),
+                          style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: colors.danger,
+                          ),
                         ),
                         const SizedBox(height: 8),
                       ],
                       SizedBox(
                         width: double.infinity,
-                        height: 48,
-                        child: FilledButton(
-                          onPressed: _mengirim ? null : _submit,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.accent,
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.55),
-                            disabledForegroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: _mengirim
-                              ? const Row(
+                        height: 52,
+                        child: _mengirim
+                            ? Container(
+                                height: 52,
+                                decoration: ShapeDecoration(
+                                  shape: const StadiumBorder(),
+                                  color: colors.primary.withValues(alpha: 0.6),
+                                ),
+                                child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-                                    SizedBox(width: 10),
-                                    Text('Menyimpan...', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
-                                  ],
-                                )
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.swap_horiz_rounded, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text(widget.tombolLabel, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                                    SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: colors.onPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'Menyimpan...',
+                                      style: TextStyle(
+                                        fontFamily: TiketType.fontFamily,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: colors.onPrimary,
+                                      ),
+                                    ),
                                   ],
                                 ),
-                        ),
+                              )
+                            : TiketPill(
+                                label: widget.tombolLabel,
+                                kind: TiketPillKind.primary,
+                                height: 52,
+                                expand: true,
+                                icon: Icons.swap_horiz_rounded,
+                                onPressed: _submit,
+                              ),
                       ),
-                      TextButton(
-                        onPressed: _mengirim ? null : () => Navigator.pop(context),
-                        child: Text('Batal', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: sub)),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: TiketPill(
+                          label: 'Batal',
+                          kind: TiketPillKind.secondary,
+                          height: 48,
+                          expand: true,
+                          onPressed: _mengirim ? null : () => Navigator.pop(context),
+                        ),
                       ),
                     ],
                   ),
@@ -331,8 +385,13 @@ class _TaskHandoverDialogState extends State<TaskHandoverDialog> {
   }
 
   Widget _label(String text, Color color) => Text(
-        text.toUpperCase(),
-        style: TextStyle(fontSize: 9.5, letterSpacing: 1.1, fontWeight: FontWeight.w600, color: color),
+        text,
+        style: TextStyle(
+          fontFamily: TiketType.fontFamily,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       );
 
   Widget _opsi({
@@ -340,30 +399,29 @@ class _TaskHandoverDialogState extends State<TaskHandoverDialog> {
     String? ket,
     required bool selected,
     required VoidCallback onTap,
-    required Color line,
-    required Color head,
-    required Color sub,
-    required Color pilihanBg,
-    required Color radioOff,
+    required TiketColors colors,
+    required double height,
   }) {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        height: height,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          color: selected ? pilihanBg : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          color: selected ? colors.primary.withValues(alpha: 0.08) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           children: [
             Icon(
               selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
               size: 20,
-              color: selected ? AppColors.primary : radioOff,
+              color: selected ? colors.primary : colors.mute,
             ),
-            const SizedBox(width: 11),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -371,14 +429,22 @@ class _TaskHandoverDialogState extends State<TaskHandoverDialog> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
+                      fontFamily: TiketType.fontFamily,
                       fontSize: 13.5,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                      color: head,
+                      color: colors.ink,
                     ),
                   ),
                   if (ket != null) ...[
                     const SizedBox(height: 1),
-                    Text(ket, style: TextStyle(fontSize: 10.5, color: sub)),
+                    Text(
+                      ket,
+                      style: TextStyle(
+                        fontFamily: TiketType.fontFamily,
+                        fontSize: 10.5,
+                        color: colors.body,
+                      ),
+                    ),
                   ],
                 ],
               ),

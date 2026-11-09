@@ -3,9 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/constants/tiket_colors.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../data/services/maintenance_fix_service.dart';
 import '../../../data/services/maintenance_log_service.dart';
-import '../screens/maintenance_map_screen.dart';
 
 /// Hasil yang dikembalikan saat sheet selesai submit perbaikan.
 class TemuanFixSheetResult {
@@ -146,31 +147,55 @@ class _TemuanFixSheetState extends State<TemuanFixSheet> {
     if (_isSubmitting) return false;
     if (!_hasUnsavedInput) return true;
 
+    final colors = TiketColors.of(context);
     final shouldDiscard = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text(
+        backgroundColor: colors.dialog,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colors.hairline),
+        ),
+        title: Text(
           'Buang perbaikan ini?',
           style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
-            fontWeight: FontWeight.w600,
+            fontFamily: TiketType.fontFamily,
+            fontWeight: FontWeight.w700,
+            color: colors.ink,
           ),
         ),
-        content: const Text(
+        content: Text(
           'Foto dan catatan yang sudah diisi akan hilang.',
-          style: TextStyle(fontFamily: 'PlusJakartaSans'),
+          style: TextStyle(
+            fontFamily: TiketType.fontFamily,
+            color: colors.body,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Lanjut isi'),
+            child: Text(
+              'Lanjut isi',
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                color: colors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: TextButton.styleFrom(
-              foregroundColor: MaintenanceMapPalette.urgentTextOf(context),
+              foregroundColor: colors.danger,
             ),
-            child: const Text('Buang'),
+            child: Text(
+              'Buang',
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                color: colors.danger,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -233,15 +258,15 @@ class _TemuanFixSheetState extends State<TemuanFixSheet> {
     }
   }
 
-  Widget _buildThumbnail(int index, String path) {
+  Widget _buildThumbnail(int index, String path, TiketColors colors) {
     Widget imageWidget;
     if (path.startsWith('http://') || path.startsWith('https://')) {
       imageWidget = Image.network(
         path,
         fit: BoxFit.cover,
-        width: 88,
-        height: 88,
-        errorBuilder: (context, error, stackTrace) => _buildThumbFallback(),
+        width: 104,
+        height: 104,
+        errorBuilder: (context, error, stackTrace) => _buildThumbFallback(colors),
       );
     } else {
       final file = File(path);
@@ -249,11 +274,11 @@ class _TemuanFixSheetState extends State<TemuanFixSheet> {
         imageWidget = Image.file(
           file,
           fit: BoxFit.cover,
-          width: 88,
-          height: 88,
+          width: 104,
+          height: 104,
         );
       } else {
-        imageWidget = _buildThumbFallback();
+        imageWidget = _buildThumbFallback(colors);
       }
     }
 
@@ -262,8 +287,8 @@ class _TemuanFixSheetState extends State<TemuanFixSheet> {
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: SizedBox(
-            width: 88,
-            height: 88,
+            width: 104,
+            height: 104,
             child: imageWidget,
           ),
         ),
@@ -282,16 +307,23 @@ class _TemuanFixSheetState extends State<TemuanFixSheet> {
                 alignment: Alignment.topRight,
                 padding: const EdgeInsets.all(4),
                 child: Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.65),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close_rounded,
-                    size: 14,
+                  width: 28,
+                  height: 28,
+                  decoration: const BoxDecoration(
                     color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x33000000),
+                        blurRadius: 4,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: colors.ink,
                   ),
                 ),
               ),
@@ -302,16 +334,16 @@ class _TemuanFixSheetState extends State<TemuanFixSheet> {
     );
   }
 
-  Widget _buildThumbFallback() {
+  Widget _buildThumbFallback(TiketColors colors) {
     return Container(
-      width: 88,
-      height: 88,
-      color: MaintenanceMapPalette.surfaceRaisedOf(context),
-      child: const Center(
+      width: 104,
+      height: 104,
+      color: colors.soft,
+      child: Center(
         child: Icon(
           Icons.image_rounded,
-          size: 28,
-          color: Colors.grey,
+          size: 32,
+          color: colors.mute,
         ),
       ),
     );
@@ -319,17 +351,9 @@ class _TemuanFixSheetState extends State<TemuanFixSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final surfaceColor = MaintenanceMapPalette.surfaceOf(context);
-    final surfaceRaisedColor = MaintenanceMapPalette.surfaceRaisedOf(context);
-    final dividerColor = MaintenanceMapPalette.dividerOf(context);
-    final textPrimaryColor = MaintenanceMapPalette.textPrimaryOf(context);
-    final textSecondaryColor = MaintenanceMapPalette.textSecondaryOf(context);
-    final primaryColor = MaintenanceMapPalette.primaryOf(context);
-    final urgentColor = MaintenanceMapPalette.urgentTextOf(context);
-
-    final viewInsets = MediaQuery.of(context).viewInsets;
-
+    final colors = TiketColors.of(context);
     final nav = Navigator.of(context);
+    final pad = TiketSpace.padOf(context);
 
     return PopScope(
       canPop: false,
@@ -345,265 +369,304 @@ class _TemuanFixSheetState extends State<TemuanFixSheet> {
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         decoration: BoxDecoration(
-          color: surfaceColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          color: colors.dialog,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: SafeArea(
           top: false,
-          child: Padding(
-            padding: EdgeInsets.only(bottom: viewInsets.bottom),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Drag Handle
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: dividerColor,
-                        borderRadius: BorderRadius.circular(2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Drag Handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 8, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: colors.hairline,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // Header: Title + subline + close button (48x48 hit area)
+              Padding(
+                padding: EdgeInsets.fromLTRB(pad, 4, pad, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Tandai Sudah Diperbaiki',
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: colors.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${widget.temuan.label} · ${widget.log.posName}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: colors.body,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-
-                  // Header Titles
-                  Text(
-                    'Tandai Sudah Diperbaiki',
-                    style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: textPrimaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${widget.temuan.label} · ${widget.log.posName}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      color: textSecondaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Section: Foto Bukti
-                  Text(
-                    'Foto bukti sesudah perbaikan (wajib, maks 3)',
-                    style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: textPrimaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      for (int i = 0; i < _photoPaths.length; i++)
-                        _buildThumbnail(i, _photoPaths[i]),
-                      if (_photoPaths.length < 3)
-                        Semantics(
-                          label: 'Ambil foto bukti',
-                          button: true,
-                          child: InkWell(
-                            onTap: _isSubmitting ? null : _takePhoto,
-                            borderRadius: BorderRadius.circular(8),
+                    Semantics(
+                      button: true,
+                      label: 'Tutup',
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: InkWell(
+                          onTap: _isSubmitting
+                              ? null
+                              : () async {
+                                  final ok = await _handlePopRequest();
+                                  if (ok && mounted) {
+                                    nav.pop();
+                                  }
+                                },
+                          borderRadius: BorderRadius.circular(24),
+                          child: Center(
                             child: Container(
-                              width: 88,
-                              height: 88,
+                              width: 32,
+                              height: 32,
                               decoration: BoxDecoration(
-                                color: surfaceRaisedColor,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: dividerColor,
-                                  width: 1,
-                                ),
+                                color: colors.soft,
+                                shape: BoxShape.circle,
                               ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.add_a_photo_outlined,
-                                    size: 24,
-                                    color: primaryColor,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '+ Ambil Foto',
-                                    style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: primaryColor,
-                                    ),
-                                  ),
-                                ],
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 18,
+                                color: colors.body,
                               ),
                             ),
                           ),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-                  // Section: Tindakan yang dilakukan
-                  Text(
-                    'Tindakan yang dilakukan',
-                    style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: textPrimaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _catatanController,
-                    enabled: !_isSubmitting,
-                    minLines: 3,
-                    maxLines: 5,
-                    maxLength: 500,
-                    style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: textPrimaryColor,
-                    ),
-                    decoration: InputDecoration(
-                      hintText:
-                          'Contoh: Ganti roller, bersihkan jalur kertas',
-                      hintStyle: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: textSecondaryColor,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                          color: dividerColor,
-                          width: 0.8,
+              // Content scrollable
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(pad, 0, pad, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Section: Foto Bukti
+                      Text(
+                        'Foto bukti sesudah perbaikan (wajib, maks 3)',
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: colors.ink,
                         ),
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                          color: dividerColor,
-                          width: 0.8,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                          color: primaryColor,
-                          width: 1.5,
-                        ),
-                      ),
-                      filled: true,
-                      fillColor: surfaceRaisedColor,
-                    ),
-                  ),
+                      const SizedBox(height: 10),
 
-                  // Error Text Area
-                  if (_errorMessage != null && _errorMessage!.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.error_outline_rounded,
-                          size: 16,
-                          color: urgentColor,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: urgentColor,
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          for (int i = 0; i < _photoPaths.length; i++)
+                            _buildThumbnail(i, _photoPaths[i], colors),
+                          if (_photoPaths.length < 3)
+                            Semantics(
+                              label: 'Ambil foto bukti',
+                              button: true,
+                              child: InkWell(
+                                onTap: _isSubmitting ? null : _takePhoto,
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  width: 104,
+                                  height: 104,
+                                  decoration: BoxDecoration(
+                                    color: colors.soft.withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: colors.hairline,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.add_a_photo_outlined,
+                                        size: 26,
+                                        color: colors.primary,
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        '+ Ambil Foto',
+                                        style: TextStyle(
+                                          fontFamily: TiketType.fontFamily,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: colors.primary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+
+                      // Section: Tindakan yang dilakukan
+                      Text(
+                        'Tindakan yang dilakukan',
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: colors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _catatanController,
+                        enabled: !_isSubmitting,
+                        minLines: 3,
+                        maxLines: 5,
+                        maxLength: 500,
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: colors.ink,
+                        ),
+                        decoration: InputDecoration(
+                          hintText:
+                              'Contoh: Ganti roller, bersihkan jalur kertas',
+                          hintStyle: TextStyle(
+                            fontFamily: TiketType.fontFamily,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: colors.mute,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: colors.hairline,
+                              width: 1.0,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: colors.hairline,
+                              width: 1.0,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: colors.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: colors.soft,
+                          contentPadding: const EdgeInsets.all(12),
+                        ),
+                      ),
+
+                      // Error Text Area
+                      if (_errorMessage != null &&
+                          _errorMessage!.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.dangerTint,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: colors.danger.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.error_outline_rounded,
+                                size: 18,
+                                color: colors.danger,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage!,
+                                  style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: colors.danger,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+              ),
 
-                  const SizedBox(height: 16),
-
-                  // Submit Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: _canSubmit ? _submitFix : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor:
-                            dividerColor.withValues(alpha: 0.5),
-                        disabledForegroundColor:
-                            textSecondaryColor.withValues(alpha: 0.7),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+              // Bottom Bar
+              TiketBottomBar(
+                primary: SizedBox(
+                  height: 52,
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed:
+                        _canSubmit && !_isSubmitting ? _submitFix : null,
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: colors.primary,
+                      disabledBackgroundColor: colors.soft,
+                      foregroundColor: colors.onPrimary,
+                      disabledForegroundColor: colors.body,
+                      shape: const StadiumBorder(),
+                      textStyle: const TextStyle(
+                        fontFamily: TiketType.fontFamily,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                       ),
-                      child: _isSubmitting
-                          ? const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Menyimpan...',
-                                  style: TextStyle(
-                                    fontFamily: 'PlusJakartaSans',
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            )
-                          : const Text(
-                              'Simpan Perbaikan',
-                              style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                    ),
+                    child: Text(
+                      _isSubmitting ? 'Menyimpan...' : 'Simpan Perbaikan',
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

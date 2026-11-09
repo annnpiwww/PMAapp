@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/tiket_colors.dart';
 import '../../../core/widgets/app_file_image.dart';
-import '../../../core/services/theme_service.dart';
+import '../../../core/widgets/tiket/tiket.dart';
 import '../../../core/utils/timemark_formatter.dart';
 import '../../../data/models/maintenance_submission.dart';
 import '../../../data/models/template_model.dart';
@@ -39,6 +39,10 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
       vsync: this,
       initialIndex: widget.initialTabIndex,
     );
+    _tabController.addListener(() {
+      if (!mounted) return;
+      setState(() {});
+    });
     _loadSubmissions();
   }
 
@@ -61,25 +65,25 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
       _submissions.where((s) => s.isComplete).toList();
 
   Future<void> _deleteSubmission(String id) async {
-    final isDark = ThemeService.isDarkMode(context);
+    final colors = TiketColors.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        backgroundColor: colors.dialog,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Hapus Data Maintenance?',
           style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
+            fontFamily: TiketType.fontFamily,
             fontWeight: FontWeight.w700,
-            color: isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary,
+            color: colors.ink,
           ),
         ),
         content: Text(
           'Data dan foto maintenance ini akan dihapus dari penyimpanan perangkat.',
           style: TextStyle(
             fontSize: 13,
-            color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary,
+            color: colors.body,
           ),
         ),
         actions: [
@@ -88,13 +92,14 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
             child: Text(
               'Batal',
               style: TextStyle(
-                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                color: colors.body,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
+              backgroundColor: colors.danger,
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -156,135 +161,104 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
   Widget build(BuildContext context) {
     final drafts = _draftSubmissions;
     final completed = _completedSubmissions;
-    final isDark = ThemeService.isDarkMode(context);
-    final bgScaffold = isDark ? const Color(0xFF0B1120) : const Color(0xFFF8FAFC);
+    final colors = TiketColors.of(context);
+    final pad = TiketSpace.padOf(context);
+    final type = TiketType.of(context);
 
     return Scaffold(
-      backgroundColor: bgScaffold,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Riwayat Maintenance',
-          style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
-            fontWeight: FontWeight.w800,
-            fontSize: 17,
-            color: Colors.white,
-          ),
-        ),
-        elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          labelStyle: const TextStyle(
-            fontFamily: 'PlusJakartaSans',
-            fontWeight: FontWeight.w800,
-            fontSize: 13,
-            color: Colors.white,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontFamily: 'PlusJakartaSans',
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-            color: Colors.white70,
-          ),
-          tabs: [
-            Tab(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Draft Berjalan'),
-                    if (drafts.isNotEmpty) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.shade400,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${drafts.length}',
-                          style: const TextStyle(
-                            color: Color(0xFF1E293B),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            Tab(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Selesai 100%'),
-                    if (completed.isNotEmpty) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.success,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${completed.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
+      backgroundColor: colors.canvas,
+      body: Column(
         children: [
-          // TAB 1: DRAFT BERJALAN
-          drafts.isEmpty
-              ? _buildEmptyState(
-                  icon: Icons.assignment_outlined,
-                  title: 'Tidak Ada Draft Berjalan',
-                  subtitle: 'Semua pekerjaan maintenance yang tertunda akan muncul di sini.',
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(14),
-                  itemCount: drafts.length,
-                  itemBuilder: (ctx, i) => _buildDraftCard(drafts[i]),
+          TiketBand(
+            leading: TiketIconButton(
+              icon: Icons.arrow_back,
+              semanticLabel: 'Kembali',
+              onPressed: () => Navigator.pop(context),
+            ),
+            caption: 'Riwayat Maintenance',
+            hero: Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  '${drafts.length}',
+                  style: type.hero(color: colors.onBand),
                 ),
+                const SizedBox(width: 8.0),
+                Text(
+                  'draft berjalan',
+                  style: type.heroLabel(color: colors.onBand),
+                ),
+              ],
+            ),
+            footer: Text(
+              '${completed.length} maintenance selesai 100%',
+              style: type.caption(color: colors.bandCaption),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(pad, 12.0, pad, 8.0),
+            child: TiketSegmented<int>(
+              options: [
+                (0, 'Draft Berjalan · ${drafts.length}'),
+                (1, 'Selesai 100% · ${completed.length}'),
+              ],
+              selected: _tabController.index,
+              onChanged: (index) {
+                setState(() {
+                  _tabController.animateTo(index);
+                });
+              },
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // TAB 1: DRAFT BERJALAN
+                drafts.isEmpty
+                    ? _buildEmptyState(
+                        icon: Icons.assignment_outlined,
+                        title: 'Tidak Ada Draft Berjalan',
+                        subtitle:
+                            'Semua pekerjaan maintenance yang tertunda akan muncul di sini.',
+                        colors: colors,
+                        type: type,
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 24.0),
+                        itemCount: drafts.length,
+                        itemBuilder: (ctx, i) => _buildDraftRow(
+                          drafts[i],
+                          colors: colors,
+                          type: type,
+                          pad: pad,
+                        ),
+                      ),
 
-          // TAB 2: SELESAI 100%
-          completed.isEmpty
-              ? _buildEmptyState(
-                  icon: Icons.task_alt_rounded,
-                  title: 'Belum Ada Maintenance Selesai',
-                  subtitle: 'Maintenance yang sudah selesai 100% tersimpan dan bisa dilihat lagi di sini.',
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(14),
-                  itemCount: completed.length,
-                  itemBuilder: (ctx, i) => _buildCompletedCard(completed[i]),
-                ),
+                // TAB 2: SELESAI 100%
+                completed.isEmpty
+                    ? _buildEmptyState(
+                        icon: Icons.task_alt_rounded,
+                        title: 'Belum Ada Maintenance Selesai',
+                        subtitle:
+                            'Maintenance yang sudah selesai 100% tersimpan dan bisa dilihat lagi di sini.',
+                        colors: colors,
+                        type: type,
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 24.0),
+                        itemCount: completed.length,
+                        itemBuilder: (ctx, i) => _buildCompletedRow(
+                          completed[i],
+                          colors: colors,
+                          type: type,
+                          pad: pad,
+                        ),
+                      ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -294,41 +268,34 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
     required IconData icon,
     required String title,
     required String subtitle,
+    required TiketColors colors,
+    required TiketType type,
   }) {
-    final isDark = ThemeService.isDarkMode(context);
-    final iconCircleBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
-    final titleColor = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final subColor = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(18.0),
               decoration: BoxDecoration(
-                color: iconCircleBg,
+                color: colors.soft,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 44, color: AppColors.textMuted),
+              child: Icon(icon, size: 40.0, color: colors.mute),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 16.0),
             Text(
               title,
-              style: TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: titleColor,
-              ),
+              style: type.section(color: colors.ink),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 6.0),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, color: subColor),
+              style: type.meta(color: colors.body),
             ),
           ],
         ),
@@ -336,225 +303,182 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
     );
   }
 
-  Widget _buildDraftCard(MaintenanceSubmission s) {
-    final progress = s.totalPoints > 0 ? s.doneCount / s.totalPoints : 0.0;
-    final isDark = ThemeService.isDarkMode(context);
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+  Widget _buildDraftRow(
+    MaintenanceSubmission s, {
+    required TiketColors colors,
+    required TiketType type,
+    required double pad,
+  }) {
+    final posTitle = s.posName.isNotEmpty ? s.posName : 'Lokasi tidak diketahui';
+    final timeStr = TimemarkFormatter.formatClockTime(s.createdAt);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () => _resumeDraft(s),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: pad, vertical: 12.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2.0),
+                child: StatusMarker(
+                  status: TiketStatus.attention,
+                  size: 16.0,
+                ),
+              ),
+              const SizedBox(width: 12.0),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            s.templateName,
-                            style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: textTitle,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${s.posName} • ${WhatsAppReportService.formatIndonesianDate(s.createdAt)}',
-                            style: TextStyle(fontSize: 11, color: textSub),
-                          ),
-                        ],
-                      ),
+                    Text(
+                      posTitle,
+                      style: type.rowTitle(color: colors.ink),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.warning.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '${s.doneCount}/${s.totalPoints} Foto',
-                        style: const TextStyle(
-                          color: AppColors.warning,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
+                    const SizedBox(height: 2.0),
+                    Text(
+                      s.templateName,
+                      style: type.meta(color: colors.body),
+                    ),
+                    const SizedBox(height: 4.0),
+                    Text(
+                      'Proses ${s.doneCount}/${s.totalPoints} poin · mulai $timeStr',
+                      style: type.status(color: colors.signalText),
+                    ),
+                    const SizedBox(height: 10.0),
+                    Wrap(
+                      spacing: 8.0,
+                      runSpacing: 8.0,
+                      children: [
+                        TiketPill(
+                          label: 'Lanjutkan Draft',
+                          kind: TiketPillKind.primary,
+                          onPressed: () => _resumeDraft(s),
                         ),
-                      ),
+                        _DangerOutlinePill(
+                          label: 'Hapus Draft',
+                          onPressed: () => _deleteSubmission(s.id),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.warning),
-                    minHeight: 6,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger, size: 20),
-                      tooltip: 'Hapus Draft',
-                      onPressed: () => _deleteSubmission(s.id),
-                    ),
-                    const Spacer(),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                      label: const Text(
-                        'Lanjutkan Pengerjaan',
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                        ),
-                      ),
-                      onPressed: () => _resumeDraft(s),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      ),
+        Padding(
+          padding: EdgeInsets.only(left: pad + 16.0 + 12.0),
+          child: Divider(
+            height: 1.0,
+            thickness: 1.0,
+            color: colors.hairline,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildCompletedCard(MaintenanceSubmission s) {
-    final isDark = ThemeService.isDarkMode(context);
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final cardBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final textTitle = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+  Widget _buildCompletedRow(
+    MaintenanceSubmission s, {
+    required TiketColors colors,
+    required TiketType type,
+    required double pad,
+  }) {
+    final posTitle = s.posName.isNotEmpty ? s.posName : 'Lokasi tidak diketahui';
+    final dateStr = WhatsAppReportService.formatIndonesianDate(s.createdAt);
+    final timeStr = TimemarkFormatter.formatClockTime(s.createdAt);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: pad, vertical: 12.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const StatusMarker(
+                status: TiketStatus.ok,
+                size: 16.0,
+              ),
+              const SizedBox(width: 12.0),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      posTitle,
+                      style: type.rowTitle(color: colors.ink),
+                    ),
+                    const SizedBox(height: 2.0),
+                    Text(
+                      '${s.templateName} · ${s.points.length} foto',
+                      style: type.meta(color: colors.body),
+                    ),
+                    const SizedBox(height: 2.0),
+                    Text(
+                      '$dateStr · $timeStr WITA',
+                      style: type.caption(color: colors.body),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8.0),
+              TiketPill(
+                label: 'Lihat Detail',
+                kind: TiketPillKind.secondary,
+                onPressed: () => _openDetailSheet(s),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () => _openDetailSheet(s),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            s.templateName,
-                            style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: textTitle,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${s.posName} • ${s.userName}',
-                            style: TextStyle(fontSize: 11, color: textSub),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check_circle_rounded, size: 13, color: AppColors.success),
-                          SizedBox(width: 4),
-                          Text(
-                            '100% Selesai',
-                            style: TextStyle(
-                              color: AppColors.success,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 10.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(Icons.schedule_rounded, size: 14, color: isDark ? const Color(0xFF64748B) : Colors.grey.shade500),
-                    const SizedBox(width: 5),
-                    Text(
-                      '${WhatsAppReportService.formatIndonesianDate(s.createdAt)} • ${TimemarkFormatter.formatClockTime(s.createdAt)} WITA',
-                      style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600, fontWeight: FontWeight.w500),
-                    ),
-                    const Spacer(),
-                    Text(
-                      'Lihat Detail & Share ›',
-                      style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? const Color(0xFF38BDF8) : AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+        ),
+        Padding(
+          padding: EdgeInsets.only(left: pad + 16.0 + 12.0),
+          child: Divider(
+            height: 1.0,
+            thickness: 1.0,
+            color: colors.hairline,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DangerOutlinePill extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+
+  const _DangerOutlinePill({
+    required this.label,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = TiketColors.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48.0, minWidth: 48.0),
+      child: Center(
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: colors.danger, width: 1.5),
+            foregroundColor: colors.danger,
+            shape: const StadiumBorder(),
+            minimumSize: const Size(0, 44.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: TiketType.fontFamily,
+              fontSize: 14.0,
+              fontWeight: FontWeight.w600,
+              color: colors.danger,
             ),
           ),
         ),
@@ -583,20 +507,15 @@ class _MaintenanceDetailModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = TiketColors.of(context);
+    final type = TiketType.of(context);
     final category = _resolveCategory();
     final pointsWithImages = submission.points.where((p) => p.imagePath != null && p.imagePath!.isNotEmpty).length;
-    final isDark = ThemeService.isDarkMode(context);
-    final sheetBg = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final textHead = isDark ? const Color(0xFFF8FAFC) : AppColors.textPrimary;
-    final textSub = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-    final itemBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
-    final itemBorder = isDark ? const Color(0xFF334155) : AppColors.cardBorder;
-    final dividerClr = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
 
     return Container(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
       decoration: BoxDecoration(
-        color: sheetBg,
+        color: colors.dialog,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -608,7 +527,7 @@ class _MaintenanceDetailModal extends StatelessWidget {
               width: 38,
               height: 4.5,
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF475569) : Colors.grey.shade300,
+                color: colors.mute.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -625,29 +544,24 @@ class _MaintenanceDetailModal extends StatelessWidget {
                     children: [
                       Text(
                         submission.templateName,
-                        style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                          color: textHead,
-                        ),
+                        style: type.rowTitle(color: colors.ink),
                       ),
                       Text(
                         '${submission.posName} • ${submission.userName}',
-                        style: TextStyle(fontSize: 11.5, color: textSub),
+                        style: type.meta(color: colors.body),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                  icon: Icon(Icons.delete_outline_rounded, color: colors.danger),
                   tooltip: 'Hapus Riwayat',
                   onPressed: onDelete,
                 ),
               ],
             ),
           ),
-          Divider(height: 1, color: dividerClr),
+          Divider(height: 1, color: colors.hairline),
 
           // List of Points & Photos
           Expanded(
@@ -662,15 +576,15 @@ class _MaintenanceDetailModal extends StatelessWidget {
                 final isTidakTerpasang = p.isTidakTerpasang;
                 final isOk = isSesuai || isTidakTerpasang;
                 final statusClr = isSesuai
-                    ? AppColors.success
-                    : (isTidakTerpasang ? const Color(0xFF64748B) : AppColors.danger);
+                    ? colors.ok
+                    : (isTidakTerpasang ? colors.body : colors.danger);
 
                 return Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: itemBg,
+                    color: colors.soft,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: itemBorder),
+                    border: Border.all(color: colors.hairline),
                   ),
                   child: Row(
                     children: [
@@ -693,7 +607,7 @@ class _MaintenanceDetailModal extends StatelessWidget {
                           width: 52,
                           height: 52,
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                            color: colors.canvas,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: ClipRRect(
@@ -702,9 +616,9 @@ class _MaintenanceDetailModal extends StatelessWidget {
                                 ? AppFileImage(
                                     path: p.imagePath!,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 24),
+                                    errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image, size: 24, color: colors.mute),
                                   )
-                                : const Icon(Icons.camera_alt_outlined, color: Colors.grey, size: 24),
+                                : Icon(Icons.camera_alt_outlined, color: colors.mute, size: 24),
                           ),
                         ),
                       ),
@@ -717,12 +631,7 @@ class _MaintenanceDetailModal extends StatelessWidget {
                           children: [
                             Text(
                               p.label,
-                              style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12.5,
-                                color: textHead,
-                              ),
+                              style: type.rowTitle(color: colors.ink),
                             ),
                             const SizedBox(height: 3),
                             Text(
@@ -732,8 +641,9 @@ class _MaintenanceDetailModal extends StatelessWidget {
                                       ? 'Sesuai standar'
                                       : (isTidakTerpasang ? 'Barang tidak terpasang' : 'Perlu pemeriksaan')),
                               style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
                                 fontSize: 11,
-                                color: isOk ? statusClr : AppColors.warning,
+                                color: isOk ? statusClr : colors.signalText,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -742,11 +652,12 @@ class _MaintenanceDetailModal extends StatelessWidget {
                               Text(
                                 'Tingkat: ${p.urgensi.label}',
                                 style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w800,
                                   color: p.urgensi == TingkatUrgensi.urgent
-                                      ? AppColors.danger
-                                      : AppColors.warning,
+                                      ? colors.danger
+                                      : colors.signalText,
                                 ),
                               ),
                             ],
@@ -766,9 +677,10 @@ class _MaintenanceDetailModal extends StatelessWidget {
                               ? '✓ Sesuai'
                               : (isTidakTerpasang ? '⛔ Tidak Ada' : '⚠️ Cek'),
                           style: TextStyle(
+                            fontFamily: TiketType.fontFamily,
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
-                            color: isOk ? statusClr : AppColors.danger,
+                            color: isOk ? statusClr : colors.danger,
                           ),
                         ),
                       ),
@@ -784,11 +696,11 @@ class _MaintenanceDetailModal extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: sheetBg,
-                border: Border(top: BorderSide(color: dividerClr, width: 0.8)),
+                color: colors.dialog,
+                border: Border(top: BorderSide(color: colors.hairline, width: 0.8)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+                    color: Colors.black.withValues(alpha: 0.06),
                     blurRadius: 10,
                     offset: const Offset(0, -3),
                   ),
@@ -825,7 +737,7 @@ class _MaintenanceDetailModal extends StatelessWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('✓ $pointsWithImages foto dibuka di WhatsApp. Teks tersalin, tinggal paste di chat.'),
-                                backgroundColor: AppColors.success,
+                                backgroundColor: colors.ok,
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
@@ -861,7 +773,7 @@ class _MaintenanceDetailModal extends StatelessWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('✓ $pointsWithImages foto dibuka di Telegram. Teks sudah disalin, tinggal paste di chat.'),
-                                backgroundColor: AppColors.success,
+                                backgroundColor: colors.ok,
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
@@ -877,22 +789,19 @@ class _MaintenanceDetailModal extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: sheetBg,
-                border: Border(top: BorderSide(color: dividerClr, width: 0.8)),
+                color: colors.dialog,
+                border: Border(top: BorderSide(color: colors.hairline, width: 0.8)),
               ),
               child: SafeArea(
                 top: false,
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.warning),
+                    Icon(Icons.info_outline_rounded, size: 18, color: colors.signal),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Laporan belum lengkap (${submission.doneCount}/${submission.totalPoints} foto). Lengkapi seluruh checkpoint untuk membagikan laporan.',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                        ),
+                        style: type.meta(color: colors.body),
                       ),
                     ),
                   ],
