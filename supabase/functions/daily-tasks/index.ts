@@ -27,23 +27,8 @@ function json(body: unknown, status: number): Response {
   });
 }
 
-// Mirrors BranchService.parseBranchFromName + DailyTaskService.tasksTable
-export function resolveTasksTableForCabang(cabang: string): string {
-  const lower = cabang.trim().toLowerCase();
-  if (
-    lower === 'ho' ||
-    lower === 'hom' ||
-    lower.includes('ho makassar') ||
-    lower.includes('head office') ||
-    lower.includes('makassar')
-  ) {
-    return 'daily_tasks_ho';
-  }
-  if (lower.includes('bali') || lower.includes('dps')) {
-    return 'daily_tasks_bali';
-  }
-  return 'daily_tasks_manado';
-}
+import { resolveTasksTableForCabang } from '../_shared/branch.ts';
+export { resolveTasksTableForCabang };
 
 function isCompletedStatus(status: unknown): boolean {
   const s = String(status ?? '').trim().toLowerCase();
@@ -73,9 +58,9 @@ export async function handleDailyTasks(
   if (!session) {
     return json({ error: 'unauthorized' }, 401);
   }
-  if (!isSpv(session)) {
-    return json({ error: 'forbidden' }, 403);
-  }
+  // Teknisi boleh create tugas untuk dirinya sendiri (cek nama di blok create);
+  // transfer & delete tetap khusus SPV.
+  const spv = isSpv(session);
 
   const clHeader = Number(req.headers.get('content-length') ?? '0');
   if (clHeader > MAX_BODY_BYTES) {
@@ -112,6 +97,10 @@ export async function handleDailyTasks(
 
   const table = resolveTasksTableForCabang(session.cabang);
   const action = body.action;
+
+  if (!spv && action !== 'create') {
+    return json({ error: 'forbidden' }, 403);
+  }
 
   if (action === 'create') {
     const rawTask = (body.task && typeof body.task === 'object' && !Array.isArray(body.task))
@@ -153,6 +142,9 @@ export async function handleDailyTasks(
     ) {
       return json({ error: 'invalid' }, 400);
     }
+    if (!spv && teknisiNama.toLowerCase() !== session.name.trim().toLowerCase()) {
+      return json({ error: 'forbidden' }, 403);
+    }
 
     const insertRow: Record<string, unknown> = {
       id,
@@ -169,7 +161,7 @@ export async function handleDailyTasks(
     if (peserta.length > 0) {
       insertRow.peserta = peserta;
     }
-    if (typeof rawTask.status === 'string' && rawTask.status === 'completed') {
+    if (spv && typeof rawTask.status === 'string' && rawTask.status === 'completed') {
       insertRow.status = 'completed';
       if (typeof rawTask.jam_selesai === 'string') insertRow.jam_selesai = rawTask.jam_selesai;
       if (typeof rawTask.catatan_teknisi === 'string') insertRow.catatan_teknisi = rawTask.catatan_teknisi;
