@@ -30,19 +30,17 @@ class WhatsNewService {
 
   /// Diisi ulang tiap versi naik, bareng bump di pubspec.yaml.
   static const WhatsNewRelease current = WhatsNewRelease(
-    version: '2.0.136',
-    date: '10 November 2026',
+    version: '2.0.137',
+    date: '11 November 2026',
     features: [
-      'Laporan error dari grup Telegram: salin pesan admin, tempel di Catat Kerjaan, isinya terbaca otomatis',
-      'Lokasi yang error tampil radar merah di Map Maintenance, tim cabang dapat notifikasi',
-      'Selesai perbaikan, laporan balasan dibuat otomatis sesuai format grup, tinggal bagikan',
-      'SPV juga bisa catat laporan error dan kirim laporan selesai',
-      'Laporan error cabang Manado tercatat otomatis di Google Sheet',
-      'Huruf baru (Figtree), lebih mudah dibaca',
+      'Ada lokasi error, layar langsung merah dan alarm bunyi sampai ditekan, walau aplikasi lagi ditutup',
+      'Detail error kelihatan langsung dari Map Maintenance',
+      'SPV bisa pilih siapa yang selesaikan tiket error: semua teknisi, tunjuk langsung, atau ditangani sendiri',
+      'Tampilan Map dan detail lokasi lebih rapi',
     ],
     aiNote: null,
-    mapNote: 'Radar merah hilang otomatis saat tugas error ditandai selesai.',
-    bugfix: 'Teknisi bisa catat kerjaan sendiri lagi (sebelumnya gagal dengan pesan sinyal).',
+    mapNote: 'Alarm bunyi lewat notifikasi; izinkan notifikasi dan atur baterai PMApp ke Tanpa batasan.',
+    bugfix: 'Tiket error buatan SPV sekarang muncul di akun teknisi; ukuran dan posisi tombol dirapikan.',
   );
 
   /// `seen` kosong berarti aplikasi belum pernah mencatat versi di perangkat ini.

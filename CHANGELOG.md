@@ -2,6 +2,26 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.137+2150] - 2026-11-11
+
+### 🎯 Highlight Utama
+1. **Alarm Lokasi Error & Push Notifikasi FCM**:
+   - Ada lokasi error, layar langsung merah dan alarm bunyi sampai ditekan, walau aplikasi lagi ditutup.
+2. **Detail Error di Map Maintenance**:
+   - Detail error kelihatan langsung dari Map Maintenance.
+3. **Pilihan Penugasan Tiket Error untuk SPV**:
+   - SPV bisa pilih siapa yang selesaikan tiket error: semua teknisi, tunjuk langsung, atau ditangani sendiri.
+4. **Perapihan Tampilan Map & Detail Lokasi**:
+   - Tampilan Map dan detail lokasi lebih rapi.
+
+### 💡 Catatan
+- Alarm bunyi lewat notifikasi; izinkan notifikasi dan atur baterai PMApp ke Tanpa batasan.
+
+### 🛠️ Perbaikan Bug
+- Tiket error buatan SPV sekarang muncul di akun teknisi; ukuran dan posisi tombol dirapikan.
+
+---
+
 ## [2.0.136+2149] - 2026-11-10
 
 ### 🎯 Highlight Utama (Tiket Error & Tipografi Figtree)
