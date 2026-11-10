@@ -13,6 +13,7 @@ import '../../../data/services/branch_service.dart';
 import '../../maintenance/widgets/maintenance_setup_dialog.dart';
 import '../../maintenance/screens/maintenance_checklist_screen.dart';
 import '../widgets/completed_daily_task_modal.dart';
+import '../widgets/daily_task_action_pill.dart';
 import '../widgets/ad_hoc_task_dialog.dart';
 import '../widgets/task_handover_dialog.dart';
 import 'custom_task_execution_screen.dart';
@@ -174,12 +175,19 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
   Future<void> _ambilTugas(DailyTaskModel task) async {
     final user = AuthRepository.instance.currentUser;
     if (user == null) return;
-    final ok = await DailyTaskService.claimTask(task: task, olehSiapa: user.nama);
-    _snack(
-      ok ? 'Tugas diambil alih. Kerjakan sampai selesai ya.' : 'Gagal mengambil tugas, coba lagi.',
-      sukses: ok,
-    );
-    if (ok) await _loadTasks();
+    final res = await DailyTaskService.claimTask(task: task, olehSiapa: user.nama);
+    if (res.success) {
+      _snack('Tugas diambil alih. Kerjakan sampai selesai ya.', sukses: true);
+      await _loadTasks();
+    } else if (res.isTaken) {
+      _snack(
+        res.message ?? 'Tiket sudah diambil ${res.claimedBy ?? 'teknisi lain'}',
+        sukses: false,
+      );
+      await _loadTasks();
+    } else {
+      _snack('Gagal mengambil tugas, coba lagi.', sukses: false);
+    }
   }
 
   void _startTask(DailyTaskModel task) async {
@@ -601,36 +609,32 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                         meta: metaList,
                         status: (statusText, statusColor),
                         onTap: isDone ? () => CompletedDailyTaskModal.show(context, task) : () => _startTask(task),
-                        trailing: isDone
-                            ? TiketPill(
-                                label: 'Lihat Bukti',
-                                kind: TiketPillKind.secondary,
-                                height: 44,
-                                onPressed: () => CompletedDailyTaskModal.show(context, task),
-                              )
-                            : (ongoing != null
-                                ? TiketPill(
-                                    label: 'Lanjutkan',
-                                    kind: TiketPillKind.primary,
-                                    height: 44,
-                                    onPressed: () => _startTask(task),
-                                  )
-                                : TiketPill(
-                                    label: 'Kerjakan',
-                                    kind: TiketPillKind.primary,
-                                    height: 44,
-                                    onPressed: () => _startTask(task),
-                                  )),
+                        trailing: null,
                         below: isDone
-                            ? null
-                            : Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: TiketPill(
-                                  label: 'Belum Selesai',
-                                  kind: TiketPillKind.secondary,
-                                  height: 44,
-                                  onPressed: () => _serahkanTugas(task),
-                                ),
+                            ? Row(
+                                children: [
+                                  const Spacer(),
+                                  DailyTaskActionPill(
+                                    label: 'Lihat bukti',
+                                    isPrimary: false,
+                                    onPressed: () => CompletedDailyTaskModal.show(context, task),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  DailyTaskActionPill(
+                                    label: 'Belum selesai',
+                                    isPrimary: false,
+                                    onPressed: () => _serahkanTugas(task),
+                                  ),
+                                  const Spacer(),
+                                  DailyTaskActionPill(
+                                    label: ongoing != null ? 'Lanjutkan' : 'Kerjakan',
+                                    isPrimary: true,
+                                    onPressed: () => _startTask(task),
+                                  ),
+                                ],
                               ),
                       );
                     },
@@ -681,11 +685,15 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
                         meta: [task.posName, asal],
                         status: ('Belum dikerjakan', colors.body),
                         onTap: () => _ambilTugas(task),
-                        trailing: TiketPill(
-                          label: 'Kerjakan',
-                          kind: TiketPillKind.primary,
-                          height: 44,
-                          onPressed: () => _ambilTugas(task),
+                        below: Row(
+                          children: [
+                            const Spacer(),
+                            DailyTaskActionPill(
+                              label: 'Kerjakan',
+                              isPrimary: true,
+                              onPressed: () => _ambilTugas(task),
+                            ),
+                          ],
                         ),
                       );
                     },

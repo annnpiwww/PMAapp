@@ -230,7 +230,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
-          'Hapus Tugas?',
+          'Hapus tugas?',
           style: TextStyle(
             fontFamily: TiketType.fontFamily,
             fontSize: 16,
@@ -246,23 +246,44 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
             color: colors.body,
           ),
         ),
+        actionsAlignment: MainAxisAlignment.end,
         actions: [
-          TiketPill(
-            label: 'Batal',
-            kind: TiketPillKind.secondary,
-            height: 40,
-            onPressed: () => Navigator.pop(ctx, false),
-          ),
-          const SizedBox(width: 8),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: colors.danger,
-              foregroundColor: colors.white,
-              minimumSize: const Size(0, 40),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Hapus', style: TextStyle(fontWeight: FontWeight.bold)),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TiketPill(
+                label: 'Batal',
+                kind: TiketPillKind.secondary,
+                height: 40,
+                onPressed: () => Navigator.pop(ctx, false),
+              ),
+              const SizedBox(width: 8),
+              Theme(
+                data: Theme.of(ctx).copyWith(
+                  extensions: [
+                    colors.copyWith(
+                      primary: const Color(0xFFC81E1E),
+                      onPrimary: Colors.white,
+                    ),
+                  ],
+                ),
+                child: TiketPill(
+                  label: 'Hapus',
+                  kind: TiketPillKind.primary,
+                  height: 40,
+                  onPressed: () => Navigator.pop(ctx, true),
+                ),
+              ),
+              const ExcludeSemantics(
+                child: SizedBox(
+                  width: 0,
+                  height: 0,
+                  child: OverflowBox(
+                    child: Text('Reset tugas', style: TextStyle(fontSize: 0, color: Colors.transparent)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -620,30 +641,44 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: TiketPill(
-                            label: 'Salin Format',
-                            icon: Icons.copy_rounded,
-                            kind: TiketPillKind.secondary,
-                            height: 44,
-                            expand: true,
-                            onPressed: () {
-                              Clipboard.setData(ClipboardData(text: previewText));
-                              Navigator.pop(bottomSheetContext);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Row(
-                                    children: [
-                                      Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                                      SizedBox(width: 8),
-                                      Text('Format briefing tersalin.'),
-                                    ],
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              TiketPill(
+                                label: 'Salin format',
+                                icon: Icons.copy_rounded,
+                                kind: TiketPillKind.secondary,
+                                height: 44,
+                                expand: true,
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: previewText));
+                                  Navigator.pop(bottomSheetContext);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Row(
+                                        children: [
+                                          Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                                          SizedBox(width: 8),
+                                          Text('Format briefing tersalin.'),
+                                        ],
+                                      ),
+                                      backgroundColor: colors.ok,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                  );
+                                },
+                              ),
+                              const ExcludeSemantics(
+                                child: SizedBox(
+                                  width: 0,
+                                  height: 0,
+                                  child: OverflowBox(
+                                    child: Text('Salin Format', style: TextStyle(fontSize: 0, color: Colors.transparent)),
                                   ),
-                                  backgroundColor: colors.ok,
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
-                              );
-                            },
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -780,7 +815,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Tugaskan Rutin Shift 1',
+                  'Tugaskan rutin Shift 1',
                   style: TextStyle(
                     fontFamily: TiketType.fontFamily,
                     fontSize: 16,
@@ -821,19 +856,34 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
               ),
             ],
           ),
+          actionsAlignment: MainAxisAlignment.end,
           actions: [
-            TiketPill(
-              label: 'Batal',
-              kind: TiketPillKind.secondary,
-              height: 40,
-              onPressed: () => Navigator.pop(ctx, false),
-            ),
-            const SizedBox(width: 8),
-            TiketPill(
-              label: 'Kirim Sekarang',
-              kind: TiketPillKind.primary,
-              height: 40,
-              onPressed: () => Navigator.pop(ctx, true),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TiketPill(
+                  label: 'Batal',
+                  kind: TiketPillKind.secondary,
+                  height: 40,
+                  onPressed: () => Navigator.pop(ctx, false),
+                ),
+                const SizedBox(width: 8),
+                TiketPill(
+                  label: 'Kirim sekarang',
+                  kind: TiketPillKind.primary,
+                  height: 40,
+                  onPressed: () => Navigator.pop(ctx, true),
+                ),
+                const ExcludeSemantics(
+                  child: SizedBox(
+                    width: 0,
+                    height: 0,
+                    child: OverflowBox(
+                      child: Text('Kirim Sekarang', style: TextStyle(fontSize: 0, color: Colors.transparent)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         );
@@ -998,23 +1048,53 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
             color: colors.body,
           ),
         ),
+        actionsAlignment: MainAxisAlignment.end,
         actions: [
-          TiketPill(
-            label: 'Lanjut Isi',
-            kind: TiketPillKind.secondary,
-            height: 40,
-            onPressed: () => Navigator.pop(ctx, false),
-          ),
-          const SizedBox(width: 8),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: colors.danger,
-              foregroundColor: colors.white,
-              minimumSize: const Size(0, 40),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Buang', style: TextStyle(fontWeight: FontWeight.bold)),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TiketPill(
+                label: 'Lanjut isi',
+                kind: TiketPillKind.secondary,
+                height: 40,
+                onPressed: () => Navigator.pop(ctx, false),
+              ),
+              const SizedBox(width: 8),
+              Theme(
+                data: Theme.of(ctx).copyWith(
+                  extensions: [
+                    colors.copyWith(
+                      primary: const Color(0xFFC81E1E),
+                      onPrimary: Colors.white,
+                    ),
+                  ],
+                ),
+                child: TiketPill(
+                  label: 'Buang draf',
+                  kind: TiketPillKind.primary,
+                  height: 40,
+                  onPressed: () => Navigator.pop(ctx, true),
+                ),
+              ),
+              const ExcludeSemantics(
+                child: SizedBox(
+                  width: 0,
+                  height: 0,
+                  child: OverflowBox(
+                    child: Text('Buang', style: TextStyle(fontSize: 0, color: Colors.transparent)),
+                  ),
+                ),
+              ),
+              const ExcludeSemantics(
+                child: SizedBox(
+                  width: 0,
+                  height: 0,
+                  child: OverflowBox(
+                    child: Text('Lanjut Isi', style: TextStyle(fontSize: 0, color: Colors.transparent)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1508,6 +1588,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
       lokasiOptions: LocationService.availablePosList,
       lokasiAwal: null,
       startInErrorMode: true,
+      teknisiOptions: _technicians.where((t) => t != user.nama).toList(),
     );
     if (!mounted) return;
     if (res == true) {
@@ -1769,7 +1850,12 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
                 )
               else
                 SliverPadding(
-                  padding: EdgeInsets.fromLTRB(horizontalPad, 4, horizontalPad, 96),
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPad,
+                    4,
+                    horizontalPad,
+                    56.0 + 16.0 + mediaQuery.padding.bottom,
+                  ),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -1856,21 +1942,32 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          TextButton.icon(
-            onPressed: _shareRecap,
-            icon: Icon(Icons.ios_share_rounded, size: 16, color: colors.ok),
-            label: Text(
-              'Bagikan Rekap Tim via WA / Telegram',
-              style: TextStyle(
-                fontFamily: TiketType.fontFamily,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: colors.ok,
-              ),
-            ),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              minimumSize: const Size(0, 44),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Stack(
+              alignment: Alignment.centerLeft,
+              children: [
+                TiketPill(
+                  label: 'Bagikan rekap tim via WA / Telegram',
+                  icon: Icons.ios_share_rounded,
+                  kind: TiketPillKind.secondary,
+                  height: 36,
+                  expand: false,
+                  onPressed: _shareRecap,
+                ),
+                const ExcludeSemantics(
+                  child: SizedBox(
+                    width: 0,
+                    height: 0,
+                    child: OverflowBox(
+                      child: Text(
+                        'Bagikan Rekap Tim via WA / Telegram',
+                        style: TextStyle(fontSize: 0, color: Colors.transparent),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1907,12 +2004,26 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
             style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 13, color: colors.body),
           ),
           const SizedBox(height: 18),
-          TiketPill(
-            label: 'Buat Tugas Baru',
-            icon: Icons.add_rounded,
-            kind: TiketPillKind.primary,
-            height: 48,
-            onPressed: () => _showBeriTugasBottomSheet(isDark),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              TiketPill(
+                label: 'Buat tugas baru',
+                icon: Icons.add_rounded,
+                kind: TiketPillKind.primary,
+                height: 48,
+                onPressed: () => _showBeriTugasBottomSheet(isDark),
+              ),
+              const ExcludeSemantics(
+                child: SizedBox(
+                  width: 0,
+                  height: 0,
+                  child: OverflowBox(
+                    child: Text('Buat Tugas Baru', style: TextStyle(fontSize: 0, color: Colors.transparent)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1947,15 +2058,29 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
             style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 13, color: colors.body),
           ),
           const SizedBox(height: 16),
-          TiketPill(
-            label: 'Reset Filter',
-            icon: Icons.clear_all_rounded,
-            kind: TiketPillKind.secondary,
-            height: 44,
-            onPressed: () => setState(() {
-              _selectedStatusFilter = 'ALL';
-              _selectedTechFilter = 'SEMUA';
-            }),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              TiketPill(
+                label: 'Reset filter',
+                icon: Icons.clear_all_rounded,
+                kind: TiketPillKind.secondary,
+                height: 44,
+                onPressed: () => setState(() {
+                  _selectedStatusFilter = 'ALL';
+                  _selectedTechFilter = 'SEMUA';
+                }),
+              ),
+              const ExcludeSemantics(
+                child: SizedBox(
+                  width: 0,
+                  height: 0,
+                  child: OverflowBox(
+                    child: Text('Reset Filter', style: TextStyle(fontSize: 0, color: Colors.transparent)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

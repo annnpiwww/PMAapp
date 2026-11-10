@@ -4,6 +4,7 @@ class ErrorReport {
   final String kendala;
   final String penyebab;
   final String solusiSementara;
+  final String pelapor;
 
   const ErrorReport({
     this.reportedAt,
@@ -11,6 +12,7 @@ class ErrorReport {
     this.kendala = '',
     this.penyebab = '',
     this.solusiSementara = '',
+    this.pelapor = '',
   });
 
   ErrorReport withFallbackTime(DateTime now) {
@@ -21,6 +23,7 @@ class ErrorReport {
       kendala: kendala,
       penyebab: penyebab,
       solusiSementara: solusiSementara,
+      pelapor: pelapor,
     );
   }
 
@@ -31,6 +34,7 @@ class ErrorReport {
     String? kendala;
     String? penyebab;
     String? solusiSementara;
+    String? pelapor;
 
     final lines = text.split('\n');
     final lineRegex = RegExp(r'^\s*[-•*]?\s*([^:]+?)\s*:\s*(.*)$');
@@ -49,6 +53,8 @@ class ErrorReport {
         rawWaktu ??= value;
       } else if (label == 'lokasi') {
         lokasi ??= value;
+      } else if (label == 'pelapor') {
+        pelapor ??= value;
       } else if (label == 'kendala') {
         kendala ??= value;
       } else if (label == 'penyebab') {
@@ -66,6 +72,7 @@ class ErrorReport {
       kendala: kendala ?? '',
       penyebab: penyebab ?? '',
       solusiSementara: solusiSementara ?? '',
+      pelapor: pelapor ?? '',
     );
   }
 
@@ -98,7 +105,7 @@ class ErrorReport {
     return dt;
   }
 
-  String toDeskripsi(String original) {
+  String toDeskripsi(String original, {String pelapor = ''}) {
     final lines = <String>[];
     if (reportedAt != null) {
       final dStr = reportedAt!.day.toString().padLeft(2, '0');
@@ -110,6 +117,8 @@ class ErrorReport {
       lines.add('Waktu : $hStr.$minStr');
     }
     if (lokasi.trim().isNotEmpty) lines.add('Lokasi : ${lokasi.trim()}');
+    final effectivePelapor = pelapor.trim().isNotEmpty ? pelapor.trim() : this.pelapor.trim();
+    if (effectivePelapor.isNotEmpty) lines.add('Pelapor : $effectivePelapor');
     if (kendala.trim().isNotEmpty) lines.add('Kendala : ${kendala.trim()}');
     if (penyebab.trim().isNotEmpty) lines.add('Penyebab : ${penyebab.trim()}');
     if (solusiSementara.trim().isNotEmpty) lines.add('Solusi sementara : ${solusiSementara.trim()}');

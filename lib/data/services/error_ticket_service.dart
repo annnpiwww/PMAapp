@@ -8,15 +8,107 @@ import 'google_sheets_service.dart';
 import 'location_service.dart';
 
 extension DailyTaskErrorTicketExt on DailyTaskModel {
-  String get createdBy => teknisiNama;
+  String get createdBy {
+    final pelapor = ErrorReport.parse(deskripsi).pelapor.trim();
+    return pelapor.isNotEmpty ? pelapor : teknisiNama;
+  }
+}
+
+enum ErrorAssignMode {
+  semuaTeknisi,
+  tunjuk,
+  sayaTangani,
 }
 
 class ErrorTicketService {
   static const kategori = 'error';
 
+  /// Buat tiket error berdasarkan mode penugasan SPV.
+  /// - [semuaTeknisi]: dibuat dengan owner = pelapor lalu langsung dilepas ke open list.
+  /// - [tunjuk]: owner = penanggungJawab, peserta = pendamping.
+  /// - [sayaTangani]: owner = pelapor.
+  static Future<DailyTaskModel?> createErrorTicketForMode({
+    required ErrorAssignMode mode,
+    required ErrorReport report,
+    required String original,
+    required String pelapor,
+    required String posName,
+    required String posTag,
+    String penanggungJawab = '',
+    List<String> pendamping = const [],
+  }) async {
+    final now = DateTime.now();
+    final r = report.reportedAt ?? now;
+    final tanggal =
+        '${r.year}-${r.month.toString().padLeft(2, '0')}-${r.day.toString().padLeft(2, '0')}';
+    final judul = report.judul(original);
+    final deskripsi = report.toDeskripsi(original, pelapor: pelapor);
+
+    switch (mode) {
+      case ErrorAssignMode.semuaTeknisi:
+        final created = await DailyTaskService.createTask(
+          tanggal: tanggal,
+          teknisiNama: pelapor.trim(),
+          posName: posName,
+          posTag: posTag,
+          judul: judul,
+          deskripsi: deskripsi,
+          kategori: kategori,
+        );
+        if (created == null) return null;
+        final transferred = await DailyTaskService.transferTask(
+          task: created,
+          keTeknisi: '',
+          alasan: 'Daftar terbuka',
+          olehSiapa: pelapor.trim(),
+        );
+        if (transferred) {
+          final updated = DailyTaskService.getCachedTasksLocally()
+              .where((t) => t.id == created.id)
+              .firstOrNull;
+          return updated ?? created;
+        }
+        return created;
+
+      case ErrorAssignMode.tunjuk:
+        final pesertaClean = pendamping
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .join(', ');
+        return await DailyTaskService.createTask(
+          tanggal: tanggal,
+          teknisiNama: penanggungJawab.trim(),
+          posName: posName,
+          posTag: posTag,
+          judul: judul,
+          deskripsi: deskripsi,
+          kategori: kategori,
+          peserta: pesertaClean,
+        );
+
+      case ErrorAssignMode.sayaTangani:
+        return await DailyTaskService.createTask(
+          tanggal: tanggal,
+          teknisiNama: pelapor.trim(),
+          posName: posName,
+          posTag: posTag,
+          judul: judul,
+          deskripsi: deskripsi,
+          kategori: kategori,
+        );
+    }
+  }
+
+  static List<DailyTaskModel>? _lastServerResult;
+
+  @visibleForTesting
+  static void resetLastServerResultForTesting() {
+    _lastServerResult = null;
+  }
+
   /// Open error tickets for the logged-in branch, newest first, limit 100.
   /// Server: GET `rest/v1/<tasksTable>?kategori=eq.error&status=eq.pending`
-  /// Offline: filter DailyTaskService local cache the same way.
+  /// Offline: return last successful server result if available, else filter DailyTaskService local cache.
   static Future<List<DailyTaskModel>> fetchOpen() async {
     try {
       final uri = Uri.parse('${DailyTaskService.baseUrl}/rest/v1/${DailyTaskService.tasksTable}').replace(
@@ -34,14 +126,19 @@ class ErrorTicketService {
         final List items = decoded is List
             ? decoded
             : ((decoded as Map<String, dynamic>)['items'] as List? ?? []);
-        return items
+        final parsed = items
             .map((e) => DailyTaskModel.fromJson(e as Map<String, dynamic>))
             .toList();
+        _lastServerResult = parsed;
+        return parsed;
       } else {
         debugPrint('[ErrorTicketService] fetchOpen non-200: ${res.statusCode}');
       }
     } catch (e) {
       debugPrint('[ErrorTicketService] fetchOpen error, fallback local: $e');
+    }
+    if (_lastServerResult != null) {
+      return _lastServerResult!;
     }
     return filterOpenTickets(DailyTaskService.getCachedTasksLocally());
   }

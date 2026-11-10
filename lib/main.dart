@@ -14,6 +14,10 @@ import 'data/services/maintenance_log_service.dart';
 import 'data/services/notification_service.dart';
 import 'data/services/location_service.dart';
 import 'data/services/branch_service.dart';
+import 'data/services/error_alarm_service.dart';
+import 'data/services/push_service.dart';
+import 'core/widgets/tiket/error_alarm_overlay.dart';
+import 'features/maintenance/screens/maintenance_map_screen.dart';
 import 'features/splash/screens/splash_screen.dart';
 
 void main() async {
@@ -45,11 +49,23 @@ void main() async {
     GoogleSheetsService.flushPendingQueue(),
     MaintenanceLogService.syncLocal(),
     NotificationService.instance.init(),
+    PushService.init(),
     LocationService.syncFromRemote(),
     BranchService.syncTechniciansFromRemote(),
   ], eagerError: false)
       .then((_) => debugPrint('bg init done'))
       .catchError((Object e, StackTrace st) => debugPrint('bg init error $e\n$st')));
+
+  ErrorAlarmService.instance.start();
+}
+
+Future<void> _openErrorMap() async {
+  await ErrorAlarmService.instance.acknowledge();
+  AuthRepository.navigatorKey.currentState?.push(
+    MaterialPageRoute(
+      builder: (_) => const MaintenanceMapScreen(),
+    ),
+  );
 }
 
 class PmaApp extends StatelessWidget {
@@ -68,6 +84,12 @@ class PmaApp extends StatelessWidget {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: currentMode,
+          builder: (context, child) => ErrorAlarmOverlay(
+            openErrors: ErrorAlarmService.instance.openErrors,
+            ringing: ErrorAlarmService.instance.ringing,
+            onLihat: _openErrorMap,
+            child: child ?? const SizedBox.shrink(),
+          ),
           home: const SplashScreen(),
         );
       },

@@ -98,7 +98,7 @@ export async function handleDailyTasks(
   const table = resolveTasksTableForCabang(session.cabang);
   const action = body.action;
 
-  if (!spv && action !== 'create') {
+  if (!spv && action !== 'create' && action !== 'claim') {
     return json({ error: 'forbidden' }, 403);
   }
 
@@ -296,6 +296,96 @@ export async function handleDailyTasks(
       return json({ ok: true }, 200);
     } catch {
       console.error('daily-tasks delete network error');
+      return json({ error: 'server error' }, 500);
+    }
+  }
+
+  if (action === 'claim') {
+    const id = typeof body.id === 'string' ? body.id.trim() : '';
+    if (!TASK_ID_REGEX.test(id)) {
+      return json({ error: 'invalid id' }, 400);
+    }
+
+    const rowUrl = `${supabaseUrl}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&select=id,status,teknisi_nama,serah_terima,kategori,peserta`;
+    try {
+      const checkRes = await fetchImpl(rowUrl, {
+        method: 'GET',
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+        },
+      });
+
+      if (!checkRes.ok) {
+        console.error(`daily-tasks claim check failed status: ${checkRes.status}`);
+        return json({ error: 'server error' }, 500);
+      }
+
+      const existing = await checkRes.json();
+      if (!Array.isArray(existing) || existing.length === 0) {
+        return json({ error: 'not found' }, 404);
+      }
+
+      const taskRow = existing[0];
+      if (isCompletedStatus(taskRow.status)) {
+        return json({ error: 'completed' }, 409);
+      }
+
+      // Pastikan tiket berada di daftar terbuka (open handover)
+      const serahTerima = typeof taskRow.serah_terima === 'string' ? taskRow.serah_terima : '';
+      const lines = serahTerima.split('\n').filter((l: string) => l.trim().length > 0);
+      let isOpen = false;
+      if (lines.length > 0) {
+        const lastLine = lines[lines.length - 1];
+        const parts = lastLine.split('|');
+        if (parts.length >= 3 && parts[1].trim().length === 0) {
+          isOpen = true;
+        }
+      }
+
+      if (!isOpen) {
+        return json({ error: 'already claimed', claimed_by: taskRow.teknisi_nama || 'teknisi lain' }, 409);
+      }
+
+      const claimant = session.name.trim();
+      const prevDari = (typeof taskRow.teknisi_nama === 'string' && taskRow.teknisi_nama.trim().length > 0)
+        ? taskRow.teknisi_nama.trim()
+        : 'SPV';
+      const n = new Date();
+      const stamp = `${n.getDate().toString().padStart(2, '0')} ${n.toLocaleString('id-ID', { month: 'short' })} ${n.getHours().toString().padStart(2, '0')}:${n.getMinutes().toString().padStart(2, '0')}`;
+      const newEntry = `${prevDari}|${claimant}|Ambil tugas terbuka|${stamp}`;
+      const logBaru = lines.length > 0 ? `${lines.join('\n')}\n${newEntry}` : newEntry;
+
+      const patchUrl = `${supabaseUrl}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&status=eq.pending&serah_terima=eq.${encodeURIComponent(serahTerima)}`;
+      const patchRes = await fetchImpl(patchUrl, {
+        method: 'PATCH',
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify({
+          teknisi_nama: claimant,
+          peserta: '',
+          serah_terima: logBaru,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+
+      if (!patchRes.ok) {
+        console.error(`daily-tasks claim patch failed status: ${patchRes.status}`);
+        return json({ error: 'server error' }, 500);
+      }
+
+      const rows = await patchRes.json();
+      if (Array.isArray(rows) && rows.length === 0) {
+        return json({ error: 'already claimed' }, 409);
+      }
+
+      return json({ ok: true, task: Array.isArray(rows) ? rows[0] : null }, 200);
+    } catch {
+      console.error('daily-tasks claim network error');
       return json({ error: 'server error' }, 500);
     }
   }

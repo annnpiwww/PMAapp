@@ -15,6 +15,34 @@ import '../services/notification_service.dart';
 import 'error_ticket_service.dart';
 import '../../core/utils/web_bytes/web_bytes.dart';
 
+class ClaimTaskResult {
+  final bool success;
+  final bool isTaken;
+  final String? claimedBy;
+  final String? message;
+
+  const ClaimTaskResult({
+    required this.success,
+    this.isTaken = false,
+    this.claimedBy,
+    this.message,
+  });
+
+  bool get ok => success;
+
+  static const ClaimTaskResult successful = ClaimTaskResult(success: true);
+  static const ClaimTaskResult failed = ClaimTaskResult(success: false);
+  static ClaimTaskResult taken(String name) {
+    final clean = name.trim().isEmpty ? 'teknisi lain' : name.trim();
+    return ClaimTaskResult(
+      success: false,
+      isTaken: true,
+      claimedBy: clean,
+      message: 'Tiket sudah diambil $clean',
+    );
+  }
+}
+
 class DailyTaskService {
   static const String _defaultBaseUrl = 'https://sxsjixnnlzhjinzcyhjb.supabase.co';
   static const String _defaultAnonKey =
@@ -34,18 +62,10 @@ class DailyTaskService {
   static bool _isListening = false;
   static String? _activeListeningTeknisi;
   static final Set<String> _knownPendingTaskIds = <String>{};
-  static final Set<String> _knownErrorTicketIds = <String>{};
-  static bool _errorTicketSeeded = false;
 
   @visibleForTesting
   static void resetKnownPendingTaskIdsForTesting() {
     _knownPendingTaskIds.clear();
-  }
-
-  @visibleForTesting
-  static void resetKnownErrorTicketIdsForTesting() {
-    _knownErrorTicketIds.clear();
-    _errorTicketSeeded = false;
   }
 
   @visibleForTesting
@@ -131,43 +151,6 @@ class DailyTaskService {
         }
         _knownPendingTaskIds.addAll(currentPendingIds);
         await StorageService.saveKnownPendingTaskIds(_knownPendingTaskIds);
-      }
-
-      // Polling tiket error baru
-      try {
-        final openTickets = await ErrorTicketService.fetchOpen();
-        final openIds = openTickets.map((t) => t.id).toSet();
-
-        if (_knownErrorTicketIds.isEmpty) {
-          _knownErrorTicketIds.addAll(StorageService.getKnownErrorTicketIds());
-        }
-
-        final cleanListenerName = teknisiNama.trim().toLowerCase();
-
-        if (!_errorTicketSeeded && _knownErrorTicketIds.isEmpty) {
-          _errorTicketSeeded = true;
-          _knownErrorTicketIds.addAll(openIds);
-          await StorageService.saveKnownErrorTicketIds(_knownErrorTicketIds);
-        } else {
-          _errorTicketSeeded = true;
-          for (final ticket in openTickets) {
-            if (!_knownErrorTicketIds.contains(ticket.id)) {
-              _knownErrorTicketIds.add(ticket.id);
-              final creator = ticket.teknisiNama.trim().toLowerCase();
-              if (creator != cleanListenerName) {
-                NotificationService.instance.showErrorTicketNotification(
-                  id: ticket.id,
-                  posName: ticket.posName,
-                  judul: ticket.judul,
-                );
-              }
-            }
-          }
-          _knownErrorTicketIds.addAll(openIds);
-          await StorageService.saveKnownErrorTicketIds(_knownErrorTicketIds);
-        }
-      } catch (e) {
-        debugPrint('[DailyTaskService] _checkNewTasks error ticket polling error: $e');
       }
     } catch (e) {
       debugPrint('[DailyTaskService] _checkNewTasks error: $e');
@@ -322,7 +305,7 @@ class DailyTaskService {
         // jadi query ini sengaja hanya mengambil tugas milik/ikuti teknisi ini.
         final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
           queryParameters: {
-            'and': '(or(status.eq.pending,tanggal.eq.$tanggal),or(${_assignedOrGroup(teknisiNama)}))',
+            'and': '(or(status.eq.pending,tanggal.eq.$tanggal),or(and(kategori.eq.error,status.eq.pending),${_assignedOrGroup(teknisiNama)}))',
             'order': 'created_at.desc',
             'limit': '100',
           },
@@ -344,8 +327,10 @@ class DailyTaskService {
     final localCached = getCachedTasksLocally();
 
     if (!serverSuccess) {
-      // Offline fallback: filter dari cache lokal berdasarkan nama teknisi
+      // Offline fallback: filter dari cache lokal berdasarkan penugasan atau daftar terbuka
       final offlineFiltered = localCached.where((t) {
+        final isRelevantError = t.kategori == 'error' && !t.isCompleted && t.isOpenHandover;
+        if (isRelevantError) return true;
         if (!isAssignedTo(t, teknisiNama)) return false;
         return !t.isCompleted || t.tanggal == tanggal;
       }).toList();
@@ -356,12 +341,16 @@ class DailyTaskService {
       return offlineFiltered;
     }
 
-    final serverFiltered = allTasks.where((t) => isAssignedTo(t, teknisiNama)).toList();
+    final serverFiltered = allTasks.where((t) {
+      if (t.kategori == 'error' && !t.isCompleted && t.isOpenHandover) return true;
+      return isAssignedTo(t, teknisiNama);
+    }).toList();
     final serverIds = serverFiltered.map((t) => t.id).toSet();
     final pendingLocal = localCached.where((t) {
       if (!t.id.startsWith('local_')) return false;
       if (serverIds.contains(t.id)) return false;
-      if (!isAssignedTo(t, teknisiNama)) return false;
+      final isRelevantError = t.kategori == 'error' && !t.isCompleted && t.isOpenHandover;
+      if (!isAssignedTo(t, teknisiNama) && !isRelevantError) return false;
       return !t.isCompleted || t.tanggal == tanggal;
     }).toList();
 
@@ -410,7 +399,9 @@ class DailyTaskService {
     syncedList.sort((a, b) => b.id.compareTo(a.id));
 
     // Cache ke local storage untuk offline access di basement
-    final otherTasks = localCached.where((t) => !isAssignedTo(t, teknisiNama)).toList();
+    final otherTasks = localCached
+        .where((t) => !isAssignedTo(t, teknisiNama) && !(t.kategori == 'error' && !t.isCompleted && t.isOpenHandover))
+        .toList();
     await _cacheTasksLocally([...syncedList, ...otherTasks]);
     debugPrint(
       '[DailyTaskService] getTasksForTeknisi: loaded ${syncedList.length}/${allTasks.length} tasks for "$teknisiNama"',
@@ -946,14 +937,131 @@ class DailyTaskService {
   }
 
   /// Teknisi shift berikutnya mengambil tugas yang dilepas ke daftar terbuka.
-  static Future<bool> claimTask({required DailyTaskModel task, required String olehSiapa}) {
-    return transferTask(
-      task: task,
-      keTeknisi: olehSiapa,
+  static Future<ClaimTaskResult> claimTask({
+    required DailyTaskModel task,
+    required String olehSiapa,
+  }) async {
+    final claimant = olehSiapa.trim();
+    if (claimant.isEmpty) return ClaimTaskResult.failed;
+
+    // Cek cache lokal: jika sudah diambil orang lain
+    final localMatch = getCachedTasksLocally().where((t) => t.id == task.id).firstOrNull;
+    if (localMatch != null &&
+        localMatch.teknisiNama.trim().isNotEmpty &&
+        localMatch.teknisiNama.trim() != task.teknisiNama.trim() &&
+        localMatch.teknisiNama.trim() != claimant &&
+        !localMatch.isOpenHandover) {
+      return ClaimTaskResult.taken(localMatch.teknisiNama);
+    }
+
+    if (task.id.startsWith('local_')) {
+      final ok = await transferTask(
+        task: task,
+        keTeknisi: claimant,
+        alasan: 'Ambil tugas terbuka',
+        olehSiapa: task.handoverDari ?? task.teknisiNama,
+        requirePendingAndOwnerMatch: true,
+      );
+      return ok ? ClaimTaskResult.successful : ClaimTaskResult.failed;
+    }
+
+    // 1. Coba lewat daily-tasks edge function jika online
+    try {
+      final uri = Uri.parse('$baseUrl/functions/v1/daily-tasks');
+      final res = await _post(
+        uri,
+        headers: _functionHeaders,
+        body: jsonEncode({
+          'action': 'claim',
+          'id': task.id,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final decoded = jsonDecode(res.body);
+        final map = (decoded is Map<String, dynamic> && decoded['task'] is Map<String, dynamic>)
+            ? (decoded['task'] as Map<String, dynamic>)
+            : (decoded is Map<String, dynamic> ? decoded : null);
+        if (map != null) {
+          final updated = DailyTaskModel.fromJson(map);
+          await _upsertTaskToLocalCache(updated);
+        }
+        return ClaimTaskResult.successful;
+      }
+
+      if (res.statusCode == 409) {
+        final decoded = jsonDecode(res.body);
+        final claimedBy = (decoded is Map<String, dynamic>)
+            ? (decoded['claimed_by'] as String? ?? 'teknisi lain')
+            : 'teknisi lain';
+        return ClaimTaskResult.taken(claimedBy);
+      }
+    } catch (e) {
+      debugPrint('[DailyTaskService] claimTask via edge function failed: $e. Fallback to direct patch.');
+    }
+
+    // 2. Direct PostgREST patch fallback dengan conditional filter
+    final expectedOwner = task.teknisiNama.trim();
+    final entry = TaskHandover(
+      dari: task.handoverDari ?? expectedOwner,
+      ke: claimant,
       alasan: 'Ambil tugas terbuka',
-      olehSiapa: task.handoverDari ?? task.teknisiNama,
-      requirePendingAndOwnerMatch: true,
+      waktu: _stampSekarang(),
     );
+    final logBaru = task.handoverList.map((e) => e.toLine()).toList()..add(entry.toLine());
+    final updated = task.copyWith(
+      teknisiNama: claimant,
+      peserta: '',
+      serahTerima: logBaru.join('\n'),
+      status: TaskStatus.pending,
+    );
+
+    try {
+      final queryParams = <String, String>{
+        'id': 'eq.${task.id}',
+        'status': 'eq.pending',
+        'teknisi_nama': 'eq.$expectedOwner',
+      };
+      final uri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(queryParameters: queryParams);
+      final res = await _patch(
+        uri,
+        headers: {..._headers, 'Prefer': 'return=representation'},
+        body: jsonEncode({
+          'teknisi_nama': updated.teknisiNama,
+          'peserta': updated.peserta,
+          'serah_terima': updated.serahTerima,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        if (res.body.trim().isNotEmpty) {
+          final decoded = jsonDecode(res.body);
+          if (decoded is List && decoded.isEmpty) {
+            String currentOwner = 'teknisi lain';
+            try {
+              final checkUri = Uri.parse('$baseUrl/rest/v1/$tasksTable').replace(
+                queryParameters: {'id': 'eq.${task.id}', 'select': 'teknisi_nama'},
+              );
+              final checkRes = await _get(checkUri, headers: _getHeaders).timeout(const Duration(seconds: 5));
+              if (checkRes.statusCode == 200) {
+                final checkDecoded = jsonDecode(checkRes.body);
+                if (checkDecoded is List && checkDecoded.isNotEmpty) {
+                  currentOwner = checkDecoded.first['teknisi_nama'] as String? ?? 'teknisi lain';
+                }
+              }
+            } catch (_) {}
+            return ClaimTaskResult.taken(currentOwner);
+          }
+        }
+        await _upsertTaskToLocalCache(updated);
+        return ClaimTaskResult.successful;
+      }
+    } catch (e) {
+      debugPrint('[DailyTaskService] claimTask patch error: $e');
+    }
+
+    return ClaimTaskResult.failed;
   }
 
   /// Hapus tugas harian dari Supabase + cache lokal (khusus SPV).

@@ -80,12 +80,14 @@ void main() {
     final filter = requests.single.url.queryParameters['and']!;
     final group = filter.substring(filter.lastIndexOf('or(') + 3, filter.length - 2);
     for (final part in group.split(',')) {
+      if (part.startsWith('and(kategori.') || part.startsWith('status.eq.')) continue;
       expect(
         part,
         matches(RegExp(r'^(teknisi_nama|peserta)\.ilike\.\*[^,()*:.]+\*$')),
         reason: 'un-sanitized filter segment: $part',
       );
     }
+    expect(filter, contains('and(kategori.eq.error,status.eq.pending)'));
     expect(filter, contains('teknisi_nama.ilike.*Jr*'));
   });
 

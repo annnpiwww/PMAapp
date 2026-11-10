@@ -209,7 +209,7 @@ void main() {
 
       final ok = await DailyTaskService.claimTask(task: terbuka, olehSiapa: 'Budi');
 
-      expect(ok, isTrue);
+      expect(ok.success, isTrue);
       final diambil = DailyTaskService.getCachedTasksLocally()
           .firstWhere((t) => t.id == lokal.id);
       expect(diambil.teknisiNama, equals('Budi'));

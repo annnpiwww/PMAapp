@@ -266,5 +266,36 @@ Lokasi : PBM
       expect(result, startsWith('Selamat pagi\nIzin melaporkan hasil support maintenance Sabtu, 07 November 2026\n'));
       expect(result, contains('- Durasi Perbaikan : 10 jam 15 menit'));
     });
+
+    test('pelapor round trip and old deskripsi without Pelapor defaults to empty string', () {
+      const oldDeskripsi = '''
+Tanggal : 07-11-2026
+Waktu : 05.35
+Lokasi : PBM
+Kendala : Tiket macet
+''';
+      final oldParsed = ErrorReport.parse(oldDeskripsi);
+      expect(oldParsed.pelapor, equals(''));
+
+      final report = ErrorReport(
+        reportedAt: DateTime(2026, 11, 7, 5, 35),
+        lokasi: 'PBM',
+        kendala: 'Tiket macet',
+        pelapor: 'Farhan Lakoro',
+      );
+      final deskripsiWithPelapor = report.toDeskripsi('Original paste text');
+      expect(deskripsiWithPelapor, contains('Lokasi : PBM\nPelapor : Farhan Lakoro\nKendala : Tiket macet'));
+
+      final reloaded = ErrorReport.parse(deskripsiWithPelapor);
+      expect(reloaded.pelapor, equals('Farhan Lakoro'));
+      expect(reloaded.lokasi, equals('PBM'));
+      expect(reloaded.kendala, equals('Tiket macet'));
+
+      // Passing pelapor explicitly in toDeskripsi
+      final customPelaporDeskripsi = report.toDeskripsi('Sample', pelapor: 'Aan Supervisor');
+      expect(customPelaporDeskripsi, contains('Pelapor : Aan Supervisor'));
+      final reloadedCustom = ErrorReport.parse(customPelaporDeskripsi);
+      expect(reloadedCustom.pelapor, equals('Aan Supervisor'));
+    });
   });
 }

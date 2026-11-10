@@ -7,7 +7,6 @@ import 'package:bssparking_timemark/data/models/daily_task_model.dart';
 import 'package:bssparking_timemark/data/services/daily_task_service.dart';
 import 'package:bssparking_timemark/data/services/error_ticket_service.dart';
 import 'package:bssparking_timemark/data/services/location_service.dart';
-import 'package:bssparking_timemark/data/services/notification_service.dart';
 import 'package:bssparking_timemark/data/services/storage_service.dart';
 
 class _FailingHttpClient extends http.BaseClient {
@@ -327,105 +326,49 @@ void main() {
       expect(result.first.id, equals('cached_err_1'));
       expect(result.first.judul, equals('Cached error pending'));
     });
-  });
 
-  group('Notification seeding and error ticket polling in DailyTaskService', () {
-    setUp(() async {
-      SharedPreferences.setMockInitialValues({});
-      await StorageService.init();
-      DailyTaskService.resetKnownPendingTaskIdsForTesting();
-      DailyTaskService.resetKnownErrorTicketIdsForTesting();
-      NotificationService.instance.clearSentErrorTicketNotificationsForTesting();
-    });
-
-    tearDown(() {
-      DailyTaskService.clientOverride = null;
-    });
-
-    test('first poll no notification, second poll with new ticket by another user -> 1 notification, ticket by self -> 0', () async {
-      final initialTicket = {
-        'id': 'err_101',
+    test('fetchOpen prefers last successful server result in memory over local cache on offline fallback', () async {
+      final serverTicket = {
+        'id': 'server_spv_err_1',
         'tanggal': '2026-11-10',
-        'teknisi_id': 'tek_farhan',
-        'teknisi_nama': 'Farhan Lakoro',
+        'teknisi_id': 'spv_1',
+        'teknisi_nama': 'Farhan Lakoro (SPV)',
         'pos_name': 'Pos Barat',
         'pos_tag': 'PB',
-        'judul': 'Printer macet awal',
-        'deskripsi': 'Detail error 1',
+        'judul': 'Server error from SPV',
+        'deskripsi': 'Detail server error',
         'kategori': 'error',
         'status': 'pending',
       };
 
-      // Poll 1: Initial ticket exists. Empty stored set -> seed silently, no notification.
-      DailyTaskService.clientOverride = _SuccessHttpClient(jsonEncode([initialTicket]));
+      // 1. Initial successful server fetch: populates _lastServerResult
+      DailyTaskService.clientOverride = _SuccessHttpClient(jsonEncode([serverTicket]));
+      final onlineResult = await ErrorTicketService.fetchOpen();
+      expect(onlineResult.length, equals(1));
+      expect(onlineResult.first.id, equals('server_spv_err_1'));
 
-      await DailyTaskService.checkNewTasksForTesting('Ryan Lumasuge');
+      // 2. Local cache only has the technician's own cached tasks
+      final technicianOwnCache = [
+        DailyTaskModel(
+          id: 'local_tech_only_1',
+          tanggal: '2026-11-10',
+          teknisiId: 'tek_ryan',
+          teknisiNama: 'Ryan Lumasuge',
+          posName: 'Pos 1',
+          posTag: 'P1',
+          judul: 'Local tech task',
+          kategori: 'error',
+          status: TaskStatus.pending,
+        ),
+      ];
+      await DailyTaskService.cacheTasksLocallyForTesting(technicianOwnCache);
 
-      expect(
-        NotificationService.instance.sentErrorTicketNotificationsForTesting,
-        isEmpty,
-        reason: 'First poll must seed silently without sending notifications',
-      );
-      expect(
-        StorageService.getKnownErrorTicketIds(),
-        contains('err_101'),
-        reason: 'Known error ticket IDs must be persisted to StorageService',
-      );
-
-      // Poll 2: New ticket from another user ('Farhan Lakoro' vs listener 'Ryan Lumasuge') -> 1 notification.
-      final newTicketFromOther = {
-        'id': 'err_102',
-        'tanggal': '2026-11-10',
-        'teknisi_id': 'tek_farhan',
-        'teknisi_nama': 'Farhan Lakoro',
-        'pos_name': 'Gate 2',
-        'pos_tag': 'G2',
-        'judul': 'Barrier gate patah',
-        'deskripsi': 'Detail error 2',
-        'kategori': 'error',
-        'status': 'pending',
-      };
-
-      DailyTaskService.clientOverride = _SuccessHttpClient(
-        jsonEncode([initialTicket, newTicketFromOther]),
-      );
-
-      await DailyTaskService.checkNewTasksForTesting('Ryan Lumasuge');
-
-      final sentList = NotificationService.instance.sentErrorTicketNotificationsForTesting;
-      expect(sentList.length, equals(1));
-      expect(sentList.first['id'], equals('err_102'));
-      expect(sentList.first['posName'], equals('Gate 2'));
-      expect(sentList.first['judul'], equals('Barrier gate patah'));
-      expect(StorageService.getKnownErrorTicketIds(), contains('err_102'));
-
-      // Poll 3: New ticket from self ('Ryan Lumasuge' vs listener 'Ryan Lumasuge') -> 0 new notification.
-      final newTicketFromSelf = {
-        'id': 'err_103',
-        'tanggal': '2026-11-10',
-        'teknisi_id': 'tek_ryan',
-        'teknisi_nama': 'Ryan Lumasuge',
-        'pos_name': 'TBM',
-        'pos_tag': 'TBM',
-        'judul': 'Tiket buatan saya sendiri',
-        'deskripsi': 'Detail error 3',
-        'kategori': 'error',
-        'status': 'pending',
-      };
-
-      DailyTaskService.clientOverride = _SuccessHttpClient(
-        jsonEncode([initialTicket, newTicketFromOther, newTicketFromSelf]),
-      );
-
-      await DailyTaskService.checkNewTasksForTesting('Ryan Lumasuge');
-
-      // Still 1 notification total
-      expect(
-        NotificationService.instance.sentErrorTicketNotificationsForTesting.length,
-        equals(1),
-        reason: 'Ticket created by self must not trigger local notification',
-      );
-      expect(StorageService.getKnownErrorTicketIds(), contains('err_103'));
+      // 3. Network fails -> fallback prefers in-memory _lastServerResult over local technician cache
+      DailyTaskService.clientOverride = _FailingHttpClient();
+      final fallbackResult = await ErrorTicketService.fetchOpen();
+      expect(fallbackResult.length, equals(1));
+      expect(fallbackResult.first.id, equals('server_spv_err_1'));
+      expect(fallbackResult.first.teknisiNama, equals('Farhan Lakoro (SPV)'));
     });
   });
 }

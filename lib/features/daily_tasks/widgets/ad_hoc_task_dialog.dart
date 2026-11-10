@@ -7,6 +7,7 @@ import '../../../core/widgets/tiket/tiket_dropdown_field.dart';
 import '../../../core/widgets/tiket/tiket_picker_dialog.dart';
 import '../../../core/widgets/tiket/tiket_pill.dart';
 import '../../../core/widgets/tiket/tiket_segmented.dart';
+import '../../../data/models/daily_task_model.dart';
 import '../../../data/models/error_report.dart';
 import '../../../data/services/daily_task_service.dart';
 import '../../../data/services/error_ticket_service.dart';
@@ -19,6 +20,19 @@ class AdHocTaskDialog extends StatefulWidget {
   final List<PosLocation> lokasiOptions;
   final PosLocation? lokasiAwal;
   final bool startInErrorMode;
+  final List<String>? teknisiOptions;
+
+  @visibleForTesting
+  static Future<DailyTaskModel?> Function({
+    required ErrorAssignMode mode,
+    required ErrorReport report,
+    required String original,
+    required String pelapor,
+    required String posName,
+    required String posTag,
+    String penanggungJawab,
+    List<String> pendamping,
+  })? createTicketForModeSeam;
 
   const AdHocTaskDialog({
     super.key,
@@ -27,6 +41,7 @@ class AdHocTaskDialog extends StatefulWidget {
     required this.lokasiOptions,
     this.lokasiAwal,
     this.startInErrorMode = false,
+    this.teknisiOptions,
   });
 
   /// Hasil `null` = cancelled, `true` = tugas tersimpan, `false` = gagal simpan.
@@ -37,6 +52,7 @@ class AdHocTaskDialog extends StatefulWidget {
     required List<PosLocation> lokasiOptions,
     PosLocation? lokasiAwal,
     bool startInErrorMode = false,
+    List<String>? teknisiOptions,
   }) {
     return showModalBottomSheet<bool>(
       context: context,
@@ -48,6 +64,7 @@ class AdHocTaskDialog extends StatefulWidget {
         lokasiOptions: lokasiOptions,
         lokasiAwal: lokasiAwal,
         startInErrorMode: startInErrorMode,
+        teknisiOptions: teknisiOptions,
       ),
     );
   }
@@ -70,6 +87,9 @@ class _AdHocTaskDialogState extends State<AdHocTaskDialog> {
   String? _errorJudul;
   String? _inlineError;
   bool _isLokasiPreselected = false;
+  ErrorAssignMode _assignMode = ErrorAssignMode.semuaTeknisi;
+  String? _penanggungJawab;
+  final List<String> _pendamping = [];
 
   @override
   void initState() {
@@ -136,6 +156,60 @@ class _AdHocTaskDialogState extends State<AdHocTaskDialog> {
       setState(() {
         _posId = selected;
         _isLokasiPreselected = false;
+      });
+    }
+  }
+
+  Future<void> _pickPenanggungJawab() async {
+    final options = (widget.teknisiOptions ?? <String>[])
+        .map(
+          (name) => TiketOption<String>(
+            value: name,
+            label: name,
+          ),
+        )
+        .toList();
+
+    final selected = await showTiketPickerDialog<String>(
+      context: context,
+      title: 'Pilih Penanggung Jawab',
+      options: options,
+      selected: _penanggungJawab,
+    );
+
+    if (selected != null) {
+      setState(() {
+        _penanggungJawab = selected;
+        _pendamping.remove(selected);
+      });
+    }
+  }
+
+  Future<void> _pickPendamping() async {
+    final available = (widget.teknisiOptions ?? <String>[])
+        .where((name) => name != _penanggungJawab && !_pendamping.contains(name))
+        .toList();
+
+    if (available.isEmpty) return;
+
+    final options = available
+        .map(
+          (name) => TiketOption<String>(
+            value: name,
+            label: name,
+          ),
+        )
+        .toList();
+
+    final selected = await showTiketPickerDialog<String>(
+      context: context,
+      title: 'Pilih Pendamping',
+      options: options,
+    );
+
+    if (selected != null) {
+      setState(() {
+        _pendamping.add(selected);
       });
     }
   }
@@ -214,17 +288,45 @@ class _AdHocTaskDialogState extends State<AdHocTaskDialog> {
     final lokasi = widget.lokasiOptions.where((p) => p.posId == _posId).firstOrNull;
     if (lokasi == null) return;
 
+    if (widget.teknisiOptions != null &&
+        _assignMode == ErrorAssignMode.tunjuk &&
+        (_penanggungJawab == null || _penanggungJawab!.isEmpty)) {
+      return;
+    }
+
     setState(() => _saving = true);
     try {
-      final task = await DailyTaskService.createTask(
-        tanggal: widget.tanggal,
-        teknisiNama: widget.teknisiNama,
-        posName: lokasi.posName,
-        posTag: lokasi.locationTag,
-        judul: _errorJudul ?? _errorReport!.judul(_pastedText!),
-        deskripsi: _errorReport!.toDeskripsi(_pastedText!),
-        kategori: ErrorTicketService.kategori,
-      );
+      final task = widget.teknisiOptions != null
+          ? (AdHocTaskDialog.createTicketForModeSeam != null
+              ? await AdHocTaskDialog.createTicketForModeSeam!(
+                  mode: _assignMode,
+                  report: _errorReport!,
+                  original: _pastedText!,
+                  pelapor: widget.teknisiNama,
+                  posName: lokasi.posName,
+                  posTag: lokasi.locationTag,
+                  penanggungJawab: _penanggungJawab ?? '',
+                  pendamping: _pendamping,
+                )
+              : await ErrorTicketService.createErrorTicketForMode(
+                  mode: _assignMode,
+                  report: _errorReport!,
+                  original: _pastedText!,
+                  pelapor: widget.teknisiNama,
+                  posName: lokasi.posName,
+                  posTag: lokasi.locationTag,
+                  penanggungJawab: _penanggungJawab ?? '',
+                  pendamping: _pendamping,
+                ))
+          : await DailyTaskService.createTask(
+              tanggal: widget.tanggal,
+              teknisiNama: widget.teknisiNama,
+              posName: lokasi.posName,
+              posTag: lokasi.locationTag,
+              judul: _errorJudul ?? _errorReport!.judul(_pastedText!),
+              deskripsi: _errorReport!.toDeskripsi(_pastedText!),
+              kategori: ErrorTicketService.kategori,
+            );
       if (!mounted) return;
       Navigator.pop(context, task != null);
     } catch (_) {
@@ -459,6 +561,7 @@ class _AdHocTaskDialogState extends State<AdHocTaskDialog> {
             ),
           ],
           const SizedBox(height: 16.0),
+          _buildAssignSection(colors),
         ],
       );
     }
@@ -588,6 +691,7 @@ class _AdHocTaskDialogState extends State<AdHocTaskDialog> {
           ),
         ],
         const SizedBox(height: 16.0),
+        _buildAssignSection(colors),
       ],
     );
   }
@@ -722,6 +826,114 @@ class _AdHocTaskDialogState extends State<AdHocTaskDialog> {
     );
   }
 
+  Widget _buildAssignSection(TiketColors colors) {
+    if (widget.teknisiOptions == null) {
+      return const SizedBox.shrink();
+    }
+
+    final String helperText;
+    switch (_assignMode) {
+      case ErrorAssignMode.semuaTeknisi:
+        helperText = 'Masuk tugas terbuka. Teknisi pertama yang ambil, dia yang kerjakan.';
+        break;
+      case ErrorAssignMode.sayaTangani:
+        helperText = 'Kamu yang kerjakan dari Daily Task.';
+        break;
+      case ErrorAssignMode.tunjuk:
+        helperText = '';
+        break;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'SIAPA YANG SELESAIKAN',
+          style: TextStyle(
+            fontFamily: TiketType.fontFamily,
+            fontSize: 12.0,
+            fontWeight: FontWeight.w600,
+            color: colors.body,
+          ),
+        ),
+        const SizedBox(height: 8.0),
+        TiketSegmented<ErrorAssignMode>(
+          options: const [
+            (ErrorAssignMode.semuaTeknisi, 'Semua teknisi'),
+            (ErrorAssignMode.tunjuk, 'Tunjuk'),
+            (ErrorAssignMode.sayaTangani, 'Saya'),
+          ],
+          selected: _assignMode,
+          onChanged: (mode) => setState(() => _assignMode = mode),
+        ),
+        if (helperText.isNotEmpty) ...[
+          const SizedBox(height: 6.0),
+          Text(
+            helperText,
+            style: TextStyle(
+              fontFamily: TiketType.fontFamily,
+              fontSize: 13.0,
+              fontWeight: FontWeight.w400,
+              color: colors.body,
+            ),
+          ),
+        ],
+        if (_assignMode == ErrorAssignMode.tunjuk) ...[
+          const SizedBox(height: 12.0),
+          TiketDropdownField(
+            label: 'Penanggung jawab',
+            value: _penanggungJawab ?? 'Pilih penanggung jawab',
+            onTap: _saving ? () {} : _pickPenanggungJawab,
+          ),
+          const SizedBox(height: 12.0),
+          Text(
+            'Pendamping (opsional)',
+            style: TextStyle(
+              fontFamily: TiketType.fontFamily,
+              fontSize: 12.0,
+              fontWeight: FontWeight.w500,
+              color: colors.body,
+            ),
+          ),
+          const SizedBox(height: 8.0),
+          Wrap(
+            spacing: 8.0,
+            runSpacing: 6.0,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (final name in _pendamping)
+                InputChip(
+                  label: Text(
+                    name,
+                    style: TextStyle(
+                      fontFamily: TiketType.fontFamily,
+                      fontSize: 13.0,
+                      color: colors.ink,
+                    ),
+                  ),
+                  backgroundColor: colors.soft,
+                  deleteIcon: Icon(Icons.close_rounded, size: 16.0, color: colors.body),
+                  onDeleted: _saving ? null : () => setState(() => _pendamping.remove(name)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16.0),
+                    side: BorderSide(color: colors.hairline),
+                  ),
+                ),
+              TiketPill(
+                label: 'Tambah pendamping',
+                icon: Icons.add_rounded,
+                kind: TiketPillKind.secondary,
+                height: 36.0,
+                onPressed: _saving ? null : _pickPendamping,
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 16.0),
+      ],
+    );
+  }
+
   Widget _buildBottomBar(TiketColors colors) {
     if (_mode == 'kerjaan') {
       return TiketBottomBar(
@@ -752,17 +964,47 @@ class _AdHocTaskDialogState extends State<AdHocTaskDialog> {
 
     // State B: pasted
     final hasLokasi = _posId != null && widget.lokasiOptions.any((p) => p.posId == _posId);
+    final isSpv = widget.teknisiOptions != null;
+    final isTunjukMissingPj = isSpv &&
+        _assignMode == ErrorAssignMode.tunjuk &&
+        (_penanggungJawab == null || _penanggungJawab!.isEmpty);
+
+    final String helperText;
+    final bool canSave;
+
+    if (!hasLokasi) {
+      helperText = 'Pilih lokasi dulu.';
+      canSave = false;
+    } else if (isTunjukMissingPj) {
+      helperText = 'Pilih penanggung jawab dulu';
+      canSave = false;
+    } else {
+      canSave = true;
+      if (isSpv) {
+        switch (_assignMode) {
+          case ErrorAssignMode.semuaTeknisi:
+            helperText = 'Masuk tugas terbuka. Tim cabang dapat notifikasi.';
+            break;
+          case ErrorAssignMode.tunjuk:
+            helperText = 'Ditugaskan ke $_penanggungJawab. Tim cabang dapat notifikasi.';
+            break;
+          case ErrorAssignMode.sayaTangani:
+            helperText = 'Masuk Daily Task kamu. Tim cabang dapat notifikasi.';
+            break;
+        }
+      } else {
+        helperText = 'Masuk Daily Task kamu. Tim cabang dapat notifikasi.';
+      }
+    }
 
     return TiketBottomBar(
-      helper: hasLokasi
-          ? 'Masuk Daily Task kamu. Tim cabang dapat notifikasi.'
-          : 'Pilih lokasi dulu.',
+      helper: helperText,
       primary: TiketPill(
         label: _saving ? 'Menyimpan...' : 'Kirim Laporan Error',
-        kind: (hasLokasi && !_saving) ? TiketPillKind.primary : TiketPillKind.disabled,
+        kind: (canSave && !_saving) ? TiketPillKind.primary : TiketPillKind.disabled,
         expand: true,
         height: 48.0,
-        onPressed: (hasLokasi && !_saving) ? _simpanError : null,
+        onPressed: (canSave && !_saving) ? _simpanError : null,
       ),
     );
   }
