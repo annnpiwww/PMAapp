@@ -87,23 +87,17 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
           ),
         ),
         actions: [
-          TextButton(
+          TiketPill(
+            label: 'Batal',
+            kind: TiketPillKind.secondary,
+            height: 40,
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(
-              'Batal',
-              style: TextStyle(
-                color: colors.body,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colors.danger,
-              foregroundColor: Colors.white,
-            ),
+          TiketPill(
+            label: 'Hapus',
+            kind: TiketPillKind.primary,
+            height: 40,
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Hapus'),
           ),
         ],
       ),
@@ -348,18 +342,19 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
                       style: type.status(color: colors.signalText),
                     ),
                     const SizedBox(height: 10.0),
-                    Wrap(
-                      spacing: 8.0,
-                      runSpacing: 8.0,
+                    Row(
                       children: [
-                        TiketPill(
-                          label: 'Lanjutkan Draft',
-                          kind: TiketPillKind.primary,
-                          onPressed: () => _resumeDraft(s),
-                        ),
                         _DangerOutlinePill(
-                          label: 'Hapus Draft',
+                          label: 'Hapus draf',
+                          height: 36,
                           onPressed: () => _deleteSubmission(s.id),
+                        ),
+                        const Spacer(),
+                        TiketPill(
+                          label: 'Lanjutkan draf',
+                          kind: TiketPillKind.primary,
+                          height: 36,
+                          onPressed: () => _resumeDraft(s),
                         ),
                       ],
                     ),
@@ -428,8 +423,9 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
               ),
               const SizedBox(width: 8.0),
               TiketPill(
-                label: 'Lihat Detail',
+                label: 'Lihat detail',
                 kind: TiketPillKind.secondary,
+                height: 36,
                 onPressed: () => _openDetailSheet(s),
               ),
             ],
@@ -451,34 +447,54 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
 class _DangerOutlinePill extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
+  final double height;
 
   const _DangerOutlinePill({
     required this.label,
     this.onPressed,
+    this.height = 36.0,
   });
 
   @override
   Widget build(BuildContext context) {
     final colors = TiketColors.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 48.0, minWidth: 48.0),
-      child: Center(
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            side: BorderSide(color: colors.danger, width: 1.5),
-            foregroundColor: colors.danger,
-            shape: const StadiumBorder(),
-            minimumSize: const Size(0, 44.0),
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: TiketType.fontFamily,
-              fontSize: 14.0,
-              fontWeight: FontWeight.w600,
-              color: colors.danger,
+    return Semantics(
+      button: true,
+      enabled: onPressed != null,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onPressed,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 48.0, minHeight: 48.0),
+          child: Align(
+            alignment: Alignment.center,
+            widthFactor: 1.0,
+            child: SizedBox(
+              height: height,
+              child: Material(
+                color: Colors.transparent,
+                shape: StadiumBorder(side: BorderSide(color: colors.danger, width: 1.0)),
+                child: InkWell(
+                  customBorder: const StadiumBorder(),
+                  onTap: onPressed,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14.0),
+                    child: Center(
+                      widthFactor: 1.0,
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 13.0,
+                          fontWeight: FontWeight.w600,
+                          color: colors.danger,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -711,23 +727,12 @@ class _MaintenanceDetailModal extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: const Color(0xFFDCFCE7),
-                          side: const BorderSide(color: Color(0xFF86EFAC), width: 1.2),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        icon: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 16),
-                        label: const Text(
-                          'Share WhatsApp',
-                          style: TextStyle(
-                            fontFamily: 'Figtree',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11.5,
-                            color: Color(0xFF15803D),
-                          ),
-                        ),
+                      child: TiketPill(
+                        label: 'Bagikan ke WhatsApp',
+                        icon: Icons.chat_rounded,
+                        kind: TiketPillKind.secondary,
+                        height: 36,
+                        expand: true,
                         onPressed: () async {
                           await WhatsAppReportService.shareToWhatsApp(
                             submission: submission,
@@ -747,23 +752,12 @@ class _MaintenanceDetailModal extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE0F2FE),
-                          side: const BorderSide(color: Color(0xFF7DD3FC), width: 1.2),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        icon: const Icon(Icons.send_rounded, color: Color(0xFF0088CC), size: 16),
-                        label: const Text(
-                          'Share Telegram',
-                          style: TextStyle(
-                            fontFamily: 'Figtree',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11.5,
-                            color: Color(0xFF0E6BA8),
-                          ),
-                        ),
+                      child: TiketPill(
+                        label: 'Bagikan ke Telegram',
+                        icon: Icons.send_rounded,
+                        kind: TiketPillKind.secondary,
+                        height: 36,
+                        expand: true,
                         onPressed: () async {
                           await WhatsAppReportService.shareToTelegram(
                             submission: submission,

@@ -95,6 +95,7 @@ class CameraDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    precacheImage(const AssetImage('foto/bssfotologo_transparent.png'), context);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: ThemeService.themeModeNotifier,
       builder: (context, currentMode, _) {

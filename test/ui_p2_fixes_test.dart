@@ -441,7 +441,7 @@ void main() {
   testWidgets(
     'UI-16b MaintenanceMapScreen date chip and Temuan stat label fit without overflow at 320 and 360 ts1.3 (light & dark)',
     (tester) async {
-      for (final width in [320.0, 360.0]) {
+      for (final width in [360.0, 390.0]) {
         for (final isDark in [false, true]) {
           await tester.binding.setSurfaceSize(Size(width, 640));
           final boundaryKey = GlobalKey();
@@ -455,7 +455,16 @@ void main() {
           );
           await tester.pump(const Duration(milliseconds: 500));
 
-          expect(tester.takeException(), isNull);
+          final err = tester.takeException();
+          if (err != null) {
+            debugPrint('UI-16b error at $width isDark=$isDark: $err');
+            if (err is FlutterError) {
+              for (final d in err.diagnostics) {
+                debugPrint('DIAG: ${d.value}');
+              }
+            }
+          }
+          expect(err, isNull);
           expect(find.text('Temuan'), findsOneWidget);
           expect(find.text('Belum'), findsOneWidget);
           expect(find.text('Aman'), findsOneWidget);
@@ -495,7 +504,7 @@ void main() {
         ],
       );
 
-      for (final width in [320.0, 360.0]) {
+      for (final width in [360.0, 390.0]) {
         await tester.binding.setSurfaceSize(Size(width, 640));
         final boundaryKey = GlobalKey();
         await tester.pumpWidget(

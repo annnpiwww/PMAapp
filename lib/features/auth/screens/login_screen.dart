@@ -65,6 +65,12 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _errorMessage;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    precacheImage(const AssetImage('foto/splash_logo.png'), context);
+  }
+
+  @override
   void dispose() {
     _identityCtrl.dispose();
     _passwordCtrl.dispose();

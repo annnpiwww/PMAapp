@@ -1414,62 +1414,37 @@ class _MaintenanceChecklistScreenState
                                         Row(
                                           children: [
                                             Expanded(
-                                              child: SizedBox(
-                                                height: 48,
-                                                child: OutlinedButton(
-                                                  onPressed: () => Navigator.pop(dlgCtx),
-                                                  style: OutlinedButton.styleFrom(
-                                                    shape: const StadiumBorder(),
-                                                    side: BorderSide(color: colors.hairline),
-                                                    foregroundColor: colors.body,
-                                                  ),
-                                                  child: const Text(
-                                                    'Batal',
-                                                    style: TextStyle(
-                                                      fontFamily: TiketType.fontFamily,
-                                                      fontSize: 14,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ),
+                                              child: TiketPill(
+                                                label: 'Batal',
+                                                kind: TiketPillKind.secondary,
+                                                height: 40,
+                                                expand: true,
+                                                onPressed: () => Navigator.pop(dlgCtx),
                                               ),
                                             ),
                                             const SizedBox(width: 8),
                                             Expanded(
-                                              child: SizedBox(
-                                                height: 48,
-                                                child: ElevatedButton(
-                                                  onPressed: () {
-                                                    final updated = result.copyWith(
-                                                      alasan: noteController.text.trim(),
-                                                    );
-                                                    final idx = _submission.points.indexWhere(
-                                                      (p) => p.pointId == point.id,
-                                                    );
-                                                    if (idx >= 0) {
-                                                      setState(() {
-                                                        _submission.points[idx] = updated;
-                                                      });
-                                                      _save();
-                                                    }
-                                                    Navigator.pop(dlgCtx);
-                                                    Navigator.pop(ctx);
-                                                  },
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor: colors.primary,
-                                                    foregroundColor: colors.onPrimary,
-                                                    elevation: 0,
-                                                    shape: const StadiumBorder(),
-                                                  ),
-                                                  child: const Text(
-                                                    'Simpan Catatan',
-                                                    style: TextStyle(
-                                                      fontFamily: TiketType.fontFamily,
-                                                      fontSize: 14,
-                                                      fontWeight: FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
+                                              child: TiketPill(
+                                                label: 'Simpan & keluar',
+                                                kind: TiketPillKind.primary,
+                                                height: 40,
+                                                expand: true,
+                                                onPressed: () {
+                                                  final updated = result.copyWith(
+                                                    alasan: noteController.text.trim(),
+                                                  );
+                                                  final idx = _submission.points.indexWhere(
+                                                    (p) => p.pointId == point.id,
+                                                  );
+                                                  if (idx >= 0) {
+                                                    setState(() {
+                                                      _submission.points[idx] = updated;
+                                                    });
+                                                    _save();
+                                                  }
+                                                  Navigator.pop(dlgCtx);
+                                                  Navigator.pop(ctx);
+                                                },
                                               ),
                                             ),
                                           ],
@@ -1544,47 +1519,22 @@ class _MaintenanceChecklistScreenState
                                           Row(
                                             children: [
                                               Expanded(
-                                                child: SizedBox(
-                                                  height: 48,
-                                                  child: OutlinedButton(
-                                                    onPressed: () => Navigator.pop(dlgCtx, false),
-                                                    style: OutlinedButton.styleFrom(
-                                                      shape: const StadiumBorder(),
-                                                      side: BorderSide(color: colors.hairline),
-                                                      foregroundColor: colors.body,
-                                                    ),
-                                                    child: const Text(
-                                                      'Batal',
-                                                      style: TextStyle(
-                                                        fontFamily: TiketType.fontFamily,
-                                                        fontSize: 14,
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
+                                                child: TiketPill(
+                                                  label: 'Batal',
+                                                  kind: TiketPillKind.secondary,
+                                                  height: 40,
+                                                  expand: true,
+                                                  onPressed: () => Navigator.pop(dlgCtx, false),
                                                 ),
                                               ),
                                               const SizedBox(width: 8),
                                               Expanded(
-                                                child: SizedBox(
-                                                  height: 48,
-                                                  child: ElevatedButton(
-                                                    onPressed: () => Navigator.pop(dlgCtx, true),
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: colors.primary,
-                                                      foregroundColor: colors.onPrimary,
-                                                      elevation: 0,
-                                                      shape: const StadiumBorder(),
-                                                    ),
-                                                    child: const Text(
-                                                      'Ya, Tidak Terpasang',
-                                                      style: TextStyle(
-                                                        fontFamily: TiketType.fontFamily,
-                                                        fontSize: 13,
-                                                        fontWeight: FontWeight.w700,
-                                                      ),
-                                                    ),
-                                                  ),
+                                                child: TiketPill(
+                                                  label: 'Reset semua',
+                                                  kind: TiketPillKind.primary,
+                                                  height: 40,
+                                                  expand: true,
+                                                  onPressed: () => Navigator.pop(dlgCtx, true),
                                                 ),
                                               ),
                                             ],
@@ -1852,9 +1802,9 @@ class _MaintenanceChecklistScreenState
                         children: [
                           Expanded(
                             child: TiketPill(
-                              label: isExisting ? 'Hapus Kendala' : 'Batal',
+                              label: isExisting ? 'Hapus kendala' : 'Batal',
                               kind: TiketPillKind.secondary,
-                              height: 48,
+                              height: 40,
                               expand: true,
                               onPressed: () {
                                 if (isExisting) {
@@ -1876,9 +1826,9 @@ class _MaintenanceChecklistScreenState
                           const SizedBox(width: 12),
                           Expanded(
                             child: TiketPill(
-                              label: 'Simpan Kendala',
+                              label: 'Simpan kendala',
                               kind: TiketPillKind.primary,
-                              height: 48,
+                              height: 40,
                               expand: true,
                               onPressed: () {
                                 final finalReason = (selectedReason == quickReasons.last)

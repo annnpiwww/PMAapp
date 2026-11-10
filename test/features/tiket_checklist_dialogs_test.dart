@@ -47,6 +47,9 @@ Future<void> _saveBoundaryAsPng(
   GlobalKey key,
   String path,
 ) async {
+  if (!path.startsWith('docs/screenshots/button-audit/coder2/')) {
+    return;
+  }
   final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
   if (boundary == null) throw Exception('RenderRepaintBoundary not found for $path');
 
@@ -246,12 +249,17 @@ void main() {
       expect(find.text('Karat / Korosi Permanen (Butuh Cat / Semprot Karat)'), findsOneWidget);
       expect(find.text('Kabel / Pipa Tertanam Rusak (Butuh Rekondisi)'), findsOneWidget);
       expect(find.text('Lainnya (Tuliskan Keterangan Khusus)'), findsOneWidget);
-      expect(find.text('Simpan Kendala'), findsOneWidget);
+      expect(find.text('Simpan kendala'), findsOneWidget);
 
       await _saveBoundaryAsPng(
         tester,
         key,
         'docs/screenshots/tiket-checklist-dialogs/light-390-26-kendala-fisik.png',
+      );
+      await _saveBoundaryAsPng(
+        tester,
+        key,
+        'docs/screenshots/button-audit/coder2/light-390-maintenance-checklist.png',
       );
       await _saveBoundaryAsPng(
         tester,
@@ -315,7 +323,7 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('Tandai Kendala Fisik'), findsOneWidget);
       expect(find.text('Pilih jenis kendala'), findsOneWidget);
-      expect(find.text('Simpan Kendala'), findsOneWidget);
+      expect(find.text('Simpan kendala'), findsOneWidget);
 
       await _saveBoundaryAsPng(
         tester,

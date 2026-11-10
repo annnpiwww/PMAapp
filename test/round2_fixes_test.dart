@@ -472,7 +472,12 @@ void main() {
     test('claimTask sends status=eq.pending & teknisi_nama filter and returns false when 0 rows updated', () async {
       Uri? capturedUri;
       DailyTaskService.clientOverride = MockClient((req) async {
-        capturedUri = req.url;
+        if (req.url.path.contains('daily-tasks')) {
+          return http.Response('{"error":"not_found"}', 404);
+        }
+        if (req.method == 'PATCH') {
+          capturedUri = req.url;
+        }
         return http.Response('[]', 200);
       });
 
@@ -494,7 +499,7 @@ void main() {
         olehSiapa: 'Teknisi Baru',
       );
 
-      expect(claimed, isFalse);
+      expect(claimed.success, isFalse);
       expect(capturedUri, isNotNull);
       expect(capturedUri!.queryParameters['id'], 'eq.task_open_1');
       expect(capturedUri!.queryParameters['status'], 'eq.pending');

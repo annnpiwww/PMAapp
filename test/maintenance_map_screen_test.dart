@@ -798,6 +798,42 @@ void main() {
     );
 
     testWidgets(
+      'top band with long wilayah name does not overflow at 360dp width with textScaler 1.3',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: Size(360, 780),
+                textScaler: TextScaler.linear(1.3),
+              ),
+              child: MaintenanceMapScreen(
+                initialWilayah: 'Manado Utara Bitung',
+              ),
+            ),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Manado Utara Bitung'), findsOneWidget);
+        expect(find.byIcon(Icons.place_outlined), findsOneWidget);
+        expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.calendar_today_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
+      },
+    );
+
+    testWidgets(
       'MaintenanceBelumRow and MaintenanceTemuanRow do not overflow at textScaler 1.3 on 360dp width',
       (tester) async {
         const loc = PosLocation(

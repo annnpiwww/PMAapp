@@ -54,6 +54,8 @@ Future<void> captureScreen(
   double textScale = 1.0,
   String folder = 'before',
   double pixelRatio = 1.0,
+  String? customFileName,
+  Future<void> Function(WidgetTester t)? onPumped,
 }) async {
   await loadAppFonts();
 
@@ -92,10 +94,12 @@ Future<void> captureScreen(
   );
 
   await t.pump();
-  try {
-    await t.pumpAndSettle(const Duration(milliseconds: 100)).timeout(const Duration(seconds: 2));
-  } catch (_) {
-    await t.pump(const Duration(milliseconds: 200));
+  await t.pump(const Duration(milliseconds: 300));
+
+  if (onPumped != null) {
+    await onPumped(t);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
   }
 
   final boundary = boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
@@ -116,7 +120,8 @@ Future<void> captureScreen(
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
     }
-    final file = File('docs/screenshots/$folder/$name-$w-$themeStr.png');
+    final fileName = customFileName ?? '$name-$w-$themeStr.png';
+    final file = File('docs/screenshots/$folder/$fileName');
     await file.writeAsBytes(buffer);
     debugPrint('Saved screenshot: ${file.path} (${image.width}x${image.height})');
   });

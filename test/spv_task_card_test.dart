@@ -184,7 +184,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Alihkan'), findsOneWidget);
-      expect(find.text('Belum Mulai'), findsOneWidget);
+      expect(find.text('Belum mulai'), findsOneWidget);
     });
 
     testWidgets('(e) done with 2 photos + jamSelesai 09:49 -> Bukti (2) and Selesai', (tester) async {
@@ -283,23 +283,39 @@ void main() {
       expect(size.height >= 44.0, isTrue, reason: 'Kebab height was ${size.height}');
     });
 
-    testWidgets('pending card with onHandover renders status pill and Alihkan in the same row with compact width', (tester) async {
+    testWidgets('pending card with onHandover renders status pill and Alihkan in the same row with compact width and right edge alignment', (tester) async {
       final task = createBaseTask(status: TaskStatus.pending);
       await tester.pumpWidget(
         buildTestCard(
           task: task,
           onHandover: () {},
+          onDelete: () {},
         ),
       );
       await tester.pumpAndSettle();
 
-      final statusCenter = tester.getCenter(find.text('Belum Mulai'));
+      final statusCenter = tester.getCenter(find.text('Belum mulai'));
       final alihkanCenter = tester.getCenter(find.text('Alihkan'));
       expect((statusCenter.dy - alihkanCenter.dy).abs() <= 4.0, isTrue);
 
       final cardWidth = tester.getSize(find.byType(SpvTaskCard)).width;
-      final alihkanWidth = tester.getSize(find.ancestor(of: find.text('Alihkan'), matching: find.byType(ConstrainedBox)).first).width;
+      final alihkanTarget = find.ancestor(of: find.text('Alihkan'), matching: find.byType(ConstrainedBox)).first;
+      final alihkanWidth = tester.getSize(alihkanTarget).width;
       expect(alihkanWidth < cardWidth * 0.5, isTrue);
+
+      // Alihkan visual height <= 36
+      final alihkanMaterial = find.ancestor(of: find.text('Alihkan'), matching: find.byType(Material)).first;
+      final visualHeight = tester.getSize(alihkanMaterial).height;
+      expect(visualHeight <= 36.0, isTrue, reason: 'Alihkan visual height was $visualHeight');
+
+      // Alihkan hit target >= 48
+      final hitHeight = tester.getSize(alihkanTarget).height;
+      expect(hitHeight >= 48.0, isTrue, reason: 'Alihkan hit height was $hitHeight');
+
+      // Alihkan right edge matches kebab menu right edge
+      final kebabRight = tester.getTopRight(find.byTooltip('Pilihan menu tugas')).dx;
+      final alihkanRight = tester.getTopRight(alihkanTarget).dx;
+      expect((kebabRight - alihkanRight).abs() <= 1.0, isTrue, reason: 'Kebab right $kebabRight vs Alihkan right $alihkanRight');
     });
 
     testWidgets('posName PPM renders in meta line with kategori', (tester) async {
@@ -323,7 +339,7 @@ void main() {
       final alihkanTarget = tester.getSize(
         find.ancestor(of: find.text('Alihkan'), matching: find.byType(ConstrainedBox)).first,
       );
-      expect(alihkanTarget.height >= 44.0, isTrue);
+      expect(alihkanTarget.height >= 48.0, isTrue);
 
       final doneTask = createBaseTask(
         status: TaskStatus.completed,
@@ -336,7 +352,12 @@ void main() {
       final buktiTarget = tester.getSize(
         find.ancestor(of: find.text('Bukti (1)'), matching: find.byType(ConstrainedBox)).first,
       );
-      expect(buktiTarget.height >= 44.0, isTrue);
+      expect(buktiTarget.height >= 48.0, isTrue);
+
+      final buktiMaterial = tester.getSize(
+        find.ancestor(of: find.text('Bukti (1)'), matching: find.byType(Material)).first,
+      );
+      expect(buktiMaterial.height <= 36.0, isTrue);
     });
 
     testWidgets('pending card with 1-line title and no deskripsi has height <= 160dp', (tester) async {

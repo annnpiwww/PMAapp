@@ -236,9 +236,9 @@ void main() {
 
           expect(tester.takeException(), isNull);
           expect(find.text('tugas selesai'), findsWidgets);
-          expect(find.text('Lihat Bukti'), findsOneWidget);
+          expect(find.text('Lihat bukti'), findsOneWidget);
           expect(find.text('Lanjutkan'), findsOneWidget);
-          expect(find.text('Belum Selesai'), findsWidgets);
+          expect(find.text('Belum selesai'), findsWidgets);
         });
       }
     }

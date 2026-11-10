@@ -59,6 +59,9 @@ Future<void> _saveBoundaryAsPng(
   GlobalKey key,
   String path,
 ) async {
+  if (!path.startsWith('docs/screenshots/button-audit/coder2/')) {
+    return;
+  }
   final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
   if (boundary == null) throw Exception('RenderRepaintBoundary not found for $path');
 
@@ -323,15 +326,15 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('Riwayat Maintenance'), findsOneWidget);
-      expect(find.text('Lanjutkan Draft'), findsOneWidget);
-      expect(find.text('Hapus Draft'), findsOneWidget);
+      expect(find.text('Lanjutkan draf'), findsOneWidget);
+      expect(find.text('Hapus draf'), findsOneWidget);
 
       // Test Selesai Tab
       await tester.tap(find.textContaining('Selesai 100%'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('Lihat Detail'), findsOneWidget);
+      expect(find.text('Lihat detail'), findsOneWidget);
     });
 
     testWidgets('GalleryScreen renders folder view and action pills', (tester) async {
@@ -482,6 +485,14 @@ void main() {
         width: 390,
         height: 844,
         outputPath: 'docs/screenshots/tiket-history/light-390-riwayat-draft.png',
+      );
+      await _captureScreen(
+        tester: tester,
+        screen: const MaintenanceHistoryScreen(initialTabIndex: 0),
+        brightness: Brightness.light,
+        width: 390,
+        height: 844,
+        outputPath: 'docs/screenshots/button-audit/coder2/light-390-maintenance-history.png',
       );
     });
 

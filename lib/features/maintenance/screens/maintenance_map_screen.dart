@@ -117,6 +117,7 @@ class MaintenanceMapScreen extends StatefulWidget {
   final MapController? mapController;
   final bool showTileLayer;
   final Set<String>? initialErrorPosNames;
+  final String? initialWilayah;
 
   const MaintenanceMapScreen({
     super.key,
@@ -124,6 +125,7 @@ class MaintenanceMapScreen extends StatefulWidget {
     this.mapController,
     this.showTileLayer = true,
     this.initialErrorPosNames,
+    this.initialWilayah,
   });
 
   @visibleForTesting
@@ -370,6 +372,13 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen>
 
   List<PosMaintenanceStatus> _allStatuses = [];
   String _selectedWilayah = 'Semua';
+  @visibleForTesting
+  String get selectedWilayah => _selectedWilayah;
+  @visibleForTesting
+  set selectedWilayah(String value) {
+    _selectedWilayah = value;
+    if (mounted) setState(() {});
+  }
   int? _selectedStatusRank;
   String? _selectedPosId;
   @visibleForTesting
@@ -397,6 +406,9 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.initialWilayah != null) {
+      _selectedWilayah = widget.initialWilayah!;
+    }
     _branch = BranchService.instance.currentBranch;
     _radarAnimationController = AnimationController(
       vsync: this,
@@ -834,8 +846,13 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen>
     }
   }
 
-  String _formatBulanTahunShort(DateTime dt) {
-    return '${_namaBulanShort[dt.month - 1]} ${dt.year}';
+  String _formatBulanTahunShort(DateTime dt, {bool compactYear = false}) {
+    final month = _namaBulanShort[dt.month - 1];
+    if (compactYear) {
+      final yy = (dt.year % 100).toString().padLeft(2, '0');
+      return '$month $yy';
+    }
+    return '$month ${dt.year}';
   }
 
   void _centerOnLocation(PosMaintenanceStatus s) {
@@ -909,33 +926,13 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen>
         children: [
           TiketBand(
             caption: 'Map Maintenance',
-            leading: TiketIconButton(
-              icon: Icons.arrow_back_rounded,
-              semanticLabel: 'Kembali',
-              onPressed: () => Navigator.maybePop(context),
+            leading: Expanded(
+              child: _buildTopRow(),
             ),
-            actions: [
-              _buildCompactMonthSwitcher(),
-              TiketIconButton(
-                icon: Icons.refresh_rounded,
-                semanticLabel: 'Perbarui data',
-                onPressed: _loadMonthData,
-              ),
-            ],
+            actions: const [],
             hero: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Semantics(
-                  button: true,
-                  label: 'Filter wilayah, $_selectedWilayah',
-                  child: TiketPill(
-                    label: _selectedWilayah,
-                    icon: Icons.place_outlined,
-                    kind: TiketPillKind.band,
-                    onPressed: _showWilayahDialog,
-                  ),
-                ),
-                const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
@@ -1178,7 +1175,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen>
     );
   }
 
-  Widget _buildCompactMonthSwitcher() {
+  Widget _buildCompactMonthSwitcher({bool compactYear = false}) {
     final colors = TiketColors.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1192,10 +1189,10 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen>
           padding: EdgeInsets.zero,
           style: IconButton.styleFrom(
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            minimumSize: const Size(40, 44),
+            minimumSize: const Size(28, 44),
             padding: EdgeInsets.zero,
           ),
-          constraints: const BoxConstraints(minWidth: 40, minHeight: 44),
+          constraints: const BoxConstraints(minWidth: 28, minHeight: 44),
           onPressed: _previousMonth,
         ),
         Icon(
@@ -1205,7 +1202,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen>
         ),
         const SizedBox(width: 4),
         Text(
-          _formatBulanTahunShort(_selectedMonth),
+          _formatBulanTahunShort(_selectedMonth, compactYear: compactYear),
           maxLines: 1,
           softWrap: false,
           style: TextStyle(
@@ -1229,14 +1226,113 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen>
             padding: EdgeInsets.zero,
             style: IconButton.styleFrom(
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              minimumSize: const Size(40, 44),
+              minimumSize: const Size(28, 44),
               padding: EdgeInsets.zero,
             ),
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 44),
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 44),
             onPressed: _canGoNextMonth ? _nextMonth : null,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildWilayahPill() {
+    final colors = TiketColors.of(context);
+    return Semantics(
+      button: true,
+      label: 'Filter wilayah, $_selectedWilayah',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _showWilayahDialog,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            height: 48,
+            alignment: Alignment.center,
+            child: Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: colors.bandRaise,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: colors.bandLine, width: 1.5),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.place_outlined,
+                    size: 16,
+                    color: colors.onBand,
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 128),
+                      child: Text(
+                        _selectedWilayah,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: colors.onBand,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 16,
+                    color: colors.onBand,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopRow() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = MediaQuery.sizeOf(context).width;
+        final isNarrow = screenWidth < 380 || constraints.maxWidth < 350;
+        return Row(
+          children: [
+            TiketIconButton(
+              icon: Icons.arrow_back_rounded,
+              semanticLabel: 'Kembali',
+              onPressed: () => Navigator.maybePop(context),
+            ),
+            Expanded(
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildCompactMonthSwitcher(compactYear: isNarrow),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: _buildWilayahPill(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            TiketIconButton(
+              icon: Icons.refresh_rounded,
+              semanticLabel: 'Perbarui data',
+              onPressed: _loadMonthData,
+            ),
+          ],
+        );
+      },
     );
   }
 

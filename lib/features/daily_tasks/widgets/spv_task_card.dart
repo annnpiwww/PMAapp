@@ -3,6 +3,7 @@ import '../../../../core/constants/tiket_colors.dart';
 import '../../../../core/widgets/tiket/tiket.dart';
 import '../../../../data/models/daily_task_model.dart';
 import 'completed_daily_task_modal.dart';
+import 'daily_task_action_pill.dart';
 
 /// Compact task card for supervisor dispatcher with inline header, merged metadata, and footer actions.
 class SpvTaskCard extends StatelessWidget {
@@ -65,7 +66,7 @@ class SpvTaskCard extends StatelessWidget {
             : 'Selesai')
         : (task.isOpenHandover
             ? 'Alih Tugas'
-            : (task.status == TaskStatus.inProgress ? 'Proses' : 'Belum Mulai'));
+            : (task.status == TaskStatus.inProgress ? 'Proses' : 'Belum mulai'));
 
     final buktiLabel = task.fotoBuktiUrls.isNotEmpty ? 'Bukti (${task.fotoBuktiUrls.length})' : 'Bukti';
     final lokasiText = task.posName.trim().isNotEmpty ? ' di lokasi ${task.posName.trim()}' : '';
@@ -164,74 +165,85 @@ class SpvTaskCard extends StatelessWidget {
                           ),
                           if (isDone || onHandover != null || (!isDone && onKerjakan != null)) ...[
                             const SizedBox(height: 6),
-                            // Below: StatusMarker ok + StatusChip 'Selesai', Bukti/Alihkan as TiketPill secondary height 44
-                            Wrap(
-                              alignment: WrapAlignment.spaceBetween,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 8,
-                              runSpacing: 6,
-                              children: [
-                                if (isDone) ...[
-                                  const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      StatusMarker(status: TiketStatus.ok),
-                                      SizedBox(width: 6),
-                                      IntrinsicWidth(
-                                        child: StatusChip(
-                                          label: 'Selesai',
-                                          kind: TiketChipKind.ok,
+                            if (isDone)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  const Flexible(
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        StatusMarker(status: TiketStatus.ok),
+                                        SizedBox(width: 6),
+                                        Flexible(
+                                          child: StatusChip(
+                                            label: 'Selesai',
+                                            kind: TiketChipKind.ok,
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  IntrinsicWidth(
-                                    child: TiketPill(
-                                      label: buktiLabel,
-                                      icon: Icons.photo_camera_outlined,
-                                      kind: TiketPillKind.secondary,
-                                      height: 44,
-                                      onPressed: () => CompletedDailyTaskModal.show(context, task),
+                                      ],
                                     ),
                                   ),
-                                ] else ...[
+                                  const SizedBox(width: 8),
+                                  DailyTaskActionPill(
+                                    label: buktiLabel,
+                                    icon: Icons.photo_camera_outlined,
+                                    isPrimary: false,
+                                    isDark: isDark,
+                                    onPressed: () => CompletedDailyTaskModal.show(context, task),
+                                  ),
+                                ],
+                              )
+                            else
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Flexible(
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const StatusMarker(status: TiketStatus.notStarted),
+                                        const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            'Belum mulai',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontFamily: TiketType.fontFamily,
+                                              fontSize: 12,
+                                              color: colors.body,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const StatusMarker(status: TiketStatus.notStarted),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Belum Mulai',
-                                        style: TextStyle(
-                                          fontFamily: TiketType.fontFamily,
-                                          fontSize: 12,
-                                          color: colors.body,
+                                      if (onKerjakan != null) ...[
+                                        DailyTaskActionPill(
+                                          label: 'Kerjakan',
+                                          isPrimary: true,
+                                          onPressed: onKerjakan,
                                         ),
-                                      ),
+                                        if (onHandover != null) const SizedBox(width: 8),
+                                      ],
+                                      if (onHandover != null)
+                                        DailyTaskActionPill(
+                                          label: 'Alihkan',
+                                          icon: Icons.swap_horiz_rounded,
+                                          isPrimary: false,
+                                          onPressed: onHandover,
+                                        ),
                                     ],
                                   ),
-                                  if (onKerjakan != null)
-                                    IntrinsicWidth(
-                                      child: TiketPill(
-                                        label: 'Kerjakan',
-                                        kind: TiketPillKind.primary,
-                                        height: 44,
-                                        onPressed: onKerjakan,
-                                      ),
-                                    ),
-                                  if (onHandover != null)
-                                    IntrinsicWidth(
-                                      child: TiketPill(
-                                        label: 'Alihkan',
-                                        icon: Icons.swap_horiz_rounded,
-                                        kind: TiketPillKind.secondary,
-                                        height: 44,
-                                        onPressed: onHandover,
-                                      ),
-                                    ),
                                 ],
-                              ],
-                            ),
+                              ),
                           ],
                           if (isExpanded) ...[
                             if (hasDeskripsi) ...[

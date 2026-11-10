@@ -222,7 +222,7 @@ void main() {
       expect(find.text('Diperbaiki'), findsNothing);
 
       // Tap Tandai Sudah Diperbaiki
-      await tester.tap(find.text('Tandai Sudah Diperbaiki'));
+      await tester.tap(find.text('Tandai sudah diperbaiki'));
       await tester.pumpAndSettle();
 
       // Pick photo in sheet
