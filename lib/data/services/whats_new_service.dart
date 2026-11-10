@@ -30,17 +30,19 @@ class WhatsNewService {
 
   /// Diisi ulang tiap versi naik, bareng bump di pubspec.yaml.
   static const WhatsNewRelease current = WhatsNewRelease(
-    version: '2.0.135',
+    version: '2.0.136',
     date: '10 November 2026',
     features: [
-      'Tampilan baru di semua layar: band biru BSS, tulisan lebih tegas, mode gelap ikut baru',
-      'Nama aplikasi sekarang PMApp, halaman login baru',
-      'Filter teknisi dan status pakai pilihan dropdown, tidak perlu geser ke samping',
-      'Kamera lebih lega: tombol zoom dihapus, rasio foto pindah ke kolom kanan atas',
+      'Laporan error dari grup Telegram: salin pesan admin, tempel di Catat Kerjaan, isinya terbaca otomatis',
+      'Lokasi yang error tampil radar merah di Map Maintenance, tim cabang dapat notifikasi',
+      'Selesai perbaikan, laporan balasan dibuat otomatis sesuai format grup, tinggal bagikan',
+      'SPV juga bisa catat laporan error dan kirim laporan selesai',
+      'Laporan error cabang Manado tercatat otomatis di Google Sheet',
+      'Huruf baru (Figtree), lebih mudah dibaca',
     ],
-    aiNote: 'Verifikasi AI otomatis failover dengan format terstandarisasi.',
-    mapNote: 'Peta maintenance mengikuti mode gelap dan penandaan temuan real-time.',
-    bugfix: 'Tampilan rapi di layar kecil (360 dp) dan mode gelap.',
+    aiNote: null,
+    mapNote: 'Radar merah hilang otomatis saat tugas error ditandai selesai.',
+    bugfix: 'Teknisi bisa catat kerjaan sendiri lagi (sebelumnya gagal dengan pesan sinyal).',
   );
 
   /// `seen` kosong berarti aplikasi belum pernah mencatat versi di perangkat ini.

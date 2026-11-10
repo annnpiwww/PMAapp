@@ -2,6 +2,28 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.136+2149] - 2026-11-10
+
+### 🎯 Highlight Utama (Tiket Error & Tipografi Figtree)
+1. **Laporan Error dari Grup Telegram**:
+   - Salin pesan admin langsung dari Telegram, tempel di Catat Kerjaan, dan sistem secara otomatis membedah Tanggal, Waktu, Lokasi, Kendala, Penyebab, dan Solusi Sementara.
+2. **Radar Error Merah di Map Maintenance & Notifikasi Tim**:
+   - Lokasi yang sedang mengalami kendala/error tampil dengan animasi radar merah menyala pada Map Maintenance. Notifikasi otomatis memberi tahu tim cabang adanya tiket baru.
+3. **Laporan Balasan Otomatis Format Grup**:
+   - Setelah perbaikan selesai, laporan balasan siap kirim ke grup Telegram/WhatsApp langsung dibuatkan otomatis sesuai standar format grup.
+4. **Dukungan Penuh SPV**:
+   - SPV dapat mencatat laporan error dan mengirimkan laporan selesai langsung dari antarmuka penugasan.
+5. **Pencatatan Otomatis Google Sheet Cabang Manado**:
+   - Tiket error cabang Manado tercatat otomatis dan tersinkronisasi ke tab sheet "Error" melalui Apps Script.
+6. **Tipografi Baru (Figtree)**:
+   - Seluruh aplikasi diperbarui menggunakan font keluarga Figtree (Regular, Medium, SemiBold, Bold, ExtraBold) untuk keterbacaan yang lebih bersih dan modern.
+
+### 🛠️ Perbaikan Bug
+- **Pencatatan Mandiri Teknisi**:
+  - Teknisi kini dapat mencatat pekerjaan sendiri kembali tanpa gangguan error sinyal/izin pada edge function daily-tasks.
+
+---
+
 ## [2.0.135+2148] - 2026-11-10
 
 ### 🎯 Highlight Utama (Redesign Tiket)

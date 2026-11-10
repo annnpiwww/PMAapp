@@ -20,7 +20,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # sudah terpasang di HP teknisi. APK v2.0.66 yang tersebar punya versionCode
 # 2074; kalau build number turun, Android menolak update ("tidak kompatibel")
 # dan satu-satunya cara adalah uninstall (data absensi & riwayat hilang).
-version: 2.0.135+2148
+version: 2.0.136+2149
 
 environment:
   sdk: ^3.11.5
@@ -95,17 +95,17 @@ flutter:
   # list giving the asset and other descriptors for the font. For
   # example:
   fonts:
-    - family: PlusJakartaSans
+    - family: Figtree
       fonts:
-        - asset: assets/fonts/PlusJakartaSans-Regular.ttf
+        - asset: assets/fonts/Figtree-Regular.ttf
           weight: 400
-        - asset: assets/fonts/PlusJakartaSans-Medium.ttf
+        - asset: assets/fonts/Figtree-Medium.ttf
           weight: 500
-        - asset: assets/fonts/PlusJakartaSans-SemiBold.ttf
+        - asset: assets/fonts/Figtree-SemiBold.ttf
           weight: 600
-        - asset: assets/fonts/PlusJakartaSans-Bold.ttf
+        - asset: assets/fonts/Figtree-Bold.ttf
           weight: 700
-        - asset: assets/fonts/PlusJakartaSans-ExtraBold.ttf
+        - asset: assets/fonts/Figtree-ExtraBold.ttf
           weight: 800
   #
   # For details regarding fonts from package dependencies,

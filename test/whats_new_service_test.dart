@@ -70,7 +70,6 @@ void main() {
     expect(release.features, isNotEmpty);
     expect(release.features.every((f) => f.trim().isNotEmpty), isTrue);
     expect(release.bugfix.trim(), isNotEmpty);
-    expect(release.aiNote, isNotNull);
     expect(release.mapNote, isNotNull);
   });
 }
