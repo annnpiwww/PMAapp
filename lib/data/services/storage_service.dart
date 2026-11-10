@@ -31,6 +31,7 @@ class StorageService {
   static const String _keyCameraTimerSeconds = 'bss_camera_timer_seconds_v1';
   static const String _keyThemeMode = 'bss_theme_mode_v1';
   static const String _keyKnownPendingTaskIds = 'bss_known_pending_task_ids_v1';
+  static const String _keyKnownErrorTicketIds = 'known_error_ticket_ids';
   static const String _keySpvTechShifts = 'bss_spv_tech_shifts_v1';
 
   /// Mode Demo: bypass timer durasi kerja minimal 8 jam / 4 jam untuk testing & demo.
@@ -788,6 +789,23 @@ class StorageService {
   static Future<void> clearKnownPendingTaskIds() async {
     await init();
     await _prefs?.remove(_keyKnownPendingTaskIds);
+  }
+
+  // --- KNOWN ERROR TICKET IDS (Untuk Push Alert Tiket Error) ---
+  static Set<String> getKnownErrorTicketIds() {
+    final list = _prefs?.getStringList(_keyKnownErrorTicketIds);
+    if (list != null) return list.toSet();
+    return <String>{};
+  }
+
+  static Future<void> saveKnownErrorTicketIds(Set<String> ids) async {
+    await init();
+    await _prefs?.setStringList(_keyKnownErrorTicketIds, ids.toList());
+  }
+
+  static Future<void> clearKnownErrorTicketIds() async {
+    await init();
+    await _prefs?.remove(_keyKnownErrorTicketIds);
   }
 
   // --- SPV TECHNICIAN SHIFTS PREFERENCES ---

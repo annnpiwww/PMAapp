@@ -232,6 +232,49 @@ class GoogleSheetsService {
     }
   }
 
+  /// Mengirim payload umum (seperti tiket error) ke webhook Google Sheets.
+  /// Reuses existing _post, headers, session token, timeout (12s), and _enqueuePendingPayload.
+  static Future<bool> postPayload(Map<String, dynamic> payload) async {
+    try {
+      final url = await getAppsScriptUrl();
+      if (url.isEmpty) return false;
+
+      final uri = Uri.parse(url);
+      final secretToken = await getSecretToken();
+      final sessionToken = AuthRepository.instance.sessionToken;
+
+      final response = await _post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': DailyTaskService.anonKey,
+          'Authorization': 'Bearer ${DailyTaskService.anonKey}',
+          if (sessionToken != null && sessionToken.isNotEmpty)
+            'x-app-session': sessionToken,
+          if (secretToken.isNotEmpty) 'X-Auth-Token': secretToken,
+        },
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 12));
+
+      debugPrint('[GoogleSheets] postPayload status: ${response.statusCode}');
+      final success = _isSuccessOrRedirect(response.statusCode);
+      if (success) {
+        unawaited(flushPendingQueue());
+      } else {
+        await _enqueuePendingPayload(payload);
+      }
+      return success;
+    } catch (e) {
+      debugPrint('[GoogleSheets] Gagal postPayload ke GSheet: $e. Menyimpan ke antrean offline.');
+      try {
+        await _enqueuePendingPayload(payload);
+      } catch (err, stack) {
+        LoggerService.error('Failed to enqueue payload to Google Sheets', tag: 'GoogleSheetsService', error: err, stackTrace: stack);
+      }
+      return false;
+    }
+  }
+
   /// Menyimpan payload ke antrean lokal saat offline
   static Future<void> _enqueuePendingPayload(Map<String, dynamic> payload) async {
     try {

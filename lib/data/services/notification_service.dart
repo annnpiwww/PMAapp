@@ -45,6 +45,17 @@ class NotificationService {
     _lastDailyTasksNotifyTime = null;
   }
 
+  final List<Map<String, String>> _sentErrorTicketNotificationsForTesting = [];
+
+  @visibleForTesting
+  List<Map<String, String>> get sentErrorTicketNotificationsForTesting =>
+      List.unmodifiable(_sentErrorTicketNotificationsForTesting);
+
+  @visibleForTesting
+  void clearSentErrorTicketNotificationsForTesting() {
+    _sentErrorTicketNotificationsForTesting.clear();
+  }
+
   static const int notificationIdMasuk = 1001;
   static const int notificationIdPulang = 1002;
   static const int notificationIdReminderPulang = 2001;
@@ -383,6 +394,52 @@ class NotificationService {
       debugPrint('[NotificationService] Alert tugas baru SPV terkirim: $judul');
     } catch (e) {
       debugPrint('[NotificationService] Error kirim alert tugas baru: $e');
+    }
+  }
+
+  /// Notifikasi instan saat tiket error baru dilaporkan di lokasi pos
+  Future<void> showErrorTicketNotification({
+    required String id,
+    required String posName,
+    required String judul,
+  }) async {
+    _sentErrorTicketNotificationsForTesting.add({
+      'id': id,
+      'posName': posName,
+      'judul': judul,
+    });
+    if (kIsWeb) return;
+    await init();
+    try {
+      const androidDetails = AndroidNotificationDetails(
+        _priorityTaskChannelId,
+        _priorityTaskChannelName,
+        channelDescription: _priorityTaskChannelDesc,
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        ticker: 'Tiket Error Baru!',
+        icon: '@mipmap/ic_launcher',
+        color: Color(0xFFFF6500),
+        styleInformation: BigTextStyleInformation(''),
+      );
+
+      const details = NotificationDetails(android: androidDetails);
+
+      final title = posName.trim().isEmpty ? 'Lokasi error' : 'Lokasi error: ${posName.trim()}';
+      final notifId = id.hashCode & 0x7FFFFFFF;
+
+      await _notificationsPlugin.show(
+        id: notifId,
+        title: title,
+        body: judul,
+        notificationDetails: details,
+        payload: 'error_ticket',
+      );
+      debugPrint('[NotificationService] Notifikasi tiket error terkirim: $title');
+    } catch (e) {
+      debugPrint('[NotificationService] Error kirim notifikasi tiket error: $e');
     }
   }
 }

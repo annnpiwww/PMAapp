@@ -4,6 +4,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { verifySession } from '../_shared/session.ts';
+import { resolveTasksTableForCabang } from '../_shared/branch.ts';
 
 const MAX_BODY_BYTES = 200 * 1024; // 200 KB body cap
 
@@ -49,7 +50,10 @@ export function sanitizeForSheetValue(val: unknown): unknown {
   return val;
 }
 
-serve(async (req: Request) => {
+export async function handleSheetsSync(
+  req: Request,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -59,8 +63,9 @@ serve(async (req: Request) => {
   }
 
   // 1. Session verification against ../_shared/session.ts
+  let session;
   try {
-    const session = await verifySession(req);
+    session = await verifySession(req);
     if (!session) {
       return json({ error: 'unauthorized' }, 401);
     }
@@ -91,6 +96,13 @@ serve(async (req: Request) => {
     return json({ error: 'bad_request', message: 'Invalid JSON payload' }, 400);
   }
 
+  // Tiket Error gate: Manado only
+  if (bodyJson.kind === 'error') {
+    if (resolveTasksTableForCabang(session.cabang) !== 'daily_tasks_manado') {
+      return json({ error: 'forbidden' }, 403);
+    }
+  }
+
   // 4. Sanitize formula injection prefixes
   const sanitized = sanitizeForSheetValue(bodyJson) as Record<string, unknown>;
 
@@ -105,7 +117,7 @@ serve(async (req: Request) => {
 
   // 6. Forward to Google Apps Script webhook (follow 302 redirects)
   try {
-    const upstreamRes = await fetch(webhookUrl, {
+    const upstreamRes = await fetchImpl(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -129,4 +141,8 @@ serve(async (req: Request) => {
     const errorMsg = err instanceof Error ? err.message : String(err);
     return json({ error: 'upstream_error', message: errorMsg }, 502);
   }
-});
+}
+
+if (!Deno.env.get('DENO_TESTING')) {
+  serve((req: Request) => handleSheetsSync(req));
+}

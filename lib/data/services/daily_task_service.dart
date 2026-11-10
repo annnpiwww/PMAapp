@@ -12,6 +12,7 @@ import '../services/storage_service.dart';
 import '../services/location_service.dart';
 import '../services/branch_service.dart';
 import '../services/notification_service.dart';
+import 'error_ticket_service.dart';
 import '../../core/utils/web_bytes/web_bytes.dart';
 
 class DailyTaskService {
@@ -33,12 +34,23 @@ class DailyTaskService {
   static bool _isListening = false;
   static String? _activeListeningTeknisi;
   static final Set<String> _knownPendingTaskIds = <String>{};
+  static final Set<String> _knownErrorTicketIds = <String>{};
+  static bool _errorTicketSeeded = false;
 
-  @visibleForTesting
   @visibleForTesting
   static void resetKnownPendingTaskIdsForTesting() {
     _knownPendingTaskIds.clear();
   }
+
+  @visibleForTesting
+  static void resetKnownErrorTicketIdsForTesting() {
+    _knownErrorTicketIds.clear();
+    _errorTicketSeeded = false;
+  }
+
+  @visibleForTesting
+  static Future<void> checkNewTasksForTesting(String teknisiNama) =>
+      _checkNewTasks(teknisiNama);
 
   /// Memulai background listener & polling tugas teknisi (aktif saat teknisi login / standby)
   static void startRealtimeListener({required String teknisiNama}) {
@@ -120,6 +132,43 @@ class DailyTaskService {
         _knownPendingTaskIds.addAll(currentPendingIds);
         await StorageService.saveKnownPendingTaskIds(_knownPendingTaskIds);
       }
+
+      // Polling tiket error baru
+      try {
+        final openTickets = await ErrorTicketService.fetchOpen();
+        final openIds = openTickets.map((t) => t.id).toSet();
+
+        if (_knownErrorTicketIds.isEmpty) {
+          _knownErrorTicketIds.addAll(StorageService.getKnownErrorTicketIds());
+        }
+
+        final cleanListenerName = teknisiNama.trim().toLowerCase();
+
+        if (!_errorTicketSeeded && _knownErrorTicketIds.isEmpty) {
+          _errorTicketSeeded = true;
+          _knownErrorTicketIds.addAll(openIds);
+          await StorageService.saveKnownErrorTicketIds(_knownErrorTicketIds);
+        } else {
+          _errorTicketSeeded = true;
+          for (final ticket in openTickets) {
+            if (!_knownErrorTicketIds.contains(ticket.id)) {
+              _knownErrorTicketIds.add(ticket.id);
+              final creator = ticket.teknisiNama.trim().toLowerCase();
+              if (creator != cleanListenerName) {
+                NotificationService.instance.showErrorTicketNotification(
+                  id: ticket.id,
+                  posName: ticket.posName,
+                  judul: ticket.judul,
+                );
+              }
+            }
+          }
+          _knownErrorTicketIds.addAll(openIds);
+          await StorageService.saveKnownErrorTicketIds(_knownErrorTicketIds);
+        }
+      } catch (e) {
+        debugPrint('[DailyTaskService] _checkNewTasks error ticket polling error: $e');
+      }
     } catch (e) {
       debugPrint('[DailyTaskService] _checkNewTasks error: $e');
     }
@@ -192,6 +241,9 @@ class DailyTaskService {
   };
 
   static Map<String, String> get getHeaders => _getHeaders;
+
+  static Future<http.Response> httpGet(Uri uri, {Map<String, String>? headers}) =>
+      _get(uri, headers: headers);
 
   /// Klien HTTP palsu untuk unit test (pola sama dengan LocationService).
   @visibleForTesting
@@ -776,6 +828,14 @@ class DailyTaskService {
       );
     } catch (_) {}
 
+    if (resultTask.kategori == 'error') {
+      try {
+        unawaited(ErrorTicketService.syncSheetOpen(resultTask));
+      } catch (e) {
+        debugPrint('[DailyTaskService] syncSheetOpen error: $e');
+      }
+    }
+
     return resultTask;
   }
 
@@ -1176,6 +1236,7 @@ class DailyTaskService {
           jamSelesai: jamSelesai,
           catatan: effectiveCatatan,
         );
+        _triggerErrorTicketDoneHook(taskId, jamSelesai: jamSelesai, catatan: effectiveCatatan);
         return true;
       }
 
@@ -1251,6 +1312,8 @@ class DailyTaskService {
           catatan: effectiveCatatan,
           photos: currentPhotosForQueue,
         );
+      } else {
+        _triggerErrorTicketDoneHook(taskId, jamSelesai: jamSelesai, catatan: effectiveCatatan);
       }
       return success;
     } catch (e) {
@@ -1262,6 +1325,25 @@ class DailyTaskService {
         photos: currentPhotosForQueue,
       );
       return false;
+    }
+  }
+
+  static void _triggerErrorTicketDoneHook(String taskId, {required String jamSelesai, required String catatan}) {
+    try {
+      final cached = getCachedTasksLocally().cast<DailyTaskModel?>().firstWhere(
+        (t) => t?.id == taskId,
+        orElse: () => null,
+      );
+      if (cached != null && cached.kategori == 'error') {
+        final taskToSync = cached.copyWith(
+          status: TaskStatus.completed,
+          jamSelesai: jamSelesai,
+          catatanTeknisi: catatan.isNotEmpty ? catatan : cached.catatanTeknisi,
+        );
+        unawaited(ErrorTicketService.syncSheetDone(taskToSync, selesai: DateTime.now()));
+      }
+    } catch (e) {
+      debugPrint('[DailyTaskService] syncSheetDone hook error: $e');
     }
   }
 
@@ -1751,6 +1833,10 @@ class DailyTaskService {
     final raw = jsonEncode(list.map((e) => e.toJson()).toList());
     await StorageService.setString(localCacheKey, raw);
   }
+
+  @visibleForTesting
+  static Future<void> cacheTasksLocallyForTesting(List<DailyTaskModel> list) =>
+      _cacheTasksLocally(list);
 
   static List<DailyTaskModel> getCachedTasksLocally() {
     final raw = StorageService.getString(localCacheKey);
