@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "158573506640",
+    "project_id": "pmapp-8e840",
+    "storage_bucket": "pmapp-8e840.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:158573506640:android:ee8bd9212dff4e3a472155",
+        "android_client_info": {
+          "package_name": "com.bssparking.timemark.bssparking_timemark"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTQP2vk9zK_wJxUqOx2rtdPcp5h3X34MI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

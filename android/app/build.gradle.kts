@@ -75,3 +75,8 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
+
+val isDemo = project.findProperty("isDemo") == "true"
+if (!isDemo) {
+    apply(plugin = "com.google.gms.google-services")
+}

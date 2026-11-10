@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'absensi_setup_service.dart';
+import 'error_alarm_service.dart';
 import '../models/daily_task_model.dart';
 
 /// Service untuk menangani push / local notification absensi & pengingat jam shift kerja.
@@ -32,6 +33,13 @@ class NotificationService {
   static const String _priorityTaskChannelName = 'Tugas Prioritas BSS';
   static const String _priorityTaskChannelDesc =
       'Notifikasi tugas baru dari Supervisor';
+
+  static const String errorAlarmChannelId = 'error_alarm_v1';
+  static const String _errorAlarmChannelId = errorAlarmChannelId;
+  static const String _errorAlarmChannelName = 'Alarm lokasi error';
+  static const String _errorAlarmChannelDesc = 'Alarm lokasi error teknisi';
+
+  static const int notificationIdErrorAlarm = 7701;
 
   String? _lastDailyTasksSignature;
   DateTime? _lastDailyTasksNotifyTime;
@@ -93,6 +101,9 @@ class NotificationService {
         settings: initSettings,
         onDidReceiveNotificationResponse: (response) {
           debugPrint('[NotificationService] Notifikasi ditekan: ${response.payload}');
+          if (response.payload == 'error_alarm') {
+            unawaited(ErrorAlarmService.instance.acknowledge());
+          }
         },
       );
 
@@ -132,6 +143,20 @@ class NotificationService {
             importance: Importance.max,
             playSound: true,
             enableVibration: true,
+          ),
+        );
+
+        await androidPlatform.createNotificationChannel(
+          AndroidNotificationChannel(
+            _errorAlarmChannelId,
+            _errorAlarmChannelName,
+            description: _errorAlarmChannelDesc,
+            importance: Importance.max,
+            playSound: true,
+            sound: const RawResourceAndroidNotificationSound('error_alarm'),
+            audioAttributesUsage: AudioAttributesUsage.alarm,
+            enableVibration: true,
+            vibrationPattern: Int64List.fromList(<int>[0, 1000, 500, 1000, 500, 1000]),
           ),
         );
         // Permission notifikasi sudah diminta di _requestInitialPermissionsAndInit() secara sequential
@@ -441,5 +466,116 @@ class NotificationService {
     } catch (e) {
       debugPrint('[NotificationService] Error kirim notifikasi tiket error: $e');
     }
+  }
+
+  final List<Map<String, dynamic>> _sentAlarmNotificationsForTesting = [];
+
+  @visibleForTesting
+  List<Map<String, dynamic>> get sentAlarmNotificationsForTesting =>
+      List.unmodifiable(_sentAlarmNotificationsForTesting);
+
+  @visibleForTesting
+  void clearSentAlarmNotificationsForTesting() {
+    _sentAlarmNotificationsForTesting.clear();
+    cancelAlarmNotificationCallCountForTesting = 0;
+  }
+
+  @visibleForTesting
+  int cancelAlarmNotificationCallCountForTesting = 0;
+
+  /// NotificationDetails builder for the error alarm notification.
+  /// Reused across foreground and background FCM handlers to avoid duplication.
+  static NotificationDetails buildErrorAlarmNotificationDetails() {
+    final androidDetails = AndroidNotificationDetails(
+      _errorAlarmChannelId,
+      _errorAlarmChannelName,
+      channelDescription: _errorAlarmChannelDesc,
+      importance: Importance.max,
+      priority: Priority.max,
+      playSound: true,
+      sound: const RawResourceAndroidNotificationSound('error_alarm'),
+      audioAttributesUsage: AudioAttributesUsage.alarm,
+      enableVibration: true,
+      vibrationPattern: Int64List.fromList(<int>[0, 1000, 500, 1000, 500, 1000]),
+      additionalFlags: Int32List.fromList(<int>[4]), // FLAG_INSISTENT: sound loops until opened/cancelled
+      category: AndroidNotificationCategory.alarm,
+      ongoing: false,
+      autoCancel: true,
+      icon: '@mipmap/ic_launcher',
+    );
+    return NotificationDetails(android: androidDetails);
+  }
+
+  /// Direct notification trigger for FCM background handler or direct alarms.
+  Future<void> showDirectErrorAlarmNotification({
+    required String title,
+    required String body,
+  }) async {
+    _sentAlarmNotificationsForTesting.add({
+      'title': title,
+      'body': body,
+    });
+
+    if (kIsWeb) return;
+    await init();
+    try {
+      final details = buildErrorAlarmNotificationDetails();
+      await _notificationsPlugin.show(
+        id: notificationIdErrorAlarm,
+        title: title,
+        body: body,
+        notificationDetails: details,
+        payload: 'error_alarm',
+      );
+      debugPrint('[NotificationService] Direct alarm notification sent: $title');
+    } catch (e) {
+      debugPrint('[NotificationService] Error sending direct alarm notification: $e');
+    }
+  }
+
+  /// Notifikasi alarm untuk lokasi error dengan suara berulang (FLAG_INSISTENT).
+  Future<void> showErrorAlarmNotification({
+    required List<DailyTaskModel> openTickets,
+  }) async {
+    if (openTickets.isEmpty) return;
+    final newest = openTickets.first;
+    final title = openTickets.length == 1
+        ? (newest.posName.trim().isEmpty ? 'Lokasi error' : 'Lokasi error: ${newest.posName.trim()}')
+        : '${openTickets.length} lokasi error';
+    final body = newest.judul;
+
+    _sentAlarmNotificationsForTesting.add({
+      'title': title,
+      'body': body,
+      'count': openTickets.length,
+      'tickets': openTickets,
+    });
+
+    if (kIsWeb) return;
+    await init();
+    try {
+      final details = buildErrorAlarmNotificationDetails();
+
+      await _notificationsPlugin.show(
+        id: notificationIdErrorAlarm,
+        title: title,
+        body: body,
+        notificationDetails: details,
+        payload: 'error_alarm',
+      );
+      debugPrint('[NotificationService] Notifikasi alarm error terkirim: $title');
+    } catch (e) {
+      debugPrint('[NotificationService] Error kirim notifikasi alarm error: $e');
+    }
+  }
+
+  /// Membatalkan notifikasi alarm error saat dibuka atau di-acknowledge.
+  Future<void> cancelErrorAlarmNotification() async {
+    cancelAlarmNotificationCallCountForTesting++;
+    if (kIsWeb) return;
+    try {
+      await _notificationsPlugin.cancel(id: notificationIdErrorAlarm);
+      debugPrint('[NotificationService] Notifikasi alarm error dibatalkan.');
+    } catch (_) {}
   }
 }
