@@ -31,7 +31,7 @@ Add a `ThemeExtension<TiketColors>` in `lib/core/constants/tiket_colors.dart`, r
 | danger | #C81E1E | #FF9B9B |
 | dangerTint | #FBE9E9 | #3A1616 |
 
-Camera chrome stays black in both themes. Font: `PlusJakartaSans`, tabular figures for numbers.
+Camera chrome stays black in both themes. Font: `Figtree` (Aan 2026-11-10: rounder, legible at small sizes), tabular figures for numbers.
 
 Type scale (`TiketType`, widths below 375dp use the first value): hero 32/36 ExtraBold, heroLabel 15/16 Bold, screenTitle 20/22 ExtraBold, section 16 Bold, rowTitle 15 SemiBold (line 20), meta 13 Medium (line 18), status 13 Bold, button 14 SemiBold, cta 16 Bold, caption 12 Medium. Padding 16 below 375dp, 20 from 375dp.
 

@@ -71,7 +71,7 @@ Color rules:
 
 ## Typography
 
-Plus Jakarta Sans (already bundled). Numbers use tabular figures. Scale reduced one step for mobile on 2026-11-09 (Aan: the first draft was too big; it pushed titles to two lines and made the band too tall).
+Figtree (Aan 2026-11-10: rounder, legible at small sizes, already bundled). Numbers use tabular figures. Scale reduced one step for mobile on 2026-11-09 (Aan: the first draft was too big; it pushed titles to two lines and made the band too tall).
 
 | Role | 360dp | 390dp and up | Weight |
 |---|---|---|---|
