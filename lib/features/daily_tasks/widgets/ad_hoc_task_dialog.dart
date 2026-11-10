@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/services/theme_service.dart';
+import 'package:flutter/services.dart';
+
+import '../../../core/constants/tiket_colors.dart';
+import '../../../core/widgets/tiket/tiket_bottom_bar.dart';
+import '../../../core/widgets/tiket/tiket_dropdown_field.dart';
+import '../../../core/widgets/tiket/tiket_picker_dialog.dart';
+import '../../../core/widgets/tiket/tiket_pill.dart';
+import '../../../core/widgets/tiket/tiket_segmented.dart';
+import '../../../data/models/error_report.dart';
 import '../../../data/services/daily_task_service.dart';
+import '../../../data/services/error_ticket_service.dart';
 import '../../../data/services/location_service.dart';
 
-/// Dialog mencatat kerjaan dadakan yang tidak diberikan SPV di pagi hari
-/// (contoh: kabel putus di akhir shift). Tugas langsung masuk daftar hari itu,
-/// jadi bisa dikerjakan, dilaporkan, dan diserahterimakan seperti tugas biasa.
+/// Modal bottom sheet mencatat kerjaan dadakan atau laporan error dari Telegram.
 class AdHocTaskDialog extends StatefulWidget {
   final String teknisiNama;
   final String tanggal;
   final List<PosLocation> lokasiOptions;
   final PosLocation? lokasiAwal;
+  final bool startInErrorMode;
 
   const AdHocTaskDialog({
     super.key,
@@ -19,24 +26,28 @@ class AdHocTaskDialog extends StatefulWidget {
     required this.tanggal,
     required this.lokasiOptions,
     this.lokasiAwal,
+    this.startInErrorMode = false,
   });
 
-  /// Hasil `true` = tugas tersimpan.
+  /// Hasil `null` = cancelled, `true` = tugas tersimpan, `false` = gagal simpan.
   static Future<bool?> show(
     BuildContext context, {
     required String teknisiNama,
     required String tanggal,
     required List<PosLocation> lokasiOptions,
     PosLocation? lokasiAwal,
+    bool startInErrorMode = false,
   }) {
-    return showDialog<bool>(
+    return showModalBottomSheet<bool>(
       context: context,
-      barrierDismissible: false,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => AdHocTaskDialog(
         teknisiNama: teknisiNama,
         tanggal: tanggal,
         lokasiOptions: lokasiOptions,
         lokasiAwal: lokasiAwal,
+        startInErrorMode: startInErrorMode,
       ),
     );
   }
@@ -46,15 +57,24 @@ class AdHocTaskDialog extends StatefulWidget {
 }
 
 class _AdHocTaskDialogState extends State<AdHocTaskDialog> {
+  late String _mode = widget.startInErrorMode ? 'error' : 'kerjaan'; // 'kerjaan' | 'error'
   final _judulCtrl = TextEditingController();
   final _catatanCtrl = TextEditingController();
   String? _posId;
   bool _triedSubmit = false;
   bool _saving = false;
 
+  // Laporan error state
+  String? _pastedText;
+  ErrorReport? _errorReport;
+  String? _errorJudul;
+  String? _inlineError;
+  bool _isLokasiPreselected = false;
+
   @override
   void initState() {
     super.initState();
+    _mode = widget.startInErrorMode ? 'error' : 'kerjaan';
     final awal = widget.lokasiAwal;
     _posId = (awal != null && widget.lokasiOptions.any((p) => p.posId == awal.posId))
         ? awal.posId
@@ -68,7 +88,99 @@ class _AdHocTaskDialogState extends State<AdHocTaskDialog> {
     super.dispose();
   }
 
-  Future<void> _simpan() async {
+  String _formatReportedAt(DateTime? dt) {
+    if (dt == null) return '-';
+    const shortDays = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+    const shortMonths = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
+    ];
+    final dayName = shortDays[(dt.weekday - 1).clamp(0, 6)];
+    final dStr = dt.day.toString().padLeft(2, '0');
+    final mStr = shortMonths[(dt.month - 1).clamp(0, 11)];
+    final yStr = dt.year.toString().padLeft(4, '0');
+    final hStr = dt.hour.toString().padLeft(2, '0');
+    final minStr = dt.minute.toString().padLeft(2, '0');
+    return '$dayName, $dStr $mStr $yStr · $hStr.$minStr';
+  }
+
+  Future<void> _pickLokasi() async {
+    final options = widget.lokasiOptions
+        .map(
+          (p) => TiketOption<String>(
+            value: p.posId,
+            label: p.posName,
+            trailingText: p.locationTag,
+          ),
+        )
+        .toList();
+
+    final selected = await showTiketPickerDialog<String>(
+      context: context,
+      title: 'Pilih Lokasi',
+      options: options,
+      selected: _posId,
+    );
+
+    if (selected != null) {
+      setState(() {
+        _posId = selected;
+        _isLokasiPreselected = false;
+      });
+    }
+  }
+
+  Future<void> _tempelDariTelegram() async {
+    setState(() => _inlineError = null);
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim();
+
+    if (text == null || text.isEmpty) {
+      setState(() {
+        _inlineError = 'Clipboard kosong. Salin pesan admin dulu.';
+      });
+      return;
+    }
+
+    final report = ErrorReport.parse(text).withFallbackTime(DateTime.now());
+    final judul = report.judul(text);
+
+    if (judul.isEmpty) {
+      setState(() {
+        _inlineError = 'Pesan ini tidak berisi Kendala. Cek lagi pesan yang disalin.';
+      });
+      return;
+    }
+
+    final guessedPos = ErrorTicketService.guessPos(report.lokasi, widget.lokasiOptions) ??
+        ErrorTicketService.guessPos(text, widget.lokasiOptions);
+
+    setState(() {
+      _pastedText = text;
+      _errorReport = report;
+      _errorJudul = judul;
+      _inlineError = null;
+      if (guessedPos != null) {
+        _posId = guessedPos.posId;
+        _isLokasiPreselected = true;
+      } else {
+        _isLokasiPreselected = false;
+      }
+    });
+  }
+
+  Future<void> _simpanKerjaan() async {
+    if (_saving) return;
     final judul = _judulCtrl.text.trim();
     if (judul.isEmpty || _posId == null) {
       setState(() => _triedSubmit = true);
@@ -76,181 +188,582 @@ class _AdHocTaskDialogState extends State<AdHocTaskDialog> {
     }
     final lokasi = widget.lokasiOptions.firstWhere((p) => p.posId == _posId);
     setState(() => _saving = true);
-    final task = await DailyTaskService.createTask(
-      tanggal: widget.tanggal,
-      teknisiNama: widget.teknisiNama,
-      posName: lokasi.posName,
-      posTag: lokasi.locationTag,
-      judul: judul,
-      deskripsi: _catatanCtrl.text.trim(),
-    );
-    if (!mounted) return;
-    Navigator.pop(context, task != null);
+    try {
+      final task = await DailyTaskService.createTask(
+        tanggal: widget.tanggal,
+        teknisiNama: widget.teknisiNama,
+        posName: lokasi.posName,
+        posTag: lokasi.locationTag,
+        judul: judul,
+        deskripsi: _catatanCtrl.text.trim(),
+      );
+      if (!mounted) return;
+      Navigator.pop(context, task != null);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      Navigator.pop(context, false);
+    }
+  }
+
+  Future<void> _simpanError() async {
+    if (_saving) return;
+    if (_errorReport == null || _pastedText == null || _posId == null) {
+      return;
+    }
+    final lokasi = widget.lokasiOptions.where((p) => p.posId == _posId).firstOrNull;
+    if (lokasi == null) return;
+
+    setState(() => _saving = true);
+    try {
+      final task = await DailyTaskService.createTask(
+        tanggal: widget.tanggal,
+        teknisiNama: widget.teknisiNama,
+        posName: lokasi.posName,
+        posTag: lokasi.locationTag,
+        judul: _errorJudul ?? _errorReport!.judul(_pastedText!),
+        deskripsi: _errorReport!.toDeskripsi(_pastedText!),
+        kategori: ErrorTicketService.kategori,
+      );
+      if (!mounted) return;
+      Navigator.pop(context, task != null);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      Navigator.pop(context, false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = ThemeService.isDarkMode(context);
-    final bg = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final textHead = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSub = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final inputBg = isDark ? const Color(0xFF111827) : const Color(0xFFF8FAFC);
-    final inputBorder = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
-    final judulKosong = _judulCtrl.text.trim().isEmpty && _triedSubmit;
-    final tanpaLokasi = widget.lokasiOptions.isEmpty;
+    final colors = TiketColors.of(context);
+    final pad = TiketSpace.padOf(context);
+    final viewInsets = MediaQuery.viewInsetsOf(context);
 
-    InputDecoration decoration({
-      String? hint,
-      String? error,
-    }) {
-      return InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: textSub, fontSize: 12),
-        filled: true,
-        fillColor: inputBg,
-        errorText: error,
-        errorStyle: const TextStyle(fontSize: 11),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: inputBorder),
+    return PopScope(
+      canPop: !_saving,
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.dialog,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: error != null ? AppColors.danger : inputBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
-        ),
-      );
-    }
-
-    return AlertDialog(
-      backgroundColor: bg,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        padding: EdgeInsets.only(bottom: viewInsets.bottom),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.add_task_rounded, size: 20, color: AppColors.accent),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Catat Kerjaan',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textHead),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Kerjaan dadakan dari sendiri. Langsung masuk daftar hari ini dan boleh serah terima ke shift berikutnya.',
-            style: TextStyle(fontSize: 11.5, color: textSub, height: 1.35),
-          ),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Kerjaan apa? *',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textHead),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _judulCtrl,
-              autofocus: true,
-              maxLines: 2,
-              onChanged: (_) => setState(() {}),
-              style: TextStyle(color: textHead, fontSize: 12.5),
-              decoration: decoration(
-                hint: 'Contoh: kabel sensor putus di Gate 1',
-                error: judulKosong ? 'Kerjaan wajib diisi' : null,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Lokasi *',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textHead),
-            ),
-            const SizedBox(height: 8),
-            if (tanpaLokasi)
-              const Text(
-                'Belum ada data lokasi. Sinkronkan dulu di menu Lokasi.',
-                style: TextStyle(fontSize: 12, color: AppColors.danger),
-              )
-            else
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: inputBg,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: inputBorder),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _posId,
-                    isExpanded: true,
-                    dropdownColor: inputBg,
-                    style: TextStyle(color: textHead, fontSize: 12.5),
-                    items: widget.lokasiOptions
-                        .map(
-                          (p) => DropdownMenuItem(
-                            value: p.posId,
-                            child: Text(
-                              '${p.posName} (${p.locationTag})',
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: textHead, fontSize: 12.5),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (val) => setState(() => _posId = val),
+              // Drag handle
+              const SizedBox(height: 12.0),
+              Center(
+                child: Container(
+                  width: 36.0,
+                  height: 4.0,
+                  decoration: BoxDecoration(
+                    color: colors.hairline,
+                    borderRadius: BorderRadius.circular(2.0),
                   ),
                 ),
               ),
-            const SizedBox(height: 14),
-            Text(
-              'Catatan (opsional)',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textHead),
+              const SizedBox(height: 12.0),
+
+              // Title, Subtitle & Close Button
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: pad),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Catat Kerjaan',
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 17.0,
+                              fontWeight: FontWeight.bold,
+                              color: colors.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 2.0),
+                          Text(
+                            'Kerjaan dadakan atau laporan error dari grup',
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 13.0,
+                              fontWeight: FontWeight.w500,
+                              color: colors.body,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Semantics(
+                      button: true,
+                      label: 'Tutup',
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minWidth: 48.0, minHeight: 48.0),
+                        child: IconButton(
+                          icon: Icon(Icons.close, size: 22.0, color: colors.ink),
+                          tooltip: 'Tutup',
+                          onPressed: _saving ? null : () => Navigator.pop(context, null),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16.0),
+
+              // Segmented control: 'Kerjaan' | 'Laporan error'
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: pad),
+                child: TiketSegmented<String>(
+                  options: const [
+                    ('kerjaan', 'Kerjaan'),
+                    ('error', 'Laporan error'),
+                  ],
+                  selected: _mode,
+                  onChanged: _saving
+                      ? (_) {}
+                      : (val) {
+                          setState(() {
+                            _mode = val;
+                            _inlineError = null;
+                            _triedSubmit = false;
+                          });
+                        },
+                ),
+              ),
+
+              const SizedBox(height: 16.0),
+
+              // Form body
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(horizontal: pad),
+                  child: _mode == 'kerjaan'
+                      ? _buildKerjaanForm(colors)
+                      : _buildErrorForm(colors),
+                ),
+              ),
+
+              // Bottom bar
+              _buildBottomBar(colors),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildKerjaanForm(TiketColors colors) {
+    final judulKosong = _judulCtrl.text.trim().isEmpty && _triedSubmit;
+    final tanpaLokasi = widget.lokasiOptions.isEmpty && _triedSubmit;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildTextInput(
+          colors: colors,
+          label: 'Kerjaan apa *',
+          controller: _judulCtrl,
+          hint: 'Contoh: Ganti kabel LAN pos 2',
+          errorText: judulKosong ? 'Wajib diisi' : null,
+        ),
+        const SizedBox(height: 16.0),
+        _buildLokasiField(
+          colors: colors,
+          label: 'Lokasi *',
+          errorText: tanpaLokasi ? 'Pilih salah satu lokasi' : null,
+        ),
+        const SizedBox(height: 16.0),
+        _buildTextInput(
+          colors: colors,
+          label: 'Catatan opsional',
+          controller: _catatanCtrl,
+          hint: 'Deskripsi kendala atau tindakan...',
+          maxLines: 3,
+        ),
+        const SizedBox(height: 16.0),
+      ],
+    );
+  }
+
+  Widget _buildErrorForm(TiketColors colors) {
+    if (_errorReport == null) {
+      // State A: nothing pasted yet
+      final selectedPos = widget.lokasiOptions.where((p) => p.posId == _posId).firstOrNull;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Pesan error',
+            style: TextStyle(
+              fontFamily: TiketType.fontFamily,
+              fontSize: 12.0,
+              fontWeight: FontWeight.w500,
+              color: colors.body,
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _catatanCtrl,
-              maxLines: 3,
-              style: TextStyle(color: textHead, fontSize: 12.5),
-              decoration: decoration(
-                hint: 'Misal: kabel putus jam 21:10, sementara disambung dulu',
+          ),
+          const SizedBox(height: 6.0),
+          TiketPill(
+            label: 'Tempel dari Telegram',
+            icon: Icons.content_paste_outlined,
+            kind: TiketPillKind.secondary,
+            height: 52.0,
+            expand: true,
+            onPressed: _saving ? null : _tempelDariTelegram,
+          ),
+          const SizedBox(height: 6.0),
+          Text(
+            'Salin pesan di grup Telegram dulu, lalu ketuk Tempel.',
+            style: TextStyle(
+              fontFamily: TiketType.fontFamily,
+              fontSize: 12.0,
+              fontWeight: FontWeight.w400,
+              color: colors.body,
+            ),
+          ),
+          if (_inlineError != null) ...[
+            const SizedBox(height: 6.0),
+            Text(
+              _inlineError!,
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                fontSize: 12.0,
+                fontWeight: FontWeight.w500,
+                color: colors.danger,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16.0),
+          TiketDropdownField(
+            label: 'Lokasi',
+            value: selectedPos?.posName ?? 'Pilih lokasi',
+            onTap: _saving ? () {} : _pickLokasi,
+          ),
+          if (selectedPos == null) ...[
+            const SizedBox(height: 4.0),
+            Text(
+              'Pilih lokasi',
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                fontSize: 12.0,
+                fontWeight: FontWeight.w400,
+                color: colors.body,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16.0),
+        ],
+      );
+    }
+
+    // State B: pasted
+    final selectedPos = widget.lokasiOptions.where((p) => p.posId == _posId).firstOrNull;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Isi laporan admin',
+              style: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                fontSize: 13.0,
+                fontWeight: FontWeight.w600,
+                color: colors.body,
+              ),
+            ),
+            Semantics(
+              button: true,
+              label: 'Tempel ulang',
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 48.0, minHeight: 48.0),
+                child: TextButton(
+                  onPressed: _saving ? null : _tempelDariTelegram,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    minimumSize: const Size(48.0, 48.0),
+                  ),
+                  child: Text(
+                    'Tempel ulang',
+                    style: TextStyle(
+                      fontFamily: TiketType.fontFamily,
+                      fontSize: 13.0,
+                      fontWeight: FontWeight.w600,
+                      color: colors.primary,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context),
-          child: Text('Batal', style: TextStyle(color: textSub)),
-        ),
-        ElevatedButton(
-          onPressed: (_saving || tanpaLokasi) ? null : _simpan,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.accent,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        const SizedBox(height: 4.0),
+
+        // Read-only summary block
+        Container(
+          decoration: BoxDecoration(
+            color: colors.soft,
+            border: Border(
+              bottom: BorderSide(
+                color: colors.body,
+                width: 2.0,
+              ),
+            ),
           ),
-          child: _saving
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                )
-              : const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold)),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildSummaryRow(
+                colors,
+                'Waktu lapor',
+                _formatReportedAt(_errorReport?.reportedAt),
+              ),
+              const SizedBox(height: 10.0),
+              _buildSummaryRow(
+                colors,
+                'Kendala',
+                _errorReport?.kendala.trim().isNotEmpty == true
+                    ? _errorReport!.kendala.trim()
+                    : '-',
+              ),
+              const SizedBox(height: 10.0),
+              _buildSummaryRow(
+                colors,
+                'Penyebab',
+                _errorReport?.penyebab.trim().isNotEmpty == true
+                    ? _errorReport!.penyebab.trim()
+                    : '-',
+              ),
+              const SizedBox(height: 10.0),
+              _buildSummaryRow(
+                colors,
+                'Solusi sementara',
+                _errorReport?.solusiSementara.trim().isNotEmpty == true
+                    ? _errorReport!.solusiSementara.trim()
+                    : '-',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16.0),
+
+        // Lokasi field
+        TiketDropdownField(
+          label: 'Lokasi',
+          value: selectedPos?.posName ?? 'Pilih lokasi',
+          onTap: _saving ? () {} : _pickLokasi,
+        ),
+        if (_isLokasiPreselected) ...[
+          const SizedBox(height: 4.0),
+          Text(
+            'Dari kolom Lokasi di pesan. Ketuk kalau salah.',
+            style: TextStyle(
+              fontFamily: TiketType.fontFamily,
+              fontSize: 12.0,
+              fontWeight: FontWeight.w400,
+              color: colors.body,
+            ),
+          ),
+        ] else if (selectedPos == null) ...[
+          const SizedBox(height: 4.0),
+          Text(
+            'Pilih lokasi',
+            style: TextStyle(
+              fontFamily: TiketType.fontFamily,
+              fontSize: 12.0,
+              fontWeight: FontWeight.w400,
+              color: colors.body,
+            ),
+          ),
+        ],
+        const SizedBox(height: 16.0),
+      ],
+    );
+  }
+
+  Widget _buildSummaryRow(TiketColors colors, String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: TiketType.fontFamily,
+            fontSize: 12.0,
+            fontWeight: FontWeight.w500,
+            color: colors.body,
+          ),
+        ),
+        const SizedBox(height: 2.0),
+        Text(
+          value,
+          style: TextStyle(
+            fontFamily: TiketType.fontFamily,
+            fontSize: 15.0,
+            fontWeight: FontWeight.w600,
+            color: colors.ink,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
+    );
+  }
+
+  Widget _buildTextInput({
+    required TiketColors colors,
+    required String label,
+    required TextEditingController controller,
+    String? hint,
+    String? errorText,
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: TiketType.fontFamily,
+            fontSize: 12.0,
+            fontWeight: FontWeight.w500,
+            color: colors.body,
+          ),
+        ),
+        const SizedBox(height: 4.0),
+        Container(
+          decoration: BoxDecoration(
+            color: colors.soft,
+            border: Border(
+              bottom: BorderSide(
+                color: errorText != null ? colors.danger : colors.body,
+                width: 2.0,
+              ),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+          child: TextField(
+            controller: controller,
+            maxLines: maxLines,
+            style: TextStyle(
+              fontFamily: TiketType.fontFamily,
+              fontSize: 15.0,
+              fontWeight: FontWeight.w500,
+              color: colors.ink,
+            ),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(
+                fontFamily: TiketType.fontFamily,
+                fontSize: 14.0,
+                color: colors.mute,
+              ),
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 10.0),
+            ),
+          ),
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 4.0),
+          Text(
+            errorText,
+            style: TextStyle(
+              fontFamily: TiketType.fontFamily,
+              fontSize: 11.0,
+              fontWeight: FontWeight.w500,
+              color: colors.danger,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildLokasiField({
+    required TiketColors colors,
+    required String label,
+    String? errorText,
+  }) {
+    final selectedPos = widget.lokasiOptions.where((p) => p.posId == _posId).firstOrNull;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TiketDropdownField(
+          label: label,
+          value: selectedPos?.posName ?? 'Pilih lokasi',
+          onTap: _saving ? () {} : _pickLokasi,
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 4.0),
+          Text(
+            errorText,
+            style: TextStyle(
+              fontFamily: TiketType.fontFamily,
+              fontSize: 11.0,
+              fontWeight: FontWeight.w500,
+              color: colors.danger,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildBottomBar(TiketColors colors) {
+    if (_mode == 'kerjaan') {
+      return TiketBottomBar(
+        primary: TiketPill(
+          label: _saving ? 'Menyimpan...' : 'Simpan',
+          kind: _saving ? TiketPillKind.disabled : TiketPillKind.primary,
+          expand: true,
+          height: 48.0,
+          onPressed: _saving ? null : _simpanKerjaan,
+        ),
+      );
+    }
+
+    // Laporan error mode
+    if (_errorReport == null) {
+      // State A: nothing pasted yet
+      return const TiketBottomBar(
+        helper: 'Tempel pesan dan pilih lokasi dulu.',
+        primary: TiketPill(
+          label: 'Kirim Laporan Error',
+          kind: TiketPillKind.disabled,
+          expand: true,
+          height: 48.0,
+          onPressed: null,
+        ),
+      );
+    }
+
+    // State B: pasted
+    final hasLokasi = _posId != null && widget.lokasiOptions.any((p) => p.posId == _posId);
+
+    return TiketBottomBar(
+      helper: hasLokasi
+          ? 'Masuk Daily Task kamu. Tim cabang dapat notifikasi.'
+          : 'Pilih lokasi dulu.',
+      primary: TiketPill(
+        label: _saving ? 'Menyimpan...' : 'Kirim Laporan Error',
+        kind: (hasLokasi && !_saving) ? TiketPillKind.primary : TiketPillKind.disabled,
+        expand: true,
+        height: 48.0,
+        onPressed: (hasLokasi && !_saving) ? _simpanError : null,
+      ),
     );
   }
 }

@@ -11,8 +11,12 @@ import '../../../data/repositories/auth_repository.dart';
 import '../../../data/services/branch_service.dart';
 import '../../../data/services/daily_task_service.dart';
 import '../../../data/services/storage_service.dart';
+import '../../../data/services/error_ticket_service.dart';
+import '../../../data/services/location_service.dart';
+import '../widgets/ad_hoc_task_dialog.dart';
 import '../widgets/spv_task_card.dart';
 import '../widgets/task_handover_dialog.dart';
+import 'custom_task_execution_screen.dart';
 
 class SpvTaskDispatcherScreen extends StatefulWidget {
   const SpvTaskDispatcherScreen({super.key});
@@ -1494,6 +1498,36 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
     );
   }
 
+  Future<void> _handleLaporanError(TiketColors colors) async {
+    final user = AuthRepository.instance.currentUser;
+    if (user == null) return;
+    final res = await AdHocTaskDialog.show(
+      context,
+      teknisiNama: user.nama,
+      tanggal: _formatDateToKey(DateTime.now()),
+      lokasiOptions: LocationService.availablePosList,
+      lokasiAwal: null,
+      startInErrorMode: true,
+    );
+    if (!mounted) return;
+    if (res == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Laporan error dicatat. Tim cabang dapat notifikasi.'),
+          backgroundColor: colors.ok,
+        ),
+      );
+      _loadTasks();
+    } else if (res == false) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Gagal mencatat laporan. Coba lagi.'),
+          backgroundColor: colors.danger,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = AuthRepository.instance.currentUser;
@@ -1534,27 +1568,60 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
     final canPop = Navigator.of(context).canPop();
     final horizontalPad = TiketSpace.padOf(context);
 
+    final mediaQuery = MediaQuery.of(context);
+    final fitsFullPill = mediaQuery.size.width >= 390 && mediaQuery.textScaler.scale(14) <= 14;
+
     return Scaffold(
       backgroundColor: colors.canvas,
       floatingActionButton: UnconstrainedBox(
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: colors.primary.withValues(alpha: 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (fitsFullPill)
+              Container(
+                decoration: BoxDecoration(
+                  color: colors.canvas,
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: TiketPill(
+                  label: 'Laporan Error',
+                  icon: Icons.report_problem_outlined,
+                  kind: TiketPillKind.secondary,
+                  height: 56,
+                  onPressed: () => _handleLaporanError(colors),
+                ),
+              )
+            else
+              SizedBox(
+                width: 56,
+                height: 56,
+                child: TiketIconButton(
+                  icon: Icons.report_problem_outlined,
+                  semanticLabel: 'Laporan Error',
+                  onPressed: () => _handleLaporanError(colors),
+                ),
               ),
-            ],
-          ),
-          child: TiketPill(
-            label: 'Buat Tugas',
-            icon: Icons.add_rounded,
-            kind: TiketPillKind.primary,
-            height: 56,
-            onPressed: () => _showBeriTugasBottomSheet(isDark),
-          ),
+            const SizedBox(width: 12),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.primary.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: TiketPill(
+                label: 'Buat Tugas',
+                icon: Icons.add_rounded,
+                kind: TiketPillKind.primary,
+                height: 56,
+                onPressed: () => _showBeriTugasBottomSheet(isDark),
+              ),
+            ),
+          ],
         ),
       ),
       body: RefreshIndicator(
@@ -1707,6 +1774,11 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final t = tasks[index];
+                        final isErrorTask = t.kategori == ErrorTicketService.kategori;
+                        final currentUser = AuthRepository.instance.currentUser;
+                        final isAssignedToMe = currentUser != null && DailyTaskService.isAssignedTo(t, currentUser.nama);
+                        final canKerjakan = isErrorTask && !t.isCompleted && isAssignedToMe;
+
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: SpvTaskCard(
@@ -1715,6 +1787,16 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
                             isExpanded: _expandedTaskIds.contains(t.id),
                             onHandover: t.isCompleted ? null : () => _alihkanTugas(t),
                             onDelete: t.isCompleted ? null : () => _hapusTugas(t),
+                            onKerjakan: canKerjakan
+                                ? () async {
+                                    await Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => CustomTaskExecutionScreen(task: t),
+                                      ),
+                                    );
+                                    _loadTasks();
+                                  }
+                                : null,
                             onToggleExpand: () {
                               setState(() {
                                 if (!_expandedTaskIds.remove(t.id)) {

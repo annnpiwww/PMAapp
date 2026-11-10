@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/constants/tiket_colors.dart';
 import '../../../core/widgets/tiket/tiket.dart';
 import '../../../data/services/branch_service.dart';
+import '../../../data/services/error_ticket_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/maintenance_log_service.dart';
 import 'maintenance_location_detail_screen.dart';
@@ -115,12 +116,14 @@ class MaintenanceMapScreen extends StatefulWidget {
   final DraggableScrollableController? sheetController;
   final MapController? mapController;
   final bool showTileLayer;
+  final Set<String>? initialErrorPosNames;
 
   const MaintenanceMapScreen({
     super.key,
     this.sheetController,
     this.mapController,
     this.showTileLayer = true,
+    this.initialErrorPosNames,
   });
 
   @visibleForTesting
@@ -321,7 +324,8 @@ class _MarkerCluster {
   });
 }
 
-class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
+class _MaintenanceMapScreenState extends State<MaintenanceMapScreen>
+    with SingleTickerProviderStateMixin {
   static const List<String> _namaBulanShort = [
     'Jan',
     'Feb',
@@ -373,12 +377,41 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   @visibleForTesting
   bool get mapReady => _mapReady;
 
+  Set<String> _errorPosNames = {};
+  @visibleForTesting
+  Set<String> get errorPosNames => _errorPosNames;
+  @visibleForTesting
+  set errorPosNames(Set<String> value) {
+    _errorPosNames = value.map((e) => e.trim().toLowerCase()).toSet();
+    if (_errorPosNames.isNotEmpty) {
+      _triggerRadarAnimation();
+    }
+    if (mounted) setState(() {});
+  }
+
+  late final AnimationController _radarAnimationController;
+  int _radarCycleCount = 0;
+
   Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _branch = BranchService.instance.currentBranch;
+    _radarAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+    if (widget.initialErrorPosNames != null) {
+      _errorPosNames = widget.initialErrorPosNames!
+          .map((e) => e.trim().toLowerCase())
+          .toSet();
+      if (_errorPosNames.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _triggerRadarAnimation();
+        });
+      }
+    }
     if (widget.mapController != null) {
       _mapController = widget.mapController!;
       _ownsMapController = false;
@@ -482,10 +515,42 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _radarAnimationController.dispose();
     if (_ownsMapController) {
       _mapController.dispose();
     }
     super.dispose();
+  }
+
+  void _triggerRadarAnimation() {
+    if (!mounted) return;
+    final disable = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (disable) {
+      _radarAnimationController.reset();
+      return;
+    }
+    _radarAnimationController.reset();
+    _radarCycleCount = 0;
+    _startRadarCycle();
+  }
+
+  void _startRadarCycle() {
+    if (!mounted) return;
+    final disable = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (disable) {
+      _radarAnimationController.reset();
+      return;
+    }
+    _radarAnimationController.forward(from: 0.0).then((_) {
+      if (!mounted) return;
+      _radarCycleCount++;
+      if (_radarCycleCount < 3) {
+        _startRadarCycle();
+      } else {
+        _radarAnimationController.reset();
+        if (mounted) setState(() {});
+      }
+    });
   }
 
   bool get _isCurrentMonth {
@@ -520,7 +585,16 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     setState(() => _isLoading = true);
 
     final locations = LocationService.getLocationsByBranch(_branch);
-    final result = await MaintenanceLogService.fetchMonth(_selectedMonth, branch: _branch);
+    final monthFuture = MaintenanceLogService.fetchMonth(_selectedMonth, branch: _branch);
+    final errorFuture = ErrorTicketService.fetchOpen()
+        .then((open) => ErrorTicketService.openPosNames(open))
+        .catchError((e) {
+          debugPrint('[MaintenanceMapScreen] fetchOpen error: $e');
+          return _errorPosNames;
+        });
+
+    final result = await monthFuture;
+    final newErrorPosNames = await errorFuture;
     final statuses = MaintenanceLogService.buildStatuses(locations, result.logs, _branch);
 
     if (!mounted) return;
@@ -531,8 +605,19 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
       if (!result.offline) {
         _lastFetchTime = DateTime.now();
       }
+      if (widget.initialErrorPosNames != null) {
+        _errorPosNames = widget.initialErrorPosNames!
+            .map((e) => e.trim().toLowerCase())
+            .toSet();
+      } else {
+        _errorPosNames = newErrorPosNames;
+      }
       _isLoading = false;
     });
+
+    if (_errorPosNames.isNotEmpty) {
+      _triggerRadarAnimation();
+    }
 
     if (_mapReady) {
       _fitMapToCurrentFilter();
@@ -541,7 +626,16 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
 
   Future<void> _silentRefresh() async {
     final locations = LocationService.getLocationsByBranch(_branch);
-    final result = await MaintenanceLogService.fetchMonth(_selectedMonth, branch: _branch);
+    final monthFuture = MaintenanceLogService.fetchMonth(_selectedMonth, branch: _branch);
+    final errorFuture = ErrorTicketService.fetchOpen()
+        .then((open) => ErrorTicketService.openPosNames(open))
+        .catchError((e) {
+          debugPrint('[MaintenanceMapScreen] silentRefresh fetchOpen error: $e');
+          return _errorPosNames;
+        });
+
+    final result = await monthFuture;
+    final newErrorPosNames = await errorFuture;
     final statuses = MaintenanceLogService.buildStatuses(locations, result.logs, _branch);
 
     if (!mounted) return;
@@ -552,7 +646,18 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
       if (!result.offline) {
         _lastFetchTime = DateTime.now();
       }
+      if (widget.initialErrorPosNames != null) {
+        _errorPosNames = widget.initialErrorPosNames!
+            .map((e) => e.trim().toLowerCase())
+            .toSet();
+      } else {
+        _errorPosNames = newErrorPosNames;
+      }
     });
+
+    if (_errorPosNames.isNotEmpty) {
+      _triggerRadarAnimation();
+    }
   }
 
   void _previousMonth() {
@@ -1001,6 +1106,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                       ),
                     ),
                   ),
+                if (_errorCount > 0) _buildErrorFloatingChip(colors, _errorCount),
                 Positioned(
                   right: 12,
                   bottom: 16,
@@ -1369,9 +1475,25 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
 
   List<Marker> _buildMarkers() {
     final filtered = _filteredStatuses;
-    final visibleStatuses = filtered
+    final baseStatuses = filtered
         .where((s) => s.location.lat != 0 && s.location.lng != 0)
         .toList();
+
+    // Union pos with open error tickets regardless of status filter
+    final existingPosIds = baseStatuses.map((s) => s.location.posId).toSet();
+    final errorStatuses = _wilayahStatuses.where((s) {
+      if (s.location.lat == 0 || s.location.lng == 0) return false;
+      final normName = s.location.posName.toLowerCase().trim();
+      return _errorPosNames.contains(normName);
+    });
+
+    final visibleStatuses = List<PosMaintenanceStatus>.from(baseStatuses);
+    for (final s in errorStatuses) {
+      if (!existingPosIds.contains(s.location.posId)) {
+        visibleStatuses.add(s);
+        existingPosIds.add(s.location.posId);
+      }
+    }
 
     final temuanItems = MaintenanceMapScreen.extractTemuanItems(
       statuses: filtered,
@@ -1493,7 +1615,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
         child: Text(
           countStr,
           style: const TextStyle(
-            fontFamily: 'PlusJakartaSans',
+            fontFamily: 'Figtree',
             fontSize: 11,
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -1516,6 +1638,9 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     final items = temuanByPos[s.location.posId] ?? const [];
     final temuanCount = items.where((i) => !i.isFixed).length;
     final colors = TiketColors.of(context);
+    final normName = s.location.posName.toLowerCase().trim();
+    final hasError = _errorPosNames.contains(normName);
+    final disableAnimations = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     final rank = _statusRank(s);
     Color glyphColor;
@@ -1546,7 +1671,9 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
     }
 
     String semanticLabel;
-    if (rank == 0) {
+    if (hasError) {
+      semanticLabel = '${s.location.posName}, ada tiket error terbuka';
+    } else if (rank == 0) {
       semanticLabel = '${s.location.locationTag}, belum dikerjakan';
     } else if (temuanCount > 0) {
       if (isUrgent) {
@@ -1558,10 +1685,56 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
       semanticLabel = '${s.location.locationTag}, 0 temuan';
     }
 
+    final pinWidget = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: circleBg,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: selected ? colors.primary : circleBorder,
+              width: selected ? 2.5 : 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colors.ink.withValues(alpha: 0.16),
+                blurRadius: selected ? 6 : 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: Icon(glyphIcon, size: 16, color: glyphColor),
+        ),
+        if (temuanCount > 0)
+          Positioned(
+            top: -4,
+            right: -4,
+            child: _buildNotificationBadge(
+              count: temuanCount,
+              isUrgent: isUrgent,
+            ),
+          ),
+      ],
+    );
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final pillBg = hasError
+        ? (isDark ? const Color(0xFFC81E1E) : colors.danger)
+        : colors.canvas;
+    final pillBorderColor = hasError
+        ? (isDark ? const Color(0xFFC81E1E) : colors.danger)
+        : (selected ? colors.primary : colors.mute);
+    final pillTextColor = hasError ? colors.white : colors.ink;
+    final pillLabel = hasError ? '${s.location.posName} · Error' : s.location.locationTag;
+
     return Marker(
       point: LatLng(s.location.lat, s.location.lng),
-      width: 100,
-      height: 60,
+      width: hasError ? 120 : 100,
+      height: hasError ? 124 : 60,
       alignment: Alignment.center,
       child: Semantics(
         button: true,
@@ -1569,55 +1742,40 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
         child: GestureDetector(
           onTap: () => _onMarkerTap(s),
           child: Container(
-            constraints: const BoxConstraints(minWidth: 48, minHeight: 60),
+            constraints: BoxConstraints(minWidth: 48, minHeight: hasError ? 124 : 60),
             alignment: Alignment.center,
             color: Colors.transparent,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: circleBg,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: selected ? colors.primary : circleBorder,
-                          width: selected ? 2.5 : 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colors.ink.withValues(alpha: 0.16),
-                            blurRadius: selected ? 6 : 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      alignment: Alignment.center,
-                      child: Icon(glyphIcon, size: 16, color: glyphColor),
-                    ),
-                    if (temuanCount > 0)
-                      Positioned(
-                        top: -4,
-                        right: -4,
-                        child: _buildNotificationBadge(
-                          count: temuanCount,
-                          isUrgent: isUrgent,
+                if (hasError)
+                  Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      _buildRadarOuterRing(colors, disableAnimations: disableAnimations),
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: colors.danger.withValues(alpha: 0.20),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: colors.danger, width: 2.0),
                         ),
                       ),
-                  ],
-                ),
+                      pinWidget,
+                    ],
+                  )
+                else
+                  pinWidget,
                 const SizedBox(height: 1),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                   decoration: BoxDecoration(
-                    color: colors.canvas,
+                    color: pillBg,
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: selected ? colors.primary : colors.mute,
+                      color: pillBorderColor,
                       width: 1.0,
                     ),
                     boxShadow: [
@@ -1633,14 +1791,14 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        s.location.locationTag,
+                        pillLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: TiketType.fontFamily,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: colors.ink,
+                          color: pillTextColor,
                         ),
                       ),
                     ),
@@ -1664,6 +1822,8 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
         .where((m) => urgentPosIds.contains(m.location.posId))
         .length;
     final hasUrgent = u > 0;
+    final hasError = cluster.members.any((m) =>
+        _errorPosNames.contains(m.location.posName.toLowerCase().trim()));
     final sumTemuan = cluster.members.fold<int>(
       0,
       (sum, m) =>
@@ -1672,6 +1832,7 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
               0),
     );
     final colors = TiketColors.of(context);
+    final disableAnimations = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     Color clusterBg;
     Color clusterBorder;
@@ -1698,13 +1859,40 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
         ? '$n lokasi, $u urgent, $sumTemuan temuan'
         : '$n lokasi, $sumTemuan temuan';
 
+    final clusterBubble = Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: clusterBg,
+        shape: BoxShape.circle,
+        border: Border.all(color: clusterBorder, width: 2.0),
+        boxShadow: [
+          BoxShadow(
+            color: colors.ink.withValues(alpha: 0.16),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        '$n',
+        style: TextStyle(
+          fontFamily: TiketType.fontFamily,
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
+          color: textColor,
+        ),
+      ),
+    );
+
     return Marker(
       point: LatLng(
         cluster.members.first.location.lat,
         cluster.members.first.location.lng,
       ),
-      width: 48,
-      height: 48,
+      width: hasError ? 110 : 48,
+      height: hasError ? 110 : 48,
       alignment: Alignment.center,
       child: Semantics(
         button: true,
@@ -1716,34 +1904,22 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
             alignment: Alignment.center,
             color: Colors.transparent,
             child: Stack(
+              alignment: Alignment.center,
               clipBehavior: Clip.none,
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: clusterBg,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: clusterBorder, width: 2.0),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colors.ink.withValues(alpha: 0.16),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '$n',
-                    style: TextStyle(
-                      fontFamily: TiketType.fontFamily,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: textColor,
+                if (hasError) ...[
+                  _buildRadarOuterRing(colors, disableAnimations: disableAnimations),
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: colors.danger.withValues(alpha: 0.20),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: colors.danger, width: 2.0),
                     ),
                   ),
-                ),
+                ],
+                clusterBubble,
                 if (sumTemuan > 0)
                   Positioned(
                     top: -4,
@@ -1760,6 +1936,172 @@ class _MaintenanceMapScreenState extends State<MaintenanceMapScreen> {
       ),
     );
   }
+
+  Widget _buildRadarOuterRing(TiketColors colors, {required bool disableAnimations}) {
+    final outerCircle = Container(
+      width: 96,
+      height: 96,
+      decoration: BoxDecoration(
+        color: colors.danger.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+        border: Border.all(color: colors.danger, width: 1.5),
+      ),
+    );
+
+    if (disableAnimations || !_radarAnimationController.isAnimating) {
+      return Opacity(
+        opacity: 0.6,
+        child: outerCircle,
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: _radarAnimationController,
+      builder: (context, child) {
+        final t = _radarAnimationController.value;
+        final scale = 0.85 + (1.15 - 0.85) * t;
+        final opacity = 0.6 - (0.6 - 0.15) * t;
+        return Opacity(
+          opacity: opacity,
+          child: Transform.scale(
+            scale: scale,
+            child: child,
+          ),
+        );
+      },
+      child: outerCircle,
+    );
+  }
+
+  List<PosMaintenanceStatus> get _visibleErrorStatuses {
+    return _wilayahStatuses.where((s) {
+      if (s.location.lat == 0 || s.location.lng == 0) return false;
+      return _errorPosNames.contains(s.location.posName.toLowerCase().trim());
+    }).toList();
+  }
+
+  int get _errorCount => _visibleErrorStatuses.length;
+
+  Widget _buildErrorFloatingChip(TiketColors colors, int count) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = isDark ? colors.canvas : Colors.white;
+
+    return Positioned(
+      top: 16,
+      left: 16,
+      child: Semantics(
+        button: true,
+        label: '$count lokasi error',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _onFloatingErrorChipTap(_visibleErrorStatuses),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+            alignment: Alignment.centerLeft,
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: surfaceColor,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: colors.danger, width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.ink.withValues(alpha: 0.12),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSmallRadarIcon(colors.danger),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$count lokasi error',
+                    style: TextStyle(
+                      fontFamily: 'Figtree',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: colors.danger,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSmallRadarIcon(Color dangerColor) {
+    return SizedBox(
+      width: 18,
+      height: 18,
+      child: Center(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: dangerColor, width: 1.5),
+              ),
+            ),
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: dangerColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onFloatingErrorChipTap(List<PosMaintenanceStatus> errorStatuses) {
+    if (errorStatuses.isEmpty) return;
+
+    final coords = errorStatuses
+        .map((s) => LatLng(s.location.lat, s.location.lng))
+        .toList();
+
+    if (_mapReady) {
+      if (coords.length == 1) {
+        _mapController.move(coords.first, 14.0);
+      } else {
+        try {
+          _mapController.fitCamera(
+            CameraFit.coordinates(
+              coordinates: coords,
+              padding: const EdgeInsets.only(
+                top: 40,
+                left: 40,
+                right: 40,
+                bottom: 80,
+              ),
+              maxZoom: 15.0,
+            ),
+          );
+        } catch (e) {
+          debugPrint('fitCamera error: $e');
+          _mapController.move(coords.first, 12.0);
+        }
+      }
+    }
+
+    if (errorStatuses.length == 1) {
+      _onMarkerTap(errorStatuses.first);
+    }
+  }
+
   void _showClusterMembersSheet(List<PosMaintenanceStatus> members) {
     final colors = TiketColors.of(context);
     showModalBottomSheet<void>(
@@ -1986,7 +2328,7 @@ class MaintenanceBelumRow extends StatelessWidget {
           'Fase $currentPhase',
           maxLines: 1,
           style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
+            fontFamily: 'Figtree',
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: pendingColor,
@@ -2012,7 +2354,7 @@ class MaintenanceBelumRow extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
+            fontFamily: 'Figtree',
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: pendingColor,
@@ -2074,7 +2416,7 @@ class MaintenanceBelumRow extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: textPrimaryColor,
@@ -2099,7 +2441,7 @@ class MaintenanceBelumRow extends StatelessWidget {
                             child: Text(
                               status.location.locationTag,
                               style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
+                                fontFamily: 'Figtree',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: textSecondaryColor,
@@ -2115,7 +2457,7 @@ class MaintenanceBelumRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
                         color: textSecondaryColor,
@@ -2271,7 +2613,7 @@ class MaintenanceTemuanRow extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: 'Figtree',
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: textPrimaryColor,
@@ -2284,7 +2626,7 @@ class MaintenanceTemuanRow extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
                             color: textSecondaryColor,
@@ -2297,7 +2639,7 @@ class MaintenanceTemuanRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: 'Figtree',
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
                           color: textSecondaryColor,
@@ -2319,7 +2661,7 @@ class MaintenanceTemuanRow extends StatelessWidget {
                     child: Text(
                       'Urgent',
                       style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: urgentTextColor,
@@ -2459,7 +2801,7 @@ class MaintenanceLocationRow extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: textPrimaryColor,
@@ -2484,7 +2826,7 @@ class MaintenanceLocationRow extends StatelessWidget {
                             child: Text(
                               status.location.locationTag,
                               style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
+                                fontFamily: 'Figtree',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: textSecondaryColor,
@@ -2502,7 +2844,7 @@ class MaintenanceLocationRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
                         color: textSecondaryColor,
@@ -2527,7 +2869,7 @@ class MaintenanceLocationRow extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
                               color: textSecondaryColor,
@@ -2561,7 +2903,7 @@ class MaintenanceLocationRow extends StatelessWidget {
                         child: Text(
                           trailingLabel,
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: statusColor,

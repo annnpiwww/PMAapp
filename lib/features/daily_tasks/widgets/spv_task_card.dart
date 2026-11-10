@@ -12,6 +12,7 @@ class SpvTaskCard extends StatelessWidget {
   final VoidCallback onToggleExpand;
   final VoidCallback? onHandover;
   final VoidCallback? onDelete;
+  final VoidCallback? onKerjakan;
 
   const SpvTaskCard({
     super.key,
@@ -21,6 +22,7 @@ class SpvTaskCard extends StatelessWidget {
     required this.onToggleExpand,
     this.onHandover,
     this.onDelete,
+    this.onKerjakan,
   });
 
   static String _initials(String name) {
@@ -160,7 +162,7 @@ class SpvTaskCard extends StatelessWidget {
                               _kebabMenu(hasNotes, isDone, colors),
                             ],
                           ),
-                          if (isDone || onHandover != null) ...[
+                          if (isDone || onHandover != null || (!isDone && onKerjakan != null)) ...[
                             const SizedBox(height: 6),
                             // Below: StatusMarker ok + StatusChip 'Selesai', Bukti/Alihkan as TiketPill secondary height 44
                             Wrap(
@@ -192,7 +194,7 @@ class SpvTaskCard extends StatelessWidget {
                                       onPressed: () => CompletedDailyTaskModal.show(context, task),
                                     ),
                                   ),
-                                ] else if (onHandover != null) ...[
+                                ] else ...[
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -208,15 +210,25 @@ class SpvTaskCard extends StatelessWidget {
                                       ),
                                     ],
                                   ),
-                                  IntrinsicWidth(
-                                    child: TiketPill(
-                                      label: 'Alihkan',
-                                      icon: Icons.swap_horiz_rounded,
-                                      kind: TiketPillKind.secondary,
-                                      height: 44,
-                                      onPressed: onHandover,
+                                  if (onKerjakan != null)
+                                    IntrinsicWidth(
+                                      child: TiketPill(
+                                        label: 'Kerjakan',
+                                        kind: TiketPillKind.primary,
+                                        height: 44,
+                                        onPressed: onKerjakan,
+                                      ),
                                     ),
-                                  ),
+                                  if (onHandover != null)
+                                    IntrinsicWidth(
+                                      child: TiketPill(
+                                        label: 'Alihkan',
+                                        icon: Icons.swap_horiz_rounded,
+                                        kind: TiketPillKind.secondary,
+                                        height: 44,
+                                        onPressed: onHandover,
+                                      ),
+                                    ),
                                 ],
                               ],
                             ),

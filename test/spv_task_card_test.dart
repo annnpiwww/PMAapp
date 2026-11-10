@@ -11,10 +11,10 @@ bool _fontsLoaded = false;
 Future<void> loadAppFonts(WidgetTester tester) async {
   if (_fontsLoaded) return;
   await tester.runAsync(() async {
-    // 1. PlusJakartaSans (App Font)
-    final pjsLoader = FontLoader('PlusJakartaSans');
+    // 1. Figtree (App Font)
+    final pjsLoader = FontLoader('Figtree');
     for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
-      final file = File('assets/fonts/PlusJakartaSans-$weight.ttf');
+      final file = File('assets/fonts/Figtree-$weight.ttf');
       if (file.existsSync()) {
         final bytes = file.readAsBytesSync();
         pjsLoader.addFont(Future.value(ByteData.view(bytes.buffer)));

@@ -1,16 +1,17 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/services/logger_service.dart';
-import '../../../core/services/theme_service.dart';
+import '../../../core/constants/tiket_colors.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/widgets/app_file_image.dart';
 import '../../../data/models/daily_task_model.dart';
+import '../../../data/models/error_report.dart';
 import '../../../data/services/daily_task_service.dart';
+import '../../../data/services/error_ticket_service.dart';
 import '../../../data/services/storage_service.dart';
 
 class CustomTaskExecutionScreen extends StatefulWidget {
@@ -23,15 +24,40 @@ class CustomTaskExecutionScreen extends StatefulWidget {
 
   @override
   State<CustomTaskExecutionScreen> createState() => _CustomTaskExecutionScreenState();
+
+  @visibleForTesting
+  static String buildCompleteCatatan({
+    required bool isError,
+    required String penyebab,
+    required String solusi,
+    required String catatan,
+  }) {
+    if (isError) {
+      return errorCatatanTeknisi(
+        penyebab: penyebab,
+        solusiPerbaikan: solusi,
+        catatan: catatan,
+      );
+    }
+    return catatan.trim();
+  }
 }
 
 class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
   final List<String> _localPhotoPaths = [];
   final List<String> _localVideoPaths = [];
   final _catatanCtrl = TextEditingController();
+  final _penyebabCtrl = TextEditingController();
+  final _solusiCtrl = TextEditingController();
   final _picker = ImagePicker();
+
+  late final bool _isError;
+  late final ErrorReport _report;
+  Timer? _infoTimer;
+
   bool _isSaving = false;
   String? _errorMessage;
+  String? _solusiError;
   bool _isTaskCompleted = false;
   bool _isDraftRestored = false;
 
@@ -40,18 +66,37 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
   @override
   void initState() {
     super.initState();
+    _isError = widget.task.kategori == ErrorTicketService.kategori;
+    _report = ErrorReport.parse(widget.task.deskripsi);
+
+    if (_isError) {
+      _penyebabCtrl.text = _report.penyebab;
+      _infoTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+        if (mounted) setState(() {});
+      });
+    }
+
     _restoreDraft();
-    _catatanCtrl.addListener(_onCatatanChanged);
+    _catatanCtrl.addListener(_onFieldChanged);
+    if (_isError) {
+      _penyebabCtrl.addListener(_onFieldChanged);
+      _solusiCtrl.addListener(_onFieldChanged);
+    }
   }
 
   @override
   void dispose() {
-    _catatanCtrl.removeListener(_onCatatanChanged);
+    _infoTimer?.cancel();
+    _catatanCtrl.removeListener(_onFieldChanged);
+    _penyebabCtrl.removeListener(_onFieldChanged);
+    _solusiCtrl.removeListener(_onFieldChanged);
     _catatanCtrl.dispose();
+    _penyebabCtrl.dispose();
+    _solusiCtrl.dispose();
     super.dispose();
   }
 
-  void _onCatatanChanged() {
+  void _onFieldChanged() {
     _saveDraft();
   }
 
@@ -66,6 +111,17 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
       final savedCatatan = decoded['catatan']?.toString() ?? '';
       if (savedCatatan.isNotEmpty) {
         _catatanCtrl.text = savedCatatan;
+      }
+
+      if (_isError) {
+        final savedPenyebab = decoded['penyebab']?.toString();
+        if (savedPenyebab != null && savedPenyebab.isNotEmpty) {
+          _penyebabCtrl.text = savedPenyebab;
+        }
+        final savedSolusi = decoded['solusi']?.toString();
+        if (savedSolusi != null && savedSolusi.isNotEmpty) {
+          _solusiCtrl.text = savedSolusi;
+        }
       }
 
       final rawPhotos = (decoded['photos'] as List?)?.map((e) => e.toString()).toList() ?? [];
@@ -94,7 +150,6 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
         _isDraftRestored = true;
       }
 
-      // Jika file fisik sudah dihapus di storage, update draft yang tersimpan
       if (validPhotos.length != rawPhotos.length || validVideos.length != rawVideos.length) {
         _saveDraft();
       }
@@ -106,14 +161,20 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
   Future<void> _saveDraft() async {
     if (_isTaskCompleted) return;
     try {
-      if (_localPhotoPaths.isEmpty && _localVideoPaths.isEmpty && _catatanCtrl.text.trim().isEmpty) {
+      final hasCatatan = _catatanCtrl.text.trim().isNotEmpty;
+      final hasPenyebab = _isError && _penyebabCtrl.text.trim().isNotEmpty && _penyebabCtrl.text.trim() != _report.penyebab.trim();
+      final hasSolusi = _isError && _solusiCtrl.text.trim().isNotEmpty;
+
+      if (_localPhotoPaths.isEmpty && _localVideoPaths.isEmpty && !hasCatatan && !hasPenyebab && !hasSolusi) {
         await StorageService.remove(_draftKey);
         return;
       }
-      final data = {
+      final data = <String, dynamic>{
         'photos': _localPhotoPaths,
         'videos': _localVideoPaths,
         'catatan': _catatanCtrl.text,
+        if (_isError) 'penyebab': _penyebabCtrl.text,
+        if (_isError) 'solusi': _solusiCtrl.text,
       };
       await StorageService.setString(_draftKey, jsonEncode(data));
     } catch (e) {
@@ -132,24 +193,24 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
 
   Future<void> _takePhoto() async {
     try {
-      final picked = await _picker.pickImage(
+      final photo = await _picker.pickImage(
         source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1080,
         imageQuality: 85,
-        maxWidth: 1600,
-        maxHeight: 1600,
       );
-      if (picked != null) {
+      if (photo != null) {
         setState(() {
-          _localPhotoPaths.add(picked.path);
+          _localPhotoPaths.add(photo.path);
           _errorMessage = null;
         });
         _saveDraft();
       }
     } catch (e) {
-      LoggerService.error('Error take photo', error: e, tag: 'CustomTaskExecution');
+      debugPrint('[CustomTaskExecution] Error capture photo: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gagal membuka kamera foto. Pastikan izin kamera aktif lalu coba lagi.')),
+          const SnackBar(content: Text('Gagal membuka kamera foto.')),
         );
       }
     }
@@ -157,22 +218,22 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
 
   Future<void> _recordVideo() async {
     try {
-      final picked = await _picker.pickVideo(
+      final video = await _picker.pickVideo(
         source: ImageSource.camera,
         maxDuration: const Duration(seconds: 30),
       );
-      if (picked != null) {
+      if (video != null) {
         setState(() {
-          _localVideoPaths.add(picked.path);
+          _localVideoPaths.add(video.path);
           _errorMessage = null;
         });
         _saveDraft();
       }
     } catch (e) {
-      LoggerService.error('Error record video', error: e, tag: 'CustomTaskExecution');
+      debugPrint('[CustomTaskExecution] Error record video: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gagal membuka kamera video. Pastikan izin kamera aktif lalu coba lagi.')),
+          const SnackBar(content: Text('Gagal membuka kamera video.')),
         );
       }
     }
@@ -180,23 +241,25 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
 
   Future<void> _pickGalleryPhotos() async {
     try {
-      final picked = await _picker.pickMultiImage(
+      final images = await _picker.pickMultiImage(
+        maxWidth: 1920,
+        maxHeight: 1080,
         imageQuality: 85,
-        maxWidth: 1600,
-        maxHeight: 1600,
       );
-      if (picked.isNotEmpty) {
+      if (images.isNotEmpty) {
         setState(() {
-          _localPhotoPaths.addAll(picked.map((e) => e.path));
+          for (final img in images) {
+            _localPhotoPaths.add(img.path);
+          }
           _errorMessage = null;
         });
         _saveDraft();
       }
     } catch (e) {
-      LoggerService.error('Error pick gallery photos', error: e, tag: 'CustomTaskExecution');
+      debugPrint('[CustomTaskExecution] Error pick gallery photos: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gagal membuka galeri foto. Silakan coba lagi.')),
+          const SnackBar(content: Text('Gagal memilih gambar dari galeri.')),
         );
       }
     }
@@ -204,22 +267,67 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
 
   Future<void> _pickGalleryVideo() async {
     try {
-      final picked = await _picker.pickVideo(source: ImageSource.gallery);
-      if (picked != null) {
+      final video = await _picker.pickVideo(source: ImageSource.gallery);
+      if (video != null) {
         setState(() {
-          _localVideoPaths.add(picked.path);
+          _localVideoPaths.add(video.path);
           _errorMessage = null;
         });
         _saveDraft();
       }
     } catch (e) {
-      LoggerService.error('Error pick gallery video', error: e, tag: 'CustomTaskExecution');
+      debugPrint('[CustomTaskExecution] Error pick gallery video: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gagal membuka galeri video. Silakan coba lagi.')),
+          const SnackBar(content: Text('Gagal memilih video dari galeri.')),
         );
       }
     }
+  }
+
+  void _showGalleryPicker(BuildContext context) {
+    final colors = TiketColors.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: colors.dialog,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: Icon(Icons.photo_library_outlined, color: colors.ink),
+                  title: Text(
+                    'Foto dari galeri',
+                    style: TextStyle(fontFamily: 'Figtree', fontWeight: FontWeight.w600, color: colors.ink),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickGalleryPhotos();
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.video_library_outlined, color: colors.ink),
+                  title: Text(
+                    'Video dari galeri',
+                    style: TextStyle(fontFamily: 'Figtree', fontWeight: FontWeight.w600, color: colors.ink),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickGalleryVideo();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _removePhoto(int index) {
@@ -245,36 +353,60 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
     return '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} WITA';
   }
 
+  String _buildInfoStripText() {
+    final reportedAt = _report.reportedAt;
+    if (reportedAt == null) {
+      return 'Waktu lapor tidak ada di pesan';
+    }
+    final hh = reportedAt.hour.toString().padLeft(2, '0');
+    final mm = reportedAt.minute.toString().padLeft(2, '0');
+    final durasi = formatDurasi(DateTime.now().difference(reportedAt));
+    return 'Dilaporkan $hh.$mm · sudah $durasi';
+  }
+
   Future<void> _submitTask() async {
-    if (_isSaving) return; // Anti-double submit
+    if (_isSaving) return;
 
     setState(() {
-      _isSaving = true;
       _errorMessage = null;
+      _solusiError = null;
     });
 
-    final jamSelesai = _currentFormattedTime();
-    final catatan = _catatanCtrl.text.trim();
-
-    // Validasi Hard-Gate 1: Wajib foto ATAU video dokumentasi pekerjaan
     if (_localPhotoPaths.isEmpty && _localVideoPaths.isEmpty) {
       HapticFeedback.heavyImpact();
       setState(() {
-        _isSaving = false;
         _errorMessage = 'Ambil atau upload minimal 1 foto/video bukti pekerjaan.';
       });
       return;
     }
 
-    // Validasi Hard-Gate 2: Wajib catatan laporan teknisi
-    if (catatan.isEmpty) {
-      HapticFeedback.heavyImpact();
-      setState(() {
-        _isSaving = false;
-        _errorMessage = 'Catatan laporan harus diisi.';
-      });
-      return;
+    if (_isError) {
+      if (_solusiCtrl.text.trim().isEmpty) {
+        HapticFeedback.heavyImpact();
+        setState(() {
+          _solusiError = 'Solusi perbaikan wajib diisi.';
+        });
+        return;
+      }
+    } else {
+      if (_catatanCtrl.text.trim().isEmpty) {
+        HapticFeedback.heavyImpact();
+        setState(() {
+          _errorMessage = 'Catatan laporan harus diisi.';
+        });
+        return;
+      }
     }
+
+    setState(() => _isSaving = true);
+
+    final jamSelesai = _currentFormattedTime();
+    final catatan = CustomTaskExecutionScreen.buildCompleteCatatan(
+      isError: _isError,
+      penyebab: _penyebabCtrl.text,
+      solusi: _solusiCtrl.text,
+      catatan: _catatanCtrl.text,
+    );
 
     final success = await DailyTaskService.completeTask(
       taskId: widget.task.id,
@@ -290,7 +422,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
 
     if (success) {
       await _clearDraft();
-      _showPostSaveDialog(jamSelesai, catatan);
+      _showPostSaveDialog();
     } else {
       setState(() {
         _errorMessage = 'Gagal menyimpan laporan. Periksa koneksi lalu coba lagi.';
@@ -298,455 +430,494 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
     }
   }
 
-  void _showPostSaveDialog(String jamSelesai, String catatan) {
-    final reportText = DailyTaskService.formatPerTaskReport(
-      judul: widget.task.judul,
-      notes: catatan,
-      partners: widget.task.pesertaList,
-    );
+  @visibleForTesting
+  void showPostSaveDialogForTesting() {
+    _showPostSaveDialog();
+  }
 
-    final isDark = ThemeService.isDarkMode(context);
+  void _showPostSaveDialog() {
+    final String reportText;
+    if (_isError) {
+      final kendala = _report.kendala.isNotEmpty ? _report.kendala : widget.task.judul;
+      reportText = buildErrorReply(
+        kendala: kendala,
+        penyebab: _penyebabCtrl.text,
+        solusiPerbaikan: _solusiCtrl.text,
+        reportedAt: _report.reportedAt,
+        selesai: DateTime.now(),
+        catatan: _catatanCtrl.text,
+      );
+    } else {
+      reportText = DailyTaskService.formatPerTaskReport(
+        judul: widget.task.judul,
+        notes: _catatanCtrl.text.trim(),
+        partners: widget.task.pesertaList,
+      );
+    }
 
-    showDialog(
+    final colors = TiketColors.of(context);
+
+    showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF111827) : Colors.white,
+        final pathsToSend = _localPhotoPaths.isNotEmpty
+            ? _localPhotoPaths
+            : (_localVideoPaths.isNotEmpty ? _localVideoPaths : null);
+
+        return Dialog(
+          backgroundColor: colors.dialog,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+            side: BorderSide(color: colors.hairline),
           ),
-          title: Row(
-            children: [
-              const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                'Tugas Selesai',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Tugas selesai dan bukti pekerjaan tersimpan.',
-                style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0B1120) : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
-                ),
-                child: Text(
-                  reportText,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11.5,
-                    color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
-                    height: 1.4,
-                  ),
-                ),
-              ),
-              if (_localPhotoPaths.isNotEmpty && _localVideoPaths.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(top: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF25D366).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF25D366).withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.info_outline_rounded, color: Color(0xFF25D366), size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'WhatsApp memisahkan pengiriman Foto dan Video. Kirim Foto terlebih dahulu, lalu kirim Video ke grup/chat yang sama.',
-                          style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.check_circle_rounded, color: colors.ok, size: 22),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Laporan siap dikirim',
+                        style: TextStyle(
+                          fontFamily: 'Figtree',
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: colors.ink,
                         ),
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Cek dulu, lalu bagikan ke grup',
+                  style: TextStyle(
+                    fontFamily: 'Figtree',
+                    fontSize: 13,
+                    color: colors.body,
                   ),
                 ),
-            ],
-          ),
-          actions: [
-            if (_localPhotoPaths.isNotEmpty && _localVideoPaths.isNotEmpty) ...[
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ElevatedButton.icon(
+                const SizedBox(height: 14),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colors.soft,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colors.hairline),
+                    ),
+                    child: SingleChildScrollView(
+                      child: SelectableText(
+                        reportText,
+                        style: TextStyle(
+                          fontFamily: 'Figtree',
+                          fontSize: 14,
+                          height: 1.4,
+                          color: colors.ink,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Foto atau video ikut terlampir saat dibagikan.',
+                  style: TextStyle(
+                    fontFamily: 'Figtree',
+                    fontSize: 12,
+                    color: colors.mute,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
                     onPressed: () async {
                       HapticFeedback.lightImpact();
                       final rootNav = Navigator.of(context);
                       final dlgNav = Navigator.of(ctx);
                       await ShareHelper.shareToWhatsApp(
                         text: reportText,
-                        imagePaths: _localPhotoPaths,
+                        imagePaths: pathsToSend,
                       );
                       dlgNav.pop();
                       rootNav.pop(true);
                     },
-                    icon: const Icon(Icons.photo_library_rounded, size: 16),
-                    label: Text(
-                      'Kirim Foto (${_localPhotoPaths.length})',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF25D366),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      backgroundColor: colors.primary,
+                      foregroundColor: colors.onPrimary,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                    child: const Text(
+                      'Bagikan ke Grup',
+                      style: TextStyle(
+                        fontFamily: 'Figtree',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      HapticFeedback.lightImpact();
-                      final rootNav = Navigator.of(context);
-                      final dlgNav = Navigator.of(ctx);
-                      await ShareHelper.shareToWhatsApp(
-                        text: reportText,
-                        imagePaths: _localVideoPaths,
-                      );
-                      dlgNav.pop();
-                      rootNav.pop(true);
-                    },
-                    icon: const Icon(Icons.videocam_rounded, size: 16, color: Color(0xFF25D366)),
-                    label: Text(
-                      'Kirim Video (${_localVideoPaths.length})',
-                      style: const TextStyle(color: Color(0xFF25D366), fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: reportText));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Teks laporan disalin.')),
+                        );
+                      },
+                      child: Text(
+                        'Salin teks',
+                        style: TextStyle(
+                          fontFamily: 'Figtree',
+                          fontWeight: FontWeight.w600,
+                          color: colors.body,
+                        ),
+                      ),
                     ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF25D366)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        Navigator.of(context).pop(true);
+                      },
+                      child: Text(
+                        'Selesai',
+                        style: TextStyle(
+                          fontFamily: 'Figtree',
+                          fontWeight: FontWeight.w600,
+                          color: colors.mute,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(ctx).pop();
-                      Navigator.of(context).pop(true);
-                    },
-                    child: Text(
-                      'Selesai (Nanti Saja)',
-                      style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                    ),
-                  ),
-                ],
-              ),
-            ] else ...[
-              TextButton(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  Navigator.of(context).pop(true);
-                },
-                child: Text(
-                  'Selesai (Nanti Saja)',
-                  style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                  ],
                 ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  HapticFeedback.lightImpact();
-                  final rootNav = Navigator.of(context);
-                  final dlgNav = Navigator.of(ctx);
-                  final pathsToSend = _localPhotoPaths.isNotEmpty
-                      ? _localPhotoPaths
-                      : (_localVideoPaths.isNotEmpty ? _localVideoPaths : null);
-                  await ShareHelper.shareToWhatsApp(
-                    text: reportText,
-                    imagePaths: pathsToSend,
-                  );
-                  dlgNav.pop();
-                  rootNav.pop(true);
-                },
-                icon: Icon(
-                  _localVideoPaths.isNotEmpty && _localPhotoPaths.isEmpty
-                      ? Icons.videocam_rounded
-                      : Icons.send_rounded,
-                  size: 16,
-                ),
-                label: Text(
-                  _localPhotoPaths.isNotEmpty
-                      ? 'Kirim Foto (${_localPhotoPaths.length})'
-                      : (_localVideoPaths.isNotEmpty ? 'Kirim Video (${_localVideoPaths.length})' : 'Kirim Laporan'),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-            ],
-          ],
+              ],
+            ),
+          ),
         );
       },
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = ThemeService.isDarkMode(context);
-    final bgScaffold = isDark ? const Color(0xFF0B1120) : const Color(0xFFFAF8F5);
-    final bgAppBar = isDark ? const Color(0xFF111827) : AppColors.primary;
-    final bgCard = isDark ? const Color(0xFF111827) : Colors.white;
-    final borderCard = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-    final textHead = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSub = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-
-    return Scaffold(
-      backgroundColor: bgScaffold,
-      appBar: AppBar(
-        backgroundColor: bgAppBar,
-        elevation: 0,
-        title: const Text(
-          'Pengerjaan Tugas',
-          style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+  Widget _buildDocIconButton({
+    required IconData icon,
+    required String semanticLabel,
+    required VoidCallback onTap,
+    required TiketColors colors,
+  }) {
+    return Semantics(
+      label: semanticLabel,
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(28),
+        child: SizedBox(
+          width: 56,
+          height: 56,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: colors.soft,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 28, color: colors.ink),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: colors.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colors.canvas, width: 2),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(Icons.add, size: 14, color: colors.onPrimary),
+                ),
+              ),
+            ],
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = TiketColors.of(context);
+    final pad = TiketSpace.padOf(context);
+
+    return Scaffold(
+      backgroundColor: colors.canvas,
+      appBar: AppBar(
+        backgroundColor: colors.canvas,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        iconTheme: IconThemeData(color: colors.ink),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Detail Tugas Card
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: bgCard,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: borderCard),
+            Text(
+              'Selesaikan tugas',
+              style: TextStyle(
+                fontFamily: 'Figtree',
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: colors.ink,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${widget.task.posName} · ${widget.task.judul}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Figtree',
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: colors.body,
+              ),
+            ),
+            if (_isDraftRestored) ...[
+              const SizedBox(height: 2),
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          widget.task.judul,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: textHead,
-                          ),
-                        ),
-                      ),
-                      if (_isDraftRestored) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.amber.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.history_edu_rounded, size: 12, color: Colors.amber),
-                              SizedBox(width: 4),
-                              Text(
-                                'Draft Tersimpan',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.amber,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(
-                          'Lokasi: ${widget.task.posName}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.accent,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        'Teknisi: ${widget.task.teknisiNama}',
-                        style: TextStyle(fontSize: 11, color: textSub),
-                      ),
-                    ],
+                  Icon(Icons.history_edu_rounded, size: 12, color: colors.signalText),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Draft Tersimpan',
+                    style: TextStyle(
+                      fontFamily: 'Figtree',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: colors.signalText,
+                    ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 18),
-
-            // Bukti Dokumentasi (Foto & Video Realtime)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    'Bukti Dokumentasi Pekerjaan',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: textHead),
-                  ),
+            ],
+          ],
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: pad, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Info strip for Error Ticket
+            if (_isError) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: colors.soft,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  '${_localPhotoPaths.length} Foto • ${_localVideoPaths.length} Video',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.accent),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded, size: 16, color: colors.body),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _buildInfoStripText(),
+                        style: TextStyle(
+                          fontFamily: 'Figtree',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: colors.ink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Field Penyebab
+              Text(
+                'Penyebab',
+                style: TextStyle(
+                  fontFamily: 'Figtree',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: colors.ink,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _penyebabCtrl,
+                style: TextStyle(fontFamily: 'Figtree', fontSize: 14, color: colors.ink),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: colors.soft,
+                  helperText: 'Isi awal dari admin. Ganti kalau sudah ketemu.',
+                  helperStyle: TextStyle(fontFamily: 'Figtree', fontSize: 12, color: colors.body),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Field Solusi Perbaikan
+              Text(
+                'Solusi perbaikan',
+                style: TextStyle(
+                  fontFamily: 'Figtree',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: colors.ink,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _solusiCtrl,
+                style: TextStyle(fontFamily: 'Figtree', fontSize: 14, color: colors.ink),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: colors.soft,
+                  hintText: 'Tulis yang kamu perbaiki',
+                  hintStyle: TextStyle(fontFamily: 'Figtree', fontSize: 14, color: colors.mute),
+                  errorText: _solusiError,
+                  errorStyle: TextStyle(fontFamily: 'Figtree', fontSize: 12, color: colors.danger),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Field Catatan (opsional)
+              Text(
+                'Catatan (opsional)',
+                style: TextStyle(
+                  fontFamily: 'Figtree',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: colors.ink,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _catatanCtrl,
+                maxLines: 3,
+                style: TextStyle(fontFamily: 'Figtree', fontSize: 14, color: colors.ink),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: colors.soft,
+                  hintText: 'Hal lain yang perlu disampaikan',
+                  hintStyle: TextStyle(fontFamily: 'Figtree', fontSize: 14, color: colors.mute),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ] else ...[
+              // Non-error task: single Catatan field
+              Text(
+                'Catatan Laporan',
+                style: TextStyle(
+                  fontFamily: 'Figtree',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: colors.ink,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _catatanCtrl,
+                maxLines: 3,
+                style: TextStyle(fontFamily: 'Figtree', fontSize: 14, color: colors.ink),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: colors.soft,
+                  hintText: 'Tulis catatan atau kendala pekerjaan...',
+                  hintStyle: TextStyle(fontFamily: 'Figtree', fontSize: 14, color: colors.mute),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+
+            // Dokumentasi section (both kinds)
+            Text(
+              'Dokumentasi (foto atau video)',
+              style: TextStyle(
+                fontFamily: 'Figtree',
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: colors.ink,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            Row(
+              children: [
+                _buildDocIconButton(
+                  icon: Icons.camera_alt_outlined,
+                  semanticLabel: 'Ambil foto',
+                  onTap: _takePhoto,
+                  colors: colors,
+                ),
+                const SizedBox(width: 16),
+                _buildDocIconButton(
+                  icon: Icons.videocam_outlined,
+                  semanticLabel: 'Rekam video',
+                  onTap: _recordVideo,
+                  colors: colors,
+                ),
+                const SizedBox(width: 16),
+                _buildDocIconButton(
+                  icon: Icons.photo_library_outlined,
+                  semanticLabel: 'Pilih dari galeri',
+                  onTap: () => _showGalleryPicker(context),
+                  colors: colors,
                 ),
               ],
             ),
             const SizedBox(height: 8),
 
-            // Tombol Aksi Kamera & Video
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _takePhoto,
-                    icon: const Icon(Icons.add_a_photo_rounded, size: 18),
-                    label: const Text('Ambil Foto', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.accent,
-                      side: BorderSide(color: AppColors.accent.withValues(alpha: 0.6)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _recordVideo,
-                    icon: const Icon(Icons.videocam_rounded, size: 18),
-                    label: const Text('Rekam Video', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isDark ? const Color(0xFF991B1B) : const Color(0xFFDC2626),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      elevation: 0,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              'Minimal 1 foto atau 1 video.',
+              style: TextStyle(
+                fontFamily: 'Figtree',
+                fontSize: 12,
+                color: colors.mute,
+              ),
             ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _pickGalleryPhotos,
-                    icon: const Icon(Icons.photo_library_outlined, size: 18),
-                    label: const Text('Upload Gambar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.accent,
-                      side: BorderSide(color: AppColors.accent.withValues(alpha: 0.6)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _pickGalleryVideo,
-                    icon: const Icon(Icons.video_library_outlined, size: 18),
-                    label: const Text('Upload Video', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626),
-                      side: BorderSide(color: (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626)).withValues(alpha: 0.6)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Icon(Icons.info_outline_rounded, size: 12, color: textSub),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    'Foto bisa dari kamera atau galeri. Video kamera maks 30 detik.',
-                    style: TextStyle(fontSize: 10.5, color: textSub),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
-            // Preview Foto & Video
-            if (_localPhotoPaths.isEmpty && _localVideoPaths.isEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: bgCard,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: borderCard),
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.perm_media_outlined, size: 32, color: textSub.withValues(alpha: 0.6)),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Belum ada bukti yang diambil',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textHead),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Wajib mengambil atau upload minimal 1 foto/video untuk menyelesaikan tugas.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 11, color: textSub),
-                    ),
-                  ],
-                ),
-              )
-            else ...[
-              // Grid Foto
+            // Thumbnail deck
+            if (_localPhotoPaths.isNotEmpty || _localVideoPaths.isNotEmpty) ...[
               if (_localPhotoPaths.isNotEmpty) ...[
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    'Foto Dokumentasi (${_localPhotoPaths.length}):',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textSub),
+                    'Foto (${_localPhotoPaths.length}):',
+                    style: TextStyle(fontFamily: 'Figtree', fontSize: 12, fontWeight: FontWeight.w600, color: colors.body),
                   ),
                 ),
                 GridView.builder(
@@ -765,39 +936,34 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                       fit: StackFit.expand,
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: AppFileImage(
-                            path: path,
-                            fit: BoxFit.cover,
-                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          child: AppFileImage(path: path, fit: BoxFit.cover),
                         ),
                         Positioned(
-                          bottom: 4,
-                          left: 4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.75),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Foto ${index + 1}',
-                              style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          top: 4,
-                          right: 4,
-                          child: InkWell(
-                            onTap: () => _removePhoto(index),
-                            child: Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: const BoxDecoration(
-                                color: AppColors.danger,
-                                shape: BoxShape.circle,
+                          top: 0,
+                          right: 0,
+                          child: Semantics(
+                            label: 'Hapus foto ${index + 1}',
+                            button: true,
+                            child: InkWell(
+                              onTap: () => _removePhoto(index),
+                              borderRadius: BorderRadius.circular(24),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                alignment: Alignment.topRight,
+                                padding: const EdgeInsets.all(4),
+                                child: Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: BoxDecoration(
+                                    color: colors.danger,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Icon(Icons.close, size: 14, color: colors.white),
+                                ),
                               ),
-                              child: const Icon(Icons.close, size: 12, color: Colors.white),
                             ),
                           ),
                         ),
@@ -808,13 +974,12 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                 const SizedBox(height: 12),
               ],
 
-              // Grid / List Video
               if (_localVideoPaths.isNotEmpty) ...[
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    'Video Dokumentasi (${_localVideoPaths.length}):',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textSub),
+                    'Video (${_localVideoPaths.length}):',
+                    style: TextStyle(fontFamily: 'Figtree', fontSize: 12, fontWeight: FontWeight.w600, color: colors.body),
                   ),
                 ),
                 GridView.builder(
@@ -824,7 +989,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                     crossAxisCount: 2,
                     crossAxisSpacing: 8,
                     mainAxisSpacing: 8,
-                    childAspectRatio: 1.5,
+                    childAspectRatio: 1.4,
                   ),
                   itemCount: _localVideoPaths.length,
                   itemBuilder: (context, index) {
@@ -832,55 +997,51 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                     final fileName = vPath.split('/').last;
                     return Container(
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFF0F172A),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
+                        color: colors.soft,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: colors.hairline),
                       ),
                       child: Stack(
                         children: [
                           Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 34),
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withValues(alpha: 0.8),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    'VIDEO ${index + 1}',
-                                    style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white),
-                                  ),
-                                ),
-                              ],
-                            ),
+                            child: Icon(Icons.play_circle_fill_rounded, color: colors.body, size: 36),
                           ),
                           Positioned(
-                            bottom: 4,
-                            left: 6,
-                            right: 6,
+                            bottom: 6,
+                            left: 8,
+                            right: 8,
                             child: Text(
                               fileName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 8, color: Colors.white70),
+                              style: TextStyle(fontFamily: 'Figtree', fontSize: 10, color: colors.body),
                             ),
                           ),
                           Positioned(
-                            top: 4,
-                            right: 4,
-                            child: InkWell(
-                              onTap: () => _removeVideo(index),
-                              child: Container(
-                                padding: const EdgeInsets.all(3),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.danger,
-                                  shape: BoxShape.circle,
+                            top: 0,
+                            right: 0,
+                            child: Semantics(
+                              label: 'Hapus video ${index + 1}',
+                              button: true,
+                              child: InkWell(
+                                onTap: () => _removeVideo(index),
+                                borderRadius: BorderRadius.circular(24),
+                                child: Container(
+                                  width: 48,
+                                  height: 48,
+                                  alignment: Alignment.topRight,
+                                  padding: const EdgeInsets.all(4),
+                                  child: Container(
+                                    width: 22,
+                                    height: 22,
+                                    decoration: BoxDecoration(
+                                      color: colors.danger,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Icon(Icons.close, size: 14, color: colors.white),
+                                  ),
                                 ),
-                                child: const Icon(Icons.close, size: 12, color: Colors.white),
                               ),
                             ),
                           ),
@@ -889,71 +1050,82 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                     );
                   },
                 ),
+                const SizedBox(height: 12),
               ],
             ],
-            const SizedBox(height: 18),
-
-            // Catatan
-            Text(
-              'Catatan Laporan',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textHead),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _catatanCtrl,
-              maxLines: 3,
-              style: TextStyle(color: textHead, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'Tulis catatan atau kendala pekerjaan...',
-                hintStyle: TextStyle(color: textSub, fontSize: 13),
-                filled: true,
-                fillColor: bgCard,
-                contentPadding: const EdgeInsets.all(12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderCard)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderCard)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.accent)),
-              ),
-            ),
-            const SizedBox(height: 16),
 
             if (_errorMessage != null) ...[
+              const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.danger.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.danger.withValues(alpha: 0.35)),
+                  color: colors.dangerTint,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 16),
+                    Icon(Icons.error_outline_rounded, color: colors.danger, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _errorMessage!,
-                        style: const TextStyle(color: AppColors.danger, fontSize: 12),
+                        style: TextStyle(
+                          fontFamily: 'Figtree',
+                          color: colors.danger,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
             ],
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 24),
 
-            // Tombol Utama Selesaikan Tugas (min height 48px)
-            ElevatedButton.icon(
-              onPressed: _isSaving ? null : _submitTask,
-              icon: _isSaving
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.check_circle_outline_rounded, size: 20),
-              label: const Text('Selesaikan Tugas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            if (_isError) ...[
+              Text(
+                'Laporan balasan dibuat otomatis setelah disimpan.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Figtree',
+                  fontSize: 12,
+                  color: colors.mute,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            SizedBox(
+              height: 48,
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _submitTask,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colors.primary,
+                  foregroundColor: colors.onPrimary,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+                child: _isSaving
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colors.onPrimary,
+                        ),
+                      )
+                    : Text(
+                        _isError ? 'Simpan & Buat Laporan' : 'Simpan',
+                        style: const TextStyle(
+                          fontFamily: 'Figtree',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
               ),
             ),
           ],

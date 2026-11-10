@@ -59,7 +59,8 @@ void main() {
       expect(find.text('Draft Tersimpan'), findsOneWidget);
 
       // Verify that only the existing photo and video are retained
-      expect(find.text('1 Foto • 1 Video'), findsOneWidget);
+      expect(find.text('Foto (1):'), findsOneWidget);
+      expect(find.text('Video (1):'), findsOneWidget);
 
       // Clean up temp
       tempDir.deleteSync(recursive: true);
@@ -91,15 +92,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Ambil Foto'), findsOneWidget);
-      expect(find.text('Rekam Video'), findsOneWidget);
-      expect(find.text('Upload Gambar'), findsOneWidget);
-      expect(find.text('Upload Video'), findsOneWidget);
-      expect(find.text('Belum ada bukti yang diambil'), findsOneWidget);
-      expect(
-        find.text('Foto bisa dari kamera atau galeri. Video kamera maks 30 detik.'),
-        findsOneWidget,
-      );
+      expect(find.bySemanticsLabel('Ambil foto'), findsOneWidget);
+      expect(find.bySemanticsLabel('Rekam video'), findsOneWidget);
+      expect(find.bySemanticsLabel('Pilih dari galeri'), findsOneWidget);
+      expect(find.text('Minimal 1 foto atau 1 video.'), findsOneWidget);
     });
 
     testWidgets('Draft is cleared when completeTask succeeds', (tester) async {

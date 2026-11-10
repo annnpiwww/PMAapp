@@ -77,16 +77,19 @@ void main() {
     await tester.tap(find.text('Simpan'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Kerjaan wajib diisi'), findsOneWidget);
+    expect(find.text('Wajib diisi'), findsOneWidget);
     expect(find.text('Catat Kerjaan'), findsOneWidget);
     expect(DailyTaskService.getCachedTasksLocally(), isEmpty);
   });
 
-  testWidgets('tanpa data lokasi tombol Simpan dimatikan', (tester) async {
+  testWidgets('tanpa data lokasi penambahan kerjaan ditolak', (tester) async {
     await bukaDialog(tester, options: const []);
 
-    expect(find.textContaining('Belum ada data lokasi'), findsOneWidget);
-    final tombol = tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Simpan'));
-    expect(tombol.onPressed, isNull);
+    await tester.enterText(find.byType(TextField).first, 'Kabel sensor putus');
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pilih salah satu lokasi'), findsOneWidget);
+    expect(DailyTaskService.getCachedTasksLocally(), isEmpty);
   });
 }
