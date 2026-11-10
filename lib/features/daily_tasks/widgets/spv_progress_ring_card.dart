@@ -65,7 +65,7 @@ class SpvProgressRingCard extends StatelessWidget {
                       child: Text(
                         '$completed/$total',
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: 'Figtree',
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                           height: 1,
@@ -83,7 +83,7 @@ class SpvProgressRingCard extends StatelessWidget {
                       Text(
                         'Tugas Selesai',
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: 'Figtree',
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: titleColor,
@@ -95,7 +95,7 @@ class SpvProgressRingCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: 'Figtree',
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: subColor,

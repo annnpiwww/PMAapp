@@ -206,7 +206,7 @@ class MaintenancePointCard extends StatelessWidget {
                         Text(
                           result.label,
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
                             height: 1.25,
@@ -220,7 +220,7 @@ class MaintenancePointCard extends StatelessWidget {
                           Text(
                             point.deskripsi,
                             style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                               fontSize: 10.5,
                               height: 1.3,
                               color: textMeta,
@@ -294,7 +294,7 @@ class MaintenancePointCard extends StatelessWidget {
                                   Text(
                                     badgeLabel,
                                     style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
+                                      fontFamily: 'Figtree',
                                       fontSize: 9,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: 0.3,
@@ -352,7 +352,7 @@ class MaintenancePointCard extends StatelessWidget {
                                     Text(
                                       result.urgensi.label.toUpperCase(),
                                       style: TextStyle(
-                                        fontFamily: 'PlusJakartaSans',
+                                        fontFamily: 'Figtree',
                                         fontSize: 9,
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: 0.3,

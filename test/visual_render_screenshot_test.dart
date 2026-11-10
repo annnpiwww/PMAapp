@@ -34,7 +34,7 @@ void main() {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
-          fontFamily: 'PlusJakartaSans',
+          fontFamily: 'Figtree',
         ),
         home: Scaffold(
           backgroundColor: const Color(0xFF0F172A),

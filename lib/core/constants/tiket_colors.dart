@@ -192,7 +192,7 @@ class TiketColors extends ThemeExtension<TiketColors> {
 
 class TiketType {
   final double width;
-  static const String fontFamily = 'PlusJakartaSans';
+  static const String fontFamily = 'Figtree';
 
   const TiketType(this.width);
 

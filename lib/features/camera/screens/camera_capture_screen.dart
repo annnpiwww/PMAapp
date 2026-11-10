@@ -577,7 +577,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                   ),
                 ),
               ),
@@ -2382,7 +2382,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                               color: TiketColors.dark.signal,
                                               fontSize: 12,
                                               fontWeight: FontWeight.w800,
-                                              fontFamily: 'PlusJakartaSans',
+                                              fontFamily: 'Figtree',
                                             ),
                                           )
                                         : const Icon(
@@ -2519,7 +2519,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                         color: Colors.white,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w800,
-                                        fontFamily: 'PlusJakartaSans',
+                                        fontFamily: 'Figtree',
                                       ),
                                     ),
                                   ),
@@ -2604,7 +2604,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                                 color: TiketColors.dark.ink,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                fontFamily: 'PlusJakartaSans',
+                                fontFamily: 'Figtree',
                               ),
                             ),
                           ),
@@ -2855,7 +2855,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
@@ -2943,7 +2943,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       color: TiketColors.dark.body,
                     ),
                   ),
@@ -3066,7 +3066,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       color: TiketColors.dark.body,
                     ),
                   ),
@@ -3124,7 +3124,7 @@ class _TiketProcessingOverlay extends StatelessWidget {
               Text(
                 categoryName,
                 style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
+                  fontFamily: 'Figtree',
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: colors.body,
@@ -3134,7 +3134,7 @@ class _TiketProcessingOverlay extends StatelessWidget {
               const Text(
                 'Analisa AI',
                 style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
+                  fontFamily: 'Figtree',
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
@@ -3175,7 +3175,7 @@ class _TiketProcessingOverlay extends StatelessWidget {
               const Text(
                 'Foto sedang diperiksa AI. Jangan tutup halaman ini.',
                 style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
+                  fontFamily: 'Figtree',
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
@@ -3185,7 +3185,7 @@ class _TiketProcessingOverlay extends StatelessWidget {
               Text(
                 'Biasanya selesai dalam 5-15 detik.',
                 style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
+                  fontFamily: 'Figtree',
                   fontSize: 12,
                   color: colors.body,
                 ),
@@ -3240,7 +3240,7 @@ class _TiketProcessingOverlay extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
+              fontFamily: 'Figtree',
               fontSize: 14,
               fontWeight: isDone || isActive ? FontWeight.w600 : FontWeight.w500,
               color: isDone || isActive ? Colors.white : colors.mute,
@@ -3394,7 +3394,7 @@ class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
                         child: Text(
                           widget.template.nama,
                           style: const TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
@@ -3454,7 +3454,7 @@ class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
                                               ? 'Verifikasi AI terputus'
                                               : 'Foto belum lolos validasi'),
                                       style: const TextStyle(
-                                        fontFamily: 'PlusJakartaSans',
+                                        fontFamily: 'Figtree',
                                         fontSize: 15,
                                         fontWeight: FontWeight.w800,
                                         color: Colors.white,
@@ -3468,7 +3468,7 @@ class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
                                               ? 'Foto dialihkan untuk cek manual oleh Supervisor'
                                               : '${_result.poinGagal.isNotEmpty ? _result.poinGagal.length : 1} hal perlu diperbaiki · keyakinan AI ${(_result.confidenceScore * 100).toInt()}%'),
                                       style: TextStyle(
-                                        fontFamily: 'PlusJakartaSans',
+                                        fontFamily: 'Figtree',
                                         fontSize: 12,
                                         color: colors.body,
                                         height: 1.35,
@@ -3527,7 +3527,7 @@ class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
                                       const Text(
                                         'Foto saat ini (tap: perbesar)',
                                         style: TextStyle(
-                                          fontFamily: 'PlusJakartaSans',
+                                          fontFamily: 'Figtree',
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
                                           color: Colors.white70,
@@ -3537,7 +3537,7 @@ class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
                                       Text(
                                         'Kode ${widget.kodeVerifikasi}',
                                         style: const TextStyle(
-                                          fontFamily: 'PlusJakartaSans',
+                                          fontFamily: 'Figtree',
                                           fontSize: 13,
                                           fontWeight: FontWeight.w800,
                                           color: Colors.white,
@@ -3571,7 +3571,7 @@ class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
                             child: Text(
                               'Server AI offline. Foto tetap aman, coba lagi atau simpan untuk cek manual.',
                               style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
+                                fontFamily: 'Figtree',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: colors.signalText,
@@ -3589,7 +3589,7 @@ class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
                                   ? 'Catatan sistem'
                                   : 'Alasan AI menolak foto'),
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: colors.body,
@@ -3603,7 +3603,7 @@ class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
                                   ? 'Foto memenuhi kriteria SOP.'
                                   : 'Foto belum memenuhi standar verifikasi.'),
                           style: const TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 13.5,
                             color: Colors.white,
                             height: 1.4,
@@ -3616,7 +3616,7 @@ class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
                           Text(
                             'Yang perlu diperbaiki',
                             style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: colors.body,
@@ -3640,7 +3640,7 @@ class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
                                       child: Text(
                                         poin,
                                         style: const TextStyle(
-                                          fontFamily: 'PlusJakartaSans',
+                                          fontFamily: 'Figtree',
                                           fontSize: 13,
                                           color: Colors.white,
                                           height: 1.35,
@@ -3658,7 +3658,7 @@ class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
                           Text(
                             'Tips agar lolos',
                             style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: colors.body,
@@ -3684,7 +3684,7 @@ class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
                           Text(
                             'Bagikan Laporan:',
                             style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: colors.body,
@@ -3847,7 +3847,7 @@ class _TiketVerificationSheetState extends State<_TiketVerificationSheet> {
           child: Text(
             text,
             style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
+              fontFamily: 'Figtree',
               fontSize: 12.5,
               color: colors.body,
               height: 1.35,

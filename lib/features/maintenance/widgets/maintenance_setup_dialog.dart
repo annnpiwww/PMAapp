@@ -331,7 +331,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
         Text(
           '$noun yang dicek:',
           style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
+            fontFamily: 'Figtree',
             fontSize: 10.5,
             fontWeight: FontWeight.w700,
             color: textSub,
@@ -373,7 +373,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                     child: Text(
                       '$noun $i',
                       style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: selected.contains(i)
@@ -1247,7 +1247,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                 Text(
                                   _unitTitle,
                                   style: TextStyle(
-                                    fontFamily: 'PlusJakartaSans',
+                                    fontFamily: 'Figtree',
                                     fontWeight: FontWeight.w800,
                                     fontSize: 13.5,
                                     color: textTitle,
@@ -1286,7 +1286,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                         Text(
                           'Pilih Jenis Maintenance',
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: textTitle,
@@ -1357,7 +1357,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                   Text(
                                     'Dari $_unitNoun:',
                                     style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
+                                      fontFamily: 'Figtree',
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w700,
                                       color: textSub,
@@ -1400,7 +1400,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                           child: Text(
                                             '$_startUnit',
                                             style: TextStyle(
-                                              fontFamily: 'PlusJakartaSans',
+                                              fontFamily: 'Figtree',
                                               fontSize: 14,
                                               fontWeight: FontWeight.w800,
                                               color: stepperNumberColor,
@@ -1450,7 +1450,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                   Text(
                                     'Sampai $_unitNoun:',
                                     style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
+                                      fontFamily: 'Figtree',
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w700,
                                       color: textSub,
@@ -1496,7 +1496,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                           child: Text(
                                             '$_endUnit',
                                             style: TextStyle(
-                                              fontFamily: 'PlusJakartaSans',
+                                              fontFamily: 'Figtree',
                                               fontSize: 14,
                                               fontWeight: FontWeight.w800,
                                               color: stepperNumberColor,
@@ -1594,7 +1594,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                         Text(
                           'Arah Gate (opsional):',
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
                             color: textSub,
@@ -1612,7 +1612,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                   Text(
                                     '$_unitNoun $i',
                                     style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
+                                      fontFamily: 'Figtree',
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
                                       color: textTitle,
@@ -1669,7 +1669,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                   Text(
                                     'Area 2 - 4 Maintenance Lengkap',
                                     style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
+                                      fontFamily: 'Figtree',
                                       fontWeight: FontWeight.w800,
                                       fontSize: 13.5,
                                       color: textTitle,
@@ -1732,7 +1732,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                   Text(
                                     'PC Server (opsional)',
                                     style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
+                                      fontFamily: 'Figtree',
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w700,
                                       color: textTitle,
@@ -1768,7 +1768,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                               Text(
                                 'OS Server:',
                                 style: TextStyle(
-                                  fontFamily: 'PlusJakartaSans',
+                                  fontFamily: 'Figtree',
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w700,
                                   color: textSub,
@@ -1812,7 +1812,7 @@ class _MaintenanceSetupDialogState extends State<MaintenanceSetupDialog> {
                                         child: Text(
                                           os[1],
                                           style: TextStyle(
-                                            fontFamily: 'PlusJakartaSans',
+                                            fontFamily: 'Figtree',
                                             fontSize: 11,
                                             fontWeight: FontWeight.w700,
                                             color: _serverOs == os[0]

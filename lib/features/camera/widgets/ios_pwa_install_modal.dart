@@ -114,7 +114,7 @@ class IosPwaInstallModal extends StatelessWidget {
                             child: Text(
                               'Pasang di Layar Utama iPhone',
                               style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
+                                fontFamily: 'Figtree',
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
                                 color: textTitle,
@@ -216,7 +216,7 @@ class IosPwaInstallModal extends StatelessWidget {
                     child: const Text(
                       'Saya Mengerti',
                       style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
@@ -271,7 +271,7 @@ class IosPwaInstallModal extends StatelessWidget {
                 Text(
                   '$stepNumber. $title',
                   style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: textTitle,

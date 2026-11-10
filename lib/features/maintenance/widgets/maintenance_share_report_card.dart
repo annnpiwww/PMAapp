@@ -69,7 +69,7 @@ class MaintenanceShareReportCard extends StatelessWidget {
                     ? 'Bagikan Laporan (${submission.doneCount - submission.tidakTerpasangCount} Foto • ${submission.tidakTerpasangCount} Tidak Ada)'
                     : 'Bagikan Laporan (${submission.doneCount} Foto Selesai)',
                 style: const TextStyle(
-                  fontFamily: 'PlusJakartaSans',
+                  fontFamily: 'Figtree',
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
                   color: AppColors.textPrimary,
@@ -128,7 +128,7 @@ class MaintenanceShareReportCard extends StatelessWidget {
                   label: const Text(
                     'WhatsApp',
                     style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       fontWeight: FontWeight.w700,
                       fontSize: 11.5,
                       color: Color(0xFF15803D),
@@ -174,7 +174,7 @@ class MaintenanceShareReportCard extends StatelessWidget {
                   label: const Text(
                     'Telegram',
                     style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       fontWeight: FontWeight.w700,
                       fontSize: 11.5,
                       color: Color(0xFF0E6BA8),

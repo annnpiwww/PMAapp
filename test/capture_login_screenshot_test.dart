@@ -24,7 +24,7 @@ void main() {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
-          fontFamily: 'PlusJakartaSans',
+          fontFamily: 'Figtree',
         ),
         home: RepaintBoundary(
           key: boundaryKey,

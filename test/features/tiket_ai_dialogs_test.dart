@@ -14,9 +14,9 @@ import 'package:bssparking_timemark/features/maintenance/widgets/ai_result_dialo
 import 'package:bssparking_timemark/features/maintenance/widgets/photo_preview_dialog.dart';
 
 Future<void> _loadAppFonts() async {
-  final fontLoader = FontLoader('PlusJakartaSans');
+  final fontLoader = FontLoader('Figtree');
   for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
-    final file = File('assets/fonts/PlusJakartaSans-$weight.ttf');
+    final file = File('assets/fonts/Figtree-$weight.ttf');
     if (file.existsSync()) {
       final bytes = file.readAsBytesSync();
       fontLoader.addFont(Future.value(ByteData.view(bytes.buffer)));

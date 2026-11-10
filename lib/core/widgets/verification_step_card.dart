@@ -88,7 +88,7 @@ class VerificationStepCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
@@ -129,7 +129,7 @@ class VerificationStepCard extends StatelessWidget {
                 child: Text(
                   '$stepNum/4',
                   style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.5,

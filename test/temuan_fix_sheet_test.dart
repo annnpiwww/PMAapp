@@ -18,9 +18,9 @@ import 'package:bssparking_timemark/features/maintenance/widgets/temuan_fix_shee
 bool _fontsLoaded = false;
 Future<void> _loadAppFonts() async {
   if (_fontsLoaded) return;
-  final fontLoader = FontLoader('PlusJakartaSans');
+  final fontLoader = FontLoader('Figtree');
   for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
-    final file = File('assets/fonts/PlusJakartaSans-$weight.ttf');
+    final file = File('assets/fonts/Figtree-$weight.ttf');
     if (file.existsSync()) {
       fontLoader.addFont(Future.value(ByteData.view(file.readAsBytesSync().buffer)));
     }
@@ -117,7 +117,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: ThemeData(fontFamily: 'PlusJakartaSans'),
+          theme: ThemeData(fontFamily: 'Figtree'),
           home: Scaffold(
             body: TemuanFixSheet(
               log: log,
@@ -155,7 +155,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: ThemeData(fontFamily: 'PlusJakartaSans'),
+          theme: ThemeData(fontFamily: 'Figtree'),
           home: Scaffold(
             body: TemuanFixSheet(
               log: log,
@@ -204,7 +204,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: ThemeData(fontFamily: 'PlusJakartaSans'),
+          theme: ThemeData(fontFamily: 'Figtree'),
           home: MaintenanceLocationDetailScreen(
             status: status,
             month: DateTime(2026, 11, 1),
@@ -282,7 +282,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: ThemeData(fontFamily: 'PlusJakartaSans'),
+          theme: ThemeData(fontFamily: 'Figtree'),
           home: MaintenanceLocationDetailScreen(
             status: status,
             month: DateTime(2026, 11, 1),
@@ -305,7 +305,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: ThemeData(fontFamily: 'PlusJakartaSans'),
+          theme: ThemeData(fontFamily: 'Figtree'),
           home: MaintenanceLocationDetailScreen(
             status: status,
             month: DateTime(2026, 11, 1),
@@ -329,7 +329,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: ThemeData(fontFamily: 'PlusJakartaSans'),
+          theme: ThemeData(fontFamily: 'Figtree'),
           home: MediaQuery(
             data: const MediaQueryData(
               size: Size(360, 780),
@@ -380,7 +380,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(fontFamily: 'PlusJakartaSans', useMaterial3: true),
+          theme: ThemeData(fontFamily: 'Figtree', useMaterial3: true),
           home: Scaffold(
             backgroundColor: MaintenanceMapPalette.bg,
             body: Center(
@@ -407,7 +407,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(fontFamily: 'PlusJakartaSans', useMaterial3: true),
+          theme: ThemeData(fontFamily: 'Figtree', useMaterial3: true),
           home: Scaffold(
             backgroundColor: Colors.black54,
             body: Align(
@@ -435,7 +435,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(fontFamily: 'PlusJakartaSans', useMaterial3: true),
+          theme: ThemeData(fontFamily: 'Figtree', useMaterial3: true),
           home: Scaffold(
             backgroundColor: Colors.black54,
             body: Align(
@@ -486,7 +486,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(fontFamily: 'PlusJakartaSans', useMaterial3: true),
+          theme: ThemeData(fontFamily: 'Figtree', useMaterial3: true),
           home: Scaffold(
             backgroundColor: MaintenanceMapPalette.bg,
             body: Center(
@@ -514,7 +514,7 @@ void main() {
         MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
-            fontFamily: 'PlusJakartaSans',
+            fontFamily: 'Figtree',
             useMaterial3: true,
             brightness: Brightness.dark,
           ),
@@ -558,7 +558,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(fontFamily: 'PlusJakartaSans', useMaterial3: true),
+          theme: ThemeData(fontFamily: 'Figtree', useMaterial3: true),
           home: Scaffold(
             backgroundColor: MaintenanceMapPalette.bg,
             body: Center(
@@ -585,7 +585,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(fontFamily: 'PlusJakartaSans', useMaterial3: true),
+          theme: ThemeData(fontFamily: 'Figtree', useMaterial3: true),
           home: MediaQuery(
             data: const MediaQueryData(
               size: Size(360, 780),
@@ -631,7 +631,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(fontFamily: 'PlusJakartaSans', useMaterial3: true),
+          theme: ThemeData(fontFamily: 'Figtree', useMaterial3: true),
           home: Scaffold(
             backgroundColor: MaintenanceMapPalette.bg,
             body: Center(

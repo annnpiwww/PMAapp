@@ -403,7 +403,7 @@ void main() {
 
         await tester.pumpWidget(
           MaterialApp(
-            theme: ThemeData(fontFamily: 'PlusJakartaSans'),
+            theme: ThemeData(fontFamily: 'Figtree'),
             home: MaintenanceLocationDetailScreen(
               status: status,
               month: DateTime(2026, 11, 1),
@@ -476,7 +476,7 @@ void main() {
 
         await tester.pumpWidget(
           MaterialApp(
-            theme: ThemeData(fontFamily: 'PlusJakartaSans'),
+            theme: ThemeData(fontFamily: 'Figtree'),
             home: MediaQuery(
               data: const MediaQueryData(
                 textScaler: TextScaler.linear(1.3),

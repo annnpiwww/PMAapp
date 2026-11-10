@@ -3,7 +3,7 @@ import 'app_colors.dart';
 import 'tiket_colors.dart';
 
 class AppTheme {
-  static const String fontFamily = 'PlusJakartaSans';
+  static const String fontFamily = 'Figtree';
 
   static ThemeData get lightTheme {
     final baseTextTheme = ThemeData.light().textTheme.apply(

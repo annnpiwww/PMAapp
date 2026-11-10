@@ -189,7 +189,7 @@ class _VerificationSheet extends StatelessWidget {
                     label: const Text(
                       'Foto Ulang',
                       style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
@@ -212,7 +212,7 @@ class _VerificationSheet extends StatelessWidget {
                           ? 'Simpan & Kirim Laporan'
                           : 'Simpan Laporan (Perlu Cek Manual)',
                       style: const TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                       ),
@@ -233,7 +233,7 @@ class _VerificationSheet extends StatelessWidget {
                       'Di Safari/iPhone: simpan foto ke Galeri lewat menu Bagikan → Simpan Gambar.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 10.5,
                         color: _onDarkMuted,
                       ),
@@ -265,7 +265,7 @@ class _VerificationSheet extends StatelessWidget {
                               Text(
                                 'Bagikan Laporan:',
                                 style: TextStyle(
-                                  fontFamily: 'PlusJakartaSans',
+                                  fontFamily: 'Figtree',
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: _onDarkMuted,
@@ -288,7 +288,7 @@ class _VerificationSheet extends StatelessWidget {
                                     label: const Text(
                                       'WhatsApp',
                                       style: TextStyle(
-                                        fontFamily: 'PlusJakartaSans',
+                                        fontFamily: 'Figtree',
                                         fontWeight: FontWeight.w700,
                                         fontSize: 11.5,
                                         color: Color(0xFF15803D),
@@ -324,7 +324,7 @@ class _VerificationSheet extends StatelessWidget {
                                     label: const Text(
                                       'Telegram',
                                       style: TextStyle(
-                                        fontFamily: 'PlusJakartaSans',
+                                        fontFamily: 'Figtree',
                                         fontWeight: FontWeight.w700,
                                         fontSize: 11.5,
                                         color: Color(0xFF0369A1),
@@ -365,7 +365,7 @@ class _VerificationSheet extends StatelessWidget {
                           label: const Text(
                             'Foto Ulang',
                             style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
                               color: _onDark,
@@ -395,7 +395,7 @@ class _VerificationSheet extends StatelessWidget {
                           label: const Text(
                             'Batal / Tutup',
                             style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
                               color: _onDarkMuted,
@@ -439,7 +439,7 @@ class _VerificationSheet extends StatelessWidget {
         const Text.rich(
           TextSpan(
             style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
+              fontFamily: 'Figtree',
               fontSize: 17,
               fontWeight: FontWeight.w800,
               color: _onDark,
@@ -464,7 +464,7 @@ class _VerificationSheet extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontFamily: 'PlusJakartaSans',
+              fontFamily: 'Figtree',
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: _onDark,
@@ -503,7 +503,7 @@ class _VerificationSheet extends StatelessWidget {
                 Text(
                   title,
                   style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     fontSize: 16.5,
                     fontWeight: FontWeight.w800,
                     color: color,
@@ -513,7 +513,7 @@ class _VerificationSheet extends StatelessWidget {
                 Text(
                   subtitle,
                   style: const TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     fontSize: 13,
                     color: Color(0xFF52525B),
                   ),
@@ -547,7 +547,7 @@ class _VerificationSheet extends StatelessWidget {
               ? 'Menganalisa ulang foto...'
               : 'Analisa Ulang Foto Ini dengan AI',
           style: const TextStyle(
-            fontFamily: 'PlusJakartaSans',
+            fontFamily: 'Figtree',
             fontSize: 14,
             fontWeight: FontWeight.w800,
           ),
@@ -615,7 +615,7 @@ class _VerificationSheet extends StatelessWidget {
                   Text(
                     'Foto saat ini',
                     style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       color: Colors.white,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
@@ -661,7 +661,7 @@ class _VerificationSheet extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     fontSize: 14.5,
                     fontWeight: FontWeight.w800,
                     color: _onDark,
@@ -672,7 +672,7 @@ class _VerificationSheet extends StatelessWidget {
                   Text(
                     result.alasan,
                     style: const TextStyle(
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       fontSize: 13,
                       height: 1.5,
                       color: Color(0xFFD8E3F5),
@@ -693,7 +693,7 @@ class _VerificationSheet extends StatelessWidget {
         Text(
           text,
           style: const TextStyle(
-            fontFamily: 'PlusJakartaSans',
+            fontFamily: 'Figtree',
             fontSize: 11.5,
             fontWeight: FontWeight.w800,
             letterSpacing: 1.1,
@@ -739,7 +739,7 @@ class _VerificationSheet extends StatelessWidget {
                 const Text(
                   'Tips agar lolos',
                   style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: _onDark,
@@ -752,7 +752,7 @@ class _VerificationSheet extends StatelessWidget {
                     child: Text(
                       t,
                       style: const TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 12.5,
                         height: 1.45,
                         color: _onDarkBody,
@@ -944,7 +944,7 @@ class _NeedsFixCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: const TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
                     color: _VerificationSheet._onDark,
@@ -974,7 +974,7 @@ class _NeedsFixCard extends StatelessWidget {
                     child: Text(
                       p,
                       style: const TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 12.5,
                         height: 1.45,
                         color: _VerificationSheet._onDarkBody,

@@ -45,7 +45,7 @@ class AiResultDialog extends StatelessWidget {
               Text(
                 'Hasil Analisa AI',
                 style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
+                  fontFamily: 'Figtree',
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                   color: colors.ink,
@@ -61,7 +61,7 @@ class AiResultDialog extends StatelessWidget {
                 Text(
                   title!,
                   style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     color: colors.ink,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -75,7 +75,7 @@ class AiResultDialog extends StatelessWidget {
                 Text(
                   result.alasan,
                   style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     color: colors.body,
                     fontSize: 14,
                     height: 1.45,
@@ -89,7 +89,7 @@ class AiResultDialog extends StatelessWidget {
                 Text(
                   'Yang perlu diperbaiki',
                   style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     color: colors.ink,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -111,7 +111,7 @@ class AiResultDialog extends StatelessWidget {
                           child: Text(
                             poin,
                             style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                               color: colors.ink,
                               fontSize: 13,
                               height: 1.4,
@@ -129,7 +129,7 @@ class AiResultDialog extends StatelessWidget {
                 Text(
                   'Yang sudah sesuai',
                   style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     color: colors.ink,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -151,7 +151,7 @@ class AiResultDialog extends StatelessWidget {
                           child: Text(
                             poin,
                             style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                               color: colors.ink,
                               fontSize: 13,
                               height: 1.4,
@@ -168,7 +168,7 @@ class AiResultDialog extends StatelessWidget {
                 Text(
                   'Dianalisa oleh ${result.providerName}',
                   style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     color: colors.mute,
                     fontSize: 11,
                   ),

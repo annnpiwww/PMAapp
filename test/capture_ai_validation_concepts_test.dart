@@ -7,9 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 Future<void> loadAppFonts(WidgetTester tester) async {
   await tester.runAsync(() async {
-    final fontLoader = FontLoader('PlusJakartaSans');
+    final fontLoader = FontLoader('Figtree');
     for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
-      final file = File('assets/fonts/PlusJakartaSans-$weight.ttf');
+      final file = File('assets/fonts/Figtree-$weight.ttf');
       if (file.existsSync()) {
         final bytes = file.readAsBytesSync();
         fontLoader.addFont(Future.value(ByteData.view(bytes.buffer)));
@@ -46,7 +46,7 @@ void main() {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
-          fontFamily: 'PlusJakartaSans',
+          fontFamily: 'Figtree',
         ),
         home: Scaffold(
           backgroundColor: const Color(0xFFF1F5F9),
@@ -362,7 +362,7 @@ void main() {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
-          fontFamily: 'PlusJakartaSans',
+          fontFamily: 'Figtree',
         ),
         home: Scaffold(
           backgroundColor: const Color(0xFF0F172A),

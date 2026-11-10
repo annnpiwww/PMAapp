@@ -722,7 +722,7 @@ class _MaintenanceDetailModal extends StatelessWidget {
                         label: const Text(
                           'Share WhatsApp',
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontWeight: FontWeight.w700,
                             fontSize: 11.5,
                             color: Color(0xFF15803D),
@@ -758,7 +758,7 @@ class _MaintenanceDetailModal extends StatelessWidget {
                         label: const Text(
                           'Share Telegram',
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontWeight: FontWeight.w700,
                             fontSize: 11.5,
                             color: Color(0xFF0E6BA8),

@@ -83,7 +83,7 @@ class TemplateQuickPickerModal extends StatelessWidget {
                         Text(
                           'Pilih Template SOP',
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
                             color: colors.ink,
@@ -93,7 +93,7 @@ class TemplateQuickPickerModal extends StatelessWidget {
                         Text(
                           'Pilih alur pemeriksaan atau absen',
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 13,
                             color: colors.body,
                           ),
@@ -159,7 +159,7 @@ class TemplateQuickPickerModal extends StatelessWidget {
                                   Text(
                                     t.nama,
                                     style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
+                                      fontFamily: 'Figtree',
                                       fontSize: 14,
                                       fontWeight: isSelected
                                           ? FontWeight.w800
@@ -176,7 +176,7 @@ class TemplateQuickPickerModal extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: colors.body,
-                                      fontFamily: 'PlusJakartaSans',
+                                      fontFamily: 'Figtree',
                                       height: 1.3,
                                     ),
                                     softWrap: true,

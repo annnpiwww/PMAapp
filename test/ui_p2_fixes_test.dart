@@ -28,14 +28,14 @@ import 'package:bssparking_timemark/features/maintenance/screens/maintenance_map
 import 'package:bssparking_timemark/features/maintenance/screens/point_camera_view.dart';
 
 Future<void> _loadAppFonts() async {
-  for (final family in ['PlusJakartaSans', 'monospace', 'JetBrainsMono']) {
+  for (final family in ['Figtree', 'monospace', 'JetBrainsMono']) {
     final fontLoader = FontLoader(family);
     for (final file in [
-      'assets/fonts/PlusJakartaSans-Regular.ttf',
-      'assets/fonts/PlusJakartaSans-Medium.ttf',
-      'assets/fonts/PlusJakartaSans-SemiBold.ttf',
-      'assets/fonts/PlusJakartaSans-Bold.ttf',
-      'assets/fonts/PlusJakartaSans-ExtraBold.ttf',
+      'assets/fonts/Figtree-Regular.ttf',
+      'assets/fonts/Figtree-Medium.ttf',
+      'assets/fonts/Figtree-SemiBold.ttf',
+      'assets/fonts/Figtree-Bold.ttf',
+      'assets/fonts/Figtree-ExtraBold.ttf',
     ]) {
       final bytes = await File(file).readAsBytes();
       fontLoader.addFont(Future.value(ByteData.sublistView(bytes)));
@@ -58,12 +58,13 @@ Future<void> _loadAppFonts() async {
 Future<void> _savePng(
   WidgetTester tester,
   GlobalKey boundaryKey,
-  String relativePath,
-) async {
+  String relativePath, {
+  double pixelRatio = 2.0,
+}) async {
   await tester.runAsync(() async {
     final boundary =
         boundaryKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-    final image = await boundary.toImage(pixelRatio: 2.0);
+    final image = await boundary.toImage(pixelRatio: pixelRatio);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     image.dispose();
     final file = File(relativePath);
@@ -77,6 +78,7 @@ Widget _wrap320Ts13({
   required Widget child,
   ThemeData? theme,
   ThemeMode themeMode = ThemeMode.light,
+  double textScale = 1.3,
 }) {
   return RepaintBoundary(
     key: boundaryKey,
@@ -88,7 +90,7 @@ Widget _wrap320Ts13({
       builder: (context, inner) {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(
-            textScaler: const TextScaler.linear(1.3),
+            textScaler: TextScaler.linear(textScale),
           ),
           child: inner!,
         );
@@ -289,6 +291,33 @@ void main() {
         tester,
         boundaryKey,
         'docs/screenshots/fix-2026-11-07/ui14_camera_shift_pill_ts13.png',
+      );
+    },
+  );
+
+  testWidgets(
+    'UI-14b CameraCaptureScreen 390 width capture for figtree visual QA',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final boundaryKey = GlobalKey();
+      await tester.pumpWidget(
+        _wrap320Ts13(
+          boundaryKey: boundaryKey,
+          child: const CameraCaptureScreen(),
+          textScale: 1.0,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(tester.takeException(), isNull);
+
+      await _savePng(
+        tester,
+        boundaryKey,
+        'docs/screenshots/figtree/camera_absensi.png',
+        pixelRatio: 1.0,
       );
     },
   );

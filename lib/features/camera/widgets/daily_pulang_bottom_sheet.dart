@@ -267,7 +267,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
                             color: colors.ink,
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -276,7 +276,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                           style: TextStyle(
                             fontSize: 13,
                             color: colors.body,
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                           ),
                         ),
                       ],
@@ -317,7 +317,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                           style: TextStyle(
                             fontSize: 12,
                             color: colors.danger,
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontWeight: FontWeight.w600,
                             height: 1.3,
                           ),
@@ -337,7 +337,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
                     color: colors.ink,
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                   ),
                   children: [
                     TextSpan(
@@ -366,7 +366,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                       style: TextStyle(
                         color: colors.body,
                         fontSize: 13.5,
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -374,7 +374,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                     style: TextStyle(
                       fontSize: 13.5,
                       color: colors.ink,
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       fontWeight: FontWeight.w600,
                     ),
                     items: _rekanItOptions.map((name) {
@@ -385,7 +385,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                           style: TextStyle(
                             color: colors.ink,
                             fontSize: 13.5,
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontWeight: FontWeight.w600,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -417,7 +417,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
                           color: colors.ink,
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: 'Figtree',
                         ),
                         children: [
                           TextSpan(
@@ -449,7 +449,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                 style: TextStyle(
                   fontSize: 13,
                   color: colors.ink,
-                  fontFamily: 'PlusJakartaSans',
+                  fontFamily: 'Figtree',
                   fontWeight: FontWeight.w600,
                   height: 1.4,
                 ),
@@ -462,7 +462,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                   hintStyle: TextStyle(
                     fontSize: 12,
                     color: colors.mute,
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     height: 1.4,
                   ),
                   border: UnderlineInputBorder(
@@ -489,7 +489,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                   style: TextStyle(
                     fontSize: 10.5,
                     color: colors.mute,
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -506,7 +506,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: colors.ink,
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                       ),
                     ),
                   ),
@@ -540,7 +540,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                   style: TextStyle(
                     fontSize: 13,
                     color: colors.ink,
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     fontWeight: FontWeight.w600,
                     height: 1.4,
                   ),
@@ -554,7 +554,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                     hintStyle: TextStyle(
                       fontSize: 12,
                       color: colors.mute,
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       height: 1.4,
                     ),
                     border: UnderlineInputBorder(
@@ -577,7 +577,7 @@ class _DailyPulangBottomSheetState extends State<DailyPulangBottomSheet> {
                     style: TextStyle(
                       fontSize: 10.5,
                       color: colors.mute,
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       fontWeight: FontWeight.w600,
                     ),
                   ),

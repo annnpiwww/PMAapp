@@ -20,9 +20,9 @@ import 'package:bssparking_timemark/features/daily_tasks/screens/spv_task_dispat
 import 'package:bssparking_timemark/features/daily_tasks/widgets/spv_task_card.dart';
 
 Future<void> _loadAppFonts() async {
-  final fontLoader = FontLoader('PlusJakartaSans');
+  final fontLoader = FontLoader('Figtree');
   for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
-    final file = File('assets/fonts/PlusJakartaSans-$weight.ttf');
+    final file = File('assets/fonts/Figtree-$weight.ttf');
     if (file.existsSync()) {
       final bytes = file.readAsBytesSync();
       fontLoader.addFont(Future.value(ByteData.view(bytes.buffer)));
@@ -261,6 +261,7 @@ void main() {
           expect(metaRect.top - titleRect.bottom, closeTo(4.0, 1.0));
 
           await _saveBoundaryAsPng(tester, key, 'docs/screenshots/tiket-spv/$modeTag-$sizeTag-dispatcher.png');
+          DailyTaskService.stopRealtimeListener();
         });
 
         testWidgets('Dialog teknisi $modeTag $sizeTag screenshot', (tester) async {
@@ -289,6 +290,7 @@ void main() {
           expect(find.text('Tutup'), findsOneWidget);
 
           await _saveBoundaryAsPng(tester, key, 'docs/screenshots/tiket-spv/$modeTag-$sizeTag-dialog-teknisi.png');
+          DailyTaskService.stopRealtimeListener();
         });
 
         testWidgets('Buat tugas sheet $modeTag $sizeTag screenshot', (tester) async {
@@ -316,6 +318,7 @@ void main() {
           expect(find.text('Simpan Tugas'), findsOneWidget);
 
           await _saveBoundaryAsPng(tester, key, 'docs/screenshots/tiket-spv/$modeTag-$sizeTag-buat-tugas.png');
+          DailyTaskService.stopRealtimeListener();
         });
       }
     }
@@ -348,6 +351,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.byType(SpvTaskCard), findsWidgets);
+      DailyTaskService.stopRealtimeListener();
     });
   });
 }

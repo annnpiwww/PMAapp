@@ -87,7 +87,7 @@ class SpvStatusSegmentBar extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       fontSize: 12,
                       fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                       color: isSelected ? activeColor : inactiveColor,

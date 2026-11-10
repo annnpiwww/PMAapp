@@ -856,7 +856,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                 ? _activeLocation.locationTag
                 : 'PBM',
             style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
+              fontFamily: 'Figtree',
               color: TiketColors.light.ink,
               fontSize: 11,
               fontWeight: FontWeight.w700,
@@ -869,7 +869,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
         const Text(
           'Maintenance',
           style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
+            fontFamily: 'Figtree',
             color: Colors.white,
             fontSize: 13,
             fontWeight: FontWeight.w700,
@@ -889,7 +889,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
             child: Text(
               _isOfflineFastMode ? 'Kilat' : 'AI Cloud',
               style: const TextStyle(
-                fontFamily: 'PlusJakartaSans',
+                fontFamily: 'Figtree',
                 color: Colors.white,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -921,7 +921,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                 Text(
                   widget.point.label,
                   style: const TextStyle(
-                    fontFamily: 'PlusJakartaSans',
+                    fontFamily: 'Figtree',
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -934,7 +934,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                   Text(
                     widget.point.deskripsi,
                     style: const TextStyle(
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       color: Colors.white70,
                       fontSize: 13,
                       height: 1.3,
@@ -966,7 +966,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                   child: Text(
                     _timerSeconds == 0 ? 'Off' : '${_timerSeconds}s',
                     style: TextStyle(
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       color: _timerSeconds > 0 ? colors.signal : Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -993,7 +993,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                         ? 'Full'
                         : (_selectedRatio == CameraRatioOption.ratio43 ? '3:4' : '1:1'),
                     style: const TextStyle(
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                       color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -1462,7 +1462,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
                     Text(
                       'Barang tidak terpasang di lokasi?',
                       style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         color: Colors.white,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,

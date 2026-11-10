@@ -469,7 +469,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                         Text(
                           'Atur Shift & Absensi',
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
                             color: colors.ink,
@@ -479,7 +479,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                         Text(
                           'Jadwal shift & Lokasi standby',
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 13,
                             color: colors.body,
                           ),
@@ -526,7 +526,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                         }
                       },
                       style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: colors.ink,
@@ -615,7 +615,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                           ? 'Mulai Kerja'
                           : 'Selesai & Handover',
                       style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: colors.body,
@@ -686,7 +686,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
           title,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
+            fontFamily: 'Figtree',
             fontSize: 13,
             fontWeight: FontWeight.w700,
             color: colors.ink,
@@ -729,7 +729,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
             textCapitalization: TextCapitalization.characters,
             onChanged: (val) => setState(() => _lokasiStandby = val.trim().toUpperCase()),
             style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
+              fontFamily: 'Figtree',
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: colors.ink,
@@ -789,7 +789,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
         child: Text(
           tag,
           style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
+            fontFamily: 'Figtree',
             fontSize: 11,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.3,
@@ -820,7 +820,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
               style: TextStyle(
-                fontFamily: 'PlusJakartaSans',
+                fontFamily: 'Figtree',
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
                 color: colors.ink,
@@ -836,7 +836,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
             child: Text(
               BranchService.instance.currentBranch.defaultLocationTag,
               style: TextStyle(
-                fontFamily: 'PlusJakartaSans',
+                fontFamily: 'Figtree',
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 color: colors.ink,
@@ -905,7 +905,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                               color: colors.ink,
@@ -933,7 +933,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                       Text(
                         period,
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: 'Figtree',
                           fontSize: 11,
                           color: colors.body,
                           fontWeight: FontWeight.w500,
@@ -972,7 +972,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                       Text(
                         'Custom Shift',
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: 'Figtree',
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: colors.ink,
@@ -982,7 +982,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
                       Text(
                         'Atur Shift sendiri',
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: 'Figtree',
                           fontSize: 11,
                           color: colors.body,
                         ),
@@ -1012,7 +1012,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
             controller: _customShiftCtrl,
             onChanged: (_) => _onCustomShiftChanged(),
             style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
+              fontFamily: 'Figtree',
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: colors.ink,
@@ -1041,7 +1041,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
             controller: _customShiftJamCtrl,
             onChanged: (_) => _onCustomShiftChanged(),
             style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
+              fontFamily: 'Figtree',
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: colors.ink,

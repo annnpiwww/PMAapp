@@ -91,7 +91,7 @@ class SpvTechFilterStrip extends StatelessWidget {
                         child: Text(
                           initialsOf(entry.name),
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                             color: isSelected
@@ -103,7 +103,7 @@ class SpvTechFilterStrip extends StatelessWidget {
                     Text(
                       entry.isAll ? 'Semua Teknisi' : _firstName(entry.name),
                       style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
+                        fontFamily: 'Figtree',
                         fontSize: 12,
                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                         color: textColor,
@@ -121,7 +121,7 @@ class SpvTechFilterStrip extends StatelessWidget {
                       child: Text(
                         '${entry.pendingCount}',
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: 'Figtree',
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: isSelected

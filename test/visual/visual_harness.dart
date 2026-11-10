@@ -8,14 +8,14 @@ import 'package:bssparking_timemark/core/constants/app_theme.dart';
 
 bool _fontsLoaded = false;
 
-/// Loads PlusJakartaSans fonts and MaterialIcons into Flutter's FontLoader
+/// Loads Figtree fonts and MaterialIcons into Flutter's FontLoader
 /// to prevent fallback to the Ahem test font during screenshot captures.
 Future<void> loadAppFonts() async {
   if (_fontsLoaded) return;
 
   final fontLoader = FontLoader(AppTheme.fontFamily);
   for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
-    final file = File('assets/fonts/PlusJakartaSans-$weight.ttf');
+    final file = File('assets/fonts/Figtree-$weight.ttf');
     if (file.existsSync()) {
       final bytes = file.readAsBytesSync();
       fontLoader.addFont(Future.value(ByteData.view(bytes.buffer)));

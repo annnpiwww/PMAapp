@@ -64,11 +64,11 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Hapus Template SOP?',
-          style: TextStyle(fontFamily: 'PlusJakartaSans', fontWeight: FontWeight.w700),
+          style: TextStyle(fontFamily: 'Figtree', fontWeight: FontWeight.w700),
         ),
         content: Text(
           'Hapus template "${template.nama}" dari daftar SOP?',
-          style: const TextStyle(fontFamily: 'PlusJakartaSans', ),
+          style: const TextStyle(fontFamily: 'Figtree', ),
         ),
         actions: [
           TextButton(
@@ -209,7 +209,7 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                                   ? 'Standarisasi SOP BSS Parking (Mode Admin)'
                                   : 'Standarisasi SOP BSS Parking',
                               style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
+                                fontFamily: 'Figtree',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: _isAdmin
@@ -251,7 +251,7 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                         const SizedBox(height: 12),
                         const Text(
                           'Belum ada template SOP.',
-                          style: TextStyle(fontFamily: 'PlusJakartaSans', 
+                          style: TextStyle(fontFamily: 'Figtree', 
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textSecondary,
@@ -339,7 +339,7 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
           title: Text(
             template.nama,
             style: TextStyle(
-              fontFamily: 'PlusJakartaSans', 
+              fontFamily: 'Figtree', 
               fontSize: 13.5,
               fontWeight: FontWeight.w700,
               color: textTitle,
@@ -465,7 +465,7 @@ class _TemplateListScreenState extends State<TemplateListScreen> {
                   Text(
                     'Kriteria Pengecekan AI:',
                     style: TextStyle(
-                      fontFamily: 'PlusJakartaSans', 
+                      fontFamily: 'Figtree', 
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
                       color: textTitle,

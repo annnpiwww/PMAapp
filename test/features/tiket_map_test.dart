@@ -20,9 +20,9 @@ import 'package:bssparking_timemark/features/maintenance/widgets/temuan_fix_shee
 bool _fontsLoaded = false;
 Future<void> _loadAppFonts() async {
   if (_fontsLoaded) return;
-  final fontLoader = FontLoader('PlusJakartaSans');
+  final fontLoader = FontLoader('Figtree');
   for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
-    final file = File('assets/fonts/PlusJakartaSans-$weight.ttf');
+    final file = File('assets/fonts/Figtree-$weight.ttf');
     if (file.existsSync()) {
       final bytes = file.readAsBytesSync();
       fontLoader.addFont(Future.value(ByteData.view(bytes.buffer)));

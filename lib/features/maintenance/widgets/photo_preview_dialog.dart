@@ -273,7 +273,7 @@ class _PhotoPreviewDialogState extends State<PhotoPreviewDialog> {
                                   Text(
                                     widget.title,
                                     style: const TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
+                                      fontFamily: 'Figtree',
                                       color: Colors.white,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w700,
@@ -283,7 +283,7 @@ class _PhotoPreviewDialogState extends State<PhotoPreviewDialog> {
                                   Text(
                                     'Foto verifikasi maintenance',
                                     style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
+                                      fontFamily: 'Figtree',
                                       color: colors.body,
                                       fontSize: 13,
                                     ),
@@ -309,7 +309,7 @@ class _PhotoPreviewDialogState extends State<PhotoPreviewDialog> {
                           Text(
                             'Catatan: ${_pointResult!.alasan}',
                             style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                               color: colors.body,
                               fontSize: 13,
                               height: 1.3,

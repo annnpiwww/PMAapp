@@ -245,7 +245,7 @@ class _SplashScreenState extends State<SplashScreen>
                                   child: Text(
                                     'PMA',
                                     style: TextStyle(
-                                      fontFamily: 'PlusJakartaSans',
+                                      fontFamily: 'Figtree',
                                       fontSize: 24,
                                       fontWeight: FontWeight.w900,
                                       color: Colors.white,
@@ -263,7 +263,7 @@ class _SplashScreenState extends State<SplashScreen>
                       const Text(
                         'PMA',
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: 'Figtree',
                           fontSize: 34,
                           fontWeight: FontWeight.w900,
                           color: AppColors.primary,
@@ -274,7 +274,7 @@ class _SplashScreenState extends State<SplashScreen>
                       const Text(
                         'Project Maintenance Assembly',
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: 'Figtree',
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
                           color: AppColors.accent,
@@ -289,7 +289,7 @@ class _SplashScreenState extends State<SplashScreen>
                           'Technician Maintenance, Grooming & Daily task',
                           maxLines: 1,
                           style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF475569),
@@ -338,7 +338,7 @@ class _SplashScreenState extends State<SplashScreen>
                               _loadingStatus,
                               key: ValueKey(_loadingStatus),
                               style: const TextStyle(
-                                fontFamily: 'PlusJakartaSans',
+                                fontFamily: 'Figtree',
                                 fontSize: 11,
                                 color: Color(0xFF64748B),
                                 fontWeight: FontWeight.w600,
@@ -367,7 +367,7 @@ class _SplashScreenState extends State<SplashScreen>
                             Text(
                               'PMAapp powered by annnpii',
                               style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
+                                fontFamily: 'Figtree',
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.primary,

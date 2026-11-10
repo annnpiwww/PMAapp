@@ -11,9 +11,9 @@ import 'package:bssparking_timemark/features/whats_new/widgets/whats_new_sheet.d
 
 /// Font asli app dimuat biar screenshot kebaca (bukan kotak-kotak).
 Future<void> loadAppFonts() async {
-  final fontLoader = FontLoader('PlusJakartaSans');
+  final fontLoader = FontLoader('Figtree');
   for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
-    final file = File('assets/fonts/PlusJakartaSans-$weight.ttf');
+    final file = File('assets/fonts/Figtree-$weight.ttf');
     if (file.existsSync()) {
       final bytes = file.readAsBytesSync();
       fontLoader.addFont(Future.value(ByteData.view(bytes.buffer)));

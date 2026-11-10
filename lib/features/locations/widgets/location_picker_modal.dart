@@ -285,7 +285,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
                               color: colors.ink,
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                             ),
                           ),
                           Flexible(
@@ -296,7 +296,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 color: colors.body,
-                                fontFamily: 'PlusJakartaSans',
+                                fontFamily: 'Figtree',
                               ),
                             ),
                           ),
@@ -308,7 +308,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                         style: TextStyle(
                           fontSize: 13,
                           color: colors.body,
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: 'Figtree',
                         ),
                       ),
                     ],
@@ -355,7 +355,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                             color: colors.ink,
                           ),
                         ),
@@ -367,7 +367,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                           style: TextStyle(
                             fontSize: 11.5,
                             color: colors.body,
-                            fontFamily: 'PlusJakartaSans',
+                            fontFamily: 'Figtree',
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -397,10 +397,10 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                 ),
               ),
               child: TextField(
-                style: TextStyle(color: colors.ink, fontSize: 13, fontFamily: 'PlusJakartaSans'),
+                style: TextStyle(color: colors.ink, fontSize: 13, fontFamily: 'Figtree'),
                 decoration: InputDecoration(
                   hintText: 'Cari nama lokasi, tag, cabang...',
-                  hintStyle: TextStyle(color: colors.mute, fontSize: 12.5, fontFamily: 'PlusJakartaSans'),
+                  hintStyle: TextStyle(color: colors.mute, fontSize: 12.5, fontFamily: 'Figtree'),
                   prefixIcon: Icon(Icons.search, size: 18, color: colors.mute),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
@@ -429,7 +429,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
                       color: colors.body,
-                      fontFamily: 'PlusJakartaSans',
+                      fontFamily: 'Figtree',
                     ),
                   ),
                 ),
@@ -449,7 +449,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                   },
                   child: Text(
                     'Kelola Semua Lokasi',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: colors.ink, fontFamily: 'PlusJakartaSans'),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: colors.ink, fontFamily: 'Figtree'),
                   ),
                 ),
               ],
@@ -474,7 +474,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                             style: TextStyle(
                               fontSize: 12.5,
                               color: colors.body,
-                              fontFamily: 'PlusJakartaSans',
+                              fontFamily: 'Figtree',
                             ),
                           ),
                         )
@@ -517,7 +517,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                                           color: colors.ink,
                                           fontWeight: FontWeight.w700,
                                           fontSize: 11,
-                                          fontFamily: 'PlusJakartaSans',
+                                          fontFamily: 'Figtree',
                                         ),
                                       ),
                                     ),
@@ -543,7 +543,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                                               fontSize: 13.5,
                                               fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w700,
                                               color: colors.ink,
-                                              fontFamily: 'PlusJakartaSans',
+                                              fontFamily: 'Figtree',
                                             ),
                                             softWrap: true,
                                           ),
@@ -553,7 +553,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                                             style: TextStyle(
                                               fontSize: 11,
                                               color: colors.body,
-                                              fontFamily: 'PlusJakartaSans',
+                                              fontFamily: 'Figtree',
                                             ),
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
@@ -570,7 +570,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                         color: colors.body,
-                                        fontFamily: 'PlusJakartaSans',
+                                        fontFamily: 'Figtree',
                                       ),
                                     ),
                                     // Selected = StatusMarker ok trailing
