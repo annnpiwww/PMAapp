@@ -12,7 +12,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bssparking_timemark/core/constants/app_theme.dart';
-import 'package:bssparking_timemark/core/widgets/app_file_image.dart';
 import 'package:bssparking_timemark/core/widgets/tiket/error_alarm_overlay.dart';
 import 'package:bssparking_timemark/data/models/daily_task_model.dart';
 import 'package:bssparking_timemark/data/models/error_report.dart';

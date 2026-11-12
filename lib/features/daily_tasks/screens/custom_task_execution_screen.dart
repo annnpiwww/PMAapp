@@ -461,9 +461,8 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        final pathsToSend = _localPhotoPaths.isNotEmpty
-            ? _localPhotoPaths
-            : (_localVideoPaths.isNotEmpty ? _localVideoPaths : null);
+        final media = [..._localPhotoPaths, ..._localVideoPaths];
+        final pathsToSend = media.isNotEmpty ? media : null;
 
         return Dialog(
           backgroundColor: colors.dialog,
@@ -530,7 +529,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Foto atau video ikut terlampir saat dibagikan.',
+                  'Foto dan video ikut terlampir. Teks laporan otomatis disalin, tempel di kolom keterangan Telegram kalau belum muncul.',
                   style: TextStyle(
                     fontFamily: 'Figtree',
                     fontSize: 12,
@@ -545,7 +544,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                       HapticFeedback.lightImpact();
                       final rootNav = Navigator.of(context);
                       final dlgNav = Navigator.of(ctx);
-                      await ShareHelper.shareToWhatsApp(
+                      await ShareHelper.shareToTelegram(
                         text: reportText,
                         imagePaths: pathsToSend,
                       );

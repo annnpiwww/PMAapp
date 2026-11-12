@@ -84,6 +84,22 @@ class MainActivity : FlutterActivity() {
                         }
 
                         val intent: Intent = when {
+                            // 0. Foto + video campur: satu album, mime */* (kalau tidak, video terbuang)
+                            imageFiles.isNotEmpty() && videoFiles.isNotEmpty() -> {
+                                val uriList = ArrayList<Uri>()
+                                for (f in validFiles) {
+                                    val u = FileProvider.getUriForFile(this@MainActivity, providerAuthority, f)
+                                    uriList.add(u)
+                                    grantUriToTargets(u)
+                                }
+                                Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                                    type = "*/*"
+                                    if (text.isNotEmpty()) putExtra(Intent.EXTRA_TEXT, text)
+                                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, uriList)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                            }
+
                             // 1. Jika ada foto dokumentasi: kirim foto via image/*
                             imageFiles.isNotEmpty() -> {
                                 if (imageFiles.size == 1) {
