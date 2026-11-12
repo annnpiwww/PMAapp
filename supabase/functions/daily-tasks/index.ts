@@ -593,8 +593,13 @@ export async function handleDailyTasks(
       const prevDari = (typeof taskRow.teknisi_nama === 'string' && taskRow.teknisi_nama.trim().length > 0)
         ? taskRow.teknisi_nama.trim()
         : 'SPV';
-      const n = new Date();
-      const stamp = `${n.getDate().toString().padStart(2, '0')} ${n.toLocaleString('id-ID', { month: 'short' })} ${n.getHours().toString().padStart(2, '0')}:${n.getMinutes().toString().padStart(2, '0')}`;
+      // Edge runtime runs in UTC; all branches (Manado, Bali, Makassar) are WITA.
+      const p = Object.fromEntries(
+        new Intl.DateTimeFormat('id-ID', {
+          timeZone: 'Asia/Makassar', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+        }).formatToParts(new Date()).map((x) => [x.type, x.value]),
+      );
+      const stamp = `${p.day} ${p.month} ${p.hour}:${p.minute}`;
       const newEntry = `${prevDari}|${claimant}|Ambil tugas terbuka|${stamp}`;
       const logBaru = lines.length > 0 ? `${lines.join('\n')}\n${newEntry}` : newEntry;
 
