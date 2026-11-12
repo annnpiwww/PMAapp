@@ -46,6 +46,12 @@ Lokasi : PBM
       expect(report.lokasi, equals('PBM'));
     });
 
+    test('tanggal with month name (admin style 11-Nov-2026, 1 Oktober 2026)', () {
+      expect(ErrorReport.parse('Tanggal : 11-Nov-2026\nWaktu : 10.00').reportedAt, equals(DateTime(2026, 11, 11, 10, 0)));
+      expect(ErrorReport.parse('Tanggal : 1 Oktober 2026\nWaktu : 10.00').reportedAt, equals(DateTime(2026, 10, 1, 10, 0)));
+      expect(ErrorReport.parse('Tanggal : 1-Xyz-2026\nWaktu : 10.00').reportedAt, isNull);
+    });
+
     // (c) Missing waktu -> reportedAt null, withFallbackTime fills it
     test('(c) missing waktu leaves reportedAt null, withFallbackTime fills it', () {
       const msg = '''

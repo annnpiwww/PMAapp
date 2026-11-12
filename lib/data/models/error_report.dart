@@ -82,12 +82,18 @@ class ErrorReport {
     final cleanWkt = rawWaktu.trim();
     if (cleanTgl.isEmpty || cleanWkt.isEmpty) return null;
 
-    final dMatch = RegExp(r'^(\d{1,2})[-/. ](\d{1,2})[-/. ](\d{2}|\d{4})$').firstMatch(cleanTgl);
+    final dMatch = RegExp(r'^(\d{1,2})[-/. ](\d{1,2}|[A-Za-z]{3,})[-/. ](\d{2}|\d{4})$').firstMatch(cleanTgl);
     final tMatch = RegExp(r'^(\d{1,2})[:.](\d{2})$').firstMatch(cleanWkt);
     if (dMatch == null || tMatch == null) return null;
 
     final day = int.parse(dMatch.group(1)!);
-    final month = int.parse(dMatch.group(2)!);
+    // Admin juga menulis nama bulan ("1-Okt-2026"); cocokkan tiga huruf pertama.
+    const bulan = {
+      'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'mei': 5, 'may': 5, 'jun': 6, 'jul': 7,
+      'agu': 8, 'agt': 8, 'ags': 8, 'aug': 8, 'sep': 9, 'okt': 10, 'oct': 10, 'nov': 11, 'des': 12, 'dec': 12,
+    };
+    final rawBulan = dMatch.group(2)!;
+    final month = int.tryParse(rawBulan) ?? bulan[rawBulan.substring(0, 3).toLowerCase()] ?? 0;
     var year = int.parse(dMatch.group(3)!);
     if (year < 100) year += 2000;
 

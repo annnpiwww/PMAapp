@@ -349,7 +349,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
   }
 
   String _currentFormattedTime() {
-    final now = DateTime.now();
+    final now = customTaskNow();
     return '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} WITA';
   }
 
@@ -360,7 +360,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
     }
     final hh = reportedAt.hour.toString().padLeft(2, '0');
     final mm = reportedAt.minute.toString().padLeft(2, '0');
-    final durasi = formatDurasi(DateTime.now().difference(reportedAt));
+    final durasi = formatDurasi(customTaskNow().difference(reportedAt));
     return 'Dilaporkan $hh.$mm · sudah $durasi';
   }
 
@@ -444,7 +444,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
         penyebab: _penyebabCtrl.text,
         solusiPerbaikan: _solusiCtrl.text,
         reportedAt: _report.reportedAt,
-        selesai: DateTime.now(),
+        selesai: customTaskNow(),
         catatan: _catatanCtrl.text,
       );
     } else {
@@ -1134,3 +1134,7 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
     );
   }
 }
+
+/// Jam yang dipakai layar ini; tes screenshot menggantinya supaya durasi tetap.
+@visibleForTesting
+DateTime Function() customTaskNow = DateTime.now;
