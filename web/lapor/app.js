@@ -57,12 +57,15 @@ const reportError = document.getElementById('report-error');
 const btnSend = document.getElementById('btn-send');
 
 const inputCamera = document.getElementById('input-camera');
+const inputVideo = document.getElementById('input-video');
 const inputGallery = document.getElementById('input-gallery');
 const btnCamera = document.getElementById('btn-camera');
+const btnVideo = document.getElementById('btn-video');
 const btnGallery = document.getElementById('btn-gallery');
 const photoPickers = document.getElementById('photo-pickers');
 const photoPreviewWrap = document.getElementById('photo-preview-wrap');
 const photoThumb = document.getElementById('photo-thumb');
+const videoThumb = document.getElementById('video-thumb');
 const btnRemovePhoto = document.getElementById('btn-remove-photo');
 
 const l3StatusSub = document.getElementById('l3-status-sub');
@@ -265,8 +268,15 @@ function clearPhoto() {
   }
   selectedPhotoFile = null;
   inputCamera.value = '';
+  if (inputVideo) inputVideo.value = '';
   inputGallery.value = '';
   photoThumb.removeAttribute('src');
+  photoThumb.classList.remove('hidden');
+  if (videoThumb) {
+    videoThumb.removeAttribute('src');
+    videoThumb.load();
+    videoThumb.classList.add('hidden');
+  }
   photoPreviewWrap.classList.add('hidden');
   photoPickers.classList.remove('hidden');
 }
@@ -276,7 +286,21 @@ function handlePhotoPicked(file) {
   if (selectedPhotoUrl) URL.revokeObjectURL(selectedPhotoUrl);
   selectedPhotoFile = file;
   selectedPhotoUrl = URL.createObjectURL(file);
-  photoThumb.src = selectedPhotoUrl;
+  const isVideo = file.type && file.type.startsWith('video/');
+  if (isVideo) {
+    photoThumb.removeAttribute('src');
+    photoThumb.classList.add('hidden');
+    videoThumb.src = selectedPhotoUrl;
+    videoThumb.classList.remove('hidden');
+  } else {
+    if (videoThumb) {
+      videoThumb.removeAttribute('src');
+      videoThumb.load();
+      videoThumb.classList.add('hidden');
+    }
+    photoThumb.src = selectedPhotoUrl;
+    photoThumb.classList.remove('hidden');
+  }
   photoPickers.classList.add('hidden');
   photoPreviewWrap.classList.remove('hidden');
 }
@@ -569,10 +593,12 @@ formReport.addEventListener('input', () => {
   saveDraft();
 });
 
-// Photo buttons
+// Photo and video buttons
 btnCamera.addEventListener('click', () => inputCamera.click());
+btnVideo.addEventListener('click', () => inputVideo.click());
 btnGallery.addEventListener('click', () => inputGallery.click());
 inputCamera.addEventListener('change', () => handlePhotoPicked(inputCamera.files?.[0]));
+inputVideo.addEventListener('change', () => handlePhotoPicked(inputVideo.files?.[0]));
 inputGallery.addEventListener('change', () => handlePhotoPicked(inputGallery.files?.[0]));
 btnRemovePhoto.addEventListener('click', () => clearPhoto());
 

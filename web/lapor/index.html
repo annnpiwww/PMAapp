@@ -203,7 +203,7 @@
           </div>
 
           <div class="field-group">
-            <span class="field-label" id="label-foto">Foto kerusakan (opsional)</span>
+            <span class="field-label" id="label-foto">Foto atau video kerusakan (opsional)</span>
             <input
               id="input-camera"
               type="file"
@@ -213,9 +213,17 @@
               aria-labelledby="label-foto"
             >
             <input
+              id="input-video"
+              type="file"
+              accept="video/*"
+              capture="environment"
+              class="hidden"
+              aria-labelledby="label-foto"
+            >
+            <input
               id="input-gallery"
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               class="hidden"
               aria-labelledby="label-foto"
             >
@@ -236,9 +244,22 @@
 
               <button
                 type="button"
+                id="btn-video"
+                class="photo-btn"
+                aria-label="Rekam video kerusakan"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="2" y="6" width="14" height="12" rx="2" ry="2"></rect>
+                  <polygon points="22 8 16 12 22 16"></polygon>
+                </svg>
+                <span class="photo-badge" aria-hidden="true">+</span>
+              </button>
+
+              <button
+                type="button"
                 id="btn-gallery"
                 class="photo-btn"
-                aria-label="Pilih foto dari galeri"
+                aria-label="Pilih foto atau video dari galeri"
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -251,10 +272,11 @@
 
             <div id="photo-preview-wrap" class="photo-preview hidden">
               <img id="photo-thumb" class="photo-thumb" alt="Foto kerusakan terpilih">
-              <button type="button" id="btn-remove-photo" class="btn-text btn-text--danger">Hapus foto</button>
+              <video id="video-thumb" class="photo-thumb hidden" controls playsinline muted preload="metadata" aria-label="Video kerusakan terpilih"></video>
+              <button type="button" id="btn-remove-photo" class="btn-text btn-text--danger">Hapus lampiran</button>
             </div>
 
-            <p class="field-helper">Foto ikut terkirim ke grup, tidak disimpan di aplikasi.</p>
+            <p class="field-helper">Foto atau video ikut terkirim ke grup, tidak disimpan di aplikasi.</p>
           </div>
 
           <p id="report-error" class="form-alert hidden" role="alert"></p>
@@ -313,7 +335,7 @@
       </main>
 
       <div class="bottom-bar">
-        <p id="l3-photo-hint" class="bottom-bar-hint hidden">Foto yang tadi dipilih ikut terlampir.</p>
+        <p id="l3-photo-hint" class="bottom-bar-hint hidden">Foto atau video yang tadi dipilih ikut terlampir.</p>
         <button type="button" id="btn-share-again" class="btn-primary">Bagikan ke grup</button>
         <button type="button" id="btn-report-another" class="btn-text" style="align-self: center;">Lapor kendala lain</button>
       </div>

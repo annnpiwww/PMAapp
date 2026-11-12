@@ -221,7 +221,7 @@ test('shareReport 3 branches + AbortError', async () => {
   const message = 'Selamat pagi, izin melaporkan kendala printer.';
   const mockFile = { name: 'foto.jpg', type: 'image/jpeg' };
 
-  // Branch 1: Level 2 Web Share with file
+  // Branch 1: Level 2 Web Share with file (photo)
   let sharedData1 = null;
   const navBranch1 = {
     canShare: (opts) => Boolean(opts?.files?.length),
@@ -232,6 +232,19 @@ test('shareReport 3 branches + AbortError', async () => {
   const res1 = await shareReport(message, mockFile, navBranch1);
   assert.strictEqual(res1, 'shared');
   assert.deepStrictEqual(sharedData1, { text: message, files: [mockFile] });
+
+  // Branch 1b: Level 2 Web Share with video file (file-type agnostic)
+  const mockVideoFile = { name: 'kerusakan.mp4', type: 'video/mp4' };
+  let sharedDataVideo = null;
+  const navBranchVideo = {
+    canShare: (opts) => Boolean(opts?.files?.length),
+    share: async (data) => {
+      sharedDataVideo = data;
+    },
+  };
+  const resVideo = await shareReport(message, mockVideoFile, navBranchVideo);
+  assert.strictEqual(resVideo, 'shared');
+  assert.deepStrictEqual(sharedDataVideo, { text: message, files: [mockVideoFile] });
 
   // Branch 2: Text-only share (no file or canShare returns false)
   let sharedData2 = null;

@@ -384,6 +384,7 @@ html, body {
   align-items: center;
   gap: 14px;
   margin-top: 8px;
+  flex-wrap: nowrap;
 }
 
 .photo-btn {
@@ -439,6 +440,13 @@ html, body {
   object-fit: cover;
   border: 1px solid var(--border-light);
   background: var(--soft);
+}
+
+video.photo-thumb {
+  max-width: 100%;
+  border-radius: 10px;
+  object-fit: contain;
+  background: #000;
 }
 
 /* Buttons */
