@@ -30,17 +30,15 @@ class WhatsNewService {
 
   /// Diisi ulang tiap versi naik, bareng bump di pubspec.yaml.
   static const WhatsNewRelease current = WhatsNewRelease(
-    version: '2.0.137',
-    date: '11 November 2026',
+    version: '2.0.138',
+    date: '12 November 2026',
     features: [
-      'Ada lokasi error, layar langsung merah dan alarm bunyi sampai ditekan, walau aplikasi lagi ditutup',
-      'Detail error kelihatan langsung dari Map Maintenance',
-      'SPV bisa pilih siapa yang selesaikan tiket error: semua teknisi, tunjuk langsung, atau ditangani sendiri',
-      'Tampilan Map dan detail lokasi lebih rapi',
+      'Laporan selesai error sekarang kirim foto dan video sekaligus ke Telegram',
+      'Admin lokasi bisa lapor error langsung dari web, tiketnya masuk ke daftar teknisi',
     ],
     aiNote: null,
-    mapNote: 'Alarm bunyi lewat notifikasi; izinkan notifikasi dan atur baterai PMApp ke Tanpa batasan.',
-    bugfix: 'Tiket error buatan SPV sekarang muncul di akun teknisi; ukuran dan posisi tombol dirapikan.',
+    mapNote: null,
+    bugfix: 'Jam ambil tiket error sekarang sesuai WITA; teks laporan otomatis disalin, tinggal tempel kalau keterangan Telegram kosong.',
   );
 
   /// `seen` kosong berarti aplikasi belum pernah mencatat versi di perangkat ini.

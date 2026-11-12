@@ -2,6 +2,22 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.138+2151] - 2026-11-12
+
+### 🎯 Highlight Utama
+1. **Kirim Foto dan Video Sekaligus ke Telegram**:
+   - Laporan selesai error sekarang kirim foto dan video sekaligus ke Telegram.
+2. **Web Lapor Error & Riwayat Admin Lokasi**:
+   - Admin lokasi bisa lapor error langsung dari web, tiketnya masuk ke daftar teknisi.
+   - Riwayat di web `/lapor/` menampilkan status 'Selesai oleh <teknisi>'.
+   - Tambah akun admin menampilkan kolom mana yang bermasalah secara spesifik (bukan sekadar 'Server bermasalah').
+
+### 🛠️ Perbaikan Bug
+- Jam ambil tiket error sekarang sesuai WITA.
+- Teks laporan otomatis disalin, tinggal tempel kalau keterangan Telegram kosong.
+
+---
+
 ## [2.0.137+2150] - 2026-11-11
 
 ### 🎯 Highlight Utama
