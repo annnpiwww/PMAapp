@@ -2,6 +2,17 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.139+2152] - 2026-11-12
+
+### 🛠️ Perbaikan Bug
+- Maintenance: setelah "Simpan & Selesaikan Laporan" muncul lagi pilihan bagikan ke WhatsApp atau Telegram (hilang sejak redesign 2.0.135).
+- Daily Task: tugas biasa bisa dibagikan ke WhatsApp atau Telegram; tiket error tetap langsung ke Telegram (2.0.138 sempat mengarahkan semua tugas ke Telegram).
+
+### 🎯 Fitur
+- Web `/lapor/`: admin bisa rekam atau pilih video sebagai lampiran laporan.
+
+---
+
 ## [2.0.138+2151] - 2026-11-12
 
 ### 🎯 Highlight Utama
