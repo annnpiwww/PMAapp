@@ -502,7 +502,8 @@ test('saveSpvSession / loadSpvSession / clearSpvSession handles expiry', () => {
 test('statusInfo returns correct text and cssClass for all 3 status cases', () => {
   // Case 1: selesai
   const selesai = statusInfo({ status: 'selesai', teknisi: 'Farhan' });
-  assert.deepStrictEqual(selesai, { text: 'Selesai', cssClass: 'status-selesai' });
+  assert.deepStrictEqual(selesai, { text: 'Selesai oleh Farhan', cssClass: 'status-selesai' });
+  assert.deepStrictEqual(statusInfo({ status: 'selesai', teknisi: null }), { text: 'Selesai', cssClass: 'status-selesai' });
 
   // Case 2: ditangani
   const ditangani = statusInfo({ status: 'ditangani', teknisi: 'Ryan Lumasuge' });

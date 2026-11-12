@@ -1,7 +1,7 @@
 // Service Worker for Lapor Error PWA
 // Scope: /lapor/
 
-const CACHE_NAME = 'lapor-v2';
+const CACHE_NAME = 'lapor-v3';
 const SHELL_ASSETS = [
   '/lapor/',
   '/lapor/index.html',

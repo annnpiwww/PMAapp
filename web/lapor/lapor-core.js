@@ -512,6 +512,16 @@ export async function createAccount(
   if (res.status === 409) {
     throw new Error('Username sudah digunakan.');
   }
+  if (res.status === 400) {
+    const body = await res.json().catch(() => null);
+    const fieldMessages = {
+      nama: 'Nama admin cuma boleh huruf dan spasi, tanpa kode lokasi.',
+      pos_kode: 'Kode lokasi 2-10 huruf kecil atau angka.',
+      pos_name: 'Lokasi tidak ditemukan di cabang ini.',
+      password: 'Kata sandi minimal 8 karakter dan beda dari nama pengguna.',
+    };
+    throw new Error(fieldMessages[body?.field] || 'Data belum benar, cek lagi isiannya.');
+  }
   if (!res.ok) {
     throw new Error('Server bermasalah, coba lagi.');
   }
@@ -836,7 +846,8 @@ export async function listMyReports(token, fetchImpl = fetch, options = {}) {
 export function statusInfo(report) {
   const status = report?.status;
   if (status === 'selesai') {
-    return { text: 'Selesai', cssClass: 'status-selesai' };
+    const tech = report?.teknisi;
+    return { text: tech ? `Selesai oleh ${tech}` : 'Selesai', cssClass: 'status-selesai' };
   }
   if (status === 'ditangani') {
     return { text: `Ditangani oleh ${report?.teknisi}`, cssClass: 'status-ditangani' };
