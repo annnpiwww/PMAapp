@@ -101,3 +101,23 @@ Deno.test('sheets-sync: non-error + bali -> forwarded', async () => {
   assertEquals(forwarded, true);
   assertEquals(forwardedBody?.sheetName, 'Maintenance');
 });
+
+Deno.test('sheets-sync: admin_pos role rejected with 403', async () => {
+  const token = await signSession({
+    uid: 'usr_admin_pos',
+    role: 'admin_pos',
+    cabang: 'KC Manado',
+    name: 'Irma',
+  });
+  const req = new Request('https://example.com/sheets-sync', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-app-session': token,
+    },
+    body: JSON.stringify({ kind: 'error', stage: 'open', id: 'task-1' }),
+  });
+  const res = await handleSheetsSync(req);
+  assertEquals(res.status, 403);
+  assertEquals(await res.json(), { error: 'forbidden' });
+});

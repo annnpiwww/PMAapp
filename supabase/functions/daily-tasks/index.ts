@@ -4,6 +4,11 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { isSpv, verifySession } from '../_shared/session.ts';
+import {
+  buildAdminMessage,
+  buildDeskripsi,
+  validateReport,
+} from '../_shared/admin_report.ts';
 
 const MAX_BODY_BYTES = 64 * 1024;
 const TASK_ID_REGEX = /^[A-Za-z0-9_-]{1,80}$/;
@@ -98,8 +103,245 @@ export async function handleDailyTasks(
   const table = resolveTasksTableForCabang(session.cabang);
   const action = body.action;
 
-  if (!spv && action !== 'create' && action !== 'claim') {
+  if (session.role === 'admin_pos' && action !== 'admin_report' && action !== 'admin_list') {
     return json({ error: 'forbidden' }, 403);
+  }
+  if (action === 'admin_report' && session.role !== 'admin_pos') {
+    return json({ error: 'forbidden' }, 403);
+  }
+  if (action === 'admin_list' && session.role !== 'admin_pos') {
+    return json({ error: 'forbidden' }, 403);
+  }
+  if (!spv && action !== 'create' && action !== 'claim' && action !== 'admin_report' && action !== 'admin_list') {
+    return json({ error: 'forbidden' }, 403);
+  }
+
+  if (action === 'admin_report') {
+    const validated = validateReport(body.report);
+    if (!validated.ok) {
+      return json({ error: 'invalid', field: validated.field }, 400);
+    }
+    const report = validated.report;
+
+    let pelapor = '';
+    let posName = '';
+    let posTag = '';
+    try {
+      const userUrl =
+        `${supabaseUrl}/rest/v1/app_users?id=eq.${encodeURIComponent(session.uid)}&select=nama,pos_name,pos_kode,aktif`;
+      const userRes = await fetchImpl(userUrl, {
+        method: 'GET',
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+        },
+      });
+      if (!userRes.ok) {
+        console.error(`daily-tasks admin_report user lookup failed: ${userRes.status}`);
+        return json({ error: 'server error' }, 500);
+      }
+      const users = await userRes.json();
+      const userRow = Array.isArray(users) && users.length > 0 ? users[0] : null;
+      if (!userRow || userRow.aktif === false) {
+        return json({ error: 'forbidden' }, 403);
+      }
+      posName = typeof userRow.pos_name === 'string' ? userRow.pos_name.trim() : '';
+      if (posName.length === 0) {
+        return json({ error: 'forbidden' }, 403);
+      }
+      pelapor = typeof userRow.nama === 'string' && userRow.nama.trim().length > 0
+        ? userRow.nama.trim()
+        : session.name.trim();
+      posTag = typeof userRow.pos_kode === 'string' && userRow.pos_kode.trim().length > 0
+        ? userRow.pos_kode.trim().toUpperCase().slice(0, 64)
+        : '';
+    } catch {
+      console.error('daily-tasks admin_report user lookup network error');
+      return json({ error: 'server error' }, 500);
+    }
+
+    const message = buildAdminMessage(report, posName);
+    const deskripsi = buildDeskripsi(message, posName, report);
+    const judul = report.kendala.slice(0, 120);
+    const id = `task_${Date.now()}_${Math.floor(Math.random() * 9000) + 1000}`;
+
+    const bulanIndo = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const [dd, mm] = report.tanggal.split('-');
+    const waktuColon = report.waktu.replace('.', ':');
+    const stamp = `${dd} ${bulanIndo[Number(mm) - 1] ?? 'Jan'} ${waktuColon}`;
+    const safeDari = pelapor.replace(/\|/g, '/').replace(/\n/g, ' ');
+    const serahTerima = `${safeDari}||Daftar terbuka|${stamp}`;
+
+    const insertRow: Record<string, unknown> = {
+      id,
+      tanggal: report.tanggalIso,
+      teknisi_nama: pelapor,
+      pos_name: posName,
+      pos_tag: posTag,
+      judul,
+      deskripsi,
+      kategori: 'error',
+      template_id: null,
+      status: 'pending',
+      peserta: '',
+      serah_terima: serahTerima,
+    };
+
+    try {
+      const res = await fetchImpl(`${supabaseUrl}/rest/v1/${table}`, {
+        method: 'POST',
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify(insertRow),
+      });
+
+      if (res.status === 409) {
+        return json({ error: 'duplicate' }, 409);
+      }
+      if (!res.ok) {
+        console.error(`daily-tasks admin_report insert failed status: ${res.status}`);
+        return json({ error: 'server error' }, 500);
+      }
+
+      const rows = await res.json();
+      const created = Array.isArray(rows) && rows.length > 0 ? rows[0] : insertRow;
+      const createdId = typeof created?.id === 'string' && created.id.length > 0 ? created.id : id;
+
+      const webhookUrl = Deno.env.get('GOOGLE_SHEETS_WEBHOOK_URL');
+      if (table === 'daily_tasks_manado' && webhookUrl) {
+        const secretToken = Deno.env.get('GOOGLE_SHEETS_SECRET') || '';
+        const sanitizeCell = (v: string) => (/^[=+\-@\t\r]/.test(v) ? `'${v}` : v);
+        const rawPenyebab = report.penyebab === '-' ? '' : report.penyebab;
+        const rawSolusi = report.solusi_sementara === '-' ? '' : report.solusi_sementara;
+        const sheetPayload = {
+          kind: 'error',
+          stage: 'open',
+          id: createdId,
+          tanggalLapor: sanitizeCell(report.tanggal),
+          waktuLapor: sanitizeCell(report.waktu),
+          lokasi: sanitizeCell(posName),
+          kendala: sanitizeCell(report.kendala),
+          penyebab: sanitizeCell(rawPenyebab),
+          solusiSementara: sanitizeCell(rawSolusi),
+          pelapor: sanitizeCell(pelapor),
+          teknisi: sanitizeCell(pelapor),
+          solusiPerbaikan: '',
+          selesai: '',
+          durasiPerbaikan: '',
+          catatan: '',
+          secretToken,
+        };
+        fetchImpl(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Auth-Token': secretToken,
+          },
+          body: JSON.stringify(sheetPayload),
+          redirect: 'follow',
+        }).catch(() => {});
+      }
+
+      return json({ id: createdId, message }, 201);
+    } catch {
+      console.error('daily-tasks admin_report insert network error');
+      return json({ error: 'server error' }, 500);
+    }
+  }
+
+  if (action === 'admin_list') {
+    let posName = '';
+    try {
+      const userUrl =
+        `${supabaseUrl}/rest/v1/app_users?id=eq.${encodeURIComponent(session.uid)}&select=nama,pos_name,pos_kode,aktif`;
+      const userRes = await fetchImpl(userUrl, {
+        method: 'GET',
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+        },
+      });
+      if (!userRes.ok) {
+        console.error(`daily-tasks admin_list user lookup failed: ${userRes.status}`);
+        return json({ error: 'server error' }, 500);
+      }
+      const users = await userRes.json();
+      const userRow = Array.isArray(users) && users.length > 0 ? users[0] : null;
+      if (!userRow || userRow.aktif === false) {
+        return json({ error: 'forbidden' }, 403);
+      }
+      posName = typeof userRow.pos_name === 'string' ? userRow.pos_name.trim() : '';
+      if (posName.length === 0) {
+        return json({ error: 'forbidden' }, 403);
+      }
+    } catch {
+      console.error('daily-tasks admin_list user lookup network error');
+      return json({ error: 'server error' }, 500);
+    }
+
+    try {
+      const queryUrl =
+        `${supabaseUrl}/rest/v1/${table}?select=id,tanggal,judul,status,teknisi_nama,serah_terima,jam_selesai,created_at&kategori=eq.error&pos_name=eq.${encodeURIComponent(posName)}&order=created_at.desc&limit=20`;
+      const tasksRes = await fetchImpl(queryUrl, {
+        method: 'GET',
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+        },
+      });
+      if (!tasksRes.ok) {
+        console.error(`daily-tasks admin_list tasks query status: ${tasksRes.status}`);
+        return json({ error: 'server error' }, 500);
+      }
+      const rows = await tasksRes.json();
+      const list = Array.isArray(rows) ? rows : [];
+      const reports = list.map((row: Record<string, unknown>) => {
+        const rawStatus = typeof row.status === 'string' ? row.status.trim() : '';
+        // Open list ("Semua teknisi"): teknisi_nama = pelapor until claimed; last serah_terima line has empty `ke`.
+        const lines = (typeof row.serah_terima === 'string' ? row.serah_terima : '')
+          .split('\n').filter((l) => l.trim().length > 0);
+        const isOpen = lines.length > 0 && (lines[lines.length - 1].split('|')[1] ?? '').trim().length === 0;
+        const nama = typeof row.teknisi_nama === 'string' ? row.teknisi_nama.trim() : '';
+        const teknisi = isOpen || nama.length === 0 ? null : nama;
+        const status = (rawStatus === 'done' || rawStatus === 'completed')
+          ? 'selesai'
+          : (teknisi ? 'ditangani' : 'menunggu');
+
+        let diambil: string | null = null;
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const parts = lines[i].split('|');
+          const ke = (parts[1] ?? '').trim();
+          if (ke.length > 0) {
+            const w = (parts[3] ?? '').trim();
+            diambil = w.length > 0 ? w : null;
+            break;
+          }
+        }
+
+        const rawSelesai = typeof row.jam_selesai === 'string' ? row.jam_selesai.trim() : '';
+        const selesai = rawSelesai.length > 0 ? rawSelesai : null;
+
+        return {
+          id: row.id,
+          tanggal: row.tanggal,
+          kendala: typeof row.judul === 'string' ? row.judul : '',
+          status,
+          teknisi,
+          diambil,
+          selesai,
+          waktu_lapor: row.created_at,
+        };
+      });
+
+      return json({ reports }, 200);
+    } catch {
+      console.error('daily-tasks admin_list tasks query network error');
+      return json({ error: 'server error' }, 500);
+    }
   }
 
   if (action === 'create') {

@@ -72,6 +72,7 @@ export async function handleSheetsSync(
   } catch (_e) {
     return json({ error: 'unauthorized' }, 401);
   }
+  if (session.role === 'admin_pos') return json({ error: 'forbidden' }, 403);
 
   // 2. Body size check (max 200 KB)
   const contentLength = req.headers.get('content-length');

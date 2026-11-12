@@ -113,8 +113,11 @@ async function failureDelay(): Promise<void> {
   }
 }
 
-function normalizeRole(rawRole: unknown): 'spv' | 'technician' {
+function normalizeRole(rawRole: unknown): 'spv' | 'technician' | 'admin_pos' {
   const roleStr = String(rawRole ?? '').trim().toLowerCase();
+  if (roleStr === 'admin_pos') {
+    return 'admin_pos';
+  }
   if (
     roleStr === 'spv' ||
     roleStr === 'supervisor' ||
@@ -200,7 +203,7 @@ export async function handleAuthLogin(
   }
 
   const queryUrl =
-    `${supabaseUrl}/rest/v1/app_users?or=(${orClauses.join(',')})&select=id,username,nama,email,role,cabang,password,password_hash`;
+    `${supabaseUrl}/rest/v1/app_users?or=(${orClauses.join(',')})&select=id,username,nama,email,role,cabang,pos_name,aktif,password,password_hash`;
 
   try {
     const res = await fetchImpl(queryUrl, {
@@ -262,7 +265,8 @@ export async function handleAuthLogin(
       }
     }
 
-    if (!passwordValid) {
+    const role = normalizeRole(matched.role);
+    if (!passwordValid || (role === 'admin_pos' && matched.aktif === false)) {
       await failureDelay();
       return json({ error: 'invalid credentials' }, 401);
     }
@@ -295,13 +299,13 @@ export async function handleAuthLogin(
       }
     }
 
-    const role = normalizeRole(matched.role);
     const username = typeof matched.username === 'string' ? matched.username : '';
     const nama = typeof matched.nama === 'string' && matched.nama.trim().length > 0
       ? matched.nama
       : username;
     const email = typeof matched.email === 'string' ? matched.email : '';
     const cabang = typeof matched.cabang === 'string' ? matched.cabang : '';
+    const posName = typeof matched.pos_name === 'string' ? matched.pos_name : '';
 
     const token = await signSession({
       uid,
@@ -320,6 +324,7 @@ export async function handleAuthLogin(
           email,
           role,
           cabang,
+          pos_name: posName,
         },
       },
       200,
@@ -330,6 +335,6 @@ export async function handleAuthLogin(
   }
 }
 
-if (!Deno.env.get('DENO_TESTING')) {
+if (import.meta.main && !Deno.env.get('DENO_TESTING')) {
   serve((req: Request) => handleAuthLogin(req));
 }

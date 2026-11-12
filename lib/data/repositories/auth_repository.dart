@@ -257,6 +257,10 @@ class AuthRepository extends ChangeNotifier {
         }
 
         final roleStr = (record['role'] as String? ?? 'technician').toLowerCase();
+        if (roleStr == 'admin_pos') {
+          _lastErrorMessage = 'Akun ini khusus halaman Lapor Error.';
+          return false;
+        }
         final role = (roleStr == 'spv' ||
                 roleStr == 'supervisor' ||
                 roleStr == 'ho' ||

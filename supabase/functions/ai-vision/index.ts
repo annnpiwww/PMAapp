@@ -143,6 +143,7 @@ export async function handleAiVision(
     if (!session) {
       return json({ error: 'unauthorized' }, 401);
     }
+    if (session.role === 'admin_pos') return json({ error: 'forbidden' }, 403);
   } else if (enforceSession) {
     return json({ error: 'unauthorized' }, 401);
   }

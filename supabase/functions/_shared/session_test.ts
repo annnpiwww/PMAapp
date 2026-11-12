@@ -524,3 +524,96 @@ Deno.test('daily-tasks & auth-login: SPV enforcement, completed delete 409, PBKD
   assertEquals(await delCompletedRes.json(), { error: 'completed' });
   assertEquals(queriedTableUrl.includes('/rest/v1/daily_tasks_ho'), true);
 });
+
+Deno.test('session.ts & auth-login: admin_pos role 30-day TTL, pos_name in user, aktif=false rejected 401, ai-vision & pos-locations reject admin_pos 403', async () => {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const adminToken = await signSession({
+    uid: 'usr_admin_pos_1',
+    role: 'admin_pos',
+    cabang: 'KC Manado',
+    name: 'Irma',
+    iat: nowSec,
+  });
+
+  const verified = await verifySession(
+    new Request('https://example.com/fn', {
+      headers: { 'x-app-session': adminToken },
+    }),
+  );
+  assertNotEquals(verified, null);
+  assertEquals(verified?.role, 'admin_pos');
+  assertEquals(verified?.exp, nowSec + 30 * 24 * 60 * 60);
+  assertEquals(isSpv(verified!), false);
+
+  const hash = await createPbkdf2Hash('secret_pos_pw');
+  let activeFlag = true;
+  const mockLoginFetch: typeof fetch = async () =>
+    new Response(
+      JSON.stringify([
+        {
+          id: 'usr_admin_pos_1',
+          username: 'irma-mgnw',
+          nama: 'Irma',
+          email: '',
+          role: 'admin_pos',
+          cabang: 'KC Manado',
+          pos_name: 'Mie Gacoan Nani Wartabone',
+          aktif: activeFlag,
+          password: null,
+          password_hash: hash,
+        },
+      ]),
+      { status: 200 },
+    );
+
+  const okRes = await handleAuthLogin(
+    new Request('https://example.com/auth-login', {
+      method: 'POST',
+      body: JSON.stringify({ identity: 'irma-mgnw', password: 'secret_pos_pw' }),
+    }),
+    mockLoginFetch,
+  );
+  assertEquals(okRes.status, 200);
+  const okData = await okRes.json();
+  assertEquals(okData.user.role, 'admin_pos');
+  assertEquals(okData.user.pos_name, 'Mie Gacoan Nani Wartabone');
+
+  // Deactivated admin_pos gets 401
+  activeFlag = false;
+  const inactiveRes = await handleAuthLogin(
+    new Request('https://example.com/auth-login', {
+      method: 'POST',
+      body: JSON.stringify({ identity: 'irma-mgnw', password: 'secret_pos_pw' }),
+    }),
+    mockLoginFetch,
+  );
+  assertEquals(inactiveRes.status, 401);
+
+  // ai-vision rejects admin_pos with 403
+  const aiBody = JSON.stringify({
+    model: 'gemini-3-flash-preview',
+    messages: [{ role: 'user', content: 'hi' }],
+  });
+  const aiRes = await handleAiVision(
+    new Request('https://example.com/ai-vision', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'content-length': String(aiBody.length),
+        'x-app-session': adminToken,
+      },
+      body: aiBody,
+    }),
+  );
+  assertEquals(aiRes.status, 403);
+
+  // pos-locations rejects admin_pos with 403
+  const posRes = await handlePosLocations(
+    new Request('https://example.com/pos-locations', {
+      method: 'POST',
+      headers: { 'x-app-session': adminToken, 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'list' }),
+    }),
+  );
+  assertEquals(posRes.status, 403);
+});

@@ -47,6 +47,7 @@ export async function handlePushRegister(
   if (!session) {
     return json({ error: 'unauthorized' }, 401);
   }
+  if (session.role === 'admin_pos') return json({ error: 'forbidden' }, 403);
 
   const clHeader = Number(req.headers.get('content-length') ?? '0');
   if (clHeader > MAX_BODY_BYTES) {

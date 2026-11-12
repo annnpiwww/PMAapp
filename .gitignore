@@ -58,6 +58,12 @@ app.*.map.json
 .codegraph/
 .gemini/
 .dsh_visual_feedback.json
+.omc/
+.serena/
+fm_cache/
+
+# Supabase local temp
+supabase/.temp/
 
 # Build outputs & APK (bisa mengandung secret hasil compile)
 *.apk

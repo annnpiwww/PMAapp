@@ -3,7 +3,7 @@
 
 export type Session = {
   uid: string;
-  role: 'spv' | 'technician';
+  role: 'spv' | 'technician' | 'admin_pos';
   cabang: string;
   name: string;
   iat?: number;
@@ -111,7 +111,7 @@ export async function verifySession(req: Request): Promise<Session | null> {
 
     const { uid, role, cabang, name, iat, exp } = parsed as Record<string, unknown>;
     if (typeof uid !== 'string' || uid.length === 0) return null;
-    if (role !== 'spv' && role !== 'technician') return null;
+    if (role !== 'spv' && role !== 'technician' && role !== 'admin_pos') return null;
     if (typeof cabang !== 'string') return null;
     if (typeof name !== 'string') return null;
     if (typeof exp !== 'number' || !Number.isFinite(exp)) return null;

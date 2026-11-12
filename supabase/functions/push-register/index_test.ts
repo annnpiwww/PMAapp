@@ -118,3 +118,28 @@ Deno.test('push-register: successfully unregisters token via DELETE', async () =
   assertEquals(res.status, 200);
   assertEquals(deleteCalled, true);
 });
+
+Deno.test('push-register: rejects admin_pos session with 403', async () => {
+  const sessionToken = await signSession({
+    uid: 'u_admin_1',
+    role: 'admin_pos',
+    cabang: 'KC Manado',
+    name: 'Irma',
+  });
+
+  const req = new Request('https://example.com/push-register', {
+    method: 'POST',
+    headers: {
+      'x-app-session': sessionToken,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      token: 'fcm_token_valid_length_1234567890',
+      platform: 'android',
+    }),
+  });
+
+  const res = await handlePushRegister(req);
+  assertEquals(res.status, 403);
+  assertEquals(await res.json(), { error: 'forbidden' });
+});

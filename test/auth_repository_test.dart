@@ -352,5 +352,45 @@ void main() {
       expect(capturedPaths.last, endsWith('/functions/v1/auth-login'));
       expect(capturedIdentities.last, equals('ryan@pma.com'));
     });
+
+    test('admin_pos role is refused on online login without saving session or token', () async {
+      AuthRepository.instance.httpClient = MockClient((_) async {
+        return http.Response(
+          jsonEncode({
+            'token': _makeTestSessionToken(
+              uid: 'usr_admin_pos_1',
+              role: 'admin_pos',
+              cabang: 'KC Manado',
+              name: 'Admin MGNW',
+            ),
+            'user': {
+              'id': 'usr_admin_pos_1',
+              'username': 'lapor.mgnw',
+              'email': '',
+              'nama': 'Admin MGNW',
+              'role': 'admin_pos',
+              'cabang': 'KC Manado',
+              'pos_name': 'Mie Gacoan Nani Wartabone',
+            },
+          }),
+          200,
+        );
+      });
+
+      final ok = await AuthRepository.instance.loginWithPassword(
+        identity: 'lapor.mgnw',
+        password: 'somepassword',
+      );
+      expect(ok, isFalse);
+      expect(
+        AuthRepository.instance.lastErrorMessage,
+        equals('Akun ini khusus halaman Lapor Error.'),
+      );
+      expect(AuthRepository.instance.currentUser, isNull);
+      expect(AuthRepository.instance.sessionToken, isNull);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(AuthRepository.sessionTokenPrefsKey), isNull);
+      expect(prefs.getString(AuthRepository.offlineCredentialsPrefsKey), isNull);
+    });
   });
 }

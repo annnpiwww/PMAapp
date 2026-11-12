@@ -4,6 +4,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { isSpv, verifySession } from '../_shared/session.ts';
+import { resolveTasksTableForCabang } from '../_shared/branch.ts';
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 const POS_ID_REGEX = /^[A-Za-z0-9_-]{3,60}$/;
@@ -240,7 +241,7 @@ async function authorizeSpvRequest(
     if (!session) {
       return { ok: false, status: 401, error: 'unauthorized', actor: '' };
     }
-    if (!isSpv(session)) {
+    if (session.role === 'admin_pos' || !isSpv(session)) {
       return { ok: false, status: 403, error: 'forbidden', actor: '' };
     }
     return {
@@ -297,6 +298,39 @@ export async function handlePosLocations(
   if (!supabaseUrl || !serviceRoleKey) {
     console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
     return json({ error: 'server error' }, 500);
+  }
+
+  if (action === 'list') {
+    const session = await verifySession(req);
+    if (!session) return json({ error: 'unauthorized' }, 401);
+    if (session.role === 'admin_pos' || !isSpv(session)) return json({ error: 'forbidden' }, 403);
+    const tbl = resolveTasksTableForCabang(session.cabang);
+    const branch = tbl === 'daily_tasks_ho' ? 'ho' : tbl === 'daily_tasks_bali' ? 'bali' : 'manado';
+    const url =
+      `${supabaseUrl}/rest/v1/pos_locations?branch=eq.${branch}&active=eq.true&select=pos_id,pos_name,cabang_name,location_tag,branch&order=pos_name.asc`;
+    try {
+      const res = await fetchImpl(url, {
+        method: 'GET',
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+        },
+      });
+      if (!res.ok) return json({ error: 'server error' }, 500);
+      const rows = await res.json();
+      const list = Array.isArray(rows) ? rows : [];
+      const locations = list.map((r: Record<string, unknown>) => ({
+        pos_id: String(r.pos_id ?? ''),
+        pos_name: String(r.pos_name ?? ''),
+        cabang_name: String(r.cabang_name ?? ''),
+        location_tag: String(r.location_tag ?? ''),
+        pos_kode: String(r.location_tag ?? '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10),
+        branch: String(r.branch ?? branch),
+      }));
+      return json({ ok: true, locations }, 200);
+    } catch {
+      return json({ error: 'server error' }, 500);
+    }
   }
 
   if (action === 'upsert') {
