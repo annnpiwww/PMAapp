@@ -16,6 +16,7 @@ import '../../../data/services/google_sheets_service.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/repositories/template_repository.dart';
 import '../../../data/services/daily_task_service.dart';
+import '../../../data/services/whatsapp_report_service.dart';
 import '../../../data/services/maintenance_log_service.dart';
 import '../widgets/photo_preview_dialog.dart';
 import 'point_camera_view.dart';
@@ -979,6 +980,53 @@ class _MaintenanceChecklistScreenState
   Future<void> _save() async {
     await StorageService.upsertMaintenanceSubmission(_submission);
     if (_submission.isComplete) unawaited(MaintenanceLogService.syncLocal());
+  }
+
+  /// Tawarkan bagikan laporan ke grup (WhatsApp/Telegram) setelah tersimpan.
+  Future<void> _askShare(BuildContext context) {
+    final colors = TiketColors.of(context);
+    final units = _effectiveUnits;
+    final unitWord = _submission.points.any((p) => p.pointId.startsWith('booth_')) ? 'Booth' : 'Pos';
+    final gateOutNotes = widget.template.jenis == TemplateCategory.maintPos && units.isNotEmpty
+        ? (units.length > 1 ? '$unitWord ${units.first} - $unitWord ${units.last}' : '$unitWord ${units.first}')
+        : null;
+    return showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: colors.dialog,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetCtx) {
+        Future<void> share(bool telegram) async {
+          final send = telegram ? WhatsAppReportService.shareToTelegram : WhatsAppReportService.shareToWhatsApp;
+          await send(submission: _submission, category: widget.template.jenis, unitCount: units.length, gateOutNotes: gateOutNotes);
+          if (sheetCtx.mounted) Navigator.of(sheetCtx).pop();
+        }
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Laporan tersimpan', style: TextStyle(fontFamily: 'Figtree', fontSize: 18, fontWeight: FontWeight.w700, color: colors.ink)),
+                const SizedBox(height: 4),
+                Text('Bagikan ke grup?', style: TextStyle(fontFamily: 'Figtree', fontSize: 14, color: colors.body)),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: TiketPill(label: 'WhatsApp', icon: Icons.chat_rounded, kind: TiketPillKind.secondary, expand: true, onPressed: () => share(false))),
+                    const SizedBox(width: 10),
+                    Expanded(child: TiketPill(label: 'Telegram', icon: Icons.send_rounded, kind: TiketPillKind.secondary, expand: true, onPressed: () => share(true))),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TiketPill(label: 'Selesai', kind: TiketPillKind.primary, expand: true, onPressed: () => Navigator.of(sheetCtx).pop()),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _openCameraForPoint(SopPoint point) async {
@@ -2447,6 +2495,7 @@ class _MaintenanceChecklistScreenState
                       );
                     }
 
+                    if (context.mounted) await _askShare(context);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(

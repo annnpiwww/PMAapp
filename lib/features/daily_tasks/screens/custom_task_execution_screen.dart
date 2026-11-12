@@ -529,7 +529,9 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Foto dan video ikut terlampir. Teks laporan otomatis disalin, tempel di kolom keterangan Telegram kalau belum muncul.',
+                  _isError
+                      ? 'Foto dan video ikut terlampir. Teks laporan otomatis disalin, tempel di kolom keterangan Telegram kalau belum muncul.'
+                      : 'Foto atau video ikut terlampir. Teks laporan otomatis disalin, tempel kalau keterangan kosong.',
                   style: TextStyle(
                     fontFamily: 'Figtree',
                     fontSize: 12,
@@ -537,37 +539,45 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                SizedBox(
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      HapticFeedback.lightImpact();
-                      final rootNav = Navigator.of(context);
-                      final dlgNav = Navigator.of(ctx);
-                      await ShareHelper.shareToTelegram(
-                        text: reportText,
-                        imagePaths: pathsToSend,
-                      );
-                      dlgNav.pop();
-                      rootNav.pop(true);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colors.primary,
-                      foregroundColor: colors.onPrimary,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+                Row(
+                  children: [
+                    // Tiket error dibalas di grup Telegram; tugas biasa bisa WA atau Telegram.
+                    for (final telegram in _isError ? const [true] : const [false, true]) ...[
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(left: telegram && !_isError ? 10 : 0),
+                          child: SizedBox(
+                            height: 48,
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                HapticFeedback.lightImpact();
+                                final rootNav = Navigator.of(context);
+                                final dlgNav = Navigator.of(ctx);
+                                if (telegram) {
+                                  await ShareHelper.shareToTelegram(text: reportText, imagePaths: pathsToSend);
+                                } else {
+                                  await ShareHelper.shareToWhatsApp(text: reportText, imagePaths: pathsToSend);
+                                }
+                                dlgNav.pop();
+                                rootNav.pop(true);
+                              },
+                              icon: Icon(telegram ? Icons.send_rounded : Icons.chat_rounded, size: 18),
+                              label: Text(
+                                _isError ? 'Bagikan ke Grup' : (telegram ? 'Telegram' : 'WhatsApp'),
+                                style: const TextStyle(fontFamily: 'Figtree', fontSize: 15, fontWeight: FontWeight.w700),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: colors.primary,
+                                foregroundColor: colors.onPrimary,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    child: const Text(
-                      'Bagikan ke Grup',
-                      style: TextStyle(
-                        fontFamily: 'Figtree',
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Row(
