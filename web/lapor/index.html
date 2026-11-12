@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1A428A">
+  <title>Lapor Error PMApp</title>
+  <link rel="manifest" href="/lapor/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/Icon-192.png">
+  <link rel="stylesheet" href="/lapor/lapor.css">
+</head>
+<body>
+  <div class="app-shell">
+    <!-- L1: Masuk -->
+    <section id="screen-l1" aria-labelledby="l1-title">
+      <header class="app-header app-header--login">
+        <h1 id="l1-title" class="header-title">Lapor Error</h1>
+        <p class="header-subtitle">Laporan kendala lokasi, langsung sampai ke teknisi.</p>
+      </header>
+      <main class="app-main">
+        <form id="form-login" novalidate>
+          <div class="field-group">
+            <label for="login-username" class="field-label">Nama pengguna</label>
+            <div class="field-box" id="box-login-username">
+              <input
+                id="login-username"
+                name="username"
+                type="text"
+                class="field-input"
+                placeholder="Contoh: irma-mgnw"
+                autocomplete="username"
+                autocapitalize="none"
+                spellcheck="false"
+                required
+              >
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label for="login-password" class="field-label">Kata sandi</label>
+            <div class="field-box" id="box-login-password">
+              <input
+                id="login-password"
+                name="password"
+                type="password"
+                class="field-input"
+                placeholder="Masukkan kata sandi"
+                autocomplete="current-password"
+                required
+              >
+              <button
+                type="button"
+                id="btn-toggle-pw"
+                class="field-inline-btn"
+                aria-pressed="false"
+              >Tampilkan</button>
+            </div>
+            <p class="field-helper">Akun dibuat SPV. Satu akun untuk satu orang.</p>
+          </div>
+
+          <p id="login-error" class="form-alert hidden" role="alert"></p>
+
+          <button type="submit" id="btn-login" class="btn-primary" style="margin-top: 8px;">Masuk</button>
+        </form>
+      </main>
+    </section>
+
+    <!-- L2: Isi laporan -->
+    <section id="screen-l2" class="hidden" aria-labelledby="l2-title">
+      <header class="app-header">
+        <div class="header-top">
+          <h1 id="l2-title" class="header-title">Lapor Error</h1>
+          <button type="button" id="btn-logout-l2" class="btn-keluar">Keluar</button>
+        </div>
+        <div class="header-meta">
+          <span class="header-meta-label">Lokasi</span>
+          <span id="l2-pos-name" class="header-meta-value">-</span>
+        </div>
+      </header>
+
+      <div class="tab-bar-wrap">
+        <div class="tab-bar" role="tablist" aria-label="Menu Laporan">
+          <button
+            type="button"
+            id="tab-btn-laporan"
+            class="tab-btn active"
+            role="tab"
+            aria-selected="true"
+            aria-controls="tab-laporan"
+          >
+            Laporan
+          </button>
+          <button
+            type="button"
+            id="tab-btn-riwayat"
+            class="tab-btn"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-riwayat"
+          >
+            <span>Riwayat</span>
+            <span id="riwayat-badge" class="tab-badge hidden">0</span>
+          </button>
+        </div>
+      </div>
+
+      <main class="app-main app-main--with-bar">
+        <div id="tab-laporan" role="tabpanel" aria-labelledby="tab-btn-laporan">
+        <form id="form-report" novalidate>
+          <div class="field-group">
+            <div class="field-row">
+              <div>
+                <label for="report-tanggal" class="field-label">Tanggal</label>
+                <div class="field-box" id="box-tanggal">
+                  <input
+                    id="report-tanggal"
+                    name="tanggal"
+                    type="text"
+                    inputmode="numeric"
+                    class="field-input"
+                    placeholder="DD-MM-YYYY"
+                  >
+                </div>
+                <p id="err-tanggal" class="field-error hidden" role="alert"></p>
+              </div>
+              <div>
+                <label for="report-waktu" class="field-label">Waktu</label>
+                <div class="field-box" id="box-waktu">
+                  <input
+                    id="report-waktu"
+                    name="waktu"
+                    type="text"
+                    inputmode="numeric"
+                    class="field-input"
+                    placeholder="HH.MM"
+                  >
+                </div>
+                <p id="err-waktu" class="field-error hidden" role="alert"></p>
+              </div>
+            </div>
+            <p class="field-helper">Otomatis jam sekarang. Ubah kalau kejadiannya lebih awal.</p>
+          </div>
+
+          <div class="field-group">
+            <label for="report-kendala" class="field-label">
+              Kendala <span class="wajib-marker">wajib</span>
+            </label>
+            <div class="field-box" id="box-kendala">
+              <textarea
+                id="report-kendala"
+                name="kendala"
+                class="field-textarea"
+                maxlength="300"
+                placeholder="Apa yang rusak? Contoh: Gate in 1 tidak keluar karcis"
+              ></textarea>
+            </div>
+            <p id="err-kendala" class="field-error hidden" role="alert"></p>
+          </div>
+
+          <div class="field-group">
+            <label for="report-penyebab" class="field-label">Penyebab</label>
+            <div class="field-box" id="box-penyebab">
+              <input
+                id="report-penyebab"
+                name="penyebab"
+                type="text"
+                maxlength="300"
+                class="field-input"
+                placeholder="Kosongkan kalau belum tahu"
+              >
+            </div>
+            <p id="err-penyebab" class="field-error hidden" role="alert"></p>
+          </div>
+
+          <div class="field-group">
+            <label for="report-solusi" class="field-label">Solusi sementara</label>
+            <div class="field-box" id="box-solusi_sementara">
+              <input
+                id="report-solusi"
+                name="solusi_sementara"
+                type="text"
+                maxlength="300"
+                class="field-input"
+                placeholder="Contoh: Gate dibuka manual"
+              >
+            </div>
+            <p id="err-solusi_sementara" class="field-error hidden" role="alert"></p>
+          </div>
+
+          <div class="field-group">
+            <label for="report-durasi" class="field-label">Durasi error</label>
+            <div class="field-box" id="box-durasi_error">
+              <input
+                id="report-durasi"
+                name="durasi_error"
+                type="text"
+                maxlength="300"
+                class="field-input"
+                placeholder="Kosongkan kalau masih error"
+              >
+            </div>
+            <p id="err-durasi_error" class="field-error hidden" role="alert"></p>
+          </div>
+
+          <div class="field-group">
+            <span class="field-label" id="label-foto">Foto kerusakan (opsional)</span>
+            <input
+              id="input-camera"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              class="hidden"
+              aria-labelledby="label-foto"
+            >
+            <input
+              id="input-gallery"
+              type="file"
+              accept="image/*"
+              class="hidden"
+              aria-labelledby="label-foto"
+            >
+
+            <div id="photo-pickers" class="photo-actions">
+              <button
+                type="button"
+                id="btn-camera"
+                class="photo-btn"
+                aria-label="Ambil foto kerusakan"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+                <span class="photo-badge" aria-hidden="true">+</span>
+              </button>
+
+              <button
+                type="button"
+                id="btn-gallery"
+                class="photo-btn"
+                aria-label="Pilih foto dari galeri"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+                <span class="photo-badge" aria-hidden="true">+</span>
+              </button>
+            </div>
+
+            <div id="photo-preview-wrap" class="photo-preview hidden">
+              <img id="photo-thumb" class="photo-thumb" alt="Foto kerusakan terpilih">
+              <button type="button" id="btn-remove-photo" class="btn-text btn-text--danger">Hapus foto</button>
+            </div>
+
+            <p class="field-helper">Foto ikut terkirim ke grup, tidak disimpan di aplikasi.</p>
+          </div>
+
+          <p id="report-error" class="form-alert hidden" role="alert"></p>
+        </form>
+        </div>
+
+        <div id="tab-riwayat" role="tabpanel" aria-labelledby="tab-btn-riwayat" class="hidden">
+          <div id="riwayat-section">
+            <h3 class="riwayat-heading">Riwayat Laporan</h3>
+            <div id="riwayat-list"></div>
+            <p id="riwayat-empty" class="riwayat-empty" hidden>Belum ada laporan.</p>
+          </div>
+        </div>
+      </main>
+
+      <div id="l2-bottom-bar" class="bottom-bar">
+        <p class="bottom-bar-hint">Alarm teknisi langsung bunyi begitu laporan terkirim.</p>
+        <button type="submit" form="form-report" id="btn-send" class="btn-primary">Kirim &amp; bagikan ke grup</button>
+      </div>
+    </section>
+
+    <!-- L3: Terkirim -->
+    <section id="screen-l3" class="hidden" aria-labelledby="l3-title">
+      <header class="app-header">
+        <div class="header-top">
+          <h1 id="l3-title" class="header-title">Lapor Error</h1>
+          <button type="button" id="btn-logout-l3" class="btn-keluar">Keluar</button>
+        </div>
+        <div class="header-meta">
+          <span class="header-meta-label">Lokasi</span>
+          <span id="l3-pos-name" class="header-meta-value">-</span>
+        </div>
+      </header>
+
+      <main class="app-main app-main--with-bar-tall">
+        <div class="status-row">
+          <span class="check-circle" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </span>
+          <div>
+            <h2 class="status-title">Laporan terkirim</h2>
+            <p id="l3-status-sub" class="status-sub">10.00 · Teknisi sudah dapat alarm.</p>
+          </div>
+        </div>
+
+        <div class="soft-card">
+          Belum masuk grup? Ketuk Bagikan ke grup lagi. Laporan tetap terbuka sampai teknisi selesai.
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Isi pesan</span>
+          <div id="l3-message" class="message-box"></div>
+        </div>
+      </main>
+
+      <div class="bottom-bar">
+        <p id="l3-photo-hint" class="bottom-bar-hint hidden">Foto yang tadi dipilih ikut terlampir.</p>
+        <button type="button" id="btn-share-again" class="btn-primary">Bagikan ke grup</button>
+        <button type="button" id="btn-report-another" class="btn-text" style="align-self: center;">Lapor kendala lain</button>
+      </div>
+    </section>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  </div>
+
+  <script type="module" src="/lapor/app.js"></script>
+</body>
+</html>

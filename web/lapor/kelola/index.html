@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1A428A">
+  <title>Kelola Akun Admin - Lapor Error PMApp</title>
+  <link rel="manifest" href="/lapor/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/Icon-192.png">
+  <link rel="stylesheet" href="/lapor/lapor.css">
+</head>
+<body>
+  <div class="app-shell">
+    <!-- SPV Login -->
+    <section id="screen-spv-login" aria-labelledby="spv-login-title">
+      <header class="app-header app-header--login">
+        <h1 id="spv-login-title" class="header-title">Kelola akun admin</h1>
+        <p class="header-subtitle">Atur akun lapor error untuk admin lokasi cabang.</p>
+      </header>
+      <main class="app-main">
+        <form id="form-spv-login" novalidate>
+          <div class="field-group">
+            <label for="spv-username" class="field-label">Nama pengguna</label>
+            <div class="field-box">
+              <input
+                id="spv-username"
+                name="username"
+                type="text"
+                class="field-input"
+                placeholder="Nama pengguna SPV"
+                autocomplete="username"
+                autocapitalize="none"
+                spellcheck="false"
+                required
+              >
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label for="spv-password" class="field-label">Kata sandi</label>
+            <div class="field-box">
+              <input
+                id="spv-password"
+                name="password"
+                type="password"
+                class="field-input"
+                placeholder="Masukkan kata sandi"
+                autocomplete="current-password"
+                required
+              >
+              <button
+                type="button"
+                id="btn-toggle-spv-pw"
+                class="field-inline-btn"
+                aria-pressed="false"
+              >Tampilkan</button>
+            </div>
+            <p class="field-helper">Masuk pakai akun SPV.</p>
+          </div>
+
+          <p id="spv-login-error" class="form-alert hidden" role="alert"></p>
+
+          <button type="submit" id="btn-spv-login" class="btn-primary" style="margin-top: 8px;">Masuk</button>
+        </form>
+      </main>
+    </section>
+
+    <!-- K1: Akun admin lokasi -->
+    <section id="screen-k1" class="hidden" aria-labelledby="k1-title">
+      <header class="app-header">
+        <div class="header-top">
+          <h1 id="k1-title" class="header-title">Akun admin lokasi</h1>
+          <button type="button" id="btn-logout-k1" class="btn-keluar">Keluar</button>
+        </div>
+        <p id="k1-subtitle" class="header-subtitle">KC Manado · 0 akun</p>
+      </header>
+
+      <main class="app-main app-main--with-bar">
+        <div id="k1-loading" class="state-box hidden">Memuat akun...</div>
+        <div id="k1-error" class="state-box hidden" role="alert">
+          <p id="k1-error-text" style="margin-bottom: 12px; color: var(--red); font-weight: 600;"></p>
+          <button type="button" id="btn-k1-retry" class="btn-outline">Coba lagi</button>
+        </div>
+        <div id="k1-empty" class="state-box hidden">
+          Belum ada akun admin. Ketuk Tambah akun admin untuk membuat yang pertama.
+        </div>
+        <div id="k1-list"></div>
+        <p id="k1-footnote" class="field-helper hidden" style="margin-top: 8px;">
+          Lokasi yang belum punya akun tidak muncul di sini. Tambah lewat tombol di bawah.
+        </p>
+      </main>
+
+      <div class="bottom-bar">
+        <button type="button" id="btn-go-add" class="btn-primary">Tambah akun admin</button>
+      </div>
+    </section>
+
+    <!-- K2: Tambah akun -->
+    <section id="screen-k2" class="hidden" aria-labelledby="k2-title">
+      <header class="app-header">
+        <div class="header-top">
+          <h1 id="k2-title" class="header-title">Tambah akun</h1>
+          <button type="button" id="btn-logout-k2" class="btn-keluar">Keluar</button>
+        </div>
+        <p class="header-subtitle">Untuk satu orang admin</p>
+      </header>
+
+      <main class="app-main app-main--with-bar">
+        <form id="form-create" novalidate>
+          <div class="field-group">
+            <label for="k2-nama" class="field-label">Nama admin</label>
+            <div class="field-box" id="box-k2-nama">
+              <input
+                id="k2-nama"
+                name="nama"
+                type="text"
+                maxlength="40"
+                class="field-input"
+                placeholder="Contoh: Irma"
+                required
+              >
+            </div>
+            <p id="err-k2-nama" class="field-error hidden" role="alert"></p>
+          </div>
+
+          <div class="field-group">
+            <label for="k2-lokasi" class="field-label">Lokasi</label>
+            <div class="field-box" id="box-k2-lokasi">
+              <select id="k2-lokasi" name="pos_name" class="field-select" required>
+                <option value="">Pilih lokasi</option>
+              </select>
+              <span class="select-chevron" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </div>
+            <p id="err-k2-lokasi" class="field-error hidden" role="alert"></p>
+          </div>
+
+          <div class="field-group">
+            <label for="k2-kode" class="field-label">Kode lokasi</label>
+            <div class="field-box" id="box-k2-kode">
+              <input
+                id="k2-kode"
+                name="pos_kode"
+                type="text"
+                maxlength="10"
+                autocapitalize="none"
+                spellcheck="false"
+                class="field-input"
+                placeholder="Contoh: mgnw"
+                required
+              >
+            </div>
+            <p id="err-k2-kode" class="field-error hidden" role="alert"></p>
+          </div>
+
+          <div class="preview-box">
+            <span class="preview-label">Nama pengguna</span>
+            <span id="k2-username-preview" class="preview-value">-</span>
+          </div>
+
+          <div class="field-group">
+            <label for="k2-password" class="field-label">Kata sandi</label>
+            <div class="field-box" id="box-k2-password">
+              <input
+                id="k2-password"
+                name="password"
+                type="text"
+                maxlength="64"
+                autocapitalize="none"
+                spellcheck="false"
+                class="field-input"
+                placeholder="Minimal 8 huruf atau angka"
+                required
+              >
+              <button type="button" id="btn-gen-pw" class="field-inline-btn">Buat otomatis</button>
+            </div>
+            <p class="field-helper">Catat dulu sebelum disimpan. Kata sandi cuma tampil sekali.</p>
+            <p id="err-k2-password" class="field-error hidden" role="alert"></p>
+          </div>
+
+          <p id="k2-form-error" class="form-alert hidden" role="alert"></p>
+        </form>
+      </main>
+
+      <div class="bottom-bar">
+        <button type="submit" form="form-create" id="btn-save-account" class="btn-primary">Simpan akun</button>
+      </div>
+    </section>
+
+    <!-- K3: Akun siap dipakai -->
+    <section id="screen-k3" class="hidden" aria-labelledby="k3-title">
+      <header class="app-header">
+        <div class="header-top">
+          <h1 id="k3-title" class="header-title">Akun siap dipakai</h1>
+          <button type="button" id="btn-logout-k3" class="btn-keluar">Keluar</button>
+        </div>
+        <p id="k3-pos-subtitle" class="header-subtitle">-</p>
+      </header>
+
+      <main class="app-main app-main--with-bar-tall">
+        <div class="status-row">
+          <span class="check-circle" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </span>
+          <div>
+            <h2 id="k3-heading" class="status-title">Akun dibuat</h2>
+            <p id="k3-subheading" class="status-sub">Kirim data masuk ini ke admin.</p>
+          </div>
+        </div>
+
+        <div class="cred-card">
+          <div>
+            <span class="cred-item-label">Alamat</span>
+            <span class="cred-item-value">bssparking-pma.vercel.app/lapor</span>
+          </div>
+          <div>
+            <span class="cred-item-label">Nama pengguna</span>
+            <span id="k3-username" class="cred-item-value">-</span>
+          </div>
+          <div>
+            <span class="cred-item-label">Kata sandi</span>
+            <span id="k3-password" class="cred-item-value">-</span>
+          </div>
+        </div>
+
+        <div class="warn-card">
+          Kata sandi tidak bisa dilihat lagi setelah layar ini ditutup. Lupa? Pakai Reset di Atur.
+        </div>
+      </main>
+
+      <div class="bottom-bar">
+        <button type="button" id="btn-share-cred" class="btn-primary">Kirim ke admin</button>
+        <button type="button" id="btn-k3-done" class="btn-outline">Selesai</button>
+      </div>
+    </section>
+
+    <!-- Atur Bottom Sheet Dialog -->
+    <div id="atur-backdrop" class="sheet-backdrop hidden">
+      <div
+        id="atur-dialog"
+        class="sheet-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="atur-title"
+      >
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <div class="sheet-header">
+          <div>
+            <h2 id="atur-title" class="sheet-title">-</h2>
+            <p id="atur-sub" class="sheet-sub">-</p>
+          </div>
+          <button type="button" id="btn-atur-close" class="btn-text">Tutup</button>
+        </div>
+
+        <!-- Menu view inside sheet -->
+        <div id="atur-menu" class="sheet-actions">
+          <button type="button" id="btn-atur-reset-view" class="sheet-action-btn">
+            <span>Reset kata sandi</span>
+          </button>
+          <button type="button" id="btn-atur-toggle-view" class="sheet-action-btn sheet-action-btn--danger">
+            <span id="atur-toggle-label">Nonaktifkan akun</span>
+          </button>
+        </div>
+
+        <!-- Reset password view inside sheet -->
+        <form id="form-atur-reset" class="hidden" novalidate>
+          <div class="field-group">
+            <label for="atur-new-pw" class="field-label">Kata sandi baru</label>
+            <div class="field-box">
+              <input
+                id="atur-new-pw"
+                type="text"
+                maxlength="64"
+                autocapitalize="none"
+                spellcheck="false"
+                class="field-input"
+                placeholder="Minimal 8 huruf atau angka"
+                required
+              >
+              <button type="button" id="btn-atur-gen-pw" class="field-inline-btn">Buat otomatis</button>
+            </div>
+            <p class="field-helper">Catat dulu sebelum disimpan. Kata sandi cuma tampil sekali.</p>
+            <p id="atur-reset-error" class="field-error hidden" role="alert"></p>
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 12px;">
+            <button type="button" id="btn-atur-reset-cancel" class="btn-outline">Batal</button>
+            <button type="submit" id="btn-atur-reset-save" class="btn-primary">Simpan</button>
+          </div>
+        </form>
+
+        <!-- Confirm deactivate view inside sheet -->
+        <div id="atur-confirm" class="hidden">
+          <p id="atur-confirm-text" style="font-size: 0.9375rem; color: var(--ink); line-height: 1.45; margin-bottom: 16px;"></p>
+          <p id="atur-confirm-error" class="field-error hidden" role="alert" style="margin-bottom: 12px;"></p>
+          <div style="display: flex; gap: 10px;">
+            <button type="button" id="btn-atur-confirm-cancel" class="btn-outline">Batal</button>
+            <button type="button" id="btn-atur-confirm-ok" class="btn-primary btn-primary--danger">Nonaktifkan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  </div>
+
+  <script type="module" src="/lapor/kelola/kelola.js"></script>
+</body>
+</html>
