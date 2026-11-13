@@ -2,6 +2,15 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.141+2154] - 2026-11-13
+
+### 🎯 Fitur
+- Alarm tiket error tidak bisa dimatikan per HP lagi: bunyi ulang tiap 2 menit sampai ada teknisi yang menekan Kerjakan.
+- Tap banner merah atau notifikasi error menampilkan pilihan Kerjakan atau Nanti sebelum tiket diambil.
+- Web Lapor: panduan memasang Lapor Error di layar utama HP setelah login, dan status tiket kini "Dikerjakan oleh <teknisi>".
+
+---
+
 ## [2.0.140+2153] - 2026-11-13
 
 ### 🛠️ Perbaikan Bug
