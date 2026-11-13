@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../repositories/auth_repository.dart';
+import '../../features/daily_tasks/error_ticket_launcher.dart';
 import 'daily_task_service.dart';
 import 'error_alarm_service.dart';
 import 'notification_service.dart';
@@ -20,10 +21,12 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       final judul = message.data['judul']?.toString().trim() ?? '';
       final title = posName.isEmpty ? 'Lokasi error' : 'Lokasi error: $posName';
       final body = judul.isEmpty ? 'Tiket error baru' : judul;
+      final taskId = message.data['task_id']?.toString().trim() ?? '';
 
       await NotificationService.instance.showDirectErrorAlarmNotification(
         title: title,
         body: body,
+        taskId: taskId,
       );
     }
   } catch (e) {
@@ -42,6 +45,7 @@ class PushService {
   String? _currentToken;
   StreamSubscription<String>? _tokenRefreshSub;
   StreamSubscription<RemoteMessage>? _onMessageSub;
+  StreamSubscription<RemoteMessage>? _onMessageOpenedAppSub;
 
   @visibleForTesting
   http.Client? httpClient;
@@ -71,6 +75,8 @@ class PushService {
     _tokenRefreshSub = null;
     _onMessageSub?.cancel();
     _onMessageSub = null;
+    _onMessageOpenedAppSub?.cancel();
+    _onMessageOpenedAppSub = null;
     httpClient = null;
     firebaseInitOverride = null;
     tokenFetcherOverride = null;
@@ -111,6 +117,13 @@ class PushService {
         }
       });
 
+      _onMessageOpenedAppSub =
+          FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedMessage);
+      final initialMessage = await messaging.getInitialMessage();
+      if (initialMessage != null) {
+        _handleOpenedMessage(initialMessage);
+      }
+
       _tokenRefreshSub = messaging.onTokenRefresh.listen((String newToken) {
         _currentToken = newToken;
         unawaited(_handleTokenRefresh(newToken));
@@ -120,6 +133,13 @@ class PushService {
       debugPrint('[PushService] Initialized successfully.');
     } catch (e) {
       debugPrint('[PushService] Initialization failed (non-blocking): $e');
+    }
+  }
+
+  void _handleOpenedMessage(RemoteMessage message) {
+    if (message.data['type'] == 'error_alarm') {
+      final taskId = message.data['task_id']?.toString().trim() ?? '';
+      unawaited(ErrorTicketLauncher.openById(taskId));
     }
   }
 

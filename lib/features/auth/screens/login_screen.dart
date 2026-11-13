@@ -4,6 +4,7 @@ import '../../../core/services/theme_service.dart';
 import '../../../core/widgets/tiket/status_marker.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../camera/screens/camera_capture_screen.dart';
+import '../../daily_tasks/error_ticket_launcher.dart';
 
 class TicketCardPerforationPainter extends CustomPainter {
   final Color bandColor;
@@ -101,6 +102,9 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const CameraCaptureScreen()),
         );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ErrorTicketLauncher.consumePending();
+        });
       } else {
         setState(() => _errorMessage = 'Username atau kata sandi salah');
       }

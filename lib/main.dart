@@ -17,7 +17,7 @@ import 'data/services/branch_service.dart';
 import 'data/services/error_alarm_service.dart';
 import 'data/services/push_service.dart';
 import 'core/widgets/tiket/error_alarm_overlay.dart';
-import 'features/maintenance/screens/maintenance_map_screen.dart';
+import 'features/daily_tasks/error_ticket_launcher.dart';
 import 'features/splash/screens/splash_screen.dart';
 
 void main() async {
@@ -59,15 +59,6 @@ void main() async {
   ErrorAlarmService.instance.start();
 }
 
-Future<void> _openErrorMap() async {
-  await ErrorAlarmService.instance.acknowledge();
-  AuthRepository.navigatorKey.currentState?.push(
-    MaterialPageRoute(
-      builder: (_) => const MaintenanceMapScreen(),
-    ),
-  );
-}
-
 class PmaApp extends StatelessWidget {
   const PmaApp({super.key});
 
@@ -87,7 +78,7 @@ class PmaApp extends StatelessWidget {
           builder: (context, child) => ErrorAlarmOverlay(
             openErrors: ErrorAlarmService.instance.openErrors,
             ringing: ErrorAlarmService.instance.ringing,
-            onLihat: _openErrorMap,
+            onLihat: () => ErrorTicketLauncher.openById(null),
             child: child ?? const SizedBox.shrink(),
           ),
           home: const SplashScreen(),

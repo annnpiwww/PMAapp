@@ -5,8 +5,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'absensi_setup_service.dart';
-import 'error_alarm_service.dart';
 import '../models/daily_task_model.dart';
+import '../../features/daily_tasks/error_ticket_launcher.dart';
 
 /// Service untuk menangani push / local notification absensi & pengingat jam shift kerja.
 class NotificationService {
@@ -101,11 +101,22 @@ class NotificationService {
         settings: initSettings,
         onDidReceiveNotificationResponse: (response) {
           debugPrint('[NotificationService] Notifikasi ditekan: ${response.payload}');
-          if (response.payload == 'error_alarm') {
-            unawaited(ErrorAlarmService.instance.acknowledge());
+          final taskId = ErrorTicketLauncher.taskIdFromPayload(response.payload);
+          if (taskId != null) {
+            unawaited(ErrorTicketLauncher.openById(taskId));
           }
         },
       );
+
+      final launch = await _notificationsPlugin.getNotificationAppLaunchDetails();
+      if (launch?.didNotificationLaunchApp == true) {
+        final launchTaskId = ErrorTicketLauncher.taskIdFromPayload(
+          launch?.notificationResponse?.payload,
+        );
+        if (launchTaskId != null) {
+          ErrorTicketLauncher.pendingTaskId = launchTaskId;
+        }
+      }
 
       // 4. Buat notification channel Android dengan prioritas tinggi & suara
       final androidPlatform = _notificationsPlugin
@@ -510,10 +521,13 @@ class NotificationService {
   Future<void> showDirectErrorAlarmNotification({
     required String title,
     required String body,
+    String taskId = '',
   }) async {
+    final payload = 'error_alarm:${taskId.trim()}';
     _sentAlarmNotificationsForTesting.add({
       'title': title,
       'body': body,
+      'payload': payload,
     });
 
     if (kIsWeb) return;
@@ -525,7 +539,7 @@ class NotificationService {
         title: title,
         body: body,
         notificationDetails: details,
-        payload: 'error_alarm',
+        payload: payload,
       );
       debugPrint('[NotificationService] Direct alarm notification sent: $title');
     } catch (e) {
@@ -543,12 +557,14 @@ class NotificationService {
         ? (newest.posName.trim().isEmpty ? 'Lokasi error' : 'Lokasi error: ${newest.posName.trim()}')
         : '${openTickets.length} lokasi error';
     final body = newest.judul;
+    final payload = 'error_alarm:${newest.id}';
 
     _sentAlarmNotificationsForTesting.add({
       'title': title,
       'body': body,
       'count': openTickets.length,
       'tickets': openTickets,
+      'payload': payload,
     });
 
     if (kIsWeb) return;
@@ -561,7 +577,7 @@ class NotificationService {
         title: title,
         body: body,
         notificationDetails: details,
-        payload: 'error_alarm',
+        payload: payload,
       );
       debugPrint('[NotificationService] Notifikasi alarm error terkirim: $title');
     } catch (e) {

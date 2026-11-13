@@ -16,6 +16,7 @@ import '../widgets/completed_daily_task_modal.dart';
 import '../widgets/daily_task_action_pill.dart';
 import '../widgets/ad_hoc_task_dialog.dart';
 import '../widgets/task_handover_dialog.dart';
+import '../error_ticket_launcher.dart';
 import 'custom_task_execution_screen.dart';
 
 class TeknisiDailyTasksScreen extends StatefulWidget {
@@ -85,7 +86,7 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
       if (mounted) {
         setState(() {
           _tasks = tasks;
-          _openTasks = openTasks;
+          _openTasks = openTasks.where((t) => !tasks.any((m) => m.id == t.id)).toList();
           _isLoading = false;
           _isOffline = false;
           _lastUpdateTime = timeStr;
@@ -175,22 +176,35 @@ class _TeknisiDailyTasksScreenState extends State<TeknisiDailyTasksScreen> {
   Future<void> _ambilTugas(DailyTaskModel task) async {
     final user = AuthRepository.instance.currentUser;
     if (user == null) return;
-    final res = await DailyTaskService.claimTask(task: task, olehSiapa: user.nama);
-    if (res.success) {
+    final claimed = await ErrorTicketLauncher.ensureClaimed(
+      task,
+      user.nama,
+      onlyError: false,
+      onMessage: (p, s) => _snack(p, sukses: s),
+    );
+    if (claimed != null) {
       _snack('Tugas diambil alih. Kerjakan sampai selesai ya.', sukses: true);
-      await _loadTasks();
-    } else if (res.isTaken) {
-      _snack(
-        res.message ?? 'Tiket sudah diambil ${res.claimedBy ?? 'teknisi lain'}',
-        sukses: false,
-      );
-      await _loadTasks();
-    } else {
-      _snack('Gagal mengambil tugas, coba lagi.', sukses: false);
     }
+    await _loadTasks();
   }
 
   void _startTask(DailyTaskModel task) async {
+    if (task.kategori == 'error') {
+      final user = AuthRepository.instance.currentUser;
+      if (user != null) {
+        final claimed = await ErrorTicketLauncher.ensureClaimed(
+          task,
+          user.nama,
+          onMessage: (p, s) => _snack(p, sukses: s),
+        );
+        if (!mounted) return;
+        if (claimed == null) {
+          await _loadTasks();
+          return;
+        }
+        task = claimed;
+      }
+    }
     final isKhusus = task.kategori == 'khusus' ||
         (task.templateId == null || task.templateId!.isEmpty);
 

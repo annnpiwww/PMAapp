@@ -6,6 +6,7 @@ import '../../../data/repositories/auth_repository.dart';
 import '../../../data/services/whats_new_service.dart';
 import '../../camera/screens/camera_capture_screen.dart';
 import '../../auth/screens/login_screen.dart';
+import '../../daily_tasks/error_ticket_launcher.dart';
 import '../../whats_new/widgets/whats_new_sheet.dart';
 
 /// Smooth, modern animated splash screen untuk PMAapp.
@@ -122,6 +123,11 @@ class _SplashScreenState extends State<SplashScreen>
                   },
                 ),
               );
+              if (isLoggedIn) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  ErrorTicketLauncher.consumePending();
+                });
+              }
             }));
           }));
         }));
