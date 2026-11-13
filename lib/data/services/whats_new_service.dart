@@ -30,16 +30,16 @@ class WhatsNewService {
 
   /// Diisi ulang tiap versi naik, bareng bump di pubspec.yaml.
   static const WhatsNewRelease current = WhatsNewRelease(
-    version: '2.0.139',
-    date: '12 November 2026',
+    version: '2.0.140',
+    date: '13 November 2026',
     features: [
-      'Tombol bagikan ke WhatsApp atau Telegram muncul lagi setelah laporan maintenance tersimpan',
-      'Laporan Daily Task bisa dibagikan ke WhatsApp atau Telegram, tiket error tetap langsung ke Telegram',
-      'Admin lokasi bisa lampirkan video di web Lapor Error',
+      'Tap banner merah atau notifikasi error langsung membuka tiketnya',
+      'Tiket error otomatis diambil atas nama kamu sebelum dikerjakan',
     ],
     aiNote: null,
     mapNote: null,
-    bugfix: 'Pilihan bagikan laporan yang sempat hilang sudah kembali.',
+    bugfix:
+        'Tiket error yang selesai sekarang tercatat atas nama teknisi dan tetap muncul di Daily.',
   );
 
   /// `seen` kosong berarti aplikasi belum pernah mencatat versi di perangkat ini.

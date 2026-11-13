@@ -2,6 +2,15 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.140+2153] - 2026-11-13
+
+### 🛠️ Perbaikan Bug
+- Banner merah dan notifikasi tiket error sekarang langsung membuka tiketnya (sebelumnya membuka peta / tidak ke mana-mana).
+- Tombol Kerjakan pada tiket error di Daily sekarang mengambil tiket atas nama teknisi dulu, jadi tiket yang selesai tetap muncul di Daily teknisi dan web Lapor menampilkan "Selesai oleh <teknisi>".
+- Tiket error tidak lagi tampil dobel di bagian Shift sebelumnya.
+
+---
+
 ## [2.0.139+2152] - 2026-11-12
 
 ### 🛠️ Perbaikan Bug
