@@ -850,7 +850,7 @@ export function statusInfo(report) {
     return { text: tech ? `Selesai oleh ${tech}` : 'Selesai', cssClass: 'status-selesai' };
   }
   if (status === 'ditangani') {
-    return { text: `Ditangani oleh ${report?.teknisi}`, cssClass: 'status-ditangani' };
+    return { text: `Dikerjakan oleh ${report?.teknisi}`, cssClass: 'status-ditangani' };
   }
   return { text: 'Menunggu Teknisi', cssClass: 'status-menunggu' };
 }

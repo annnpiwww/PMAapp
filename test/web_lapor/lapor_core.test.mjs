@@ -520,7 +520,7 @@ test('statusInfo returns correct text and cssClass for all 3 status cases', () =
 
   // Case 2: ditangani
   const ditangani = statusInfo({ status: 'ditangani', teknisi: 'Ryan Lumasuge' });
-  assert.deepStrictEqual(ditangani, { text: 'Ditangani oleh Ryan Lumasuge', cssClass: 'status-ditangani' });
+  assert.deepStrictEqual(ditangani, { text: 'Dikerjakan oleh Ryan Lumasuge', cssClass: 'status-ditangani' });
 
   // Case 3: default / menunggu
   const menunggu = statusInfo({ status: 'menunggu', teknisi: null });

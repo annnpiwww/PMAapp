@@ -70,7 +70,10 @@
       <header class="app-header">
         <div class="header-top">
           <h1 id="l2-title" class="header-title">Lapor Error</h1>
-          <button type="button" id="btn-logout-l2" class="btn-keluar">Keluar</button>
+          <div class="header-actions">
+            <button type="button" id="btn-install" class="btn-keluar hidden">Pasang aplikasi</button>
+            <button type="button" id="btn-logout-l2" class="btn-keluar">Keluar</button>
+          </div>
         </div>
         <div class="header-meta">
           <span class="header-meta-label">Lokasi</span>
@@ -340,6 +343,23 @@
         <button type="button" id="btn-report-another" class="btn-text" style="align-self: center;">Lapor kendala lain</button>
       </div>
     </section>
+
+    <dialog id="install-sheet" class="install-sheet" aria-labelledby="install-title">
+      <div class="install-sheet-inner">
+        <div class="install-sheet-head">
+          <img src="/icons/Icon-192.png" width="48" height="48" alt="" class="install-icon">
+          <div class="install-head-text">
+            <h2 id="install-title" class="install-title">Pasang Lapor Error di HP</h2>
+            <p class="install-sub">Buka dari layar utama, tanpa link lagi.</p>
+          </div>
+        </div>
+        <div id="install-variant-a" class="hidden">
+          <button type="button" id="btn-install-now" class="btn-primary install-primary-btn">Pasang sekarang</button>
+        </div>
+        <ol id="install-steps" class="install-steps hidden"></ol>
+        <button type="button" id="btn-install-later" class="btn-text install-later-btn">Nanti saja</button>
+      </div>
+    </dialog>
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   </div>

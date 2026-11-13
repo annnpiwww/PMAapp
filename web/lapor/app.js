@@ -14,6 +14,7 @@ import {
 
 const DRAFT_KEY = 'lapor_draft_v1';
 const ACTIVE_TAB_KEY = 'lapor_active_tab';
+const INSTALL_DISMISSED_KEY = 'lapor_install_dismissed';
 
 // Register Service Worker
 if ('serviceWorker' in navigator) {
@@ -43,8 +44,14 @@ const btnLogin = document.getElementById('btn-login');
 
 const l2PosName = document.getElementById('l2-pos-name');
 const l3PosName = document.getElementById('l3-pos-name');
+const btnInstall = document.getElementById('btn-install');
 const btnLogoutL2 = document.getElementById('btn-logout-l2');
 const btnLogoutL3 = document.getElementById('btn-logout-l3');
+const installSheet = document.getElementById('install-sheet');
+const installVariantA = document.getElementById('install-variant-a');
+const btnInstallNow = document.getElementById('btn-install-now');
+const installSteps = document.getElementById('install-steps');
+const btnInstallLater = document.getElementById('btn-install-later');
 
 const formReport = document.getElementById('form-report');
 const inputTanggal = document.getElementById('report-tanggal');
@@ -87,6 +94,10 @@ let toastTimer = null;
 let riwayatPollTimer = null;
 let previousStatusMap = null;
 let audioCtx = null;
+let deferredPrompt = null;
+let appInstalled = false;
+let installPromptTimer = null;
+let lastInstallOpener = null;
 
 function getAudioContext() {
   if (!audioCtx) {
@@ -351,7 +362,7 @@ function defaultStatusInfo(reportOrStatus) {
   }
   if (s === 'ditangani' || s === 'in_progress' || s === 'process') {
     const tech = typeof reportOrStatus === 'object' && reportOrStatus?.teknisi;
-    return { cssClass: 'status-ditangani', text: tech ? `Ditangani oleh ${tech}` : 'Ditangani' };
+    return { cssClass: 'status-ditangani', text: tech ? `Dikerjakan oleh ${tech}` : 'Dikerjakan' };
   }
   return { cssClass: 'status-menunggu', text: 'Menunggu' };
 }
@@ -485,6 +496,11 @@ function stopRiwayatPolling() {
 }
 
 function handleLogout(alertMessage = '') {
+  if (installPromptTimer) {
+    clearTimeout(installPromptTimer);
+    installPromptTimer = null;
+  }
+  closeInstallSheet({ restoreFocus: false });
   stopRiwayatPolling();
   previousStatusMap = null;
   if (riwayatBadge) {
@@ -575,6 +591,7 @@ formLogin.addEventListener('submit', async (e) => {
     switchTab(savedTab);
     showScreen('l2');
     startRiwayatPolling();
+    scheduleInstallSheet();
   } catch (err) {
     loginError.textContent = err?.message || 'Gagal masuk.';
     loginError.classList.remove('hidden');
@@ -682,6 +699,189 @@ btnReportAnother.addEventListener('click', () => {
   showScreen('l2');
 });
 
+// PWA Install Guidance
+function isStandaloneMode() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function getInstallVariant() {
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  const isInApp = /FBAN|FBAV|Instagram|Line\/|Telegram|; wv\)/i.test(ua);
+  if (isInApp) {
+    return { kind: 'inApp', isIOS };
+  }
+  if (deferredPrompt) {
+    return { kind: 'prompt', isIOS };
+  }
+  return { kind: 'manual', isIOS };
+}
+
+function appendStepText(list, text) {
+  const li = document.createElement('li');
+  li.textContent = text;
+  list.appendChild(li);
+}
+
+function appendStepWithMenuIcon(list, prefix, suffix) {
+  const li = document.createElement('li');
+  if (prefix) li.appendChild(document.createTextNode(prefix));
+  const icon = document.createElement('span');
+  icon.setAttribute('aria-label', 'tombol menu');
+  icon.textContent = '⋮';
+  li.appendChild(icon);
+  if (suffix) li.appendChild(document.createTextNode(suffix));
+  list.appendChild(li);
+}
+
+function renderInstallSheet() {
+  if (!installVariantA || !installSteps) return;
+  const { kind, isIOS } = getInstallVariant();
+  installSteps.textContent = '';
+
+  if (kind === 'prompt') {
+    installVariantA.classList.remove('hidden');
+    installSteps.classList.add('hidden');
+    return;
+  }
+
+  installVariantA.classList.add('hidden');
+  installSteps.classList.remove('hidden');
+
+  if (kind === 'inApp') {
+    appendStepWithMenuIcon(
+      installSteps,
+      'Ketuk ',
+      isIOS ? ' lalu Buka di Safari' : ' lalu Buka di Chrome',
+    );
+    appendStepText(installSteps, 'Masuk lagi, panduan muncul lagi');
+    return;
+  }
+
+  if (isIOS) {
+    appendStepText(installSteps, 'Ketuk Bagikan di bawah Safari, lalu Tambah ke Layar Utama');
+    appendStepText(installSteps, 'Buka Lapor Error dari layar utama');
+    return;
+  }
+
+  appendStepWithMenuIcon(installSteps, 'Ketuk ', ' di pojok kanan atas Chrome');
+  appendStepText(installSteps, 'Pilih Instal aplikasi atau Tambahkan ke layar utama');
+  appendStepText(installSteps, 'Buka Lapor Error dari layar utama');
+}
+
+function updateInstallButton() {
+  if (!btnInstall) return;
+  const shouldHide = appInstalled || isStandaloneMode();
+  btnInstall.classList.toggle('hidden', shouldHide);
+}
+
+function openInstallSheet(opener = null) {
+  if (!installSheet || appInstalled || isStandaloneMode()) return;
+  if (screenL2.classList.contains('hidden')) return;
+  if (installSheet.open) return;
+
+  lastInstallOpener = opener || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  renderInstallSheet();
+  installSheet.showModal();
+
+  const { kind } = getInstallVariant();
+  if (kind === 'prompt' && btnInstallNow) {
+    btnInstallNow.focus();
+  } else if (btnInstallLater) {
+    btnInstallLater.focus();
+  }
+}
+
+function closeInstallSheet({ markDismissed = false, restoreFocus = true } = {}) {
+  if (markDismissed) {
+    try {
+      sessionStorage.setItem(INSTALL_DISMISSED_KEY, '1');
+    } catch {}
+  }
+  if (installSheet?.open) {
+    installSheet.close();
+  }
+  if (restoreFocus && lastInstallOpener && lastInstallOpener.isConnected && !lastInstallOpener.closest('.hidden')) {
+    lastInstallOpener.focus();
+  }
+  lastInstallOpener = null;
+}
+
+function scheduleInstallSheet() {
+  updateInstallButton();
+  if (installPromptTimer) {
+    clearTimeout(installPromptTimer);
+    installPromptTimer = null;
+  }
+  if (appInstalled || isStandaloneMode()) return;
+  let dismissed = false;
+  try {
+    dismissed = sessionStorage.getItem(INSTALL_DISMISSED_KEY) === '1';
+  } catch {}
+  if (dismissed) return;
+  installPromptTimer = setTimeout(() => {
+    installPromptTimer = null;
+    openInstallSheet();
+  }, 400);
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (installSheet?.open) {
+    renderInstallSheet();
+    if (getInstallVariant().kind === 'prompt') {
+      btnInstallNow?.focus();
+    }
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  appInstalled = true;
+  deferredPrompt = null;
+  if (installPromptTimer) {
+    clearTimeout(installPromptTimer);
+    installPromptTimer = null;
+  }
+  closeInstallSheet({ restoreFocus: false });
+  updateInstallButton();
+  showToast('Lapor Error sudah terpasang. Buka dari layar utama ya.');
+});
+
+btnInstall?.addEventListener('click', () => openInstallSheet(btnInstall));
+
+btnInstallNow?.addEventListener('click', async () => {
+  if (!deferredPrompt) {
+    renderInstallSheet();
+    btnInstallLater?.focus();
+    return;
+  }
+  const promptEvent = deferredPrompt;
+  deferredPrompt = null;
+  await promptEvent.prompt();
+  const { outcome } = await promptEvent.userChoice;
+  if (outcome === 'accepted') {
+    closeInstallSheet({ restoreFocus: false });
+    showToast('Lapor Error lagi dipasang di HP kamu.');
+  } else {
+    renderInstallSheet();
+    btnInstallLater?.focus();
+  }
+});
+
+btnInstallLater?.addEventListener('click', () => closeInstallSheet({ markDismissed: true }));
+
+installSheet?.addEventListener('cancel', (e) => {
+  e.preventDefault();
+  closeInstallSheet({ markDismissed: true });
+});
+
+installSheet?.addEventListener('click', (e) => {
+  if (e.target === installSheet) {
+    closeInstallSheet({ markDismissed: true });
+  }
+});
+
 // Boot
 const saved = loadSession(localStorage);
 if (saved && saved.token) {
@@ -692,6 +892,7 @@ if (saved && saved.token) {
   switchTab(savedTab);
   showScreen('l2');
   startRiwayatPolling();
+  scheduleInstallSheet();
 } else {
   showScreen('l1');
 }
