@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/constants/tiket_colors.dart';
 import '../../data/models/daily_task_model.dart';
@@ -43,6 +44,7 @@ class ErrorTicketLauncher {
       olehSiapa: userNama,
     );
     if (res.success) {
+      unawaited(ErrorAlarmService.instance.tick());
       final cached = DailyTaskService.getCachedTasksLocally();
       for (final item in cached) {
         if (item.id == task.id) return item;
@@ -77,8 +79,6 @@ class ErrorTicketLauncher {
     if (_isOpening) return;
     _isOpening = true;
     try {
-      await ErrorAlarmService.instance.acknowledge();
-
       if (user.role != UserRole.petugas) {
         AuthRepository.navigatorKey.currentState?.push(
           MaterialPageRoute(builder: (_) => const MaintenanceMapScreen()),
@@ -122,6 +122,9 @@ class ErrorTicketLauncher {
         return;
       }
 
+      final confirmed = await _confirmKerjakan(target);
+      if (confirmed != true) return;
+
       final claimed = await ensureClaimed(
         target,
         user.nama,
@@ -134,12 +137,123 @@ class ErrorTicketLauncher {
         return;
       }
 
+      unawaited(ErrorAlarmService.instance.tick());
       AuthRepository.navigatorKey.currentState?.push(
         MaterialPageRoute(builder: (_) => CustomTaskExecutionScreen(task: claimed)),
       );
     } finally {
       _isOpening = false;
     }
+  }
+
+  static Future<bool?> _confirmKerjakan(DailyTaskModel task) {
+    final ctx = AuthRepository.navigatorKey.currentContext;
+    if (ctx == null) return Future<bool?>.value(false);
+    final pos = task.posName.trim().isNotEmpty ? task.posName.trim() : task.posTag.trim();
+    return showModalBottomSheet<bool>(
+      context: ctx,
+      isScrollControlled: false,
+      showDragHandle: true,
+      backgroundColor: TiketColors.of(ctx).dialog,
+      builder: (sheetCtx) {
+        final c = TiketColors.of(sheetCtx);
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.warning_amber_rounded, size: 18, color: c.danger),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'Tiket error',
+                        style: TextStyle(
+                          fontFamily: TiketType.fontFamily,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: c.danger,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  pos.isNotEmpty ? pos : 'Lokasi',
+                  style: TextStyle(
+                    fontFamily: TiketType.fontFamily,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: c.ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  task.judul,
+                  style: TextStyle(
+                    fontFamily: TiketType.fontFamily,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                    color: c.body,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 48,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(sheetCtx).pop(false),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: c.ink,
+                            side: BorderSide(color: c.hairline),
+                          ),
+                          child: const Text(
+                            'Nanti',
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 48,
+                        child: FilledButton(
+                          onPressed: () => Navigator.of(sheetCtx).pop(true),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: c.primary,
+                            foregroundColor: c.onPrimary,
+                          ),
+                          child: const Text(
+                            'Kerjakan',
+                            style: TextStyle(
+                              fontFamily: TiketType.fontFamily,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   static Future<void> consumePending() async {

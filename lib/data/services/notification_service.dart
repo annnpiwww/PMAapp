@@ -510,8 +510,9 @@ class NotificationService {
       vibrationPattern: Int64List.fromList(<int>[0, 1000, 500, 1000, 500, 1000]),
       additionalFlags: Int32List.fromList(<int>[4]), // FLAG_INSISTENT: sound loops until opened/cancelled
       category: AndroidNotificationCategory.alarm,
-      ongoing: false,
-      autoCancel: true,
+      // Keep the alarm pinned until a technician claims the ticket.
+      ongoing: true,
+      autoCancel: false,
       icon: '@mipmap/ic_launcher',
     );
     return NotificationDetails(android: androidDetails);

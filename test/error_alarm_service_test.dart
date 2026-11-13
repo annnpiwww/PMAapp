@@ -74,54 +74,50 @@ void main() {
       expect(notifications.first['body'], equals('Barrier patah'));
     });
 
-    test('2. same ticket next tick -> no second notify', () async {
-      final ticket1 = makeTicket(id: 'err_1', judul: 'Barrier patah', posName: 'Pos 1');
-      ErrorAlarmService.instance.fetchOpenOverride = () async => [ticket1];
-
-      // Tick 1
-      await ErrorAlarmService.instance.tick();
-      expect(NotificationService.instance.sentAlarmNotificationsForTesting.length, equals(1));
-
-      // Tick 2 with same ticket
-      await ErrorAlarmService.instance.tick();
-      expect(ErrorAlarmService.instance.ringing.value, isTrue);
-      // Notification count remains exactly 1 (no second notify while still ringing)
-      expect(NotificationService.instance.sentAlarmNotificationsForTesting.length, equals(1));
-    });
-
-    test('3. acknowledge -> ringing false, notification cancelled, id persisted', () async {
+    test('2. ringing stays true across several ticks while unclaimed', () async {
+      var now = DateTime(2026, 11, 13, 10, 0);
+      ErrorAlarmService.instance.clock = () => now;
       final ticket1 = makeTicket(id: 'err_1', judul: 'Barrier patah', posName: 'Pos 1');
       ErrorAlarmService.instance.fetchOpenOverride = () async => [ticket1];
 
       await ErrorAlarmService.instance.tick();
-      expect(ErrorAlarmService.instance.ringing.value, isTrue);
-
-      await ErrorAlarmService.instance.acknowledge();
-
-      expect(ErrorAlarmService.instance.ringing.value, isFalse);
-      expect(
-        NotificationService.instance.cancelAlarmNotificationCallCountForTesting,
-        greaterThan(0),
-      );
-
-      final prefs = await SharedPreferences.getInstance();
-      final persisted = prefs.getStringList(ErrorAlarmService.prefsKeyAcknowledged);
-      expect(persisted, contains('err_1'));
-
-      // Next tick with the same ticket still open: should stay acknowledged (not ringing)
+      now = now.add(const Duration(seconds: 30));
       await ErrorAlarmService.instance.tick();
-      expect(ErrorAlarmService.instance.ringing.value, isFalse);
+      now = now.add(const Duration(seconds: 30));
+      await ErrorAlarmService.instance.tick();
+
+      expect(ErrorAlarmService.instance.ringing.value, isTrue);
+      expect(ErrorAlarmService.instance.openErrors.value.length, equals(1));
       expect(NotificationService.instance.sentAlarmNotificationsForTesting.length, equals(1));
     });
 
-    test('4. ticket closed -> pruned, nothing open -> cancel + ringing false', () async {
+    test('3. re-alarm skips within 2 minutes and re-posts at +2 minutes', () async {
+      var now = DateTime(2026, 11, 13, 10, 0);
+      ErrorAlarmService.instance.clock = () => now;
+      final ticket1 = makeTicket(id: 'err_1', judul: 'Barrier patah', posName: 'Pos 1');
+      ErrorAlarmService.instance.fetchOpenOverride = () async => [ticket1];
+
+      await ErrorAlarmService.instance.tick();
+      expect(NotificationService.instance.sentAlarmNotificationsForTesting.length, equals(1));
+
+      now = now.add(const Duration(seconds: 30));
+      await ErrorAlarmService.instance.tick();
+      expect(ErrorAlarmService.instance.ringing.value, isTrue);
+      expect(NotificationService.instance.sentAlarmNotificationsForTesting.length, equals(1));
+
+      now = now.add(const Duration(minutes: 2));
+      await ErrorAlarmService.instance.tick();
+      expect(ErrorAlarmService.instance.ringing.value, isTrue);
+      expect(NotificationService.instance.sentAlarmNotificationsForTesting.length, equals(2));
+    });
+
+    test('4. empty server result -> ringing false and notification cancelled', () async {
       final ticket1 = makeTicket(id: 'err_1', judul: 'Barrier patah', posName: 'Pos 1');
       ErrorAlarmService.instance.fetchOpenOverride = () async => [ticket1];
 
       await ErrorAlarmService.instance.tick();
       expect(ErrorAlarmService.instance.ringing.value, isTrue);
 
-      // Now ticket is closed / resolved (server returns empty list)
       ErrorAlarmService.instance.fetchOpenOverride = () async => [];
 
       await ErrorAlarmService.instance.tick();
@@ -132,25 +128,20 @@ void main() {
         NotificationService.instance.cancelAlarmNotificationCallCountForTesting,
         greaterThan(0),
       );
-
-      final prefs = await SharedPreferences.getInstance();
-      final persisted = prefs.getStringList(ErrorAlarmService.prefsKeyAcknowledged);
-      expect(persisted, isEmpty);
     });
 
-    test('5. second new ticket after ack -> rings again', () async {
+    test('5. second new ticket arriving within 2 minutes triggers immediate notify', () async {
+      var now = DateTime(2026, 11, 13, 10, 0);
+      ErrorAlarmService.instance.clock = () => now;
       final ticket1 = makeTicket(id: 'err_1', judul: 'Barrier patah', posName: 'Pos 1');
       ErrorAlarmService.instance.fetchOpenOverride = () async => [ticket1];
 
       await ErrorAlarmService.instance.tick();
       expect(ErrorAlarmService.instance.ringing.value, isTrue);
 
-      await ErrorAlarmService.instance.acknowledge();
-      expect(ErrorAlarmService.instance.ringing.value, isFalse);
-
-      // Now ticket 2 arrives while ticket 1 is still open
+      now = now.add(const Duration(seconds: 30));
       final ticket2 = makeTicket(id: 'err_2', judul: 'Printer macet', posName: 'Pos 2');
-      ErrorAlarmService.instance.fetchOpenOverride = () async => [ticket2, ticket1]; // newest first
+      ErrorAlarmService.instance.fetchOpenOverride = () async => [ticket2, ticket1];
 
       await ErrorAlarmService.instance.tick();
 

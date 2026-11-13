@@ -106,8 +106,8 @@ class ErrorTicketService {
     _lastServerResult = null;
   }
 
-  /// Open error tickets for the logged-in branch, newest first, limit 100.
-  /// Server: GET `rest/v1/<tasksTable>?kategori=eq.error&status=eq.pending`
+  /// Open (unclaimed) error tickets for the logged-in branch, newest first, limit 100.
+  /// Server: GET `rest/v1/<tasksTable>?kategori=eq.error&status=eq.pending`, filtered to `isOpenHandover`.
   /// Offline: return last successful server result if available, else filter DailyTaskService local cache.
   static Future<List<DailyTaskModel>> fetchOpen() async {
     try {
@@ -128,6 +128,7 @@ class ErrorTicketService {
             : ((decoded as Map<String, dynamic>)['items'] as List? ?? []);
         final parsed = items
             .map((e) => DailyTaskModel.fromJson(e as Map<String, dynamic>))
+            .where((t) => t.isOpenHandover)
             .toList();
         _lastServerResult = parsed;
         return parsed;
@@ -143,9 +144,12 @@ class ErrorTicketService {
     return filterOpenTickets(DailyTaskService.getCachedTasksLocally());
   }
 
+  /// Open (unclaimed) error tickets from a local task list.
   @visibleForTesting
   static List<DailyTaskModel> filterOpenTickets(List<DailyTaskModel> tasks) {
-    return tasks.where((t) => t.kategori == kategori && !t.isCompleted).toList();
+    return tasks
+        .where((t) => t.kategori == kategori && !t.isCompleted && t.isOpenHandover)
+        .toList();
   }
 
   /// Pure. Returns the single best pos match or null when none/ambiguous.

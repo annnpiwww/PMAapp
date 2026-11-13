@@ -217,18 +217,20 @@ void main() {
     });
   });
 
-  group('fetchOpen offline fallback filters kategori and status', () {
+  group('fetchOpen offline fallback filters kategori, status, and isOpenHandover', () {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       await StorageService.init();
       DailyTaskService.clientOverride = null;
+      ErrorTicketService.resetLastServerResultForTesting();
     });
 
     tearDown(() {
       DailyTaskService.clientOverride = null;
+      ErrorTicketService.resetLastServerResultForTesting();
     });
 
-    test('pure filterOpenTickets filters kategori == error and status != completed', () {
+    test('pure filterOpenTickets filters kategori == error, !isCompleted, and isOpenHandover', () {
       final list = [
         DailyTaskModel(
           id: 't_error_open',
@@ -240,6 +242,19 @@ void main() {
           judul: 'Error open',
           kategori: 'error',
           status: TaskStatus.pending,
+          serahTerima: 'a||Daftar terbuka|13 Nov 05:52',
+        ),
+        DailyTaskModel(
+          id: 't_error_claimed',
+          tanggal: '2026-11-10',
+          teknisiId: 'tek_1',
+          teknisiNama: 'Budi',
+          posName: 'Pos 1',
+          posTag: 'P1',
+          judul: 'Error claimed',
+          kategori: 'error',
+          status: TaskStatus.pending,
+          serahTerima: 'a||Daftar terbuka|13 Nov 05:52\na|Budi|Ambil tugas terbuka|13 Nov 06:00',
         ),
         DailyTaskModel(
           id: 't_error_completed',
@@ -251,6 +266,7 @@ void main() {
           judul: 'Error completed',
           kategori: 'error',
           status: TaskStatus.completed,
+          serahTerima: 'a||Daftar terbuka|13 Nov 05:52',
         ),
         DailyTaskModel(
           id: 't_khusus_pending',
@@ -262,6 +278,7 @@ void main() {
           judul: 'Khusus pending',
           kategori: 'khusus',
           status: TaskStatus.pending,
+          serahTerima: 'a||Daftar terbuka|13 Nov 05:52',
         ),
         DailyTaskModel(
           id: 't_maintenance_pending',
@@ -281,6 +298,47 @@ void main() {
       expect(filtered.first.id, equals('t_error_open'));
     });
 
+    test('filterOpenTickets includes unclaimed open handover and excludes claimed or assigned tickets', () {
+      final unclaimed = DailyTaskModel(
+        id: 't_unclaimed',
+        tanggal: '2026-11-13',
+        teknisiId: '',
+        teknisiNama: 'a',
+        posName: 'Pos 1',
+        posTag: 'P1',
+        judul: 'Unclaimed',
+        kategori: 'error',
+        status: TaskStatus.pending,
+        serahTerima: 'a||Daftar terbuka|13 Nov 05:52',
+      );
+      final claimed = DailyTaskModel(
+        id: 't_claimed',
+        tanggal: '2026-11-13',
+        teknisiId: '',
+        teknisiNama: 'Budi',
+        posName: 'Pos 1',
+        posTag: 'P1',
+        judul: 'Claimed',
+        kategori: 'error',
+        status: TaskStatus.pending,
+        serahTerima: 'a||Daftar terbuka|13 Nov 05:52\na|Budi|Ambil tugas terbuka|13 Nov 06:00',
+      );
+      final assigned = DailyTaskModel(
+        id: 't_assigned',
+        tanggal: '2026-11-13',
+        teknisiId: '',
+        teknisiNama: 'Budi',
+        posName: 'Pos 1',
+        posTag: 'P1',
+        judul: 'Direct tunjuk',
+        kategori: 'error',
+        status: TaskStatus.pending,
+      );
+
+      final filtered = ErrorTicketService.filterOpenTickets([claimed, assigned, unclaimed]);
+      expect(filtered.map((t) => t.id).toList(), equals(['t_unclaimed']));
+    });
+
     test('fetchOpen falls back to local cached tasks when client fails', () async {
       final cachedList = [
         DailyTaskModel(
@@ -293,6 +351,7 @@ void main() {
           judul: 'Cached error pending',
           kategori: 'error',
           status: TaskStatus.pending,
+          serahTerima: 'a||Daftar terbuka|13 Nov 05:52',
         ),
         DailyTaskModel(
           id: 'cached_err_2',
@@ -304,6 +363,7 @@ void main() {
           judul: 'Cached error done',
           kategori: 'error',
           status: TaskStatus.completed,
+          serahTerima: 'a||Daftar terbuka|13 Nov 05:52',
         ),
         DailyTaskModel(
           id: 'cached_khusus',
@@ -315,6 +375,7 @@ void main() {
           judul: 'Cached khusus pending',
           kategori: 'khusus',
           status: TaskStatus.pending,
+          serahTerima: 'a||Daftar terbuka|13 Nov 05:52',
         ),
       ];
 
@@ -339,6 +400,7 @@ void main() {
         'deskripsi': 'Detail server error',
         'kategori': 'error',
         'status': 'pending',
+        'serah_terima': 'Farhan Lakoro (SPV)||Daftar terbuka|13 Nov 05:52',
       };
 
       // 1. Initial successful server fetch: populates _lastServerResult
@@ -359,6 +421,7 @@ void main() {
           judul: 'Local tech task',
           kategori: 'error',
           status: TaskStatus.pending,
+          serahTerima: 'Ryan Lumasuge||Daftar terbuka|13 Nov 05:52',
         ),
       ];
       await DailyTaskService.cacheTasksLocallyForTesting(technicianOwnCache);
@@ -369,6 +432,39 @@ void main() {
       expect(fallbackResult.length, equals(1));
       expect(fallbackResult.first.id, equals('server_spv_err_1'));
       expect(fallbackResult.first.teknisiNama, equals('Farhan Lakoro (SPV)'));
+    });
+
+    test('fetchOpen excludes claimed server tickets once serah_terima has a claimer', () async {
+      final unclaimed = {
+        'id': 'err_unclaimed',
+        'tanggal': '2026-11-13',
+        'teknisi_id': '',
+        'teknisi_nama': 'fatma',
+        'pos_name': 'Pos Barat',
+        'pos_tag': 'PB',
+        'judul': 'Gate macet',
+        'deskripsi': 'Gate macet',
+        'kategori': 'error',
+        'status': 'pending',
+        'serah_terima': 'fatma||Daftar terbuka|13 Nov 05:52',
+      };
+      final claimed = {
+        'id': 'err_claimed',
+        'tanggal': '2026-11-13',
+        'teknisi_id': '',
+        'teknisi_nama': 'Budi',
+        'pos_name': 'Pos Timur',
+        'pos_tag': 'PT',
+        'judul': 'Printer rusak',
+        'deskripsi': 'Printer rusak',
+        'kategori': 'error',
+        'status': 'pending',
+        'serah_terima': 'a||Daftar terbuka|13 Nov 05:52\na|Budi|Ambil tugas terbuka|13 Nov 06:00',
+      };
+
+      DailyTaskService.clientOverride = _SuccessHttpClient(jsonEncode([claimed, unclaimed]));
+      final result = await ErrorTicketService.fetchOpen();
+      expect(result.map((t) => t.id).toList(), equals(['err_unclaimed']));
     });
   });
 }

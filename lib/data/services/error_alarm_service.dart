@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/daily_task_model.dart';
 import '../repositories/auth_repository.dart';
 import 'error_ticket_service.dart';
@@ -12,7 +11,7 @@ class ErrorAlarmService {
   ErrorAlarmService._();
   static final ErrorAlarmService instance = ErrorAlarmService._();
 
-  static const String prefsKeyAcknowledged = 'bss_error_alarm_ack_v1';
+  static const Duration realarmInterval = Duration(minutes: 2);
 
   final ValueNotifier<List<DailyTaskModel>> _openErrors =
       ValueNotifier<List<DailyTaskModel>>(<DailyTaskModel>[]);
@@ -24,9 +23,13 @@ class ErrorAlarmService {
   Timer? _timer;
   bool _isTicking = false;
 
-  final Set<String> _notifiedUnacknowledgedIds = <String>{};
+  final Set<String> _notifiedIds = <String>{};
+  DateTime? _lastAlarmAt;
   bool _pushRegisteredForUser = false;
   bool _hasUnregisteredLoggedOut = false;
+
+  @visibleForTesting
+  DateTime Function() clock = DateTime.now;
 
   @visibleForTesting
   Future<List<DailyTaskModel>> Function()? fetchOpenOverride;
@@ -37,7 +40,9 @@ class ErrorAlarmService {
     _timer = null;
     _openErrors.value = <DailyTaskModel>[];
     _ringing.value = false;
-    _notifiedUnacknowledgedIds.clear();
+    _notifiedIds.clear();
+    _lastAlarmAt = null;
+    clock = DateTime.now;
     _pushRegisteredForUser = false;
     _hasUnregisteredLoggedOut = false;
     _isTicking = false;
@@ -58,19 +63,7 @@ class ErrorAlarmService {
     _timer = null;
   }
 
-  /// Stops sound: cancels alarm notification, adds current open ticket IDs to the acknowledged set, ringing=false.
-  Future<void> acknowledge() async {
-    _ringing.value = false;
-    await NotificationService.instance.cancelErrorAlarmNotification();
-
-    final currentIds = _openErrors.value.map((t) => t.id).toSet();
-    final prefs = await SharedPreferences.getInstance();
-    final existingAck = (prefs.getStringList(prefsKeyAcknowledged) ?? []).toSet();
-    existingAck.addAll(currentIds);
-    await prefs.setStringList(prefsKeyAcknowledged, existingAck.toList());
-  }
-
-  /// Periodic or event-driven tick checking open error tickets and ringing alarm if unacknowledged.
+  /// Periodic or event-driven tick checking unclaimed error tickets and re-alarming every 2 minutes.
   Future<void> tick() async {
     if (_isTicking) return;
     _isTicking = true;
@@ -79,7 +72,8 @@ class ErrorAlarmService {
       if (user == null) {
         _openErrors.value = <DailyTaskModel>[];
         _ringing.value = false;
-        _notifiedUnacknowledgedIds.clear();
+        _notifiedIds.clear();
+        _lastAlarmAt = null;
         await NotificationService.instance.cancelErrorAlarmNotification();
         if (_pushRegisteredForUser || !_hasUnregisteredLoggedOut) {
           _pushRegisteredForUser = false;
@@ -102,44 +96,28 @@ class ErrorAlarmService {
           : await ErrorTicketService.fetchOpen();
 
       _openErrors.value = tickets;
+      _ringing.value = tickets.isNotEmpty;
 
       if (tickets.isEmpty) {
-        _ringing.value = false;
-        _notifiedUnacknowledgedIds.clear();
+        _notifiedIds.clear();
+        _lastAlarmAt = null;
         await NotificationService.instance.cancelErrorAlarmNotification();
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setStringList(prefsKeyAcknowledged, <String>[]);
         return;
       }
 
-      final currentOpenIds = tickets.map((t) => t.id).toSet();
-      final prefs = await SharedPreferences.getInstance();
-      final storedAck = (prefs.getStringList(prefsKeyAcknowledged) ?? []).toSet();
+      final now = clock();
+      final currentIds = tickets.map((t) => t.id).toSet();
+      final hasNewId = currentIds.any((id) => !_notifiedIds.contains(id));
+      final shouldNotify = hasNewId ||
+          _lastAlarmAt == null ||
+          now.difference(_lastAlarmAt!) >= realarmInterval;
 
-      // Prune IDs no longer open each tick
-      final prunedAck = storedAck.intersection(currentOpenIds);
-      if (prunedAck.length != storedAck.length) {
-        await prefs.setStringList(prefsKeyAcknowledged, prunedAck.toList());
-      }
-
-      // ringing = any open id not acknowledged
-      final unacknowledgedIds = currentOpenIds.difference(prunedAck);
-
-      if (unacknowledgedIds.isEmpty) {
-        _ringing.value = false;
-        _notifiedUnacknowledgedIds.clear();
-        await NotificationService.instance.cancelErrorAlarmNotification();
-      } else {
-        _ringing.value = true;
-        // Notify only on transition to a NEW unacknowledged id
-        final hasNewUnacknowledged =
-            unacknowledgedIds.any((id) => !_notifiedUnacknowledgedIds.contains(id));
-        if (hasNewUnacknowledged) {
-          _notifiedUnacknowledgedIds.addAll(unacknowledgedIds);
-          await NotificationService.instance.showErrorAlarmNotification(
-            openTickets: tickets,
-          );
-        }
+      if (shouldNotify) {
+        _notifiedIds.addAll(currentIds);
+        await NotificationService.instance.showErrorAlarmNotification(
+          openTickets: tickets,
+        );
+        _lastAlarmAt = now;
       }
     } catch (e) {
       debugPrint('[ErrorAlarmService] tick error: $e');
