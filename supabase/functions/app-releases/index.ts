@@ -3,21 +3,26 @@
 // Contract: docs/contracts/app-releases.md
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifySession } from '../_shared/session.ts';
 import {
   APP_ID,
   decideUpdate,
+  normalizeCabang,
   objectPath,
   parsePublisherUids,
+  pickRelease,
   validateCreate,
   validateLatestInput,
+  validateTargetCabang,
 } from './logic.ts';
 
 const MAX_BODY_BYTES = 32 * 1024;
 const BUCKET_NAME = 'app-releases';
 const SIGNED_DOWNLOAD_TTL_SECONDS = 900;
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ADMIN_SELECT_COLUMNS =
+  'id, app, abi, version_code, base_version_code, version_name, sha256, size_bytes, changelog, mandatory, min_supported_version, target_cabang, status, created_by, created_at, published_at';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,6 +47,54 @@ async function computeSha256Hex(bytes: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+// Retention: keep only the latest published APK per ABI in storage; archive older rows.
+async function runRetention(
+  // deno-lint-ignore no-explicit-any
+  supabase: SupabaseClient<any>,
+  row: { id: string; abi: string; version_code: number; apk_path: string | null },
+): Promise<number> {
+  const { data: olderRows, error: olderErr } = await supabase
+    .from('app_releases')
+    .select('id, apk_path')
+    .eq('app', APP_ID)
+    .eq('abi', row.abi)
+    .in('status', ['published', 'rolled_back'])
+    .lt('version_code', Number(row.version_code))
+    .neq('id', row.id);
+
+  if (olderErr) {
+    console.error('app-releases retention query error:', olderErr.message);
+    return 0;
+  }
+  if (!Array.isArray(olderRows) || olderRows.length === 0) {
+    return 0;
+  }
+
+  const pathsToRemove = olderRows
+    .map((r) => r.apk_path)
+    .filter((p): p is string => typeof p === 'string' && p.length > 0 && p !== row.apk_path);
+
+  if (pathsToRemove.length > 0) {
+    const { error: rmErr } = await supabase.storage
+      .from(BUCKET_NAME)
+      .remove(pathsToRemove);
+    if (rmErr) {
+      console.error('app-releases retention storage remove error:', rmErr.message);
+    }
+  }
+
+  const olderIds = olderRows.map((r) => r.id);
+  const { error: archErr } = await supabase
+    .from('app_releases')
+    .update({ status: 'archived', apk_path: null })
+    .in('id', olderIds);
+  if (archErr) {
+    console.error('app-releases retention archive update error:', archErr.message);
+    return 0;
+  }
+  return olderIds.length;
 }
 
 export async function handleAppReleases(req: Request): Promise<Response> {
@@ -98,21 +151,23 @@ export async function handleAppReleases(req: Request): Promise<Response> {
       return json({ error: 'invalid', errors: validated.errors }, 400);
     }
     const { abi, current_code, current_version } = validated.value;
+    const session = await verifySession(req);
+    const callerCabang = session ? normalizeCabang(session.cabang) : null;
 
-    const { data: row, error: qErr } = await supabase
+    const { data: rows, error: qErr } = await supabase
       .from('app_releases')
-      .select('id, version_name, version_code, size_bytes, sha256, changelog, mandatory, min_supported_version, apk_path')
+      .select('id, version_name, version_code, size_bytes, sha256, changelog, mandatory, min_supported_version, apk_path, target_cabang')
       .eq('app', APP_ID)
       .eq('abi', abi)
       .eq('status', 'published')
       .order('version_code', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(20);
 
     if (qErr) {
       console.error('app-releases latest query error:', qErr.message);
       return json({ error: 'server error' }, 500);
     }
+    const row = pickRelease(rows ?? [], callerCabang);
     if (!row) {
       return json({ update: false }, 200);
     }
@@ -176,7 +231,7 @@ export async function handleAppReleases(req: Request): Promise<Response> {
   if (action === 'list') {
     const { data: rows, error } = await supabase
       .from('app_releases')
-      .select('id, app, abi, version_code, base_version_code, version_name, sha256, size_bytes, changelog, mandatory, min_supported_version, status, created_by, created_at, published_at')
+      .select(ADMIN_SELECT_COLUMNS)
       .eq('app', APP_ID)
       .order('created_at', { ascending: false })
       .order('version_code', { ascending: false });
@@ -230,6 +285,7 @@ export async function handleAppReleases(req: Request): Promise<Response> {
         changelog: v.changelog,
         mandatory: v.mandatory,
         min_supported_version: v.min_supported_version,
+        target_cabang: v.target_cabang,
         status: 'draft',
         created_by: session.uid,
       })
@@ -314,7 +370,7 @@ export async function handleAppReleases(req: Request): Promise<Response> {
       .update({ status: 'published', published_at: publishedAt })
       .eq('id', id)
       .eq('status', 'draft')
-      .select('id, app, abi, version_code, base_version_code, version_name, sha256, size_bytes, changelog, mandatory, min_supported_version, status, created_by, created_at, published_at')
+      .select(ADMIN_SELECT_COLUMNS)
       .maybeSingle();
 
     if (updErr) {
@@ -325,44 +381,15 @@ export async function handleAppReleases(req: Request): Promise<Response> {
       return json({ error: 'not_draft' }, 409);
     }
 
-    // Retention: keep only the latest published APK per ABI in storage; archive older rows.
-    const { data: olderRows, error: olderErr } = await supabase
-      .from('app_releases')
-      .select('id, apk_path')
-      .eq('app', APP_ID)
-      .eq('abi', row.abi)
-      .in('status', ['published', 'rolled_back'])
-      .lt('version_code', Number(row.version_code))
-      .neq('id', id);
-
-    let archivedCount = 0;
-    if (olderErr) {
-      console.error('app-releases retention query error:', olderErr.message);
-    } else if (Array.isArray(olderRows) && olderRows.length > 0) {
-      const pathsToRemove = olderRows
-        .map((r) => r.apk_path)
-        .filter((p): p is string => typeof p === 'string' && p.length > 0 && p !== row.apk_path);
-
-      if (pathsToRemove.length > 0) {
-        const { error: rmErr } = await supabase.storage
-          .from(BUCKET_NAME)
-          .remove(pathsToRemove);
-        if (rmErr) {
-          console.error('app-releases retention storage remove error:', rmErr.message);
-        }
-      }
-
-      const olderIds = olderRows.map((r) => r.id);
-      const { error: archErr } = await supabase
-        .from('app_releases')
-        .update({ status: 'archived', apk_path: null })
-        .in('id', olderIds);
-      if (archErr) {
-        console.error('app-releases retention archive update error:', archErr.message);
-      } else {
-        archivedCount = olderIds.length;
-      }
-    }
+    const archivedCount =
+      updated.target_cabang == null
+        ? await runRetention(supabase, {
+            id,
+            abi: row.abi,
+            version_code: Number(row.version_code),
+            apk_path: row.apk_path,
+          })
+        : 0;
 
     return json({ release: updated, archived_count: archivedCount }, 200);
   }
@@ -395,7 +422,7 @@ export async function handleAppReleases(req: Request): Promise<Response> {
       .update({ status: 'rolled_back' })
       .eq('id', id)
       .eq('status', 'published')
-      .select('id, app, abi, version_code, base_version_code, version_name, sha256, size_bytes, changelog, mandatory, min_supported_version, status, created_by, created_at, published_at')
+      .select(ADMIN_SELECT_COLUMNS)
       .maybeSingle();
 
     if (updErr) {
@@ -406,6 +433,62 @@ export async function handleAppReleases(req: Request): Promise<Response> {
       return json({ error: 'not_published' }, 409);
     }
     return json({ release: updated }, 200);
+  }
+
+  if (action === 'set_targets') {
+    const id = typeof body.id === 'string' ? body.id.trim() : '';
+    if (!UUID_REGEX.test(id)) {
+      return json({ error: 'invalid', errors: { id: 'must be a valid UUID' } }, 400);
+    }
+    const targetResult = validateTargetCabang(body.target_cabang);
+    if (!targetResult.ok) {
+      return json({ error: 'invalid', errors: targetResult.errors }, 400);
+    }
+
+    const { data: row, error: fetchErr } = await supabase
+      .from('app_releases')
+      .select('id, abi, version_code, apk_path, status')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchErr) {
+      console.error('app-releases set_targets fetch error:', fetchErr.message);
+      return json({ error: 'server error' }, 500);
+    }
+    if (!row) {
+      return json({ error: 'not_found' }, 404);
+    }
+    if (row.status !== 'draft' && row.status !== 'published') {
+      return json({ error: 'not_editable' }, 409);
+    }
+
+    const { data: updated, error: updErr } = await supabase
+      .from('app_releases')
+      .update({ target_cabang: targetResult.value })
+      .eq('id', id)
+      .in('status', ['draft', 'published'])
+      .select(ADMIN_SELECT_COLUMNS)
+      .maybeSingle();
+
+    if (updErr) {
+      console.error('app-releases set_targets update error:', updErr.message);
+      return json({ error: 'server error' }, 500);
+    }
+    if (!updated) {
+      return json({ error: 'not_editable' }, 409);
+    }
+
+    const archivedCount =
+      updated.status === 'published' && targetResult.value === null
+        ? await runRetention(supabase, {
+            id,
+            abi: row.abi,
+            version_code: Number(row.version_code),
+            apk_path: row.apk_path,
+          })
+        : 0;
+
+    return json({ release: updated, archived_count: archivedCount }, 200);
   }
 
   if (action === 'delete_draft') {

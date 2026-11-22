@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Publish split-per-ABI PMApp release APKs to Supabase app-releases edge function.
-// Usage: node tools/publish_release.mjs --changelog <text> [--mandatory] [--min-version x.y.z] [--dry-run]
+// Usage: node tools/publish_release.mjs --changelog <text> [--mandatory] [--min-version x.y.z] [--cabang manado,bali] [--dry-run]
 
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -18,12 +18,45 @@ const ABI_TARGETS = [
 ];
 
 const SEMVER_RE = /^[0-9]+\.[0-9]+\.[0-9]+$/;
+const USAGE =
+  'Usage: node tools/publish_release.mjs --changelog <text> [--mandatory] [--min-version x.y.z] [--cabang manado,bali] [--dry-run]';
+
+const CABANG_ALIASES = {
+  manado: 'manado',
+  'kc manado': 'manado',
+  mdo: 'manado',
+  bali: 'bali',
+  'kc bali': 'bali',
+  dps: 'bali',
+  ho: 'ho',
+  'ho makassar': 'ho',
+};
+
+function parseCabangFlag(raw) {
+  const items = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (items.length === 0) {
+    throw new Error(`--cabang must list at least one branch (manado, bali, ho)\n${USAGE}`);
+  }
+  const set = new Set();
+  for (const item of items) {
+    const norm = CABANG_ALIASES[item.toLowerCase()] ?? null;
+    if (!norm) {
+      throw new Error(`Unknown cabang "${item}". Allowed: manado, bali, ho\n${USAGE}`);
+    }
+    set.add(norm);
+  }
+  return Array.from(set).sort();
+}
 
 function parseArgs(argv) {
   let changelog = '';
   let hasChangelog = false;
   let mandatory = false;
   let minVersion = null;
+  let targetCabang = null;
   let dryRun = false;
 
   for (let i = 0; i < argv.length; i++) {
@@ -35,12 +68,16 @@ function parseArgs(argv) {
       mandatory = true;
     } else if (arg === '--min-version') {
       minVersion = argv[++i] ?? '';
+    } else if (arg === '--cabang') {
+      const rawCabang = argv[++i];
+      if (rawCabang === undefined) {
+        throw new Error(`--cabang requires a comma-separated list\n${USAGE}`);
+      }
+      targetCabang = parseCabangFlag(rawCabang);
     } else if (arg === '--dry-run') {
       dryRun = true;
     } else if (arg === '--help' || arg === '-h') {
-      console.log(
-        'Usage: node tools/publish_release.mjs --changelog <text> [--mandatory] [--min-version x.y.z] [--dry-run]',
-      );
+      console.log(USAGE);
       process.exit(0);
     } else {
       throw new Error(`Unknown argument: ${arg}`);
@@ -57,7 +94,7 @@ function parseArgs(argv) {
     throw new Error('--min-version must match X.Y.Z');
   }
 
-  return { changelog, mandatory, minVersion, dryRun };
+  return { changelog, mandatory, minVersion, targetCabang, dryRun };
 }
 
 function loadEnvFile(filePath) {
@@ -152,9 +189,10 @@ async function main() {
     };
   });
 
+  const targetLabel = opts.targetCabang ? opts.targetCabang.join(',') : 'Semua cabang';
   if (opts.dryRun) {
     console.log(
-      `[dry-run] version=${versionName}+${baseVersionCode} mandatory=${opts.mandatory} min_version=${opts.minVersion ?? 'null'}`,
+      `[dry-run] version=${versionName}+${baseVersionCode} mandatory=${opts.mandatory} min_version=${opts.minVersion ?? 'null'} target=${targetLabel}`,
     );
     for (const a of artifacts) {
       console.log(
@@ -210,6 +248,7 @@ async function main() {
       changelog: opts.changelog,
       mandatory: opts.mandatory,
       min_supported_version: opts.minVersion,
+      target_cabang: opts.targetCabang,
     });
 
     const uploadRes = await fetch(created.upload.signedUrl, {

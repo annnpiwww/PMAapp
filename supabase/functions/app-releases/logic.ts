@@ -47,6 +47,55 @@ export function objectPath(abi: Abi, versionCode: number): string {
   return `prod/${versionCode}-${abi}.apk`;
 }
 
+export const CABANG_VALUES = ['manado', 'bali', 'ho'] as const;
+export type Cabang = (typeof CABANG_VALUES)[number];
+
+const CABANG_ALIASES: Record<string, Cabang> = {
+  manado: 'manado',
+  'kc manado': 'manado',
+  mdo: 'manado',
+  bali: 'bali',
+  'kc bali': 'bali',
+  dps: 'bali',
+  ho: 'ho',
+  'ho makassar': 'ho',
+};
+
+export function normalizeCabang(raw: unknown): Cabang | null {
+  if (typeof raw !== 'string') return null;
+  return CABANG_ALIASES[raw.trim().toLowerCase()] ?? null;
+}
+
+export function validateTargetCabang(raw: unknown): ValidateResult<string[] | null> {
+  if (raw === undefined || raw === null) {
+    return { ok: true, value: null };
+  }
+  if (!Array.isArray(raw)) {
+    return { ok: false, errors: { target_cabang: 'must be null or an array of cabang' } };
+  }
+  const set = new Set<Cabang>();
+  for (const item of raw) {
+    if (typeof item !== 'string') {
+      return {
+        ok: false,
+        errors: { target_cabang: `target_cabang: unknown cabang ${String(item)}` },
+      };
+    }
+    const normalized = normalizeCabang(item);
+    if (!normalized) {
+      return {
+        ok: false,
+        errors: { target_cabang: `target_cabang: unknown cabang ${item}` },
+      };
+    }
+    set.add(normalized);
+  }
+  if (set.size === 0) {
+    return { ok: false, errors: { target_cabang: 'must contain at least one cabang' } };
+  }
+  return { ok: true, value: Array.from(set).sort() };
+}
+
 export interface ValidatedCreateInput {
   abi: Abi;
   base_version_code: number;
@@ -57,6 +106,7 @@ export interface ValidatedCreateInput {
   changelog: string;
   mandatory: boolean;
   min_supported_version: string | null;
+  target_cabang: string[] | null;
 }
 
 export type ValidateResult<T> =
@@ -122,6 +172,11 @@ export function validateCreate(input: unknown): ValidateResult<ValidatedCreateIn
     errors.min_supported_version = 'must be null or semver X.Y.Z';
   }
 
+  const targetCabang = validateTargetCabang(obj.target_cabang);
+  if (!targetCabang.ok) {
+    errors.target_cabang = targetCabang.errors.target_cabang;
+  }
+
   if (Object.keys(errors).length > 0) {
     return { ok: false, errors };
   }
@@ -138,6 +193,7 @@ export function validateCreate(input: unknown): ValidateResult<ValidatedCreateIn
       changelog: changelog as string,
       mandatory: mandatory as boolean,
       min_supported_version: minSupported as string | null,
+      target_cabang: targetCabang.ok ? targetCabang.value : null,
     },
   };
 }
@@ -206,6 +262,21 @@ export function decideUpdate({
     update: true,
     mandatory: release.mandatory || belowMin,
   };
+}
+
+export function pickRelease<T extends { target_cabang?: readonly string[] | null }>(
+  rows: readonly T[],
+  callerCabang: string | null,
+): T | null {
+  for (const row of rows) {
+    if (row.target_cabang == null) {
+      return row;
+    }
+    if (callerCabang != null && row.target_cabang.includes(callerCabang)) {
+      return row;
+    }
+  }
+  return null;
 }
 
 export function parsePublisherUids(raw: string | undefined): Set<string> {

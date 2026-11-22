@@ -1,15 +1,19 @@
 import { assertEquals, assertThrows } from 'https://deno.land/std@0.168.0/testing/asserts.ts';
 import {
   ABI_OFFSET,
+  CABANG_VALUES,
   compareSemver,
   decideUpdate,
   isAbi,
   MAX_APK_BYTES,
+  normalizeCabang,
   objectPath,
   parsePublisherUids,
   parseSemver,
+  pickRelease,
   validateCreate,
   validateLatestInput,
+  validateTargetCabang,
 } from './logic.ts';
 
 const VALID_SHA = 'a'.repeat(64);
@@ -175,4 +179,74 @@ Deno.test('validateLatestInput and parsePublisherUids', () => {
   assertEquals(uids.has('usr_farhan'), true);
   assertEquals(uids.has('usr_aan'), true);
   assertEquals(uids.size, 2);
+});
+
+Deno.test('normalizeCabang handles canonical values, aliases, whitespace, case, and unknown inputs', () => {
+  assertEquals(CABANG_VALUES, ['manado', 'bali', 'ho']);
+  assertEquals(normalizeCabang('manado'), 'manado');
+  assertEquals(normalizeCabang(' KC Manado '), 'manado');
+  assertEquals(normalizeCabang('mdo'), 'manado');
+  assertEquals(normalizeCabang('DPS'), 'bali');
+  assertEquals(normalizeCabang('kc bali'), 'bali');
+  assertEquals(normalizeCabang('HO Makassar'), 'ho');
+  assertEquals(normalizeCabang('ho'), 'ho');
+  assertEquals(normalizeCabang('makassar'), null);
+  assertEquals(normalizeCabang('jakarta'), null);
+  assertEquals(normalizeCabang(''), null);
+  assertEquals(normalizeCabang(123), null);
+  assertEquals(normalizeCabang(null), null);
+});
+
+Deno.test('validateTargetCabang normalizes, dedupes, sorts, and rejects invalid values', () => {
+  assertEquals(validateTargetCabang(undefined), { ok: true, value: null });
+  assertEquals(validateTargetCabang(null), { ok: true, value: null });
+  assertEquals(validateTargetCabang(['Bali', 'manado', 'bali', 'KC Manado']), {
+    ok: true,
+    value: ['bali', 'manado'],
+  });
+
+  const emptyArr = validateTargetCabang([]);
+  assertEquals(emptyArr.ok, false);
+  if (!emptyArr.ok) assertEquals(typeof emptyArr.errors.target_cabang, 'string');
+
+  const badBranch = validateTargetCabang(['jakarta']);
+  assertEquals(badBranch.ok, false);
+  if (!badBranch.ok) {
+    assertEquals(badBranch.errors.target_cabang, 'target_cabang: unknown cabang jakarta');
+  }
+
+  const nonArray = validateTargetCabang('manado');
+  assertEquals(nonArray.ok, false);
+  if (!nonArray.ok) assertEquals(typeof nonArray.errors.target_cabang, 'string');
+});
+
+Deno.test('validateCreate accepts valid target_cabang and rejects invalid target_cabang', () => {
+  const omitted = validateCreate(validPayload());
+  assertEquals(omitted.ok, true);
+  if (omitted.ok) assertEquals(omitted.value.target_cabang, null);
+
+  const targeted = validateCreate(validPayload({ target_cabang: ['KC Manado', 'dps'] }));
+  assertEquals(targeted.ok, true);
+  if (targeted.ok) assertEquals(targeted.value.target_cabang, ['bali', 'manado']);
+
+  const invalid = validateCreate(validPayload({ target_cabang: ['jakarta'] }));
+  assertEquals(invalid.ok, false);
+  if (!invalid.ok) {
+    assertEquals(invalid.errors.target_cabang, 'target_cabang: unknown cabang jakarta');
+  }
+});
+
+Deno.test('pickRelease picks highest matching release for caller branch or global fallback', () => {
+  const mixed = [
+    { version_code: 4156, target_cabang: ['manado'] },
+    { version_code: 4155, target_cabang: null },
+  ];
+  assertEquals(pickRelease(mixed, 'manado')?.version_code, 4156);
+  assertEquals(pickRelease(mixed, 'bali')?.version_code, 4155);
+  assertEquals(pickRelease(mixed, null)?.version_code, 4155);
+
+  const multiTarget = [{ version_code: 4156, target_cabang: ['bali', 'manado'] }];
+  assertEquals(pickRelease(multiTarget, 'bali')?.version_code, 4156);
+  assertEquals(pickRelease(multiTarget, 'ho'), null);
+  assertEquals(pickRelease(multiTarget, null), null);
 });
