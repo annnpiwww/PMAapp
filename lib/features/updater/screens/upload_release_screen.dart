@@ -167,12 +167,18 @@ class UploadReleaseScreen extends StatefulWidget {
 
 class _UploadReleaseScreenState extends State<UploadReleaseScreen> {
   static final RegExp _semverRegex = RegExp(r'^[0-9]+\.[0-9]+\.[0-9]+$');
+  static const List<({String code, String label})> _branchOptions = [
+    (code: 'manado', label: 'Manado'),
+    (code: 'bali', label: 'Bali'),
+    (code: 'ho', label: 'HO'),
+  ];
 
   late final AppReleaseAdminService _service;
   final TextEditingController _changelogCtrl = TextEditingController();
   final TextEditingController _minVersionCtrl = TextEditingController();
 
   LocalApkInfo? _apk;
+  final Set<String> _selectedBranches = <String>{};
   bool _mandatory = false;
   bool _picking = false;
   bool _submitting = false;
@@ -180,6 +186,9 @@ class _UploadReleaseScreenState extends State<UploadReleaseScreen> {
   String? _statusNote;
   String? _errorMessage;
   Map<String, String> _fieldErrors = const {};
+
+  List<String>? get _targetCabang =>
+      _selectedBranches.isEmpty ? null : (_selectedBranches.toList()..sort());
 
   @override
   void initState() {
@@ -289,6 +298,7 @@ class _UploadReleaseScreenState extends State<UploadReleaseScreen> {
         changelog: _changelogCtrl.text.trim(),
         mandatory: _mandatory,
         minSupportedVersion: _minVersionCtrl.text.trim(),
+        targetCabang: _targetCabang,
       );
 
       if (!mounted) return;
@@ -696,6 +706,26 @@ class _UploadReleaseScreenState extends State<UploadReleaseScreen> {
                           color: colors.body,
                         ),
                       ),
+                      const SizedBox(height: 18.0),
+                      _BranchTargetSelector(
+                        colors: colors,
+                        selectedBranches: _selectedBranches,
+                        branchOptions: _branchOptions,
+                        targetCabang: _targetCabang,
+                        disabled: _submitting,
+                        errorText: _fieldErrors['target_cabang'],
+                        onSelectAll: () =>
+                            setState(() => _selectedBranches.clear()),
+                        onToggleBranch: (code, selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedBranches.add(code);
+                            } else {
+                              _selectedBranches.remove(code);
+                            }
+                          });
+                        },
+                      ),
                       if (_submitting) ...[
                         const SizedBox(height: 18.0),
                         ClipRRect(
@@ -806,6 +836,124 @@ class _MetaPair extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _BranchTargetSelector extends StatelessWidget {
+  final TiketColors colors;
+  final Set<String> selectedBranches;
+  final List<({String code, String label})> branchOptions;
+  final List<String>? targetCabang;
+  final bool disabled;
+  final String? errorText;
+  final VoidCallback onSelectAll;
+  final void Function(String code, bool selected) onToggleBranch;
+
+  const _BranchTargetSelector({
+    required this.colors,
+    required this.selectedBranches,
+    required this.branchOptions,
+    required this.targetCabang,
+    required this.disabled,
+    required this.errorText,
+    required this.onSelectAll,
+    required this.onToggleBranch,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final allSelected = selectedBranches.isEmpty;
+    final helperText = targetCabang == null
+        ? 'Semua teknisi akan dapat update ini.'
+        : 'Hanya teknisi cabang ${cabangLabel(targetCabang)} yang dapat update. Cabang lain tetap di versi sekarang.';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Cabang tujuan',
+          style: TextStyle(
+            fontFamily: TiketType.fontFamily,
+            fontSize: 14.0,
+            fontWeight: FontWeight.w700,
+            color: colors.ink,
+          ),
+        ),
+        const SizedBox(height: 8.0),
+        Wrap(
+          spacing: 8.0,
+          runSpacing: 8.0,
+          children: [
+            _buildChip(
+              label: 'Semua cabang',
+              selected: allSelected,
+              onSelected: (_) => onSelectAll(),
+            ),
+            for (final branch in branchOptions)
+              _buildChip(
+                label: branch.label,
+                selected: selectedBranches.contains(branch.code),
+                onSelected: (selected) => onToggleBranch(branch.code, selected),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6.0),
+        Text(
+          helperText,
+          style: TextStyle(
+            fontFamily: TiketType.fontFamily,
+            fontSize: 12.0,
+            color: colors.body,
+          ),
+        ),
+        if (errorText != null && errorText!.isNotEmpty) ...[
+          const SizedBox(height: 4.0),
+          Text(
+            errorText!,
+            style: TextStyle(
+              fontFamily: TiketType.fontFamily,
+              fontSize: 12.0,
+              fontWeight: FontWeight.w600,
+              color: colors.danger,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildChip({
+    required String label,
+    required bool selected,
+    required ValueChanged<bool> onSelected,
+  }) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44.0),
+      child: FilterChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: disabled ? null : onSelected,
+        materialTapTargetSize: MaterialTapTargetSize.padded,
+        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
+        showCheckmark: true,
+        checkmarkColor: disabled ? colors.body : colors.onPrimary,
+        selectedColor: colors.primary,
+        backgroundColor: colors.soft,
+        disabledColor: colors.soft,
+        side: BorderSide(
+          color: (!disabled && selected) ? colors.primary : colors.hairline,
+        ),
+        shape: const StadiumBorder(),
+        labelStyle: TextStyle(
+          fontFamily: TiketType.fontFamily,
+          fontSize: 13.0,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          color: disabled
+              ? colors.body
+              : (selected ? colors.onPrimary : colors.ink),
+        ),
+      ),
     );
   }
 }

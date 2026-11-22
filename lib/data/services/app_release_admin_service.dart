@@ -43,6 +43,24 @@ enum AdminReleaseStatus {
   }
 }
 
+String cabangLabel(List<String>? t) {
+  if (t == null || t.isEmpty) return 'Semua cabang';
+  return t
+      .map((c) {
+        switch (c) {
+          case 'manado':
+            return 'Manado';
+          case 'bali':
+            return 'Bali';
+          case 'ho':
+            return 'HO';
+          default:
+            return c;
+        }
+      })
+      .join(', ');
+}
+
 class AdminReleaseItem {
   final String id;
   final String app;
@@ -55,6 +73,7 @@ class AdminReleaseItem {
   final String changelog;
   final bool mandatory;
   final String? minSupportedVersion;
+  final List<String>? targetCabang;
   final AdminReleaseStatus status;
   final String createdBy;
   final DateTime? createdAt;
@@ -72,11 +91,14 @@ class AdminReleaseItem {
     required this.changelog,
     required this.mandatory,
     required this.minSupportedVersion,
+    this.targetCabang,
     required this.status,
     required this.createdBy,
     required this.createdAt,
     required this.publishedAt,
   });
+
+  bool get isAllBranches => targetCabang == null || targetCabang!.isEmpty;
 
   factory AdminReleaseItem.fromJson(Map<String, dynamic> json) {
     return AdminReleaseItem(
@@ -91,11 +113,22 @@ class AdminReleaseItem {
       changelog: (json['changelog'] as String?) ?? '',
       mandatory: json['mandatory'] == true,
       minSupportedVersion: json['min_supported_version'] as String?,
+      targetCabang: _parseTargetCabang(json['target_cabang']),
       status: AdminReleaseStatus.fromWire(json['status'] as String?),
       createdBy: (json['created_by'] as String?) ?? '-',
       createdAt: _parseDate(json['created_at']),
       publishedAt: _parseDate(json['published_at']),
     );
+  }
+
+  static List<String>? _parseTargetCabang(dynamic raw) {
+    if (raw is! List) return null;
+    final items = raw
+        .whereType<String>()
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    return items.isEmpty ? null : List<String>.unmodifiable(items);
   }
 
   static DateTime? _parseDate(dynamic raw) {
@@ -411,11 +444,15 @@ class AppReleaseAdminService {
       }
 
       if (response.statusCode == 409) {
-        final msg =
-            (errorCode == 'version_code_must_increase' ||
-                errorCode == 'duplicate')
-            ? 'Nomor versi harus lebih tinggi dari rilis sebelumnya.'
-            : 'Status rilis sudah berubah. Muat ulang daftar.';
+        final String msg;
+        if (errorCode == 'version_code_must_increase' ||
+            errorCode == 'duplicate') {
+          msg = 'Nomor versi harus lebih tinggi dari rilis sebelumnya.';
+        } else if (errorCode == 'not_editable') {
+          msg = 'Rilis ini sudah tidak bisa diubah.';
+        } else {
+          msg = 'Status rilis sudah berubah. Muat ulang daftar.';
+        }
         throw AppReleaseAdminException(
           statusCode: 409,
           errorCode: errorCode,
@@ -478,8 +515,12 @@ class AppReleaseAdminService {
     required String changelog,
     required bool mandatory,
     String? minSupportedVersion,
+    List<String>? targetCabang,
   }) async {
     final minVerClean = minSupportedVersion?.trim();
+    final normalizedTarget = (targetCabang != null && targetCabang.isNotEmpty)
+        ? (targetCabang.toSet().toList()..sort())
+        : null;
     final decoded = await _postAction({
       'action': 'create_upload',
       'abi': apk.abi,
@@ -493,6 +534,7 @@ class AppReleaseAdminService {
       'min_supported_version': (minVerClean != null && minVerClean.isNotEmpty)
           ? minVerClean
           : null,
+      'target_cabang': normalizedTarget,
     });
 
     final id = (decoded['id'] as String?) ?? '';
@@ -576,6 +618,29 @@ class AppReleaseAdminService {
         statusCode: 500,
         errorCode: 'invalid_response',
         message: 'Respons tarik rilis tidak valid.',
+      );
+    }
+    return AdminReleaseItem.fromJson(releaseJson);
+  }
+
+  Future<AdminReleaseItem> setTargets(
+    String id,
+    List<String>? targetCabang,
+  ) async {
+    final normalizedTarget = (targetCabang != null && targetCabang.isNotEmpty)
+        ? (targetCabang.toSet().toList()..sort())
+        : null;
+    final decoded = await _postAction({
+      'action': 'set_targets',
+      'id': id,
+      'target_cabang': normalizedTarget,
+    });
+    final releaseJson = decoded['release'];
+    if (releaseJson is! Map<String, dynamic>) {
+      throw const AppReleaseAdminException(
+        statusCode: 500,
+        errorCode: 'invalid_response',
+        message: 'Respons ubah target tidak valid.',
       );
     }
     return AdminReleaseItem.fromJson(releaseJson);

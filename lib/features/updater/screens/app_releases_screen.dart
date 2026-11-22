@@ -44,6 +44,7 @@ class _AppReleasesScreenState extends State<AppReleasesScreen> {
   late final AppReleaseAdminService _service;
   bool _loading = false;
   bool _busyAction = false;
+  String? _updatingTargetReleaseId;
   bool _isForbidden = false;
   String? _errorMessage;
   List<AdminReleaseItem> _releases = const [];
@@ -153,6 +154,93 @@ class _AppReleasesScreenState extends State<AppReleasesScreen> {
       ).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _busyAction = false);
+    }
+  }
+
+  Future<void> _confirmWidenToAll(AdminReleaseItem item) async {
+    final colors = TiketColors.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dCtx) => AlertDialog(
+        backgroundColor: colors.dialog,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20.0),
+        ),
+        title: Text(
+          'Rilis ke semua cabang?',
+          style: TextStyle(
+            fontFamily: TiketType.fontFamily,
+            fontSize: 18.0,
+            fontWeight: FontWeight.w800,
+            color: colors.ink,
+          ),
+        ),
+        content: Text(
+          'Versi ${item.versionName} akan tersedia untuk semua teknisi. Versi lama di server akan dihapus.',
+          style: TextStyle(
+            fontFamily: TiketType.fontFamily,
+            fontSize: 14.0,
+            height: 20.0 / 14.0,
+            color: colors.body,
+          ),
+        ),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: UpdaterActionButton(
+                  label: 'Batal',
+                  isPrimary: false,
+                  onPressed: () => Navigator.of(dCtx).pop(false),
+                ),
+              ),
+              const SizedBox(width: 10.0),
+              Expanded(
+                child: UpdaterActionButton(
+                  label: 'Rilis ke semua',
+                  onPressed: () => Navigator.of(dCtx).pop(true),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _busyAction = true;
+      _updatingTargetReleaseId = item.id;
+    });
+    try {
+      await _service.setTargets(item.id, null);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Versi ${item.versionName} sekarang untuk semua cabang.',
+          ),
+        ),
+      );
+      await _load();
+    } on AppReleaseAdminException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal mengubah target rilis.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busyAction = false;
+          _updatingTargetReleaseId = null;
+        });
+      }
     }
   }
 
@@ -425,6 +513,9 @@ class _AppReleasesScreenState extends State<AppReleasesScreen> {
                 item: activeReleases[i],
                 dateText: _formatDate(activeReleases[i].publishedAt),
                 busy: _busyAction,
+                updatingTargets:
+                    _updatingTargetReleaseId == activeReleases[i].id,
+                onWidenToAll: () => _confirmWidenToAll(activeReleases[i]),
                 onRollback: () => _confirmRollback(activeReleases[i]),
               ),
             ],
@@ -493,12 +584,16 @@ class _ActiveReleaseCard extends StatelessWidget {
   final AdminReleaseItem item;
   final String dateText;
   final bool busy;
+  final bool updatingTargets;
+  final VoidCallback onWidenToAll;
   final VoidCallback onRollback;
 
   const _ActiveReleaseCard({
     required this.item,
     required this.dateText,
     required this.busy,
+    required this.updatingTargets,
+    required this.onWidenToAll,
     required this.onRollback,
   });
 
@@ -506,6 +601,8 @@ class _ActiveReleaseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = TiketColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final showWidenAction =
+        item.status == AdminReleaseStatus.published && !item.isAllBranches;
 
     return Container(
       padding: const EdgeInsets.all(14.0),
@@ -563,12 +660,14 @@ class _ActiveReleaseCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                Wrap(
+                  spacing: 6.0,
+                  runSpacing: 6.0,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     _StatusPill(status: item.status),
-                    const SizedBox(width: 6.0),
                     _FlagPill(mandatory: item.mandatory),
+                    _TargetCabangBadge(targetCabang: item.targetCabang),
                   ],
                 ),
               ],
@@ -594,9 +693,55 @@ class _ActiveReleaseCard extends StatelessWidget {
           const SizedBox(height: 12.0),
           Align(
             alignment: Alignment.centerRight,
-            child: _OutlineSmallButton(
-              label: 'Tarik rilis',
-              onPressed: busy ? null : onRollback,
+            child: Wrap(
+              spacing: 8.0,
+              runSpacing: 8.0,
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (updatingTargets)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 16.0,
+                        height: 16.0,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.0,
+                          color: colors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 8.0),
+                      Text(
+                        'Memperbarui...',
+                        style: TiketType.metaStyle(color: colors.body),
+                      ),
+                    ],
+                  )
+                else if (showWidenAction)
+                  TextButton(
+                    onPressed: busy ? null : onWidenToAll,
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48.0, 44.0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14.0,
+                        vertical: 10.0,
+                      ),
+                      foregroundColor: colors.primary,
+                      shape: const StadiumBorder(),
+                      textStyle: const TextStyle(
+                        fontFamily: TiketType.fontFamily,
+                        fontSize: 13.0,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    child: const Text('Rilis ke semua cabang'),
+                  ),
+                _OutlineSmallButton(
+                  label: 'Tarik rilis',
+                  onPressed: busy ? null : onRollback,
+                ),
+              ],
             ),
           ),
         ],
@@ -674,12 +819,14 @@ class _HistoryReleaseRow extends StatelessWidget {
                     ),
                   ],
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                Wrap(
+                  spacing: 6.0,
+                  runSpacing: 6.0,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     _StatusPill(status: item.status),
-                    const SizedBox(width: 6.0),
                     _FlagPill(mandatory: item.mandatory),
+                    _TargetCabangBadge(targetCabang: item.targetCabang),
                   ],
                 ),
               ],
@@ -807,6 +954,46 @@ class _FlagPill extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: mandatory ? colors.danger : colors.body,
         ),
+      ),
+    );
+  }
+}
+
+class _TargetCabangBadge extends StatelessWidget {
+  final List<String>? targetCabang;
+
+  const _TargetCabangBadge({required this.targetCabang});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = TiketColors.of(context);
+    final isAll = targetCabang == null || targetCabang!.isEmpty;
+    final label = cabangLabel(targetCabang);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9.0, vertical: 4.0),
+      decoration: BoxDecoration(
+        color: isAll ? colors.soft : colors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999.0),
+        border: isAll ? null : Border.all(color: colors.primary),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isAll) ...[
+            Icon(Icons.location_on_outlined, size: 12.0, color: colors.primary),
+            const SizedBox(width: 4.0),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: TiketType.fontFamily,
+              fontSize: 12.0,
+              fontWeight: FontWeight.w700,
+              color: isAll ? colors.body : colors.primary,
+            ),
+          ),
+        ],
       ),
     );
   }

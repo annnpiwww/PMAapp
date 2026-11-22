@@ -140,6 +140,38 @@ void main() {
       );
       expect(await badJsonService.checkLatest(), isNull);
     });
+
+    test(
+      'sends x-app-session header when token present and omits when null or empty',
+      () async {
+        Future<Map<String, String>> runWithToken(String? token) async {
+          late Map<String, String> capturedHeaders;
+          final service = AppUpdateService(
+            clientFactory: () => MockClient((req) async {
+              capturedHeaders = Map<String, String>.from(req.headers);
+              return http.Response(jsonEncode({'update': false}), 200);
+            }),
+            supportedAbisProvider: () async => ['arm64-v8a'],
+            packageInfoProvider: () async => _fakePackageInfo(),
+            cacheDirProvider: () async => tempDir,
+            baseUrlProvider: () => 'https://example.supabase.co',
+            anonKeyProvider: () => 'anon-key',
+            sessionTokenProvider: () => token,
+          );
+          await service.checkLatest();
+          return capturedHeaders;
+        }
+
+        final withToken = await runWithToken('tok');
+        expect(withToken['x-app-session'], 'tok');
+
+        final withNull = await runWithToken(null);
+        expect(withNull.containsKey('x-app-session'), isFalse);
+
+        final withEmpty = await runWithToken('');
+        expect(withEmpty.containsKey('x-app-session'), isFalse);
+      },
+    );
   });
 
   group('AppUpdateService.verify & download resume', () {

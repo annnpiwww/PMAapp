@@ -12,6 +12,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../repositories/auth_repository.dart';
 import 'daily_task_service.dart';
 
 class AppUpdateRelease {
@@ -149,6 +150,7 @@ class AppUpdateService {
     Future<bool> Function(String path)? installApkProvider,
     String Function()? baseUrlProvider,
     String Function()? anonKeyProvider,
+    String? Function()? sessionTokenProvider,
     Future<SharedPreferences> Function()? prefsProvider,
     DateTime Function()? nowProvider,
   }) : _clientFactory = clientFactory ?? http.Client.new,
@@ -163,6 +165,8 @@ class AppUpdateService {
        _installApkProvider = installApkProvider ?? _defaultInstallApk,
        _baseUrlProvider = baseUrlProvider ?? (() => DailyTaskService.baseUrl),
        _anonKeyProvider = anonKeyProvider ?? (() => DailyTaskService.anonKey),
+       _sessionTokenProvider =
+           sessionTokenProvider ?? (() => AuthRepository.instance.sessionToken),
        _prefsProvider = prefsProvider ?? SharedPreferences.getInstance,
        _nowProvider = nowProvider ?? DateTime.now;
 
@@ -192,6 +196,7 @@ class AppUpdateService {
   final Future<bool> Function(String path) _installApkProvider;
   final String Function() _baseUrlProvider;
   final String Function() _anonKeyProvider;
+  final String? Function() _sessionTokenProvider;
   final Future<SharedPreferences> Function() _prefsProvider;
   final DateTime Function() _nowProvider;
 
@@ -323,6 +328,7 @@ class AppUpdateService {
 
       final baseUrl = _baseUrlProvider();
       final anonKey = _anonKeyProvider();
+      final token = _sessionTokenProvider();
       final uri = Uri.parse('$baseUrl/functions/v1/app-releases');
 
       client = _clientFactory();
@@ -333,6 +339,7 @@ class AppUpdateService {
               'Content-Type': 'application/json',
               'apikey': anonKey,
               'Authorization': 'Bearer $anonKey',
+              if (token != null && token.isNotEmpty) 'x-app-session': token,
             },
             body: jsonEncode({
               'action': 'latest',
