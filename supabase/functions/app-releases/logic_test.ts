@@ -2,6 +2,7 @@ import { assertEquals, assertThrows } from 'https://deno.land/std@0.168.0/testin
 import {
   ABI_OFFSET,
   CABANG_VALUES,
+  canDeleteRelease,
   compareSemver,
   decideUpdate,
   isAbi,
@@ -249,4 +250,13 @@ Deno.test('pickRelease picks highest matching release for caller branch or globa
   assertEquals(pickRelease(multiTarget, 'bali')?.version_code, 4156);
   assertEquals(pickRelease(multiTarget, 'ho'), null);
   assertEquals(pickRelease(multiTarget, null), null);
+});
+
+Deno.test('canDeleteRelease allows draft, rolled_back, archived and rejects published or unknown', () => {
+  assertEquals(canDeleteRelease('draft'), true);
+  assertEquals(canDeleteRelease('rolled_back'), true);
+  assertEquals(canDeleteRelease('archived'), true);
+  assertEquals(canDeleteRelease('published'), false);
+  assertEquals(canDeleteRelease('unknown'), false);
+  assertEquals(canDeleteRelease(''), false);
 });

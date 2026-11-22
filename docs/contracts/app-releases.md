@@ -7,7 +7,7 @@ Scope: `pmapp` **prod** (`com.bssparking.timemark.bssparking_timemark`) only. De
 
 ## 1. Authorized Publishers (`RELEASE_PUBLISHER_UIDS`)
 
-Admin actions (`list`, `create_upload`, `publish`, `rollback`, `delete_draft`) require a valid `x-app-session` token whose `session.uid` is listed in the Supabase Edge Function secret `RELEASE_PUBLISHER_UIDS` (comma-separated; empty secret denies all).
+Admin actions (`list`, `create_upload`, `publish`, `rollback`, `set_targets`, `delete_draft`, `delete_release`) require a valid `x-app-session` token whose `session.uid` is listed in the Supabase Edge Function secret `RELEASE_PUBLISHER_UIDS` (comma-separated; empty secret denies all).
 
 - **Active allowlist**:
   - `farhan` (`Farhan Lakoro`, SPV Manado)
@@ -122,10 +122,21 @@ Allows logged-out devices and mandatory updates to check for updates.
 ### 3.6 `delete_draft` (Publisher allowlist)
 
 - **Request**: `{ "action": "delete_draft", "id": "<uuid>" }`
-- Deletes a `draft` row and best-effort removes its storage object.
+- Deletes a `draft` row and best-effort removes its storage object from the matching backend (`r2` or `supabase`).
 - **Response (`200 OK`)**: `{ "deleted": true, "id": "<uuid>" }`
 
-### 3.7 Error Codes
+### 3.7 `delete_release` (Publisher allowlist)
+
+- **Request**: `{ "action": "delete_release", "id": "<uuid>" }`
+- Permanently deletes a `draft`, `rolled_back`, or `archived` row (race-safe delete restricted to those three statuses) and then best-effort removes its APK object from the matching backend (`r2` or `supabase`) when `apk_path` is non-empty. File removal failure is logged without secrets and never restores the row.
+- **Published rule**: `published` rows are **never** deletable. Because per-branch targeting (`target_cabang`) allows multiple `published` rows per ABI to be live simultaneously (e.g., a branch-specific release alongside an all-branch fallback), deleting a published row could strand a branch. Admins must `rollback` ("Tarik rilis") first.
+- **Responses**:
+  - `200 OK`: `{ "deleted": true, "id": "<uuid>", "file_removed": true | false }` (`file_removed` is `true` when there was no file or removal succeeded).
+  - `400`: `{ "error": "invalid", "errors": { "id": "must be a valid UUID" } }`
+  - `404`: `{ "error": "not_found" }`
+  - `409`: `{ "error": "release_is_active" }` (row is `published`) or `{ "error": "not_deletable" }` (other non-deletable status)
+
+### 3.8 Error Codes
 
 | HTTP | `error` | Meaning |
 |---|---|---|
@@ -134,7 +145,7 @@ Allows logged-out devices and mandatory updates to check for updates.
 | `403` | `forbidden` | Valid session not in `RELEASE_PUBLISHER_UIDS` |
 | `404` | `not_found` | Release `id` does not exist |
 | `405` | `method not allowed` | Non-POST/OPTIONS request |
-| `409` | `version_code_must_increase` / `duplicate` / `not_draft` / `not_published` | Monotonic version violation or invalid state transition |
+| `409` | `version_code_must_increase` / `duplicate` / `not_draft` / `not_published` / `not_editable` / `release_is_active` / `not_deletable` | Monotonic version violation or invalid state transition |
 | `413` | `payload too large` | Request body > 32 KB |
 | `422` | `upload_missing` / `hash_mismatch` | Object absent or SHA-256/size mismatch during `publish` |
 | `500` | `server error` | Unexpected backend/storage failure (details logged server-side only) |
@@ -186,5 +197,5 @@ Staged rollout: publish to one branch (e.g. Manado) first, then widen to all.
 - **New uploads**: `create_upload` always inserts `backend = 'r2'` and returns a SigV4 presigned `PUT` URL (`X-Amz-SignedHeaders=host`, TTL 900s) targeting Cloudflare R2 bucket `pmapp` (object key `prod/<version_code>-<abi>.apk`). Clients (`tools/publish_release.mjs`, `AppReleaseAdminService`) `PUT` directly to `upload.signedUrl` unchanged.
 - **Secrets**: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` live only in the `app-releases` Edge Function environment; never shipped to clients or logged.
 - **Downloads (`latest`)**: Routes per row `backend` — `'r2'` returns a presigned R2 `GET` URL (TTL 900s), `'supabase'` keeps returning a Supabase Storage signed URL until retention archives the row. Public `latest` response shape is unchanged and never exposes `backend`.
-- **Verification, retention & draft cleanup**: `publish` downloads bytes from the row's `backend` (`r2` or `supabase`) before SHA-256/size verification. `runRetention` and `delete_draft` delete objects from each row's matching backend (logging and continuing on best-effort delete errors).
+- **Verification, retention & release cleanup**: `publish` downloads bytes from the row's `backend` (`r2` or `supabase`) before SHA-256/size verification. `runRetention`, `delete_draft`, and `delete_release` delete objects from each row's matching backend (logging and continuing on best-effort delete errors).
 

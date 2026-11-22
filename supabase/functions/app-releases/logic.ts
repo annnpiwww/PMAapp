@@ -287,3 +287,9 @@ export function parsePublisherUids(raw: string | undefined): Set<string> {
     .filter((s) => s.length > 0);
   return new Set(uids);
 }
+
+const DELETABLE_STATUSES = new Set(['draft', 'rolled_back', 'archived']);
+
+export function canDeleteRelease(status: string): boolean {
+  return DELETABLE_STATUSES.has(status);
+}

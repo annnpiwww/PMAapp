@@ -7,6 +7,7 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import { verifySession } from '../_shared/session.ts';
 import {
   APP_ID,
+  canDeleteRelease,
   decideUpdate,
   normalizeCabang,
   objectPath,
@@ -57,6 +58,42 @@ async function computeSha256Hex(bytes: Uint8Array): Promise<string> {
     .join('');
 }
 
+async function removeReleaseFile(
+  // deno-lint-ignore no-explicit-any
+  supabase: SupabaseClient<any>,
+  r2: R2Config | null,
+  row: { backend: string | null; apk_path: string | null },
+): Promise<boolean> {
+  if (typeof row.apk_path !== 'string' || row.apk_path.length === 0) {
+    return true;
+  }
+  if (row.backend === 'r2') {
+    if (!r2) {
+      console.error('app-releases removeReleaseFile R2 not configured:', row.apk_path);
+      return false;
+    }
+    try {
+      await r2Delete(r2, row.apk_path);
+      return true;
+    } catch (err) {
+      console.error(
+        'app-releases removeReleaseFile R2 error:',
+        row.apk_path,
+        err instanceof Error ? err.message : 'unknown',
+      );
+      return false;
+    }
+  }
+  const { error: rmErr } = await supabase.storage
+    .from(BUCKET_NAME)
+    .remove([row.apk_path]);
+  if (rmErr) {
+    console.error('app-releases removeReleaseFile storage error:', row.apk_path, rmErr.message);
+    return false;
+  }
+  return true;
+}
+
 // Retention: keep only the latest published APK per ABI in storage; archive older rows.
 async function runRetention(
   // deno-lint-ignore no-explicit-any
@@ -81,44 +118,14 @@ async function runRetention(
     return 0;
   }
 
-  const supabasePathsToRemove: string[] = [];
-  const r2PathsToRemove: string[] = [];
   for (const r of olderRows) {
-    const p = r.apk_path;
-    if (typeof p !== 'string' || p.length === 0 || p === row.apk_path) {
+    if (typeof r.apk_path !== 'string' || r.apk_path.length === 0 || r.apk_path === row.apk_path) {
       continue;
     }
-    if (r.backend === 'r2') {
-      r2PathsToRemove.push(p);
-    } else {
-      supabasePathsToRemove.push(p);
-    }
-  }
-
-  if (supabasePathsToRemove.length > 0) {
-    const { error: rmErr } = await supabase.storage
-      .from(BUCKET_NAME)
-      .remove(supabasePathsToRemove);
-    if (rmErr) {
-      console.error('app-releases retention storage remove error:', rmErr.message);
-    }
-  }
-
-  if (r2PathsToRemove.length > 0) {
-    if (!r2) {
-      console.error('app-releases retention R2 not configured; skipping R2 deletes');
-    } else {
-      for (const key of r2PathsToRemove) {
-        try {
-          await r2Delete(r2, key);
-        } catch (err) {
-          console.error(
-            'app-releases retention R2 delete error:',
-            err instanceof Error ? err.message : 'unknown',
-          );
-        }
-      }
-    }
+    await removeReleaseFile(supabase, r2, {
+      backend: r.backend,
+      apk_path: r.apk_path,
+    });
   }
 
   const olderIds = olderRows.map((r) => r.id);
@@ -618,27 +625,10 @@ export async function handleAppReleases(req: Request): Promise<Response> {
     }
 
     if (typeof row.apk_path === 'string' && row.apk_path.length > 0) {
-      if (row.backend === 'r2') {
-        if (!r2) {
-          console.error('app-releases delete_draft R2 not configured');
-        } else {
-          try {
-            await r2Delete(r2, row.apk_path);
-          } catch (err) {
-            console.error(
-              'app-releases delete_draft R2 delete warning:',
-              err instanceof Error ? err.message : 'unknown',
-            );
-          }
-        }
-      } else {
-        const { error: rmErr } = await supabase.storage
-          .from(BUCKET_NAME)
-          .remove([row.apk_path]);
-        if (rmErr) {
-          console.error('app-releases delete_draft storage remove warning:', rmErr.message);
-        }
-      }
+      await removeReleaseFile(supabase, r2, {
+        backend: row.backend,
+        apk_path: row.apk_path,
+      });
     }
 
     const { error: delErr } = await supabase
@@ -652,6 +642,58 @@ export async function handleAppReleases(req: Request): Promise<Response> {
       return json({ error: 'server error' }, 500);
     }
     return json({ deleted: true, id }, 200);
+  }
+
+  if (action === 'delete_release') {
+    const id = typeof body.id === 'string' ? body.id.trim() : '';
+    if (!UUID_REGEX.test(id)) {
+      return json({ error: 'invalid', errors: { id: 'must be a valid UUID' } }, 400);
+    }
+
+    const { data: row, error: fetchErr } = await supabase
+      .from('app_releases')
+      .select('id, status, backend, apk_path')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchErr) {
+      console.error('app-releases delete_release fetch error:', fetchErr.message);
+      return json({ error: 'server error' }, 500);
+    }
+    if (!row) {
+      return json({ error: 'not_found' }, 404);
+    }
+    if (row.status === 'published') {
+      return json({ error: 'release_is_active' }, 409);
+    }
+    if (!canDeleteRelease(row.status)) {
+      return json({ error: 'not_deletable' }, 409);
+    }
+
+    const { data: deletedRows, error: delErr } = await supabase
+      .from('app_releases')
+      .delete()
+      .eq('id', id)
+      .in('status', ['draft', 'rolled_back', 'archived'])
+      .select('id');
+
+    if (delErr) {
+      console.error('app-releases delete_release delete error:', delErr.message);
+      return json({ error: 'server error' }, 500);
+    }
+    if (!deletedRows || deletedRows.length === 0) {
+      return json({ error: 'release_is_active' }, 409);
+    }
+
+    const fileRemoved =
+      typeof row.apk_path === 'string' && row.apk_path.length > 0
+        ? await removeReleaseFile(supabase, r2, {
+            backend: row.backend,
+            apk_path: row.apk_path,
+          })
+        : true;
+
+    return json({ deleted: true, id, file_removed: fileRemoved }, 200);
   }
 
   return json({ error: 'invalid action' }, 400);
