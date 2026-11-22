@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>U5 - Varian Error Pembaruan | PMApp</title>
+<style>
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-Medium.ttf') format('truetype'); font-weight: 500; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-SemiBold.ttf') format('truetype'); font-weight: 600; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-Bold.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-ExtraBold.ttf') format('truetype'); font-weight: 800; font-display: swap; }
+
+  :root {
+    --canvas: #FFFFFF;
+    --board-bg: #EEF2F8;
+    --surface-tint: #F5F7FB;
+    --ink: #000000;
+    --band: #1A428A;
+    --band-raise: #2A549C;
+    --band-line: #8EA3D3;
+    --band-caption: #D3DDF2;
+    --band-track: #40649F;
+    --body: #5E5E5E;
+    --mute: #8A8A8A;
+    --soft: #EFEFEF;
+    --hairline: #E2E2E2;
+    --signal: #FF6500;
+    --signal-text: #B34700;
+    --danger: #C81E1E;
+    --danger-bg: #FBE9E9;
+    --primary-bg: #1A428A;
+    --primary-ink: #FFFFFF;
+    --primary-pressed: #143672;
+    --secondary-border: #1A428A;
+    --secondary-ink: #1A428A;
+    --focus-ring: #000000;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --dur-press: 100ms;
+    --dur-swap: 180ms;
+  }
+
+  [data-theme="dark"] {
+    --canvas: #141414;
+    --board-bg: #0A0A0A;
+    --surface-tint: #1F1F1F;
+    --ink: #FFFFFF;
+    --band: #000000;
+    --band-raise: #1F1F1F;
+    --band-line: #6A6A6A;
+    --band-caption: #B3B3B3;
+    --band-track: #2E2E2E;
+    --body: #B3B3B3;
+    --mute: #8A8A8A;
+    --soft: #262626;
+    --hairline: #2E2E2E;
+    --signal: #FF6500;
+    --signal-text: #FF8A3D;
+    --danger: #FF9B9B;
+    --danger-bg: #3A1616;
+    --primary-bg: #FFFFFF;
+    --primary-ink: #000000;
+    --primary-pressed: #E2E2E2;
+    --secondary-border: #FFFFFF;
+    --secondary-ink: #FFFFFF;
+    --focus-ring: #FFFFFF;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Figtree', system-ui, -apple-system, sans-serif;
+    background: var(--board-bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+
+  button { cursor: pointer; font-family: inherit; }
+  button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+  .board {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 16px 0 28px;
+    display: grid;
+    gap: 20px;
+  }
+
+  .board-head {
+    padding: 0 20px;
+  }
+  .board-head h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+  .board-head p { font-size: 13px; color: var(--body); margin-top: 3px; }
+
+  .variant-label {
+    padding: 0 20px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--body);
+  }
+
+  .sheet-card {
+    background: var(--canvas);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    animation: card-swap var(--dur-swap) var(--ease-out) both;
+  }
+
+  @keyframes card-swap {
+    from { opacity: 0.92; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .sheet-band {
+    background: var(--band);
+    color: #FFFFFF;
+    padding: 16px 20px;
+  }
+
+  .band-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .signal-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background: var(--signal);
+    border: 2px solid #FFFFFF;
+    color: #000000;
+    font-size: 15px;
+    font-weight: 800;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .danger-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background: var(--danger-bg);
+    border: 2px solid var(--danger);
+    color: var(--danger);
+    font-size: 15px;
+    font-weight: 800;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .sheet-title { font-size: 20px; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em; }
+  .sheet-sub { font-size: 13px; color: var(--band-caption); margin-top: 4px; font-weight: 500; }
+
+  .version-ticket {
+    margin-top: 12px;
+    background: var(--band-raise);
+    border: 1.5px solid var(--band-line);
+    border-radius: 12px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .ver-flow { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; }
+  .ver-old { color: var(--band-caption); font-weight: 600; }
+
+  .status-pill-band {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .pill-warn { background: var(--signal); color: #000000; }
+  .pill-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); }
+
+  .progress-ticket {
+    margin-top: 12px;
+    background: var(--band-raise);
+    border: 1.5px solid var(--band-line);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .pt-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .pt-pct { font-size: 20px; font-weight: 800; color: #FFFFFF; }
+  .pt-track { height: 7px; border-radius: 999px; background: var(--band-track); overflow: hidden; }
+  .pt-fill { height: 100%; width: 100%; background: var(--signal); transform-origin: left center; transform: scaleX(0.46); }
+  .pt-meta { margin-top: 8px; display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--band-caption); }
+
+  .perf-edge {
+    height: 10px;
+    background: var(--band);
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+  .perf-edge i {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--canvas);
+    transform: translateY(5px);
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .sheet-body { padding: 16px 20px 20px; }
+  .err-copy { font-size: 14px; line-height: 20px; color: var(--body); margin-bottom: 14px; }
+
+  .cta-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .btn {
+    width: 100%;
+    min-height: 48px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out);
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { border: 0; background: var(--primary-bg); color: var(--primary-ink); min-height: 52px; font-size: 16px; }
+  .btn-primary:hover { background: var(--primary-pressed); }
+  .btn-secondary { background: transparent; border: 1.5px solid var(--secondary-border); color: var(--secondary-ink); font-size: 14px; font-weight: 600; }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 374px) {
+    .board-head, .variant-label, .sheet-band, .sheet-body { padding-left: 16px; padding-right: 16px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 1ms !important;
+      transition-duration: 1ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="board">
+    <header class="board-head">
+      <h1>Varian error pembaruan</h1>
+      <p>Semua kondisi gagal menjaga data tetap aman dan memberi langkah lanjut yang jelas.</p>
+    </header>
+
+    <!-- Variant 5A: No internet -->
+    <div class="variant-label">5A · Tidak ada koneksi internet</div>
+    <section class="sheet-card" aria-labelledby="err-net">
+      <div class="sheet-band">
+        <div class="band-row">
+          <div class="signal-dot" aria-hidden="true">!</div>
+          <div>
+            <h2 class="sheet-title" id="err-net">Tidak ada koneksi internet</h2>
+            <p class="sheet-sub">Gagal memeriksa atau memulai unduhan</p>
+          </div>
+        </div>
+        <div class="version-ticket">
+          <div class="ver-flow">
+            <span class="ver-old">v2.0.141</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+            <span class="sr-only">ke</span>
+            <span>v2.0.142</span>
+          </div>
+          <span class="status-pill-band pill-warn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+            Offline
+          </span>
+        </div>
+      </div>
+      <div class="perf-edge" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="sheet-body">
+        <p class="err-copy">Pastikan data seluler atau Wi-Fi aktif lalu ketuk tombol di bawah untuk mengulang.</p>
+        <div class="cta-row">
+          <button class="btn btn-primary" type="button">Coba lagi</button>
+          <button class="btn btn-secondary" type="button">Nanti</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Variant 5B: Download interrupted (resumable) -->
+    <div class="variant-label">5B · Unduhan terputus (bisa dilanjutkan)</div>
+    <section class="sheet-card" aria-labelledby="err-resume">
+      <div class="sheet-band">
+        <div class="band-row">
+          <div class="signal-dot" aria-hidden="true">!</div>
+          <div>
+            <h2 class="sheet-title" id="err-resume">Unduhan terputus</h2>
+            <p class="sheet-sub">Progres tersimpan, tidak perlu mengulang dari awal</p>
+          </div>
+        </div>
+        <div class="progress-ticket" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="46" aria-label="Progres tersimpan 46 persen, 11,4 dari 24,9 MB">
+          <div class="pt-top">
+            <div class="ver-flow">
+              <span class="ver-old">v2.0.141</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+              <span class="sr-only">ke</span>
+              <span>v2.0.142</span>
+            </div>
+            <span class="pt-pct">46%</span>
+          </div>
+          <div class="pt-track"><div class="pt-fill"></div></div>
+          <div class="pt-meta">
+            <span>11,4 / 24,9 MB tersimpan</span>
+            <span>Sisa 13,5 MB</span>
+          </div>
+        </div>
+      </div>
+      <div class="perf-edge" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="sheet-body">
+        <p class="err-copy">Koneksi terputus di tengah pengunduhan. Lanjutkan dari bagian terakhir yang tersimpan.</p>
+        <div class="cta-row">
+          <button class="btn btn-primary" type="button">Lanjutkan unduhan</button>
+          <button class="btn btn-secondary" type="button">Batalkan</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Variant 5C: Verification failed -->
+    <div class="variant-label">5C · Pemeriksaan file gagal (file rusak)</div>
+    <section class="sheet-card" aria-labelledby="err-corrupt">
+      <div class="sheet-band">
+        <div class="band-row">
+          <div class="danger-dot" aria-hidden="true">×</div>
+          <div>
+            <h2 class="sheet-title" id="err-corrupt">File pembaruan rusak</h2>
+            <p class="sheet-sub">Pemeriksaan keamanan file tidak cocok</p>
+          </div>
+        </div>
+        <div class="version-ticket">
+          <div class="ver-flow">
+            <span class="ver-old">v2.0.141</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+            <span class="sr-only">ke</span>
+            <span>v2.0.142</span>
+          </div>
+          <span class="status-pill-band pill-danger">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            File rusak
+          </span>
+        </div>
+      </div>
+      <div class="perf-edge" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="sheet-body">
+        <p class="err-copy">File yang terunduh tidak utuh sehingga tidak bisa dipasang. Unduh ulang dari awal agar aman.</p>
+        <div class="cta-row">
+          <button class="btn btn-primary" type="button">Unduh ulang</button>
+          <button class="btn btn-secondary" type="button">Nanti</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Variant 5D: Storage full -->
+    <div class="variant-label">5D · Penyimpanan HP penuh</div>
+    <section class="sheet-card" aria-labelledby="err-storage">
+      <div class="sheet-band">
+        <div class="band-row">
+          <div class="signal-dot" aria-hidden="true">!</div>
+          <div>
+            <h2 class="sheet-title" id="err-storage">Penyimpanan penuh</h2>
+            <p class="sheet-sub">Ruang kosong di HP tidak mencukupi</p>
+          </div>
+        </div>
+        <div class="version-ticket">
+          <div class="ver-flow">
+            <span class="ver-old">v2.0.141</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+            <span class="sr-only">ke</span>
+            <span>v2.0.142</span>
+          </div>
+          <span class="status-pill-band pill-warn">Butuh 24,9 MB</span>
+        </div>
+      </div>
+      <div class="perf-edge" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="sheet-body">
+        <p class="err-copy">Kosongkan sedikit ruang di galeri atau file unduhan, lalu coba unduh pembaruan lagi.</p>
+        <div class="cta-row">
+          <button class="btn btn-primary" type="button">Coba lagi</button>
+          <button class="btn btn-secondary" type="button">Nanti</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    if (new URLSearchParams(location.search).get('theme') === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  </script>
+</body>
+</html>

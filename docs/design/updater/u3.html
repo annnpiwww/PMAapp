@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>U3 - Izin Pemasangan &amp; Siap Dipasang | PMApp</title>
+<style>
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-Medium.ttf') format('truetype'); font-weight: 500; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-SemiBold.ttf') format('truetype'); font-weight: 600; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-Bold.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-ExtraBold.ttf') format('truetype'); font-weight: 800; font-display: swap; }
+
+  :root {
+    --canvas: #FFFFFF;
+    --board-bg: #EEF2F8;
+    --surface-tint: #F5F7FB;
+    --ink: #000000;
+    --band: #1A428A;
+    --band-raise: #2A549C;
+    --band-line: #8EA3D3;
+    --band-caption: #D3DDF2;
+    --body: #5E5E5E;
+    --mute: #8A8A8A;
+    --soft: #EFEFEF;
+    --hairline: #E2E2E2;
+    --ok: #0E8345;
+    --ok-text: #0E8345;
+    --signal: #FF6500;
+    --primary-bg: #1A428A;
+    --primary-ink: #FFFFFF;
+    --primary-pressed: #143672;
+    --secondary-border: #1A428A;
+    --secondary-ink: #1A428A;
+    --scrim: rgba(10, 22, 46, 0.58);
+    --sheet-shadow: 0 -8px 28px rgba(10, 22, 46, 0.22);
+    --focus-ring: #000000;
+    --android-card: #F3F5F9;
+    --android-track: #1A428A;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --dur-press: 100ms;
+    --dur-sheet: 220ms;
+  }
+
+  [data-theme="dark"] {
+    --canvas: #141414;
+    --board-bg: #0A0A0A;
+    --surface-tint: #1F1F1F;
+    --ink: #FFFFFF;
+    --band: #000000;
+    --band-raise: #1F1F1F;
+    --band-line: #6A6A6A;
+    --band-caption: #B3B3B3;
+    --body: #B3B3B3;
+    --mute: #8A8A8A;
+    --soft: #262626;
+    --hairline: #2E2E2E;
+    --ok: #0E8345;
+    --ok-text: #2FB36A;
+    --primary-bg: #FFFFFF;
+    --primary-ink: #000000;
+    --primary-pressed: #E2E2E2;
+    --secondary-border: #FFFFFF;
+    --secondary-ink: #FFFFFF;
+    --scrim: rgba(0, 0, 0, 0.72);
+    --sheet-shadow: 0 -8px 28px rgba(0, 0, 0, 0.56);
+    --focus-ring: #FFFFFF;
+    --android-card: #1F1F1F;
+    --android-track: #2FB36A;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Figtree', system-ui, -apple-system, sans-serif;
+    background: var(--board-bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+
+  button { cursor: pointer; font-family: inherit; }
+  button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+  .stack {
+    max-width: 600px;
+    margin: 0 auto;
+    display: grid;
+    gap: 20px;
+    padding-bottom: 20px;
+  }
+
+  .state-label {
+    padding: 12px 20px 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--body);
+  }
+
+  .phone-frame {
+    position: relative;
+    background: var(--canvas);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
+  }
+
+  .scrim-top {
+    height: 112px;
+    background: var(--scrim);
+    position: relative;
+  }
+  .status-bar {
+    padding: 10px 20px 0;
+    color: #FFFFFF;
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .sheet {
+    margin-top: -28px;
+    position: relative;
+    z-index: 2;
+    background: var(--canvas);
+    border-radius: 24px 24px 0 0;
+    overflow: hidden;
+    box-shadow: var(--sheet-shadow);
+    animation: sheet-enter var(--dur-sheet) var(--ease-out) both;
+  }
+
+  @keyframes sheet-enter {
+    from { opacity: 0.92; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .sheet-band {
+    background: var(--band);
+    color: #FFFFFF;
+    padding: 10px 20px 16px;
+  }
+  .handle {
+    width: 38px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--band-line);
+    margin: 0 auto 14px;
+  }
+
+  .band-head-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .ok-ring-badge {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: var(--ok);
+    border: 2px solid #FFFFFF;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+    animation: check-pop var(--dur-sheet) var(--ease-out) both;
+  }
+
+  @keyframes check-pop {
+    from { opacity: 0.85; transform: scale(0.94); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .perm-ring-badge {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: var(--band-raise);
+    border: 1.5px solid var(--band-line);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .sheet-title { font-size: 22px; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; }
+  .sheet-sub { margin-top: 4px; font-size: 13px; color: var(--band-caption); font-weight: 500; }
+
+  .version-ticket {
+    margin-top: 14px;
+    background: var(--band-raise);
+    border: 1.5px solid var(--band-line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .ver-flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .ver-old { font-size: 14px; font-weight: 600; color: var(--band-caption); }
+  .ver-new { font-size: 19px; font-weight: 800; color: #FFFFFF; }
+
+  .verify-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--ok);
+    border: 1.5px solid #FFFFFF;
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .perf-edge {
+    height: 10px;
+    background: var(--band);
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+  .perf-edge i {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--canvas);
+    transform: translateY(5px);
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .sheet-body { padding: 18px 20px 22px; }
+  .why-copy { font-size: 14px; line-height: 20px; color: var(--body); margin-bottom: 14px; }
+
+  /* Literal Android settings toggle illustration */
+  .android-illust {
+    background: var(--android-card);
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .android-illust-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--body);
+    margin-bottom: 10px;
+  }
+  .android-toggle-row {
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .android-toggle-label { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .android-toggle-sub { font-size: 12px; color: var(--body); margin-top: 2px; }
+
+  .android-switch {
+    width: 48px;
+    height: 28px;
+    border-radius: 999px;
+    background: var(--android-track);
+    padding: 3px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .android-switch-knob {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: #FFFFFF;
+  }
+
+  /* 3 short steps */
+  .steps {
+    list-style: none;
+    display: grid;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .steps li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--ink);
+  }
+  .step-num {
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: var(--soft);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 800;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+
+  /* Ready check card */
+  .ready-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface-tint);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+  .ready-row-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--ok);
+    color: #FFFFFF;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+  .ready-row-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .ready-row-sub { font-size: 12px; color: var(--body); margin-top: 2px; }
+
+  .cta-stack { display: grid; gap: 10px; }
+
+  .btn {
+    width: 100%;
+    min-height: 52px;
+    border-radius: 999px;
+    font-size: 16px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out);
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { border: 0; background: var(--primary-bg); color: var(--primary-ink); }
+  .btn-primary:hover { background: var(--primary-pressed); }
+  .btn-secondary {
+    min-height: 48px;
+    background: transparent;
+    border: 1.5px solid var(--secondary-border);
+    color: var(--secondary-ink);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .gesture-bar {
+    width: 134px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--ink);
+    opacity: 0.9;
+    margin: 18px auto 0;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 374px) {
+    .sheet-band, .sheet-body { padding-left: 16px; padding-right: 16px; }
+    .sheet-title { font-size: 20px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 1ms !important;
+      transition-duration: 1ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="stack">
+    <!-- Variant 3A: First-time install permission explainer -->
+    <div class="state-label">3A · Pertama kali memasang (izin belum aktif)</div>
+    <section class="phone-frame" aria-labelledby="u3a-title">
+      <div class="scrim-top" aria-hidden="true">
+        <div class="status-bar"><span>09:41</span><span>4G</span></div>
+      </div>
+      <div class="sheet">
+        <div class="sheet-band">
+          <div class="handle" aria-hidden="true"></div>
+          <div class="band-head-row">
+            <div class="perm-ring-badge" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+            </div>
+            <div>
+              <h1 class="sheet-title" id="u3a-title">Izinkan pasang pembaruan</h1>
+              <p class="sheet-sub">Cukup dilakukan sekali saja di HP ini</p>
+            </div>
+          </div>
+
+          <div class="version-ticket">
+            <div class="ver-flow">
+              <span class="ver-old">v2.0.141</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+              <span class="sr-only">ke</span>
+              <span class="ver-new">v2.0.142</span>
+            </div>
+            <span class="verify-pill">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+              File aman
+            </span>
+          </div>
+        </div>
+        <div class="perf-edge" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+        <div class="sheet-body">
+          <p class="why-copy">Android meminta izin sebelum PMApp bisa memasang pembaruan langsung tanpa lewat Play Store.</p>
+
+          <div class="android-illust" role="img" aria-label="Ilustrasi pengaturan Android: aktifkan tombol Izinkan dari sumber ini untuk PMApp">
+            <div class="android-illust-head">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+              <span>Pengaturan Android · Pasang aplikasi tidak dikenal</span>
+            </div>
+            <div class="android-toggle-row">
+              <div>
+                <div class="android-toggle-label">Izinkan dari sumber ini</div>
+                <div class="android-toggle-sub">PMApp</div>
+              </div>
+              <div class="android-switch" aria-hidden="true"><div class="android-switch-knob"></div></div>
+            </div>
+          </div>
+
+          <ol class="steps">
+            <li><span class="step-num" aria-hidden="true">1</span><span>Ketuk <strong>Buka pengaturan</strong> di bawah.</span></li>
+            <li><span class="step-num" aria-hidden="true">2</span><span>Aktifkan tombol <strong>Izinkan dari sumber ini</strong>.</span></li>
+            <li><span class="step-num" aria-hidden="true">3</span><span>Kembali ke PMApp lalu ketuk <strong>Pasang</strong>.</span></li>
+          </ol>
+
+          <div class="cta-stack">
+            <button class="btn btn-primary" type="button">Buka pengaturan</button>
+            <button class="btn btn-secondary" type="button">Nanti</button>
+          </div>
+          <div class="gesture-bar" aria-hidden="true"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Variant 3B: Ready to install after verification -->
+    <div class="state-label">3B · Setelah terverifikasi dan izin aktif</div>
+    <section class="phone-frame" aria-labelledby="u3b-title">
+      <div class="scrim-top" aria-hidden="true">
+        <div class="status-bar"><span>09:42</span><span>4G</span></div>
+      </div>
+      <div class="sheet">
+        <div class="sheet-band">
+          <div class="handle" aria-hidden="true"></div>
+          <div class="band-head-row">
+            <div class="ok-ring-badge" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+            <div>
+              <h2 class="sheet-title" id="u3b-title">Siap dipasang</h2>
+              <p class="sheet-sub">Unduhan dan pemeriksaan file sudah selesai</p>
+            </div>
+          </div>
+
+          <div class="version-ticket">
+            <div class="ver-flow">
+              <span class="ver-old">v2.0.141</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+              <span class="sr-only">ke</span>
+              <span class="ver-new">v2.0.142</span>
+            </div>
+            <span class="verify-pill">24,9 MB</span>
+          </div>
+        </div>
+        <div class="perf-edge" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+        <div class="sheet-body">
+          <div class="ready-row">
+            <div class="ready-row-icon" aria-hidden="true">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+            <div>
+              <div class="ready-row-title">Keaslian file terverifikasi</div>
+              <div class="ready-row-sub">Setelah mengetuk tombol, pilih Pasang pada dialog sistem Android.</div>
+            </div>
+          </div>
+
+          <div class="cta-stack">
+            <button class="btn btn-primary" type="button">Pasang sekarang</button>
+            <button class="btn btn-secondary" type="button">Nanti</button>
+          </div>
+          <div class="gesture-bar" aria-hidden="true"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    if (new URLSearchParams(location.search).get('theme') === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  </script>
+</body>
+</html>

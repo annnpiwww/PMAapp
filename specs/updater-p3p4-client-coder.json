@@ -1,0 +1,46 @@
+{
+  "task_type": "COMPLEX",
+  "target_worker": "coder",
+  "tukang_model": "gemini-4-neon-high",
+  "objective": "PMApp in-app updater P3 (technician update flow U1-U5) + P4 (publisher release screens A1-A2) in Flutter + Android native, matching the APPROVED HTML mockups pixel-faithfully (Design Fidelity Mode), wired to the live app-releases edge function. No release build, no version bump.",
+  "allowed_files": [
+    "lib/data/services/app_update_service.dart",
+    "lib/data/services/app_release_admin_service.dart",
+    "lib/features/updater/",
+    "lib/features/splash/screens/splash_screen.dart",
+    "lib/features/camera/widgets/camera_drawer.dart",
+    "lib/main.dart",
+    "android/app/src/main/kotlin/com/bssparking/timemark/bssparking_timemark/MainActivity.kt",
+    "android/app/src/main/AndroidManifest.xml",
+    "android/app/src/main/res/xml/provider_paths.xml",
+    "pubspec.yaml",
+    "pubspec.lock",
+    "test/updater/",
+    "docs/contracts/updater-client.md"
+  ],
+  "required_changes": [
+    "GROUND TRUTH (read first, fully): docs/contracts/app-releases.md (live API; baseline 2.0.141 published: arm64 4154, arm32 3154), docs/updater/audit.md (sections 3 and 5: http package not supabase_flutter; x-app-session header pattern in lib/data/services/daily_task_service.dart:200-216 and location_service.dart:1298; anon key + base URL resolution in daily_task_service.dart:47-49,160-216; FileProvider authority ${applicationId}.direct_share_provider with provider_paths.xml restricted to share/; REQUEST_INSTALL_PACKAGES absent; minSdk 24 target 36; packages present http, crypto, path_provider, package_info_plus, permission_handler). APPROVED design: docs/design/updater/*.html + README.md (data mapping, states, motion, Given/When/Then) + png/. Visual authority docs/design/DESIGN.md; reuse existing theme tokens (no raw hex in widgets).",
+    "NATIVE (MainActivity.kt, reuse the existing MethodChannel style there; add a channel or methods): getSupportedAbis -> Build.SUPPORTED_ABIS list; canInstallPackages -> packageManager.canRequestPackageInstalls() (API 26+, true below); openInstallPermissionSettings -> Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES with package: uri; installApk(path) -> FileProvider uri + ACTION_VIEW (or ACTION_INSTALL_PACKAGE) with application/vnd.android.package-archive + FLAG_GRANT_READ_URI_PERMISSION + NEW_TASK; readApkInfo(path) -> packageManager.getPackageArchiveInfo -> {packageName, versionName, versionCode (longVersionCode on 28+)} for A2. Manifest: add <uses-permission android:name=\"android.permission.REQUEST_INSTALL_PACKAGES\"/>. provider_paths.xml: add <cache-path name=\"apk_updates\" path=\"updates/\"/> (keep existing entries). Check Context7 (Android/Flutter docs) for the install intent on API 34-36; prefer native over a new plugin. Only add a pub dependency for the A2 file picker if no existing package can pick a file (check pubspec first, e.g. file_picker/image_picker already present); justify in the contract doc.",
+    "AppUpdateService (lib/data/services/app_update_service.dart): checkLatest() -> POST app-releases {action:'latest', abi:<first of SUPPORTED_ABIS in [arm64-v8a, armeabi-v7a, x86_64]>, current_code:int.parse(PackageInfo.buildNumber), current_version:PackageInfo.version}; returns null on no update or any network error (never block app start on failure; timeout 8s). download(release, url) -> Stream<DownloadProgress{received,total,bytesPerSec,eta}> using http.Client.send streaming to <cache>/updates/pmapp-<version_code>.apk.part with HTTP Range resume when .part exists (signed URL may expire after 900s: on 400/403 re-call checkLatest for a fresh url and resume); speed = moving average over last 3s. verify(file) -> size == size_bytes AND sha256 == release.sha256 (package:crypto, chunked, off the UI isolate if > 5MB e.g. compute/Isolate.run); on mismatch delete file -> U5 'File pembaruan rusak'. Rename .part to .apk only after verify. Storage full: catch FileSystemException ENOSPC -> U5 storage state. Delete stale updates/*.apk older than current version on start. Persist 'Nanti' dismissal per version_code in SharedPreferences for 12h (optional updates only; mandatory ignores it).",
+    "U1-U5 screens/sheets in lib/features/updater/ matching the approved HTML (layout, band/ticket element with v<current> -> v<new>, progress inside band, numeric percent + 'x,x / y,y MB' + speed + estimasi, steps list, permission explainer with toggle illustration, ready state 'Pasang sekarang', error variants with exact copy from the HTML). Indonesian number format (comma decimal). Mandatory (response.mandatory true) = full-screen route U4 with PopScope(canPop:false), no Nanti, user cannot reach the rest of the app until updated (still allow retry). Optional = bottom sheet U1 over the current screen. Motion per README (MOTION 1), respect MediaQuery.disableAnimationsOf. Targets >= 48dp, text scale 1.3 without overflow at 360dp.",
+    "TRIGGERS: run checkLatest after splash finishes routing (lib/features/splash/screens/splash_screen.dart, after WhatsNew logic, do not delay splash) and on AppLifecycleState.resumed throttled to once per 30 min (add a lightweight observer in lib/main.dart or the updater feature; do not interfere with camera screens' own observers). Do not show while a camera capture screen is active if easy to detect; otherwise show on next resume. Works logged out (latest needs no session).",
+    "Install flow: after verify, if !canInstallPackages -> U3 permission explainer -> openInstallPermissionSettings -> on resume re-check -> ready state; then installApk. If user cancels the system installer, stay on ready state with 'Pasang sekarang' again.",
+    "P4 AppReleaseAdminService (lib/data/services/app_release_admin_service.dart): list / createUpload / uploadFile (PUT to signedUrl with Content-Type application/vnd.android.package-archive, streamed with progress) / publish / rollback / deleteDraft, all with x-app-session (same token source as other services). A1 'Rilis aplikasi' screen + A2 upload form + dialogs per approved HTML: entry ListTile in lib/features/camera/widgets/camera_drawer.dart inside the existing isSpv block (line ~155); screen calls list on open; on 403 show 'Akun ini belum punya akses rilis.' (allowlist is server-side, currently only usr_farhan). A2: pick .apk, readApkInfo; reject if packageName != com.bssparking.timemark.bssparking_timemark. ABI: readApkInfo scans the APK zip entries natively (java.util.zip.ZipFile) for 'lib/arm64-v8a/', 'lib/armeabi-v7a/', 'lib/x86_64/'; exactly one must be present (universal APK with several = reject 'Unggah APK per arsitektur, bukan universal.'); base_version_code = versionCode - offset(abi) and must be > 0. Compute sha256 + size on device (isolate), create_upload, upload with progress, publish after confirm dialog. Show server 400 field errors and 409 'Nomor versi harus lebih tinggi dari rilis sebelumnya.' Rollback dialog copy exactly as in a2.html.",
+    "TESTS test/updater/ (deterministic, no network): AppUpdateService abi pick order; checkLatest maps response + returns null on 500/timeout/invalid JSON (inject http.Client mock via constructor param); verify passes/fails on sha/size; resume sends Range header from .part length; Nanti suppression 12h ignored when mandatory; widget tests: U4 has no Nanti and PopScope blocks back; U2 shows percent + MB text; A2 shows 409 copy. Use existing test helpers/patterns in test/.",
+    "docs/contracts/updater-client.md: Dart service APIs, native channel methods + args, file locations, triggers, state machine (idle -> available -> downloading -> verifying -> needsPermission -> ready -> installing / error kinds), and how to test on device (publish a 2.0.142 later with tools/publish_release.mjs)."
+  ],
+  "acceptance_criteria": [
+    "flutter analyze clean for touched files; test/updater/ green; existing tests that touch splash/drawer still green (run them).",
+    "flutter build apk --debug --target-platform android-arm64 succeeds (compile check only, do not distribute).",
+    "Screens match approved HTML (screenshots of U1, U2, U4, A1 rendered via widget tests/goldens or a debug run saved to docs/screenshots/updater/, light, 390 width) and copy has no SHA/ABI/APK/versionCode on U1-U5.",
+    "Manifest has REQUEST_INSTALL_PACKAGES; provider_paths has updates/ cache path; no service role or secrets in client."
+  ],
+  "verification_command": "flutter analyze lib/data/services/app_update_service.dart lib/data/services/app_release_admin_service.dart lib/features/updater lib/features/splash lib/features/camera/widgets/camera_drawer.dart lib/main.dart && flutter test test/updater/",
+  "constraints": [
+    "Touch ONLY allowed_files; if another file is truly required, report BLOCKED with path + reason.",
+    "Design Fidelity Mode: do not flatten the approved band/ticket, depth, or motion.",
+    "No version bump, no release build, no APK distribution, no commit.",
+    "Never print secrets/tokens. No em/en dash in user-facing copy.",
+    "Last command MUST be orca-bridge report DONE --task <id> \"...\" (or BLOCKED/QUESTION)."
+  ]
+}

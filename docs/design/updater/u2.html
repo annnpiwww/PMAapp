@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>U2 - Mengunduh Pembaruan | PMApp</title>
+<style>
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-Medium.ttf') format('truetype'); font-weight: 500; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-SemiBold.ttf') format('truetype'); font-weight: 600; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-Bold.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-ExtraBold.ttf') format('truetype'); font-weight: 800; font-display: swap; }
+
+  :root {
+    --canvas: #FFFFFF;
+    --surface-tint: #F5F7FB;
+    --ink: #000000;
+    --band: #1A428A;
+    --band-raise: #2A549C;
+    --band-line: #8EA3D3;
+    --band-caption: #D3DDF2;
+    --band-track: #40649F;
+    --body: #5E5E5E;
+    --mute: #8A8A8A;
+    --soft: #EFEFEF;
+    --hairline: #E2E2E2;
+    --secondary-border: #1A428A;
+    --secondary-ink: #1A428A;
+    --scrim: rgba(10, 22, 46, 0.58);
+    --sheet-shadow: 0 -8px 28px rgba(10, 22, 46, 0.24);
+    --focus-ring: #000000;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --dur-press: 100ms;
+    --dur-sheet: 220ms;
+  }
+
+  [data-theme="dark"] {
+    --canvas: #141414;
+    --surface-tint: #1F1F1F;
+    --ink: #FFFFFF;
+    --band: #000000;
+    --band-raise: #1F1F1F;
+    --band-line: #6A6A6A;
+    --band-caption: #B3B3B3;
+    --band-track: #2E2E2E;
+    --body: #B3B3B3;
+    --mute: #8A8A8A;
+    --soft: #262626;
+    --hairline: #2E2E2E;
+    --secondary-border: #FFFFFF;
+    --secondary-ink: #FFFFFF;
+    --scrim: rgba(0, 0, 0, 0.72);
+    --sheet-shadow: 0 -8px 28px rgba(0, 0, 0, 0.56);
+    --focus-ring: #FFFFFF;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Figtree', system-ui, -apple-system, sans-serif;
+    background: var(--canvas);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+
+  button { cursor: pointer; font-family: inherit; }
+  button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+  .viewport {
+    position: relative;
+    min-height: 100dvh;
+    max-width: 600px;
+    margin: 0 auto;
+    background: var(--canvas);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .bg-home {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+    user-select: none;
+  }
+  .status-bar {
+    height: 36px;
+    padding: 10px 20px 0;
+    background: var(--band);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .bg-band { background: var(--band); color: #FFFFFF; padding: 14px 20px 20px; }
+  .bg-caption { font-size: 13px; color: var(--band-caption); font-weight: 500; }
+  .bg-hero { display: flex; align-items: baseline; gap: 10px; margin: 6px 0 10px; }
+  .bg-hero strong { font-size: 34px; font-weight: 800; line-height: 1; }
+  .bg-hero span { font-size: 15px; font-weight: 700; }
+
+  .perf-edge {
+    height: 10px;
+    background: var(--band);
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+  .perf-edge i {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--canvas);
+    transform: translateY(5px);
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .scrim {
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    background: var(--scrim);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .sheet {
+    background: var(--canvas);
+    border-radius: 24px 24px 0 0;
+    overflow: hidden;
+    box-shadow: var(--sheet-shadow);
+    animation: sheet-enter var(--dur-sheet) var(--ease-out) both;
+  }
+
+  @keyframes sheet-enter {
+    from { opacity: 0.92; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .sheet-band {
+    background: var(--band);
+    color: #FFFFFF;
+    padding: 10px 20px 18px;
+  }
+
+  .handle {
+    width: 38px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--band-line);
+    margin: 0 auto 14px;
+  }
+
+  .sheet-title { font-size: 22px; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; }
+  .sheet-sub { margin-top: 4px; font-size: 13px; color: var(--band-caption); font-weight: 500; }
+
+  /* Signature ticket cell holding version transition + progress bar */
+  .progress-ticket {
+    margin-top: 14px;
+    background: var(--band-raise);
+    border: 1.5px solid var(--band-line);
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  .ticket-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .ver-flow { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .ver-old { font-size: 14px; font-weight: 600; color: var(--band-caption); }
+  .ver-new { font-size: 18px; font-weight: 800; color: #FFFFFF; }
+
+  .pct-num {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1;
+    color: #FFFFFF;
+  }
+
+  .progress-track {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--band-track);
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 100%;
+    border-radius: 999px;
+    background: #FFFFFF;
+    transform-origin: left center;
+    transform: scaleX(0.48);
+    transition: transform var(--dur-sheet) var(--ease-out);
+  }
+
+  .ticket-meta {
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--band-caption);
+  }
+
+  .sheet-body { padding: 18px 20px 24px; }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .stat-cell {
+    background: var(--surface-tint);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+
+  .stat-label { font-size: 12px; font-weight: 600; color: var(--body); }
+  .stat-value { font-size: 15px; font-weight: 700; color: var(--ink); margin-top: 2px; }
+
+  .steps {
+    list-style: none;
+    margin-bottom: 18px;
+  }
+
+  .step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .step-item:last-child { border-bottom: 0; }
+
+  .step-mark {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .step-mark.active {
+    background: var(--secondary-ink);
+    color: var(--canvas);
+  }
+
+  .step-mark.wait {
+    border: 2px solid var(--mute);
+    color: var(--body);
+  }
+
+  .step-title { font-size: 15px; font-weight: 600; line-height: 20px; }
+  .step-meta { font-size: 13px; color: var(--body); margin-top: 2px; }
+
+  .hint-note {
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--body);
+    margin-bottom: 16px;
+  }
+
+  .btn {
+    width: 100%;
+    min-height: 48px;
+    border-radius: 999px;
+    background: transparent;
+    border: 1.5px solid var(--secondary-border);
+    color: var(--secondary-ink);
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform var(--dur-press) var(--ease-out);
+  }
+  .btn:active { transform: scale(0.97); }
+
+  .gesture-bar {
+    width: 134px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--ink);
+    opacity: 0.9;
+    margin: 18px auto 0;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 374px) {
+    .sheet-band, .sheet-body { padding-left: 16px; padding-right: 16px; }
+    .sheet-title { font-size: 20px; }
+    .pct-num { font-size: 28px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 1ms !important;
+      transition-duration: 1ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="viewport">
+    <div class="bg-home" aria-hidden="true">
+      <div class="status-bar"><span>09:41</span><span>4G</span></div>
+      <div class="bg-band">
+        <div class="bg-caption">Daily Task · Ryan</div>
+        <div class="bg-hero"><strong>1/4</strong><span>tugas selesai</span></div>
+      </div>
+    </div>
+
+    <div class="scrim">
+      <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="u2-title">
+        <div class="sheet-band">
+          <div class="handle" aria-hidden="true"></div>
+          <h1 class="sheet-title" id="u2-title">Mengunduh pembaruan</h1>
+          <p class="sheet-sub">Tetap di layar ini sampai unduhan selesai</p>
+
+          <div class="progress-ticket" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="48" aria-label="Progres unduhan 48 persen, 12,0 dari 24,9 MB">
+            <div class="ticket-top">
+              <div class="ver-flow">
+                <span class="ver-old">v2.0.141</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                <span class="sr-only">ke</span>
+                <span class="ver-new">v2.0.142</span>
+              </div>
+              <span class="pct-num">48%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill"></div>
+            </div>
+            <div class="ticket-meta">
+              <span>12,0 / 24,9 MB</span>
+              <span>sekitar 18 dtk</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="perf-edge" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+        <div class="sheet-body">
+          <div class="stats-row">
+            <div class="stat-cell">
+              <div class="stat-label">Kecepatan unduh</div>
+              <div class="stat-value">1,2 MB/dtk</div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-label">Estimasi sisa</div>
+              <div class="stat-value">sekitar 18 dtk</div>
+            </div>
+          </div>
+
+          <ul class="steps">
+            <li class="step-item">
+              <span class="step-mark active" aria-hidden="true">1</span>
+              <div>
+                <div class="step-title">Mengunduh file pembaruan</div>
+                <div class="step-meta">12,0 / 24,9 MB terunduh (48%)</div>
+              </div>
+            </li>
+            <li class="step-item">
+              <span class="step-mark wait" aria-hidden="true">2</span>
+              <div>
+                <div class="step-title">Memeriksa keaslian file</div>
+                <div class="step-meta">Berjalan otomatis setelah unduhan selesai</div>
+              </div>
+            </li>
+          </ul>
+
+          <p class="hint-note">Jika dibatalkan sekarang, progres tersimpan dan bisa dilanjutkan nanti.</p>
+
+          <button class="btn" type="button">Batalkan</button>
+          <div class="gesture-bar" aria-hidden="true"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    if (new URLSearchParams(location.search).get('theme') === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  </script>
+</body>
+</html>

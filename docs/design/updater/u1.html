@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>U1 - Pembaruan Opsional Tersedia | PMApp</title>
+<style>
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-Medium.ttf') format('truetype'); font-weight: 500; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-SemiBold.ttf') format('truetype'); font-weight: 600; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-Bold.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+  @font-face { font-family: 'Figtree'; src: url('../../../assets/fonts/Figtree-ExtraBold.ttf') format('truetype'); font-weight: 800; font-display: swap; }
+
+  :root {
+    --canvas: #FFFFFF;
+    --surface-tint: #F5F7FB;
+    --ink: #000000;
+    --band: #1A428A;
+    --band-raise: #2A549C;
+    --band-line: #8EA3D3;
+    --band-caption: #D3DDF2;
+    --band-track: #40649F;
+    --body: #5E5E5E;
+    --mute: #8A8A8A;
+    --soft: #EFEFEF;
+    --hairline: #E2E2E2;
+    --signal: #FF6500;
+    --signal-text: #B34700;
+    --ok: #0E8345;
+    --ok-text: #0E8345;
+    --primary-bg: #1A428A;
+    --primary-ink: #FFFFFF;
+    --primary-pressed: #143672;
+    --secondary-border: #1A428A;
+    --secondary-ink: #1A428A;
+    --scrim: rgba(10, 22, 46, 0.58);
+    --sheet-shadow: 0 -8px 28px rgba(10, 22, 46, 0.24);
+    --focus-ring: #000000;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+    --dur-press: 100ms;
+    --dur-sheet: 220ms;
+  }
+
+  [data-theme="dark"] {
+    --canvas: #141414;
+    --surface-tint: #1F1F1F;
+    --ink: #FFFFFF;
+    --band: #000000;
+    --band-raise: #1F1F1F;
+    --band-line: #6A6A6A;
+    --band-caption: #B3B3B3;
+    --band-track: #2E2E2E;
+    --body: #B3B3B3;
+    --mute: #8A8A8A;
+    --soft: #262626;
+    --hairline: #2E2E2E;
+    --signal: #FF6500;
+    --signal-text: #FF8A3D;
+    --ok: #0E8345;
+    --ok-text: #2FB36A;
+    --primary-bg: #FFFFFF;
+    --primary-ink: #000000;
+    --primary-pressed: #E2E2E2;
+    --secondary-border: #FFFFFF;
+    --secondary-ink: #FFFFFF;
+    --scrim: rgba(0, 0, 0, 0.72);
+    --sheet-shadow: 0 -8px 28px rgba(0, 0, 0, 0.56);
+    --focus-ring: #FFFFFF;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Figtree', system-ui, -apple-system, sans-serif;
+    background: var(--canvas);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+
+  button, summary { cursor: pointer; font-family: inherit; }
+  button:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .viewport {
+    position: relative;
+    min-height: 100dvh;
+    max-width: 600px;
+    margin: 0 auto;
+    background: var(--canvas);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Dimmed background: Daily Task screen chrome */
+  .bg-home {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .status-bar {
+    height: 36px;
+    padding: 10px 20px 0;
+    background: var(--band);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .status-icons { display: flex; align-items: center; gap: 6px; }
+
+  .bg-band {
+    background: var(--band);
+    color: #FFFFFF;
+    padding: 10px 20px 18px;
+  }
+
+  .bg-band-top {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .bg-circle-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    background: var(--band-raise);
+    border: 1.5px solid var(--band-line);
+    display: grid;
+    place-items: center;
+  }
+
+  .bg-caption { font-size: 13px; color: var(--band-caption); font-weight: 500; }
+  .bg-hero { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 8px; }
+  .bg-hero strong { font-size: 34px; font-weight: 800; line-height: 1; }
+  .bg-hero span { font-size: 15px; font-weight: 700; }
+  .bg-segs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
+  .bg-seg { height: 5px; border-radius: 999px; background: var(--band-track); }
+  .bg-seg.done { background: #FFFFFF; }
+
+  .perf-edge {
+    height: 10px;
+    background: var(--band);
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+  .perf-edge i {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--canvas);
+    transform: translateY(5px);
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .bg-list { padding: 18px 20px; flex: 1; }
+  .bg-sec-head { display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 15px; font-weight: 700; }
+  .bg-sec-head span { font-size: 13px; font-weight: 500; color: var(--body); }
+  .bg-row {
+    display: flex;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--hairline);
+    align-items: flex-start;
+  }
+  .bg-dot { width: 16px; height: 16px; border-radius: 999px; margin-top: 3px; flex-shrink: 0; }
+  .bg-dot.ok { background: var(--ok); }
+  .bg-dot.warn { background: var(--signal); border: 2px solid var(--ink); }
+  .bg-row-title { font-size: 15px; font-weight: 600; line-height: 20px; }
+  .bg-row-meta { font-size: 13px; color: var(--body); margin-top: 2px; }
+  .bg-pill {
+    margin-left: auto;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: var(--primary-bg);
+    color: var(--primary-ink);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* Scrim + Sheet */
+  .scrim {
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    background: var(--scrim);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .sheet {
+    background: var(--canvas);
+    border-radius: 24px 24px 0 0;
+    overflow: hidden;
+    box-shadow: var(--sheet-shadow);
+    animation: sheet-enter var(--dur-sheet) var(--ease-out) both;
+  }
+
+  @keyframes sheet-enter {
+    from { opacity: 0.92; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .sheet-band {
+    background: var(--band);
+    color: #FFFFFF;
+    padding: 10px 20px 16px;
+  }
+
+  .handle {
+    width: 38px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--band-line);
+    margin: 0 auto 14px;
+  }
+
+  .sheet-title {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .sheet-sub {
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--band-caption);
+  }
+
+  /* Signature version ticket cell inside the band */
+  .version-ticket {
+    margin-top: 14px;
+    background: var(--band-raise);
+    border: 1.5px solid var(--band-line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .ver-flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .ver-old {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--band-caption);
+  }
+
+  .ver-new {
+    font-size: 20px;
+    font-weight: 800;
+    color: #FFFFFF;
+    letter-spacing: -0.01em;
+  }
+
+  .ver-size {
+    font-size: 13px;
+    font-weight: 700;
+    color: #FFFFFF;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid var(--band-line);
+    border-radius: 999px;
+    padding: 5px 10px;
+    white-space: nowrap;
+  }
+
+  .sheet-body {
+    padding: 18px 20px 24px;
+  }
+
+  .lead-copy {
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--body);
+    margin-bottom: 14px;
+  }
+
+  /* Collapsible release notes */
+  .notes-box {
+    background: var(--surface-tint);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+
+  .notes-toggle {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 14px;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: left;
+  }
+
+  .notes-toggle-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--secondary-ink);
+  }
+
+  .notes-list {
+    padding: 0 14px 14px;
+    list-style: none;
+    display: grid;
+    gap: 8px;
+    border-top: 1px solid var(--hairline);
+    padding-top: 12px;
+  }
+
+  .notes-list[hidden] { display: none; }
+
+  .notes-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    font-size: 13px;
+    line-height: 19px;
+    color: var(--ink);
+  }
+
+  .notes-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--secondary-ink);
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+
+  .cta-stack {
+    display: grid;
+    gap: 10px;
+  }
+
+  .btn {
+    width: 100%;
+    min-height: 52px;
+    border-radius: 999px;
+    font-size: 16px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out);
+  }
+
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    border: 0;
+    background: var(--primary-bg);
+    color: var(--primary-ink);
+  }
+
+  .btn-primary:hover { background: var(--primary-pressed); }
+
+  .btn-secondary {
+    min-height: 48px;
+    background: transparent;
+    border: 1.5px solid var(--secondary-border);
+    color: var(--secondary-ink);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .gesture-bar {
+    width: 134px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--ink);
+    opacity: 0.9;
+    margin: 18px auto 0;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 374px) {
+    .sheet-band, .sheet-body { padding-left: 16px; padding-right: 16px; }
+    .sheet-title { font-size: 20px; }
+    .ver-new { font-size: 18px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 1ms !important;
+      transition-duration: 1ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="viewport">
+    <!-- Dimmed Daily Task home screen behind the bottom sheet -->
+    <div class="bg-home" aria-hidden="true">
+      <div class="status-bar">
+        <span>09:41</span>
+        <div class="status-icons">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="0.8"/><rect x="4" y="5" width="3" height="7" rx="0.8"/><rect x="8" y="3" width="3" height="9" rx="0.8"/><rect x="12" y="0" width="3" height="12" rx="0.8"/></svg>
+          <svg width="22" height="12" viewBox="0 0 22 12" fill="none"><rect x="1" y="1" width="18" height="10" rx="2.5" stroke="currentColor" stroke-width="1.4"/><rect x="3" y="3" width="14" height="6" rx="1" fill="currentColor"/><rect x="20" y="4" width="2" height="4" rx="0.8" fill="currentColor"/></svg>
+        </div>
+      </div>
+      <div class="bg-band">
+        <div class="bg-band-top">
+          <div class="bg-circle-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </div>
+          <div class="bg-circle-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+          </div>
+        </div>
+        <div class="bg-caption">Daily Task · Ryan</div>
+        <div class="bg-hero"><strong>1/4</strong><span>tugas selesai</span></div>
+        <div class="bg-segs"><div class="bg-seg done"></div><div class="bg-seg"></div><div class="bg-seg"></div><div class="bg-seg"></div></div>
+        <div class="bg-caption">Sisa 3 · otomatis masuk Laporan Pulang</div>
+      </div>
+      <div class="perf-edge"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="bg-list">
+        <div class="bg-sec-head"><div>Hari ini</div><span>3 tugas</span></div>
+        <div class="bg-row">
+          <div class="bg-dot ok"></div>
+          <div>
+            <div class="bg-row-title">Cek barrier gate masuk 1</div>
+            <div class="bg-row-meta">Pos Pasar Bersehati · Maintenance</div>
+          </div>
+          <div class="bg-pill">Lihat Bukti</div>
+        </div>
+        <div class="bg-row">
+          <div class="bg-dot warn"></div>
+          <div>
+            <div class="bg-row-title">Bersihkan sensor gate dan kalibrasi</div>
+            <div class="bg-row-meta">Gate 1 PBM · bersama Alessandro</div>
+          </div>
+          <div class="bg-pill">Lanjutkan</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scrim">
+      <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="u1-title">
+        <div class="sheet-band">
+          <div class="handle" aria-hidden="true"></div>
+          <h1 class="sheet-title" id="u1-title">Pembaruan aplikasi tersedia</h1>
+          <p class="sheet-sub">Siap diunduh sekarang atau tunda sampai shift selesai</p>
+
+          <div class="version-ticket" aria-label="Perubahan versi dari 2.0.141 ke 2.0.142, ukuran 24,9 MB">
+            <div class="ver-flow">
+              <span class="ver-old">v2.0.141</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+              <span class="sr-only">ke</span>
+              <span class="ver-new">v2.0.142</span>
+            </div>
+            <span class="ver-size">24,9 MB</span>
+          </div>
+        </div>
+
+        <div class="perf-edge" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+        <div class="sheet-body">
+          <p class="lead-copy">Data tugas dan laporan foto Anda tetap tersimpan selama proses pembaruan.</p>
+
+          <div class="notes-box">
+            <button class="notes-toggle" type="button" id="toggle-notes" aria-expanded="true" aria-controls="notes-list">
+              <span>Catatan rilis</span>
+              <span class="notes-toggle-meta">
+                <span id="toggle-label">Sembunyikan</span>
+                <svg id="toggle-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg>
+              </span>
+            </button>
+            <ul class="notes-list" id="notes-list">
+              <li><span class="notes-dot" aria-hidden="true"></span><span>Perbaikan alarm darurat agar tetap berbunyi di latar belakang saat sinyal lemah.</span></li>
+              <li><span class="notes-dot" aria-hidden="true"></span><span>Sinkronisasi ulang otomatis saat jaringan kembali stabil setelah masuk pos.</span></li>
+              <li><span class="notes-dot" aria-hidden="true"></span><span>Peningkatan ketajaman preview kamera pada kondisi silau matahari.</span></li>
+              <li><span class="notes-dot" aria-hidden="true"></span><span>Tombol Map Maintenance kini langsung membuka titik lokasi terdekat.</span></li>
+            </ul>
+          </div>
+
+          <div class="cta-stack">
+            <button class="btn btn-primary" type="button">Perbarui sekarang</button>
+            <button class="btn btn-secondary" type="button">Nanti</button>
+          </div>
+          <div class="gesture-bar" aria-hidden="true"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    if (new URLSearchParams(location.search).get('theme') === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+    const btn = document.getElementById('toggle-notes');
+    const list = document.getElementById('notes-list');
+    const lbl = document.getElementById('toggle-label');
+    const chev = document.getElementById('toggle-chev');
+    btn.addEventListener('click', () => {
+      const open = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!open));
+      list.hidden = open;
+      lbl.textContent = open ? 'Lihat' : 'Sembunyikan';
+      chev.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+    });
+  </script>
+</body>
+</html>
