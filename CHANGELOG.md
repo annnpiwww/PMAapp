@@ -2,6 +2,17 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.144+2157] - 2026-11-22
+
+### 🎯 Fitur
+- Status pemasangan update yang jelas: membuka pemasang Android, pemasangan belum selesai (Pasang lagi), file hilang (Unduh ulang).
+- Admin bisa menghapus permanen rilis yang sudah ditarik atau diarsip.
+
+### 🚀 Rilis
+- Rilis bertahap: wajib update untuk cabang Manado dulu. Bali dan HO menyusul setelah testing.
+
+---
+
 ## [2.0.143+2156] - 2026-11-22
 
 ### 🎯 Fitur

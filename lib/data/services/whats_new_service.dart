@@ -30,15 +30,15 @@ class WhatsNewService {
 
   /// Diisi ulang tiap versi naik, bareng bump di pubspec.yaml.
   static const WhatsNewRelease current = WhatsNewRelease(
-    version: '2.0.143',
+    version: '2.0.144',
     date: '22 November 2026',
     features: [
-      'Unduhan update aplikasi sekarang lewat server baru, lebih cepat dan stabil',
+      'Saat memasang update, aplikasi sekarang memberi tahu langkahnya. Kalau pemasangan belum selesai, tinggal tekan Pasang lagi tanpa unduh ulang',
     ],
     aiNote: null,
     mapNote: null,
     bugfix:
-        'Proses unduh update dipindah ke server baru supaya tidak terhambat kuota',
+        'Tombol Pasang sekarang tidak lagi diam saja saat pemasang Android gagal terbuka',
   );
 
   /// `seen` kosong berarti aplikasi belum pernah mencatat versi di perangkat ini.
