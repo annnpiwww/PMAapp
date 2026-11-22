@@ -1,0 +1,461 @@
+// Supabase Edge Function: app-releases
+// PMApp P1 in-app updater backend: public 'latest' check + allowlisted publisher admin actions.
+// Contract: docs/contracts/app-releases.md
+
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { verifySession } from '../_shared/session.ts';
+import {
+  APP_ID,
+  decideUpdate,
+  objectPath,
+  parsePublisherUids,
+  validateCreate,
+  validateLatestInput,
+} from './logic.ts';
+
+const MAX_BODY_BYTES = 32 * 1024;
+const BUCKET_NAME = 'app-releases';
+const SIGNED_DOWNLOAD_TTL_SECONDS = 900;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-app-session',
+  'Access-Control-Max-Age': '86400',
+};
+
+function json(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+async function computeSha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', bytes as BufferSource);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+export async function handleAppReleases(req: Request): Promise<Response> {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+  if (req.method !== 'POST') {
+    return json({ error: 'method not allowed' }, 405);
+  }
+
+  const clHeader = Number(req.headers.get('content-length') ?? '0');
+  if (clHeader > MAX_BODY_BYTES) {
+    return json({ error: 'payload too large' }, 413);
+  }
+
+  let rawBody: string;
+  try {
+    rawBody = await req.text();
+  } catch {
+    return json({ error: 'invalid' }, 400);
+  }
+  if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) {
+    return json({ error: 'payload too large' }, 413);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(rawBody);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return json({ error: 'invalid' }, 400);
+    }
+    body = parsed as Record<string, unknown>;
+  } catch {
+    return json({ error: 'invalid' }, 400);
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error('app-releases: missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    return json({ error: 'server error' }, 500);
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const action = body.action;
+
+  // Public check: no x-app-session required so logged-out devices and mandatory updates work.
+  if (action === 'latest') {
+    const validated = validateLatestInput(body);
+    if (!validated.ok) {
+      return json({ error: 'invalid', errors: validated.errors }, 400);
+    }
+    const { abi, current_code, current_version } = validated.value;
+
+    const { data: row, error: qErr } = await supabase
+      .from('app_releases')
+      .select('id, version_name, version_code, size_bytes, sha256, changelog, mandatory, min_supported_version, apk_path')
+      .eq('app', APP_ID)
+      .eq('abi', abi)
+      .eq('status', 'published')
+      .order('version_code', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (qErr) {
+      console.error('app-releases latest query error:', qErr.message);
+      return json({ error: 'server error' }, 500);
+    }
+    if (!row) {
+      return json({ update: false }, 200);
+    }
+
+    const decision = decideUpdate({
+      currentCode: current_code,
+      currentVersion: current_version,
+      release: {
+        version_code: Number(row.version_code),
+        mandatory: Boolean(row.mandatory),
+        min_supported_version: row.min_supported_version ?? null,
+      },
+    });
+
+    if (!decision.update) {
+      return json({ update: false }, 200);
+    }
+    if (typeof row.apk_path !== 'string' || row.apk_path.length === 0) {
+      console.error('app-releases latest missing apk_path for published row:', row.id);
+      return json({ error: 'server error' }, 500);
+    }
+
+    const { data: signedData, error: signErr } = await supabase.storage
+      .from(BUCKET_NAME)
+      .createSignedUrl(row.apk_path, SIGNED_DOWNLOAD_TTL_SECONDS);
+
+    if (signErr || !signedData?.signedUrl) {
+      console.error('app-releases createSignedUrl error:', signErr?.message ?? 'missing signedUrl');
+      return json({ error: 'server error' }, 500);
+    }
+
+    return json(
+      {
+        update: true,
+        mandatory: decision.mandatory,
+        release: {
+          id: row.id,
+          version_name: row.version_name,
+          version_code: Number(row.version_code),
+          size_bytes: Number(row.size_bytes),
+          sha256: row.sha256,
+          changelog: row.changelog ?? '',
+        },
+        download_url: signedData.signedUrl,
+      },
+      200,
+    );
+  }
+
+  // All admin actions require valid session AND explicit publisher allowlist membership.
+  const session = await verifySession(req);
+  if (!session) {
+    return json({ error: 'unauthorized' }, 401);
+  }
+
+  const allowedPublishers = parsePublisherUids(Deno.env.get('RELEASE_PUBLISHER_UIDS'));
+  if (!allowedPublishers.has(session.uid)) {
+    return json({ error: 'forbidden' }, 403);
+  }
+
+  if (action === 'list') {
+    const { data: rows, error } = await supabase
+      .from('app_releases')
+      .select('id, app, abi, version_code, base_version_code, version_name, sha256, size_bytes, changelog, mandatory, min_supported_version, status, created_by, created_at, published_at')
+      .eq('app', APP_ID)
+      .order('created_at', { ascending: false })
+      .order('version_code', { ascending: false });
+
+    if (error) {
+      console.error('app-releases list error:', error.message);
+      return json({ error: 'server error' }, 500);
+    }
+    return json({ releases: rows ?? [] }, 200);
+  }
+
+  if (action === 'create_upload') {
+    const validated = validateCreate(body);
+    if (!validated.ok) {
+      return json({ error: 'invalid', errors: validated.errors }, 400);
+    }
+    const v = validated.value;
+
+    const { data: maxRow, error: maxErr } = await supabase
+      .from('app_releases')
+      .select('version_code')
+      .eq('app', APP_ID)
+      .eq('abi', v.abi)
+      .order('version_code', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (maxErr) {
+      console.error('app-releases create_upload max check error:', maxErr.message);
+      return json({ error: 'server error' }, 500);
+    }
+    if (maxRow && v.version_code <= Number(maxRow.version_code)) {
+      return json(
+        { error: 'version_code_must_increase', max_version_code: Number(maxRow.version_code) },
+        409,
+      );
+    }
+
+    const apkPath = objectPath(v.abi, v.version_code);
+    const { data: inserted, error: insErr } = await supabase
+      .from('app_releases')
+      .insert({
+        app: APP_ID,
+        abi: v.abi,
+        version_code: v.version_code,
+        base_version_code: v.base_version_code,
+        version_name: v.version_name,
+        apk_path: apkPath,
+        sha256: v.sha256,
+        size_bytes: v.size_bytes,
+        changelog: v.changelog,
+        mandatory: v.mandatory,
+        min_supported_version: v.min_supported_version,
+        status: 'draft',
+        created_by: session.uid,
+      })
+      .select('id')
+      .single();
+
+    if (insErr) {
+      if (insErr.code === '23505') {
+        return json({ error: 'duplicate' }, 409);
+      }
+      console.error('app-releases create_upload insert error:', insErr.message);
+      return json({ error: 'server error' }, 500);
+    }
+
+    const { data: uploadData, error: uploadErr } = await supabase.storage
+      .from(BUCKET_NAME)
+      .createSignedUploadUrl(apkPath);
+
+    if (uploadErr || !uploadData) {
+      console.error('app-releases createSignedUploadUrl error:', uploadErr?.message ?? 'missing data');
+      await supabase.from('app_releases').delete().eq('id', inserted.id).eq('status', 'draft');
+      return json({ error: 'server error' }, 500);
+    }
+
+    return json(
+      {
+        id: inserted.id,
+        upload: {
+          path: uploadData.path,
+          token: uploadData.token,
+          signedUrl: uploadData.signedUrl,
+        },
+      },
+      201,
+    );
+  }
+
+  if (action === 'publish') {
+    const id = typeof body.id === 'string' ? body.id.trim() : '';
+    if (!UUID_REGEX.test(id)) {
+      return json({ error: 'invalid', errors: { id: 'must be a valid UUID' } }, 400);
+    }
+
+    const { data: row, error: fetchErr } = await supabase
+      .from('app_releases')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchErr) {
+      console.error('app-releases publish fetch error:', fetchErr.message);
+      return json({ error: 'server error' }, 500);
+    }
+    if (!row) {
+      return json({ error: 'not_found' }, 404);
+    }
+    if (row.status !== 'draft') {
+      return json({ error: 'not_draft' }, 409);
+    }
+    if (typeof row.apk_path !== 'string' || row.apk_path.length === 0) {
+      return json({ error: 'upload_missing' }, 422);
+    }
+
+    const { data: blob, error: dlErr } = await supabase.storage
+      .from(BUCKET_NAME)
+      .download(row.apk_path);
+
+    if (dlErr || !blob) {
+      console.error('app-releases publish download error:', dlErr?.message ?? 'empty blob');
+      return json({ error: 'upload_missing' }, 422);
+    }
+
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const actualSha = await computeSha256Hex(bytes);
+    if (bytes.byteLength !== Number(row.size_bytes) || actualSha !== row.sha256) {
+      return json({ error: 'hash_mismatch' }, 422);
+    }
+
+    const publishedAt = new Date().toISOString();
+    const { data: updated, error: updErr } = await supabase
+      .from('app_releases')
+      .update({ status: 'published', published_at: publishedAt })
+      .eq('id', id)
+      .eq('status', 'draft')
+      .select('id, app, abi, version_code, base_version_code, version_name, sha256, size_bytes, changelog, mandatory, min_supported_version, status, created_by, created_at, published_at')
+      .maybeSingle();
+
+    if (updErr) {
+      console.error('app-releases publish update error:', updErr.message);
+      return json({ error: 'server error' }, 500);
+    }
+    if (!updated) {
+      return json({ error: 'not_draft' }, 409);
+    }
+
+    // Retention: keep only the latest published APK per ABI in storage; archive older rows.
+    const { data: olderRows, error: olderErr } = await supabase
+      .from('app_releases')
+      .select('id, apk_path')
+      .eq('app', APP_ID)
+      .eq('abi', row.abi)
+      .in('status', ['published', 'rolled_back'])
+      .lt('version_code', Number(row.version_code))
+      .neq('id', id);
+
+    let archivedCount = 0;
+    if (olderErr) {
+      console.error('app-releases retention query error:', olderErr.message);
+    } else if (Array.isArray(olderRows) && olderRows.length > 0) {
+      const pathsToRemove = olderRows
+        .map((r) => r.apk_path)
+        .filter((p): p is string => typeof p === 'string' && p.length > 0 && p !== row.apk_path);
+
+      if (pathsToRemove.length > 0) {
+        const { error: rmErr } = await supabase.storage
+          .from(BUCKET_NAME)
+          .remove(pathsToRemove);
+        if (rmErr) {
+          console.error('app-releases retention storage remove error:', rmErr.message);
+        }
+      }
+
+      const olderIds = olderRows.map((r) => r.id);
+      const { error: archErr } = await supabase
+        .from('app_releases')
+        .update({ status: 'archived', apk_path: null })
+        .in('id', olderIds);
+      if (archErr) {
+        console.error('app-releases retention archive update error:', archErr.message);
+      } else {
+        archivedCount = olderIds.length;
+      }
+    }
+
+    return json({ release: updated, archived_count: archivedCount }, 200);
+  }
+
+  if (action === 'rollback') {
+    const id = typeof body.id === 'string' ? body.id.trim() : '';
+    if (!UUID_REGEX.test(id)) {
+      return json({ error: 'invalid', errors: { id: 'must be a valid UUID' } }, 400);
+    }
+
+    const { data: row, error: fetchErr } = await supabase
+      .from('app_releases')
+      .select('id, status')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchErr) {
+      console.error('app-releases rollback fetch error:', fetchErr.message);
+      return json({ error: 'server error' }, 500);
+    }
+    if (!row) {
+      return json({ error: 'not_found' }, 404);
+    }
+    if (row.status !== 'published') {
+      return json({ error: 'not_published' }, 409);
+    }
+
+    const { data: updated, error: updErr } = await supabase
+      .from('app_releases')
+      .update({ status: 'rolled_back' })
+      .eq('id', id)
+      .eq('status', 'published')
+      .select('id, app, abi, version_code, base_version_code, version_name, sha256, size_bytes, changelog, mandatory, min_supported_version, status, created_by, created_at, published_at')
+      .maybeSingle();
+
+    if (updErr) {
+      console.error('app-releases rollback update error:', updErr.message);
+      return json({ error: 'server error' }, 500);
+    }
+    if (!updated) {
+      return json({ error: 'not_published' }, 409);
+    }
+    return json({ release: updated }, 200);
+  }
+
+  if (action === 'delete_draft') {
+    const id = typeof body.id === 'string' ? body.id.trim() : '';
+    if (!UUID_REGEX.test(id)) {
+      return json({ error: 'invalid', errors: { id: 'must be a valid UUID' } }, 400);
+    }
+
+    const { data: row, error: fetchErr } = await supabase
+      .from('app_releases')
+      .select('id, status, apk_path')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchErr) {
+      console.error('app-releases delete_draft fetch error:', fetchErr.message);
+      return json({ error: 'server error' }, 500);
+    }
+    if (!row) {
+      return json({ error: 'not_found' }, 404);
+    }
+    if (row.status !== 'draft') {
+      return json({ error: 'not_draft' }, 409);
+    }
+
+    if (typeof row.apk_path === 'string' && row.apk_path.length > 0) {
+      const { error: rmErr } = await supabase.storage
+        .from(BUCKET_NAME)
+        .remove([row.apk_path]);
+      if (rmErr) {
+        console.error('app-releases delete_draft storage remove warning:', rmErr.message);
+      }
+    }
+
+    const { error: delErr } = await supabase
+      .from('app_releases')
+      .delete()
+      .eq('id', id)
+      .eq('status', 'draft');
+
+    if (delErr) {
+      console.error('app-releases delete_draft delete error:', delErr.message);
+      return json({ error: 'server error' }, 500);
+    }
+    return json({ deleted: true, id }, 200);
+  }
+
+  return json({ error: 'invalid action' }, 400);
+}
+
+if (import.meta.main && !Deno.env.get('DENO_TESTING')) {
+  serve((req: Request) => handleAppReleases(req));
+}

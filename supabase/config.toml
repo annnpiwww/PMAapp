@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.daily-tasks]
 verify_jwt = false
+
+[functions.app-releases]
+verify_jwt = false

@@ -161,3 +161,10 @@ if (!isDemo) {
 2. **Publish authority**: Can **all** `spv` accounts (Manado, Bali, HO) upload/publish/rollback APK releases, or should release management be restricted to specific `HO` / admin accounts?
 3. **Debug keystore backup**: Where should `~/.android/debug.keystore` be backed up so it survives machine loss?
 4. **Storage retention**: Keep how many historical releases in `app-releases` (e.g., latest 2–3 versions = ~100–150 MB) to stay safely within Supabase Free Tier 1 GB alongside `task-proofs`?
+
+---
+
+## 7. P1 Implementation Status (2026-11-22)
+
+- **Implemented**: `public.app_releases` table (RLS enabled, no anon/authenticated grants) + private `app-releases` bucket (50 MiB limit) in `supabase/migrations/2026-11-22_app_releases.sql`; Edge Function `supabase/functions/app-releases/` (`latest` public check + allowlisted `list`, `create_upload`, `publish`, `rollback`, `delete_draft`); CLI publisher `tools/publish_release.mjs`; contract `docs/contracts/app-releases.md`.
+- **Final decisions applied**: `pmapp` prod only; retention keeps only the latest published APK per ABI in storage (older objects removed, rows archived); publisher allowlist `RELEASE_PUBLISHER_UIDS` initially set to `usr_farhan` (`farhan`, `Farhan Lakoro`) until Aan's personal `app_users` account is added.
