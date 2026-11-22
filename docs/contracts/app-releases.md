@@ -160,3 +160,20 @@ Allows logged-out devices and mandatory updates to check for updates.
    ```bash
    node tools/publish_release.mjs --changelog "Release notes" [--mandatory] [--min-version x.y.z]
    ```
+
+---
+
+## 5. Per-branch rollout (`target_cabang`)
+
+Staged rollout: publish to one branch (e.g. Manado) first, then widen to all.
+
+- **Column**: `app_releases.target_cabang text[] null`. `null` = all branches. Allowed values (normalized, lowercase): `manado`, `bali`, `ho`. Non-null array must be non-empty, deduped, sorted.
+- **Normalization** (server `normalizeCabang`, same aliases as `lib/data/services/branch_service.dart` `_appBranchFromDbKey`): `manado|kc manado|mdo` -> `manado`, `bali|kc bali|dps` -> `bali`, `ho|ho makassar` -> `ho`, anything else -> `null` (unknown).
+- **`latest`**: still public. When a valid `x-app-session` is sent, caller branch = `normalizeCabang(session.cabang)`; otherwise (no/invalid/expired session, unknown cabang) caller branch = `null`. Picks the highest `version_code` published row for the ABI where `target_cabang is null` OR (caller branch != null AND `target_cabang @> [caller branch]`). Invalid session on `latest` never returns 401; it is treated as logged out. Response shape unchanged.
+- **Client**: `checkLatest` sends `x-app-session` when `AuthRepository.instance.sessionToken` is non-empty.
+- **`create_upload`**: optional `target_cabang: null | string[]` (default `null`). Invalid value -> `400 invalid` with `errors.target_cabang`.
+- **`list`** / publish / rollback / set_targets responses include `target_cabang`.
+- **`publish` retention**: runs ONLY when the published row has `target_cabang = null`. A branch-targeted publish never archives older releases (other branches still need them).
+- **`set_targets`** (publisher allowlist, new): `{ "action": "set_targets", "id": "<uuid>", "target_cabang": null | ["manado", ...] }`. Allowed when `status in ('draft','published')` else `409 not_editable`. Updates the row; when the row is `published` and new value is `null`, runs the same retention as `publish`. Response `200 { "release": { ... }, "archived_count": n }`.
+- **Publish script**: `tools/publish_release.mjs --cabang manado[,bali]` (omit = all branches). Applied to both ABIs.
+- **Admin UI**: upload form (A2) has branch choice `Semua cabang` (default) / `Manado` / `Bali` / `HO` (multi-select chips; selecting a branch clears `Semua`, clearing all returns to `Semua`). Release list (A1) shows a target badge (`Semua cabang` or `Manado, Bali`) and, on a published targeted release, action `Rilis ke semua cabang` (confirm dialog) -> `set_targets` with `null`.
