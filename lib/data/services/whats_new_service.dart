@@ -30,16 +30,15 @@ class WhatsNewService {
 
   /// Diisi ulang tiap versi naik, bareng bump di pubspec.yaml.
   static const WhatsNewRelease current = WhatsNewRelease(
-    version: '2.0.141',
-    date: '13 November 2026',
+    version: '2.0.142',
+    date: '22 November 2026',
     features: [
-      'Alarm tiket error terus bunyi sampai ada teknisi yang tekan Kerjakan',
-      'Tap banner atau notifikasi error sekarang tanya dulu: Kerjakan atau Nanti',
+      'Aplikasi sekarang bisa update sendiri. Saat ada versi baru, tekan Perbarui, tidak perlu cari APK di grup lagi',
     ],
     aiNote: null,
     mapNote: null,
     bugfix:
-        'Alarm tiket error sebelumnya bisa dimatikan per HP sebelum ada teknisi yang mengambil tiket.',
+        'Jam pulang di laporan absensi sekarang sesuai jam akhir shift (contoh Shift 1 pulang 11:00)',
   );
 
   /// `seen` kosong berarti aplikasi belum pernah mencatat versi di perangkat ini.

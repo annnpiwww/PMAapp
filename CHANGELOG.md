@@ -2,6 +2,16 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.142+2155] - 2026-11-22
+
+### 🎯 Fitur
+- Update otomatis di dalam aplikasi: cek versi baru, unduh, verifikasi SHA-256, lalu pasang. SPV publisher bisa unggah dan terbitkan rilis dari menu Rilis aplikasi, termasuk rilis bertahap per cabang.
+
+### 🐛 Perbaikan
+- Jam pulang di laporan WA dan data absensi tidak lagi terbawa dari shift sebelumnya (Shift 1 pulang 11:00, bukan 22:00).
+
+---
+
 ## [2.0.141+2154] - 2026-11-13
 
 ### 🎯 Fitur
