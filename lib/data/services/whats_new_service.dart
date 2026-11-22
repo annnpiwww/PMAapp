@@ -30,15 +30,15 @@ class WhatsNewService {
 
   /// Diisi ulang tiap versi naik, bareng bump di pubspec.yaml.
   static const WhatsNewRelease current = WhatsNewRelease(
-    version: '2.0.142',
+    version: '2.0.143',
     date: '22 November 2026',
     features: [
-      'Aplikasi sekarang bisa update sendiri. Saat ada versi baru, tekan Perbarui, tidak perlu cari APK di grup lagi',
+      'Unduhan update aplikasi sekarang lewat server baru, lebih cepat dan stabil',
     ],
     aiNote: null,
     mapNote: null,
     bugfix:
-        'Jam pulang di laporan absensi sekarang sesuai jam akhir shift (contoh Shift 1 pulang 11:00)',
+        'Proses unduh update dipindah ke server baru supaya tidak terhambat kuota',
   );
 
   /// `seen` kosong berarti aplikasi belum pernah mencatat versi di perangkat ini.

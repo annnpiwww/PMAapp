@@ -2,6 +2,16 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.143+2156] - 2026-11-22
+
+### 🎯 Fitur
+- APK update sekarang disimpan di Cloudflare R2, unduhan dari dalam aplikasi lebih cepat dan tidak memakan kuota Supabase.
+
+### 🚀 Rilis
+- Rilis bertahap: wajib update untuk cabang Manado dulu. Bali dan HO menyusul setelah testing.
+
+---
+
 ## [2.0.142+2155] - 2026-11-22
 
 ### 🎯 Fitur
