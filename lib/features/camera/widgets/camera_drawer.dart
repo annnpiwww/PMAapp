@@ -15,6 +15,7 @@ import '../../daily_tasks/screens/teknisi_daily_tasks_screen.dart';
 import '../../history/screens/attendance_archive_screen.dart';
 import '../../maintenance/screens/maintenance_history_screen.dart';
 import '../../maintenance/screens/maintenance_map_screen.dart';
+import '../../updater/screens/app_releases_screen.dart';
 import 'ios_pwa_install_modal.dart';
 
 final Future<PackageInfo> _appPackageInfo = PackageInfo.fromPlatform();
@@ -22,10 +23,7 @@ final Future<PackageInfo> _appPackageInfo = PackageInfo.fromPlatform();
 class CameraDrawer extends StatelessWidget {
   final VoidCallback? onRefreshDailyTasksBadge;
 
-  const CameraDrawer({
-    super.key,
-    this.onRefreshDailyTasksBadge,
-  });
+  const CameraDrawer({super.key, this.onRefreshDailyTasksBadge});
 
   void _confirmLogout(BuildContext context) {
     final colors = TiketColors.of(context);
@@ -86,7 +84,10 @@ class CameraDrawer extends StatelessWidget {
               elevation: 0,
               shape: const StadiumBorder(),
             ),
-            child: const Text('Keluar', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Keluar',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -95,7 +96,10 @@ class CameraDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    precacheImage(const AssetImage('foto/bssfotologo_transparent.png'), context);
+    precacheImage(
+      const AssetImage('foto/bssfotologo_transparent.png'),
+      context,
+    );
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: ThemeService.themeModeNotifier,
       builder: (context, currentMode, _) {
@@ -129,7 +133,8 @@ class CameraDrawer extends StatelessWidget {
                                 'foto/bssfotologo_transparent.png',
                                 height: 48,
                                 fit: BoxFit.contain,
-                                errorBuilder: (ctx, err, stack) => const SizedBox(height: 48),
+                                errorBuilder: (ctx, err, stack) =>
+                                    const SizedBox(height: 48),
                               ),
                             ),
                           ),
@@ -140,7 +145,9 @@ class CameraDrawer extends StatelessWidget {
                             height: 10,
                             child: ExcludeSemantics(
                               child: CustomPaint(
-                                painter: PerforationPainter(canvasColor: colors.dialog),
+                                painter: PerforationPainter(
+                                  canvasColor: colors.dialog,
+                                ),
                               ),
                             ),
                           ),
@@ -150,200 +157,315 @@ class CameraDrawer extends StatelessWidget {
                       const SizedBox(height: 12),
 
                       // Menu Khusus SPV: Penugasan Teknisi
-                      Builder(builder: (ctx) {
-                        final user = AuthRepository.instance.currentUser;
-                        final isSpv = user?.role == UserRole.supervisor;
-                        if (!isSpv) return const SizedBox.shrink();
+                      Builder(
+                        builder: (ctx) {
+                          final user = AuthRepository.instance.currentUser;
+                          final isSpv = user?.role == UserRole.supervisor;
+                          if (!isSpv) return const SizedBox.shrink();
 
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-                              title: Row(
-                                children: [
-                                  Text(
-                                    'Penugasan Teknisi',
-                                    style: TextStyle(
-                                      fontFamily: TiketType.fontFamily,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 15,
-                                      color: colors.ink,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: colors.soft,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      'SPV',
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 2,
+                                ),
+                                title: Row(
+                                  children: [
+                                    Text(
+                                      'Penugasan Teknisi',
                                       style: TextStyle(
                                         fontFamily: TiketType.fontFamily,
-                                        color: colors.body,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w800,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 15,
+                                        color: colors.ink,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              subtitle: Text(
-                                'Buat tugas dan pantau progres kerja teknisi',
-                                style: TextStyle(
-                                  fontFamily: TiketType.fontFamily,
-                                  fontSize: 12,
-                                  color: colors.body,
-                                ),
-                              ),
-                              trailing: Icon(Icons.chevron_right_rounded, size: 20, color: colors.body),
-                              onTap: () {
-                                Navigator.of(context).pop();
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const SpvTaskDispatcherScreen(),
-                                  ),
-                                );
-                              },
-                            ),
-                            Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
-                          ],
-                        );
-                      }),
-
-                      // Menu Khusus Teknisi: Daily Task
-                      Builder(builder: (ctx) {
-                        final user = AuthRepository.instance.currentUser;
-                        final isTeknisi = user?.role == UserRole.petugas;
-                        if (!isTeknisi) return const SizedBox.shrink();
-
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-                              title: Text(
-                                'Daily Task',
-                                style: TextStyle(
-                                  fontFamily: TiketType.fontFamily,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
-                                  color: colors.ink,
-                                ),
-                              ),
-                              subtitle: Text(
-                                'Daftar tugas harian yang harus dikerjakan',
-                                style: TextStyle(
-                                  fontFamily: TiketType.fontFamily,
-                                  fontSize: 12,
-                                  color: colors.body,
-                                ),
-                              ),
-                              trailing: ValueListenableBuilder<int>(
-                                valueListenable: DailyTaskService.pendingCountNotifier,
-                                builder: (context, pendingCount, _) {
-                                  if (pendingCount > 0) {
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: colors.signal,
-                                        borderRadius: BorderRadius.circular(12),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
                                       ),
-                                      child: Text(
-                                        '$pendingCount',
-                                        style: TextStyle(
-                                          fontFamily: TiketType.fontFamily,
-                                          color: colors.black,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  return Icon(Icons.chevron_right_rounded, size: 20, color: colors.body);
-                                },
-                              ),
-                              onTap: () async {
-                                Navigator.of(context).pop();
-                                await Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const TeknisiDailyTasksScreen(),
-                                  ),
-                                );
-                                onRefreshDailyTasksBadge?.call();
-                              },
-                            ),
-                            Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
-                          ],
-                        );
-                      }),
-
-                      // Menu Khusus Teknisi: Riwayat Maintenance
-                      Builder(builder: (ctx) {
-                        final allSubmissions = StorageService.getMaintenanceSubmissions() ?? [];
-                        final drafts = allSubmissions.where((s) => !s.isComplete).toList();
-                        final completed = allSubmissions.where((s) => s.isComplete).toList();
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-                              title: Text(
-                                'Riwayat Maintenance',
-                                style: TextStyle(
-                                  fontFamily: TiketType.fontFamily,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
-                                  color: colors.ink,
-                                ),
-                              ),
-                              subtitle: Text(
-                                drafts.isNotEmpty
-                                    ? '${drafts.length} draft aktif • ${completed.length} selesai'
-                                    : (completed.isNotEmpty ? '${completed.length} pekerjaan selesai' : 'Daftar checklist unit'),
-                                style: TextStyle(
-                                  fontFamily: TiketType.fontFamily,
-                                  fontSize: 12,
-                                  color: colors.body,
-                                ),
-                              ),
-                              trailing: drafts.isNotEmpty
-                                  ? Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
                                         color: colors.soft,
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: Text(
-                                        '${drafts.length} Draft',
+                                        'SPV',
                                         style: TextStyle(
                                           fontFamily: TiketType.fontFamily,
                                           color: colors.body,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
                                         ),
                                       ),
-                                    )
-                                  : Icon(Icons.chevron_right_rounded, size: 20, color: colors.body),
-                              onTap: () {
-                                Navigator.of(context).pop();
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const MaintenanceHistoryScreen(),
+                                    ),
+                                  ],
+                                ),
+                                subtitle: Text(
+                                  'Buat tugas dan pantau progres kerja teknisi',
+                                  style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
+                                    fontSize: 12,
+                                    color: colors.body,
                                   ),
-                                );
-                              },
-                            ),
-                            Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
-                          ],
-                        );
-                      }),
+                                ),
+                                trailing: Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 20,
+                                  color: colors.body,
+                                ),
+                                onTap: () {
+                                  Navigator.of(context).pop();
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const SpvTaskDispatcherScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                              Divider(
+                                height: 1,
+                                thickness: 1,
+                                color: colors.hairline,
+                                indent: 20,
+                                endIndent: 20,
+                              ),
+                              ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 2,
+                                ),
+                                title: Text(
+                                  'Rilis aplikasi',
+                                  style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                    color: colors.ink,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'Unggah dan kelola pembaruan aplikasi',
+                                  style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
+                                    fontSize: 12,
+                                    color: colors.body,
+                                  ),
+                                ),
+                                trailing: Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 20,
+                                  color: colors.body,
+                                ),
+                                onTap: () {
+                                  Navigator.of(context).pop();
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const AppReleasesScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                              Divider(
+                                height: 1,
+                                thickness: 1,
+                                color: colors.hairline,
+                                indent: 20,
+                                endIndent: 20,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+
+                      // Menu Khusus Teknisi: Daily Task
+                      Builder(
+                        builder: (ctx) {
+                          final user = AuthRepository.instance.currentUser;
+                          final isTeknisi = user?.role == UserRole.petugas;
+                          if (!isTeknisi) return const SizedBox.shrink();
+
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 2,
+                                ),
+                                title: Text(
+                                  'Daily Task',
+                                  style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                    color: colors.ink,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'Daftar tugas harian yang harus dikerjakan',
+                                  style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
+                                    fontSize: 12,
+                                    color: colors.body,
+                                  ),
+                                ),
+                                trailing: ValueListenableBuilder<int>(
+                                  valueListenable:
+                                      DailyTaskService.pendingCountNotifier,
+                                  builder: (context, pendingCount, _) {
+                                    if (pendingCount > 0) {
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: colors.signal,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '$pendingCount',
+                                          style: TextStyle(
+                                            fontFamily: TiketType.fontFamily,
+                                            color: colors.black,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    return Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 20,
+                                      color: colors.body,
+                                    );
+                                  },
+                                ),
+                                onTap: () async {
+                                  Navigator.of(context).pop();
+                                  await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const TeknisiDailyTasksScreen(),
+                                    ),
+                                  );
+                                  onRefreshDailyTasksBadge?.call();
+                                },
+                              ),
+                              Divider(
+                                height: 1,
+                                thickness: 1,
+                                color: colors.hairline,
+                                indent: 20,
+                                endIndent: 20,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+
+                      // Menu Khusus Teknisi: Riwayat Maintenance
+                      Builder(
+                        builder: (ctx) {
+                          final allSubmissions =
+                              StorageService.getMaintenanceSubmissions() ?? [];
+                          final drafts = allSubmissions
+                              .where((s) => !s.isComplete)
+                              .toList();
+                          final completed = allSubmissions
+                              .where((s) => s.isComplete)
+                              .toList();
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 2,
+                                ),
+                                title: Text(
+                                  'Riwayat Maintenance',
+                                  style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                    color: colors.ink,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  drafts.isNotEmpty
+                                      ? '${drafts.length} draft aktif • ${completed.length} selesai'
+                                      : (completed.isNotEmpty
+                                            ? '${completed.length} pekerjaan selesai'
+                                            : 'Daftar checklist unit'),
+                                  style: TextStyle(
+                                    fontFamily: TiketType.fontFamily,
+                                    fontSize: 12,
+                                    color: colors.body,
+                                  ),
+                                ),
+                                trailing: drafts.isNotEmpty
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: colors.soft,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '${drafts.length} Draft',
+                                          style: TextStyle(
+                                            fontFamily: TiketType.fontFamily,
+                                            color: colors.body,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      )
+                                    : Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 20,
+                                        color: colors.body,
+                                      ),
+                                onTap: () {
+                                  Navigator.of(context).pop();
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const MaintenanceHistoryScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                              Divider(
+                                height: 1,
+                                thickness: 1,
+                                color: colors.hairline,
+                                indent: 20,
+                                endIndent: 20,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
 
                       // Map Maintenance
                       ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 2,
+                        ),
                         title: Text(
                           'Map Maintenance',
                           style: TextStyle(
@@ -361,7 +483,11 @@ class CameraDrawer extends StatelessWidget {
                             color: colors.body,
                           ),
                         ),
-                        trailing: Icon(Icons.chevron_right_rounded, size: 20, color: colors.body),
+                        trailing: Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: colors.body,
+                        ),
                         onTap: () {
                           Navigator.of(context).pop();
                           Navigator.of(context).push(
@@ -371,11 +497,20 @@ class CameraDrawer extends StatelessWidget {
                           );
                         },
                       ),
-                      Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: colors.hairline,
+                        indent: 20,
+                        endIndent: 20,
+                      ),
 
                       // Menu Arsip Kehadiran (30 Hari)
                       ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 2,
+                        ),
                         title: Text(
                           'Arsip Kehadiran',
                           style: TextStyle(
@@ -394,7 +529,10 @@ class CameraDrawer extends StatelessWidget {
                           ),
                         ),
                         trailing: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: colors.soft,
                             borderRadius: BorderRadius.circular(10),
@@ -418,7 +556,13 @@ class CameraDrawer extends StatelessWidget {
                           );
                         },
                       ),
-                      Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: colors.hairline,
+                        indent: 20,
+                        endIndent: 20,
+                      ),
 
                       // Pengaturan Tema (Mode Gelap / Terang)
                       ValueListenableBuilder<ThemeMode>(
@@ -426,7 +570,10 @@ class CameraDrawer extends StatelessWidget {
                         builder: (ctx, currentMode, _) {
                           final isCurrentDark = ThemeService.isDarkMode(ctx);
                           return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 2,
+                            ),
                             title: Text(
                               isCurrentDark ? 'Mode Terang' : 'Mode Gelap',
                               style: TextStyle(
@@ -437,7 +584,9 @@ class CameraDrawer extends StatelessWidget {
                               ),
                             ),
                             subtitle: Text(
-                              isCurrentDark ? 'Ganti ke tema terang' : 'Ganti ke tema gelap',
+                              isCurrentDark
+                                  ? 'Ganti ke tema terang'
+                                  : 'Ganti ke tema gelap',
                               style: TextStyle(
                                 fontFamily: TiketType.fontFamily,
                                 fontSize: 12,
@@ -457,12 +606,21 @@ class CameraDrawer extends StatelessWidget {
                           );
                         },
                       ),
-                      Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: colors.hairline,
+                        indent: 20,
+                        endIndent: 20,
+                      ),
 
                       // Panduan Instalasi Layar Utama iPhone (PWA)
                       if (kIsWeb) ...[
                         ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 2,
+                          ),
                           title: Text(
                             'Pasang di iPhone (PWA)',
                             style: TextStyle(
@@ -480,78 +638,95 @@ class CameraDrawer extends StatelessWidget {
                               color: colors.body,
                             ),
                           ),
-                          trailing: Icon(Icons.chevron_right_rounded, size: 20, color: colors.body),
+                          trailing: Icon(
+                            Icons.chevron_right_rounded,
+                            size: 20,
+                            color: colors.body,
+                          ),
                           onTap: () {
                             Navigator.of(context).pop();
                             IosPwaInstallModal.show(context);
                           },
                         ),
-                        Divider(height: 1, thickness: 1, color: colors.hairline, indent: 20, endIndent: 20),
+                        Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: colors.hairline,
+                          indent: 20,
+                          endIndent: 20,
+                        ),
                       ],
 
                       const SizedBox(height: 12),
 
                       // Informasi Akun & Keluar Akun
-                      Builder(builder: (ctx) {
-                        final user = AuthRepository.instance.currentUser;
-                        return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                          leading: CircleAvatar(
-                            radius: 22,
-                            backgroundColor: colors.soft,
-                            child: Text(
-                              (user?.nama.isNotEmpty ?? false) ? user!.nama[0].toUpperCase() : 'U',
+                      Builder(
+                        builder: (ctx) {
+                          final user = AuthRepository.instance.currentUser;
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 4,
+                            ),
+                            leading: CircleAvatar(
+                              radius: 22,
+                              backgroundColor: colors.soft,
+                              child: Text(
+                                (user?.nama.isNotEmpty ?? false)
+                                    ? user!.nama[0].toUpperCase()
+                                    : 'U',
+                                style: TextStyle(
+                                  fontFamily: TiketType.fontFamily,
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.ink,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              user?.nama ?? 'Belum Login',
                               style: TextStyle(
                                 fontFamily: TiketType.fontFamily,
                                 fontWeight: FontWeight.w700,
+                                fontSize: 15,
                                 color: colors.ink,
-                                fontSize: 16,
                               ),
                             ),
-                          ),
-                          title: Text(
-                            user?.nama ?? 'Belum Login',
-                            style: TextStyle(
-                              fontFamily: TiketType.fontFamily,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
-                              color: colors.ink,
+                            subtitle: Text(
+                              'IT Support ${BranchService.instance.currentBranch.name}',
+                              style: TextStyle(
+                                fontFamily: TiketType.fontFamily,
+                                fontSize: 12,
+                                color: colors.body,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                          subtitle: Text(
-                            'IT Support ${BranchService.instance.currentBranch.name}',
-                            style: TextStyle(
-                              fontFamily: TiketType.fontFamily,
-                              fontSize: 12,
-                              color: colors.body,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          trailing: Tooltip(
-                            message: 'Keluar Akun',
-                            child: SizedBox(
-                              width: 48,
-                              height: 48,
-                              child: Center(
-                                child: Material(
-                                  color: Colors.transparent,
-                                  shape: CircleBorder(
-                                    side: BorderSide(
-                                      color: colors.hairline,
-                                      width: 1.5,
+                            trailing: Tooltip(
+                              message: 'Keluar Akun',
+                              child: SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: Center(
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    shape: CircleBorder(
+                                      side: BorderSide(
+                                        color: colors.hairline,
+                                        width: 1.5,
+                                      ),
                                     ),
-                                  ),
-                                  child: InkWell(
-                                    customBorder: const CircleBorder(),
-                                    onTap: () => _confirmLogout(context),
-                                    child: SizedBox(
-                                      width: 40,
-                                      height: 40,
-                                      child: Center(
-                                        child: Icon(
-                                          Icons.logout_rounded,
-                                          size: 20,
-                                          color: colors.ink,
+                                    child: InkWell(
+                                      customBorder: const CircleBorder(),
+                                      onTap: () => _confirmLogout(context),
+                                      child: SizedBox(
+                                        width: 40,
+                                        height: 40,
+                                        child: Center(
+                                          child: Icon(
+                                            Icons.logout_rounded,
+                                            size: 20,
+                                            color: colors.ink,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -559,10 +734,10 @@ class CameraDrawer extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          ),
-                          onTap: () => _confirmLogout(context),
-                        );
-                      }),
+                            onTap: () => _confirmLogout(context),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -572,7 +747,9 @@ class CameraDrawer extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
                   decoration: BoxDecoration(
-                    border: Border(top: BorderSide(color: colors.hairline, width: 1.0)),
+                    border: Border(
+                      top: BorderSide(color: colors.hairline, width: 1.0),
+                    ),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,

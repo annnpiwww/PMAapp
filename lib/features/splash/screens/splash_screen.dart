@@ -7,6 +7,7 @@ import '../../../data/services/whats_new_service.dart';
 import '../../camera/screens/camera_capture_screen.dart';
 import '../../auth/screens/login_screen.dart';
 import '../../daily_tasks/error_ticket_launcher.dart';
+import '../../updater/app_update_coordinator.dart';
 import '../../whats_new/widgets/whats_new_sheet.dart';
 
 /// Smooth, modern animated splash screen untuk PMAapp.
@@ -70,69 +71,100 @@ class _SplashScreenState extends State<SplashScreen>
 
   void _startSmoothStartupSequence() {
     // Step 1: Inisialisasi Core & Storage
-    _pendingTimers.add(Timer(const Duration(milliseconds: 600), () {
-      if (!mounted) return;
-      setState(() {
-        _loadingStatus = 'Mengecek GPS dan waktu WITA...';
-        _progress = 0.40;
-      });
-
-      // Step 2: Menyiapkan Sensor Optik Kamera (Durasi menunggu kamera hardware warm-up)
-      _pendingTimers.add(Timer(const Duration(milliseconds: 900), () {
+    _pendingTimers.add(
+      Timer(const Duration(milliseconds: 600), () {
         if (!mounted) return;
         setState(() {
-          _loadingStatus = 'Menyiapkan kamera...';
-          _progress = 0.70;
+          _loadingStatus = 'Mengecek GPS dan waktu WITA...';
+          _progress = 0.40;
         });
 
-        // Step 3: Template & Cache
-        _pendingTimers.add(Timer(const Duration(milliseconds: 900), () {
-          if (!mounted) return;
-          setState(() {
-            _loadingStatus = 'Memuat template checklist...';
-            _progress = 0.92;
-          });
-
-          // Step 4: Selesai & Transisi Mulus (Kamera sudah siap di viewfinder)
-          _pendingTimers.add(Timer(const Duration(milliseconds: 600), () {
+        // Step 2: Menyiapkan Sensor Optik Kamera (Durasi menunggu kamera hardware warm-up)
+        _pendingTimers.add(
+          Timer(const Duration(milliseconds: 900), () {
             if (!mounted) return;
             setState(() {
-              _loadingStatus = 'Siap digunakan!';
-              _progress = 1.0;
+              _loadingStatus = 'Menyiapkan kamera...';
+              _progress = 0.70;
             });
 
-            _pendingTimers.add(Timer(const Duration(milliseconds: 300), () async {
-              if (!mounted) return;
-              final release = await _whatsNewCheck;
-              if (!mounted) return;
-              final isLoggedIn = AuthRepository.instance.isLoggedIn;
-              final targetScreen = isLoggedIn ? const CameraCaptureScreen() : const LoginScreen();
-
-              Navigator.of(context).pushReplacement(
-                PageRouteBuilder(
-                  transitionDuration: const Duration(milliseconds: 500),
-                  pageBuilder: (context, animation, secondaryAnimation) => WhatsNewGate(
-                    release: release,
-                    child: targetScreen,
-                  ),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: child,
-                    );
-                  },
-                ),
-              );
-              if (isLoggedIn) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  ErrorTicketLauncher.consumePending();
+            // Step 3: Template & Cache
+            _pendingTimers.add(
+              Timer(const Duration(milliseconds: 900), () {
+                if (!mounted) return;
+                setState(() {
+                  _loadingStatus = 'Memuat template checklist...';
+                  _progress = 0.92;
                 });
-              }
-            }));
-          }));
-        }));
-      }));
-    }));
+
+                // Step 4: Selesai & Transisi Mulus (Kamera sudah siap di viewfinder)
+                _pendingTimers.add(
+                  Timer(const Duration(milliseconds: 600), () {
+                    if (!mounted) return;
+                    setState(() {
+                      _loadingStatus = 'Siap digunakan!';
+                      _progress = 1.0;
+                    });
+
+                    _pendingTimers.add(
+                      Timer(const Duration(milliseconds: 300), () async {
+                        if (!mounted) return;
+                        final release = await _whatsNewCheck;
+                        if (!mounted) return;
+                        final isLoggedIn = AuthRepository.instance.isLoggedIn;
+                        final targetScreen = isLoggedIn
+                            ? const CameraCaptureScreen()
+                            : const LoginScreen();
+
+                        Navigator.of(context).pushReplacement(
+                          PageRouteBuilder(
+                            transitionDuration: const Duration(
+                              milliseconds: 500,
+                            ),
+                            pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                    WhatsNewGate(
+                                      release: release,
+                                      child: targetScreen,
+                                    ),
+                            transitionsBuilder:
+                                (
+                                  context,
+                                  animation,
+                                  secondaryAnimation,
+                                  child,
+                                ) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  );
+                                },
+                          ),
+                        );
+                        if (isLoggedIn) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            ErrorTicketLauncher.consumePending();
+                            AppUpdateCoordinator.instance.scheduleStartupCheck(
+                              waitForPopupClose: release != null,
+                            );
+                          });
+                        } else {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            AppUpdateCoordinator.instance.scheduleStartupCheck(
+                              waitForPopupClose: release != null,
+                            );
+                          });
+                        }
+                      }),
+                    );
+                  }),
+                );
+              }),
+            );
+          }),
+        );
+      }),
+    );
   }
 
   /// Kegagalan baca versi tidak boleh menghalangi masuk aplikasi.
@@ -230,7 +262,9 @@ class _SplashScreenState extends State<SplashScreen>
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.18),
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.18,
+                                ),
                                 blurRadius: 25,
                                 offset: const Offset(0, 6),
                               ),
@@ -329,7 +363,9 @@ class _SplashScreenState extends State<SplashScreen>
                                   borderRadius: BorderRadius.circular(2),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.accent.withValues(alpha: 0.5),
+                                      color: AppColors.accent.withValues(
+                                        alpha: 0.5,
+                                      ),
                                       blurRadius: 6,
                                     ),
                                   ],
@@ -358,7 +394,10 @@ class _SplashScreenState extends State<SplashScreen>
 
                       // Footer Subdued Pill
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(20),

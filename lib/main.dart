@@ -19,6 +19,7 @@ import 'data/services/push_service.dart';
 import 'core/widgets/tiket/error_alarm_overlay.dart';
 import 'features/daily_tasks/error_ticket_launcher.dart';
 import 'features/splash/screens/splash_screen.dart';
+import 'features/updater/app_update_coordinator.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,24 +38,29 @@ void main() async {
 
   // Run app langsung agar splash & UI tampil instan tanpa lag
   runApp(const PmaApp());
+  AppUpdateCoordinator.instance.attachLifecycleObserver();
 
   // Background non-blocking inits (Repository, Network Time Sync, Auto-clean temporary photos, Flush GSheet offline queue)
   // honey: eagerError false ensures one failing init doesn't cancel others; then/catchError logs without swallowing silently
-  unawaited(Future.wait([
-    TemplateRepository.instance.init(),
-    SubmissionRepository.instance.init(),
-    AuthRepository.instance.init(),
-    SecureTimeService.syncNetworkTime(),
-    PhotoCleanupService.cleanOldPhotos(maxDays: 7),
-    GoogleSheetsService.flushPendingQueue(),
-    MaintenanceLogService.syncLocal(),
-    NotificationService.instance.init(),
-    PushService.init(),
-    LocationService.syncFromRemote(),
-    BranchService.syncTechniciansFromRemote(),
-  ], eagerError: false)
-      .then((_) => debugPrint('bg init done'))
-      .catchError((Object e, StackTrace st) => debugPrint('bg init error $e\n$st')));
+  unawaited(
+    Future.wait([
+          TemplateRepository.instance.init(),
+          SubmissionRepository.instance.init(),
+          AuthRepository.instance.init(),
+          SecureTimeService.syncNetworkTime(),
+          PhotoCleanupService.cleanOldPhotos(maxDays: 7),
+          GoogleSheetsService.flushPendingQueue(),
+          MaintenanceLogService.syncLocal(),
+          NotificationService.instance.init(),
+          PushService.init(),
+          LocationService.syncFromRemote(),
+          BranchService.syncTechniciansFromRemote(),
+        ], eagerError: false)
+        .then((_) => debugPrint('bg init done'))
+        .catchError(
+          (Object e, StackTrace st) => debugPrint('bg init error $e\n$st'),
+        ),
+  );
 
   ErrorAlarmService.instance.start();
 }
@@ -72,6 +78,7 @@ class PmaApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           navigatorKey: AuthRepository.navigatorKey,
           scaffoldMessengerKey: AuthRepository.scaffoldMessengerKey,
+          navigatorObservers: [AppUpdateCoordinator.instance.routeObserver],
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: currentMode,
