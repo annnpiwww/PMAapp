@@ -263,6 +263,82 @@ class _AppReleasesScreenState extends State<AppReleasesScreen> {
     }
   }
 
+  Future<void> _confirmDeleteRelease(AdminReleaseItem item) async {
+    final colors = TiketColors.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dCtx) => AlertDialog(
+        backgroundColor: colors.dialog,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20.0),
+        ),
+        title: Text(
+          'Hapus rilis v${item.versionName} (Build ${item.versionCode})?',
+          style: TextStyle(
+            fontFamily: TiketType.fontFamily,
+            fontSize: 18.0,
+            fontWeight: FontWeight.w800,
+            color: colors.ink,
+          ),
+        ),
+        content: Text(
+          'File APK dan riwayatnya dihapus permanen. Tidak bisa dibatalkan.',
+          style: TextStyle(
+            fontFamily: TiketType.fontFamily,
+            fontSize: 14.0,
+            height: 20.0 / 14.0,
+            color: colors.body,
+          ),
+        ),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: UpdaterActionButton(
+                  label: 'Batal',
+                  isPrimary: false,
+                  onPressed: () => Navigator.of(dCtx).pop(false),
+                ),
+              ),
+              const SizedBox(width: 10.0),
+              Expanded(
+                child: UpdaterActionButton(
+                  label: 'Hapus',
+                  isDanger: true,
+                  onPressed: () => Navigator.of(dCtx).pop(true),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busyAction = true);
+    try {
+      await _service.deleteRelease(item.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Rilis v${item.versionName} dihapus.')),
+      );
+      await _load();
+    } on AppReleaseAdminException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Gagal menghapus rilis.')));
+    } finally {
+      if (mounted) setState(() => _busyAction = false);
+    }
+  }
+
   Future<void> _openUpload() async {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => UploadReleaseScreen(service: _service)),
@@ -545,6 +621,8 @@ class _AppReleasesScreenState extends State<AppReleasesScreen> {
                 busy: _busyAction,
                 onPublish: () => _confirmPublishDraft(historyReleases[i]),
                 onDeleteDraft: () => _deleteDraft(historyReleases[i]),
+                onDeleteRelease: () =>
+                    _confirmDeleteRelease(historyReleases[i]),
               ),
               if (i < historyReleases.length - 1)
                 Divider(height: 1.0, color: colors.hairline),
@@ -744,6 +822,11 @@ class _ActiveReleaseCard extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 8.0),
+          Text(
+            'Rilis aktif tidak bisa dihapus. Tarik dulu atau terbitkan versi baru.',
+            style: TiketType.metaStyle(color: colors.body),
+          ),
         ],
       ),
     );
@@ -756,6 +839,7 @@ class _HistoryReleaseRow extends StatelessWidget {
   final bool busy;
   final VoidCallback onPublish;
   final VoidCallback onDeleteDraft;
+  final VoidCallback onDeleteRelease;
 
   const _HistoryReleaseRow({
     required this.item,
@@ -763,12 +847,16 @@ class _HistoryReleaseRow extends StatelessWidget {
     required this.busy,
     required this.onPublish,
     required this.onDeleteDraft,
+    required this.onDeleteRelease,
   });
 
   @override
   Widget build(BuildContext context) {
     final colors = TiketColors.of(context);
     final isDraft = item.status == AdminReleaseStatus.draft;
+    final canDeleteRelease =
+        item.status == AdminReleaseStatus.rolledBack ||
+        item.status == AdminReleaseStatus.archived;
     final shownDate = isDraft ? 'Belum terbit' : dateText;
 
     return Padding(
@@ -864,6 +952,13 @@ class _HistoryReleaseRow extends StatelessWidget {
                   onPressed: busy ? null : onDeleteDraft,
                 ),
               ],
+            ),
+          ] else if (canDeleteRelease) ...[
+            const SizedBox(height: 8.0),
+            _OutlineSmallButton(
+              label: 'Hapus rilis',
+              color: colors.danger,
+              onPressed: busy ? null : onDeleteRelease,
             ),
           ],
         ],
@@ -1002,12 +1097,18 @@ class _TargetCabangBadge extends StatelessWidget {
 class _OutlineSmallButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
+  final Color? color;
 
-  const _OutlineSmallButton({required this.label, required this.onPressed});
+  const _OutlineSmallButton({
+    required this.label,
+    required this.onPressed,
+    this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colors = TiketColors.of(context);
+    final effectiveColor = color ?? colors.primary;
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 48.0, minWidth: 112.0),
       child: Center(
@@ -1019,8 +1120,8 @@ class _OutlineSmallButton extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(112.0, 44.0),
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              foregroundColor: colors.primary,
-              side: BorderSide(color: colors.primary, width: 1.5),
+              foregroundColor: effectiveColor,
+              side: BorderSide(color: effectiveColor, width: 1.5),
               shape: const StadiumBorder(),
               textStyle: const TextStyle(
                 fontFamily: TiketType.fontFamily,

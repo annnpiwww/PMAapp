@@ -733,6 +733,61 @@ class _UpdaterSheetState extends State<UpdaterSheet>
         );
 
       case UpdaterPhase.ready:
+        final installStatus = state.installStatus;
+        final coolingDown = widget.controller.installButtonCoolingDown;
+
+        final String heading;
+        final String bodyText;
+        final String primaryLabel;
+        final VoidCallback? primaryAction;
+        final bool isFailure = installStatus == InstallStatus.failed;
+        final bool isWarning = installStatus == InstallStatus.notInstalled;
+
+        switch (installStatus) {
+          case InstallStatus.idle:
+            heading = 'Keaslian file terverifikasi';
+            bodyText =
+                'Setelah mengetuk tombol, pilih Pasang pada dialog sistem Android.';
+            primaryLabel = 'Pasang sekarang';
+            primaryAction = () => widget.controller.install();
+          case InstallStatus.launching:
+            heading = 'Keaslian file terverifikasi';
+            bodyText =
+                'Setelah mengetuk tombol, pilih Pasang pada dialog sistem Android.';
+            primaryLabel = coolingDown
+                ? 'Membuka pemasang Android...'
+                : 'Buka lagi';
+            primaryAction = coolingDown
+                ? null
+                : () => widget.controller.install();
+          case InstallStatus.notInstalled:
+            heading = 'Pemasangan belum selesai';
+            bodyText =
+                'Versi baru belum terpasang. File sudah terunduh, tidak perlu unduh ulang.';
+            primaryLabel = 'Pasang lagi';
+            primaryAction = () => widget.controller.install();
+          case InstallStatus.failed:
+            heading = 'Pemasangan belum berhasil';
+            if (state.installFailureMissingFile) {
+              bodyText =
+                  'File update tidak ditemukan. Unduh ulang untuk melanjutkan.';
+              primaryLabel = 'Unduh ulang';
+              primaryAction = () => widget.controller.redownload();
+            } else {
+              bodyText = 'Pemasang Android tidak bisa dibuka.';
+              primaryLabel = 'Pasang lagi';
+              primaryAction = () => widget.controller.install();
+            }
+        }
+
+        final Color badgeBg = isFailure
+            ? colors.danger
+            : (isWarning ? colors.signal : colors.ok);
+        final Color badgeFg = isWarning ? colors.black : colors.white;
+        final IconData badgeIcon = isFailure
+            ? Icons.close_rounded
+            : (isWarning ? Icons.priority_high_rounded : Icons.check_rounded);
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -744,7 +799,11 @@ class _UpdaterSheetState extends State<UpdaterSheet>
               decoration: BoxDecoration(
                 color: updaterSurfaceTint(context, colors),
                 borderRadius: BorderRadius.circular(12.0),
-                border: Border.all(color: colors.hairline),
+                border: Border.all(
+                  color: isFailure
+                      ? colors.danger
+                      : (isWarning ? colors.signal : colors.hairline),
+                ),
               ),
               child: Row(
                 children: [
@@ -752,14 +811,10 @@ class _UpdaterSheetState extends State<UpdaterSheet>
                     width: 22.0,
                     height: 22.0,
                     decoration: BoxDecoration(
-                      color: colors.ok,
+                      color: badgeBg,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      Icons.check_rounded,
-                      size: 14.0,
-                      color: colors.white,
-                    ),
+                    child: Icon(badgeIcon, size: 14.0, color: badgeFg),
                   ),
                   const SizedBox(width: 12.0),
                   Expanded(
@@ -767,7 +822,7 @@ class _UpdaterSheetState extends State<UpdaterSheet>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Keaslian file terverifikasi',
+                          heading,
                           style: TextStyle(
                             fontFamily: TiketType.fontFamily,
                             fontSize: 14.0,
@@ -777,7 +832,7 @@ class _UpdaterSheetState extends State<UpdaterSheet>
                         ),
                         const SizedBox(height: 2.0),
                         Text(
-                          'Setelah mengetuk tombol, pilih Pasang pada dialog sistem Android.',
+                          bodyText,
                           style: TextStyle(
                             fontFamily: TiketType.fontFamily,
                             fontSize: 12.0,
@@ -791,10 +846,15 @@ class _UpdaterSheetState extends State<UpdaterSheet>
               ),
             ),
             const SizedBox(height: 14.0),
-            UpdaterActionButton(
-              label: 'Pasang sekarang',
-              onPressed: () => widget.controller.install(),
-            ),
+            UpdaterActionButton(label: primaryLabel, onPressed: primaryAction),
+            if (installStatus == InstallStatus.launching ||
+                installStatus == InstallStatus.notInstalled) ...[
+              const SizedBox(height: 8.0),
+              Text(
+                'Ketuk Pasang atau Perbarui di layar Android, jangan ditutup sampai selesai.',
+                style: TiketType.metaStyle(color: colors.body),
+              ),
+            ],
             const SizedBox(height: 10.0),
             UpdaterActionButton(
               label: 'Nanti',

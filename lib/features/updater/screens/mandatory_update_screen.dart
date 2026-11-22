@@ -179,6 +179,17 @@ class _MandatoryUpdateScreenState extends State<MandatoryUpdateScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _buildBottomAction(state, percent),
+                          if (state.phase == UpdaterPhase.ready &&
+                              (state.installStatus == InstallStatus.launching ||
+                                  state.installStatus ==
+                                      InstallStatus.notInstalled)) ...[
+                            const SizedBox(height: 8.0),
+                            Text(
+                              'Ketuk Pasang atau Perbarui di layar Android, jangan ditutup sampai selesai.',
+                              textAlign: TextAlign.center,
+                              style: TiketType.metaStyle(color: colors.body),
+                            ),
+                          ],
                           const SizedBox(height: 8.0),
                           Text(
                             'Pembaruan wajib tidak bisa dilewati',
@@ -323,6 +334,9 @@ class _MandatoryUpdateScreenState extends State<MandatoryUpdateScreen> {
             ),
           ),
           const SizedBox(height: 16.0),
+        ] else if (state.phase == UpdaterPhase.ready) ...[
+          _buildReadyStatusCard(context, colors, state),
+          const SizedBox(height: 16.0),
         ] else ...[
           UpdaterStatsRow(progress: p),
           const SizedBox(height: 16.0),
@@ -402,6 +416,92 @@ class _MandatoryUpdateScreenState extends State<MandatoryUpdateScreen> {
     }
   }
 
+  Widget _buildReadyStatusCard(
+    BuildContext context,
+    TiketColors colors,
+    UpdaterState state,
+  ) {
+    final installStatus = state.installStatus;
+    final isFailure = installStatus == InstallStatus.failed;
+    final isWarning = installStatus == InstallStatus.notInstalled;
+
+    final String heading;
+    final String bodyText;
+    switch (installStatus) {
+      case InstallStatus.idle:
+      case InstallStatus.launching:
+        heading = 'Keaslian file terverifikasi';
+        bodyText =
+            'Setelah mengetuk tombol, pilih Pasang pada dialog sistem Android.';
+      case InstallStatus.notInstalled:
+        heading = 'Pemasangan belum selesai';
+        bodyText =
+            'Versi baru belum terpasang. File sudah terunduh, tidak perlu unduh ulang.';
+      case InstallStatus.failed:
+        heading = 'Pemasangan belum berhasil';
+        bodyText = state.installFailureMissingFile
+            ? 'File update tidak ditemukan. Unduh ulang untuk melanjutkan.'
+            : 'Pemasang Android tidak bisa dibuka.';
+    }
+
+    final Color badgeBg = isFailure
+        ? colors.danger
+        : (isWarning ? colors.signal : colors.ok);
+    final Color badgeFg = isWarning ? colors.black : colors.white;
+    final IconData badgeIcon = isFailure
+        ? Icons.close_rounded
+        : (isWarning ? Icons.priority_high_rounded : Icons.check_rounded);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+      decoration: BoxDecoration(
+        color: updaterSurfaceTint(context, colors),
+        borderRadius: BorderRadius.circular(12.0),
+        border: Border.all(
+          color: isFailure
+              ? colors.danger
+              : (isWarning ? colors.signal : colors.hairline),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 22.0,
+            height: 22.0,
+            decoration: BoxDecoration(color: badgeBg, shape: BoxShape.circle),
+            child: Icon(badgeIcon, size: 14.0, color: badgeFg),
+          ),
+          const SizedBox(width: 12.0),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  heading,
+                  style: TextStyle(
+                    fontFamily: TiketType.fontFamily,
+                    fontSize: 14.0,
+                    fontWeight: FontWeight.w700,
+                    color: colors.ink,
+                  ),
+                ),
+                const SizedBox(height: 2.0),
+                Text(
+                  bodyText,
+                  style: TextStyle(
+                    fontFamily: TiketType.fontFamily,
+                    fontSize: 12.0,
+                    color: colors.body,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBottomAction(UpdaterState state, int percent) {
     switch (state.phase) {
       case UpdaterPhase.available:
@@ -425,10 +525,35 @@ class _MandatoryUpdateScreenState extends State<MandatoryUpdateScreen> {
           onPressed: () => widget.controller.openPermissionSettings(),
         );
       case UpdaterPhase.ready:
-        return UpdaterActionButton(
-          label: 'Pasang sekarang',
-          onPressed: () => widget.controller.install(),
-        );
+        final coolingDown = widget.controller.installButtonCoolingDown;
+        switch (state.installStatus) {
+          case InstallStatus.idle:
+            return UpdaterActionButton(
+              label: 'Pasang sekarang',
+              onPressed: () => widget.controller.install(),
+            );
+          case InstallStatus.launching:
+            return UpdaterActionButton(
+              label: coolingDown ? 'Membuka pemasang Android...' : 'Buka lagi',
+              onPressed: coolingDown ? null : () => widget.controller.install(),
+            );
+          case InstallStatus.notInstalled:
+            return UpdaterActionButton(
+              label: 'Pasang lagi',
+              onPressed: () => widget.controller.install(),
+            );
+          case InstallStatus.failed:
+            if (state.installFailureMissingFile) {
+              return UpdaterActionButton(
+                label: 'Unduh ulang',
+                onPressed: () => widget.controller.redownload(),
+              );
+            }
+            return UpdaterActionButton(
+              label: 'Pasang lagi',
+              onPressed: () => widget.controller.install(),
+            );
+        }
       case UpdaterPhase.error:
         final kind = state.errorKind ?? AppUpdateErrorKind.interrupted;
         final label = switch (kind) {

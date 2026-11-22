@@ -450,6 +450,11 @@ class AppReleaseAdminService {
           msg = 'Nomor versi harus lebih tinggi dari rilis sebelumnya.';
         } else if (errorCode == 'not_editable') {
           msg = 'Rilis ini sudah tidak bisa diubah.';
+        } else if (errorCode == 'release_is_active') {
+          msg =
+              'Rilis aktif tidak bisa dihapus. Tarik dulu atau terbitkan versi baru.';
+        } else if (errorCode == 'not_deletable') {
+          msg = 'Rilis ini tidak bisa dihapus.';
         } else {
           msg = 'Status rilis sudah berubah. Muat ulang daftar.';
         }
@@ -457,6 +462,14 @@ class AppReleaseAdminService {
           statusCode: 409,
           errorCode: errorCode,
           message: msg,
+        );
+      }
+
+      if (response.statusCode == 404) {
+        throw AppReleaseAdminException(
+          statusCode: 404,
+          errorCode: errorCode,
+          message: 'Rilis tidak ditemukan.',
         );
       }
 
@@ -648,5 +661,9 @@ class AppReleaseAdminService {
 
   Future<void> deleteDraft(String id) async {
     await _postAction({'action': 'delete_draft', 'id': id});
+  }
+
+  Future<void> deleteRelease(String id) async {
+    await _postAction({'action': 'delete_release', 'id': id});
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../data/services/app_update_service.dart';
@@ -13,6 +14,8 @@ enum UpdaterPhase {
   error,
 }
 
+enum InstallStatus { idle, launching, notInstalled, failed }
+
 class UpdaterState {
   final UpdaterPhase phase;
   final AppUpdateCheckResult checkResult;
@@ -21,6 +24,8 @@ class UpdaterState {
   final AppUpdateErrorKind? errorKind;
   final int errorReceivedBytes;
   final int errorTotalBytes;
+  final InstallStatus installStatus;
+  final bool installFailureMissingFile;
 
   const UpdaterState({
     required this.phase,
@@ -30,6 +35,8 @@ class UpdaterState {
     this.errorKind,
     this.errorReceivedBytes = 0,
     this.errorTotalBytes = 0,
+    this.installStatus = InstallStatus.idle,
+    this.installFailureMissingFile = false,
   });
 
   UpdaterState copyWith({
@@ -40,6 +47,8 @@ class UpdaterState {
     AppUpdateErrorKind? errorKind,
     int? errorReceivedBytes,
     int? errorTotalBytes,
+    InstallStatus? installStatus,
+    bool? installFailureMissingFile,
   }) {
     return UpdaterState(
       phase: phase ?? this.phase,
@@ -49,6 +58,9 @@ class UpdaterState {
       errorKind: errorKind ?? this.errorKind,
       errorReceivedBytes: errorReceivedBytes ?? this.errorReceivedBytes,
       errorTotalBytes: errorTotalBytes ?? this.errorTotalBytes,
+      installStatus: installStatus ?? this.installStatus,
+      installFailureMissingFile:
+          installFailureMissingFile ?? this.installFailureMissingFile,
     );
   }
 }
@@ -60,11 +72,13 @@ class UpdaterController extends ChangeNotifier with WidgetsBindingObserver {
     UpdaterPhase initialPhase = UpdaterPhase.available,
     DownloadProgress? initialProgress,
     AppUpdateErrorKind? initialErrorKind,
+    String? initialVerifiedFilePath,
   }) : _service = service ?? AppUpdateService.instance,
        _state = UpdaterState(
          phase: initialPhase,
          checkResult: checkResult,
          progress: initialProgress,
+         verifiedFilePath: initialVerifiedFilePath,
          errorKind: initialErrorKind,
          errorReceivedBytes: initialProgress?.received ?? 0,
          errorTotalBytes: checkResult.release.sizeBytes,
@@ -75,11 +89,16 @@ class UpdaterController extends ChangeNotifier with WidgetsBindingObserver {
   final AppUpdateService _service;
   UpdaterState _state;
   StreamSubscription<DownloadProgress>? _downloadSub;
+  Timer? _installCooldownTimer;
+  bool _installCoolingDown = false;
+  bool _awaitingInstallerReturn = false;
+  bool _sawBackground = false;
   bool _disposed = false;
 
   UpdaterState get state => _state;
   AppUpdateRelease get release => _state.checkResult.release;
   bool get isMandatory => _state.checkResult.mandatory;
+  bool get installButtonCoolingDown => _installCoolingDown;
 
   void _emit(UpdaterState next) {
     if (_disposed) return;
@@ -87,8 +106,30 @@ class UpdaterController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  void _clearInstallTracking() {
+    _awaitingInstallerReturn = false;
+    _sawBackground = false;
+    _installCooldownTimer?.cancel();
+    _installCooldownTimer = null;
+    _installCoolingDown = false;
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_awaitingInstallerReturn) {
+      if (state == AppLifecycleState.paused ||
+          state == AppLifecycleState.hidden) {
+        _sawBackground = true;
+      } else if (state == AppLifecycleState.resumed && _sawBackground) {
+        _clearInstallTracking();
+        _emit(
+          _state.copyWith(
+            installStatus: InstallStatus.notInstalled,
+            installFailureMissingFile: false,
+          ),
+        );
+      }
+    }
     if (state == AppLifecycleState.resumed &&
         _state.phase == UpdaterPhase.needsPermission) {
       unawaited(recheckPermission());
@@ -96,6 +137,7 @@ class UpdaterController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> startDownload({bool resetPartial = false}) async {
+    _clearInstallTracking();
     await _downloadSub?.cancel();
     _downloadSub = null;
 
@@ -247,10 +289,76 @@ class UpdaterController extends ChangeNotifier with WidgetsBindingObserver {
     final allowed = await _service.canInstallPackages();
     if (_disposed) return;
     if (!allowed) {
+      _clearInstallTracking();
       _emit(_state.copyWith(phase: UpdaterPhase.needsPermission));
       return;
     }
-    await _service.installApk(path);
+
+    _awaitingInstallerReturn = false;
+    _sawBackground = false;
+    _installCooldownTimer?.cancel();
+    _installCoolingDown = true;
+    _installCooldownTimer = Timer(const Duration(seconds: 3), () {
+      if (_disposed) return;
+      _installCoolingDown = false;
+      _installCooldownTimer = null;
+      notifyListeners();
+    });
+    _emit(
+      _state.copyWith(
+        installStatus: InstallStatus.launching,
+        installFailureMissingFile: false,
+      ),
+    );
+
+    try {
+      final ok = await _service.installApk(path);
+      if (_disposed) return;
+      if (ok) {
+        _awaitingInstallerReturn = true;
+      } else {
+        _clearInstallTracking();
+        _emit(
+          _state.copyWith(
+            installStatus: InstallStatus.failed,
+            installFailureMissingFile: false,
+          ),
+        );
+      }
+    } on PlatformException catch (e) {
+      if (_disposed) return;
+      _clearInstallTracking();
+      final missingFile = e.code == 'MISSING_FILE' || e.code == 'INVALID_PATH';
+      _emit(
+        _state.copyWith(
+          installStatus: InstallStatus.failed,
+          installFailureMissingFile: missingFile,
+        ),
+      );
+    } catch (_) {
+      if (_disposed) return;
+      _clearInstallTracking();
+      _emit(
+        _state.copyWith(
+          installStatus: InstallStatus.failed,
+          installFailureMissingFile: false,
+        ),
+      );
+    }
+  }
+
+  Future<void> redownload() {
+    _clearInstallTracking();
+    if (_state.installStatus != InstallStatus.idle ||
+        _state.installFailureMissingFile) {
+      _emit(
+        _state.copyWith(
+          installStatus: InstallStatus.idle,
+          installFailureMissingFile: false,
+        ),
+      );
+    }
+    return startDownload(resetPartial: true);
   }
 
   Future<void> dismissLater() async {
@@ -264,6 +372,7 @@ class UpdaterController extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
+    _clearInstallTracking();
     unawaited(_downloadSub?.cancel() ?? Future<void>.value());
     _downloadSub = null;
     super.dispose();
