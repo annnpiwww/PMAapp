@@ -1523,9 +1523,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     final String shareText;
     if (isTeknisi) {
       if (currentTipeLaporan == 'Pulang') {
-        final jamPulangText = absensiSetup2.jamPulang.trim().isNotEmpty
-            ? absensiSetup2.jamPulang.trim()
-            : absensiSetup2.effectiveJamPulang;
+        final jamPulangText = absensiSetup2.effectiveJamPulang;
         // Salam pulang disesuaikan jam kepulangan (misal 18:00/22:00 -> Selamat Malam, 11:00 -> Selamat Siang)
         final greetingPulang = WhatsAppReportService.getGreetingFromTimeString(
           jamPulangText,
@@ -1693,7 +1691,7 @@ Status: ${aiResult.isSesuai ? "LOLOS SOP (ACC)" : "TIDAK ACC"}
         jadwalShift: isTeknisiSave ? absSetup.jadwalShift : null,
         tipeLaporan: isTeknisiSave ? currentTipeLaporan : null,
         jamPulang: isTeknisiSave && currentTipeLaporan == 'Pulang'
-            ? absSetup.jamPulang
+            ? absSetup.effectiveJamPulang
             : null,
         shiftSelanjutnya: isTeknisiSave && currentTipeLaporan == 'Pulang'
             ? absSetup.shiftSelanjutnya

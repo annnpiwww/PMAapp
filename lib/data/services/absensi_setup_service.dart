@@ -40,7 +40,6 @@ class AbsensiSetupService extends ChangeNotifier {
       'absensi_jadwal_shift_set_at_${b.code}';
   static String _kLokasiKey(AppBranch b) => 'absensi_lokasi_standby_${b.code}';
   static const _kTipe = 'absensi_tipe_laporan_v1';
-  static const _kJamPulang = 'absensi_jam_pulang_v1';
   static const _kNextShift = 'absensi_next_shift_v1';
   static const _kSelesai = 'absensi_pekerjaan_selesai_v1';
   static const _kBelum = 'absensi_pekerjaan_belum_v1';
@@ -52,7 +51,6 @@ class AbsensiSetupService extends ChangeNotifier {
       BranchService.instance.currentBranch.defaultLocationTag;
   String jadwalShift = '';
   String tipeLaporan = 'Masuk';
-  String jamPulang = '';
   String shiftSelanjutnya = '';
   String pekerjaanSelesai = '';
   String pekerjaanBelum = '';
@@ -421,13 +419,10 @@ class AbsensiSetupService extends ChangeNotifier {
     return BranchService.instance.currentBranch.defaultLocationTag;
   }
 
-  /// Jam pulang efektif: jika kosong, ambil jam akhir shift
-  String get effectiveJamPulang {
-    if (jamPulang.trim().isEmpty) {
-      return autoDetectJamPulang(shift: effectiveJadwalShift);
-    }
-    return jamPulang;
-  }
+  /// Jam pulang selalu jam akhir shift aktif. Nilai tersimpan bisa basi
+  /// (22:00 sisa Shift 3 kemarin terbawa ke Pulang Shift 1 hari ini).
+  String get effectiveJamPulang =>
+      autoDetectJamPulang(shift: effectiveJadwalShift);
 
   String get hariKerja {
     const map = [
@@ -522,12 +517,6 @@ class AbsensiSetupService extends ChangeNotifier {
           )) {
         tipeLaporan = 'Pulang';
       }
-      final rawJamPulang = prefs.getString(_kJamPulang);
-      if (rawJamPulang != null && rawJamPulang.trim().isNotEmpty) {
-        jamPulang = rawJamPulang.trim();
-      } else {
-        jamPulang = autoDetectJamPulang(shift: effectiveJadwalShift);
-      }
       shiftSelanjutnya = prefs.getString(_kNextShift) ?? '';
       handoverDate = prefs.getString(_kHandoverDate) ?? '';
       final now = DateTime.now();
@@ -570,7 +559,6 @@ class AbsensiSetupService extends ChangeNotifier {
         );
       }
       await prefs.setString(_kTipe, tipeLaporan);
-      await prefs.setString(_kJamPulang, effectiveJamPulang);
       await prefs.setString(_kNextShift, shiftSelanjutnya);
       await prefs.setString(_kSelesai, pekerjaanSelesai);
       await prefs.setString(_kBelum, pekerjaanBelum);
@@ -645,12 +633,6 @@ class AbsensiSetupService extends ChangeNotifier {
 
   void updateTipe(String v) {
     tipeLaporan = v;
-    _save();
-    notifyListeners();
-  }
-
-  void updateJamPulang(String v) {
-    jamPulang = v;
     _save();
     notifyListeners();
   }

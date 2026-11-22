@@ -65,6 +65,15 @@ void main() {
       expect(setup.effectiveLokasiStandby, equals('PCD'));
     });
 
+    test('Jam pulang follows the active shift, not yesterday\'s shift', () async {
+      final setup = AbsensiSetupService.instance;
+      await BranchService.instance.setBranch(AppBranch.manado);
+      setup.updateShift('Shift 3 (14:00 - 22:00)');
+      expect(setup.effectiveJamPulang, equals('22:00'));
+      setup.updateShift('Shift 1 (03:00 - 11:00)');
+      expect(setup.effectiveJamPulang, equals('11:00'));
+    });
+
     test('AttendanceArchiveScreen filters records strictly per branch without cross-viewing', () async {
       await StorageService.clearAllAttendanceRecords();
       final recordTime = DateTime.now().subtract(const Duration(days: 2));

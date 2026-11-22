@@ -35,7 +35,6 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
   bool _isCustomShift = false;
   late String _selectedShift;
   late String _tipeLaporan;
-  late String _jamPulang;
 
   // Lokasi standby manual (Bali bisa isi sendiri, tidak dikunci ke PBKD)
   late TextEditingController _lokasiCtrl;
@@ -220,7 +219,6 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
         )) {
       _tipeLaporan = 'Pulang';
     }
-    _jamPulang = setup.effectiveJamPulang;
   }
 
   @override
@@ -236,7 +234,6 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     setState(() {
       _isCustomShift = false;
       _selectedShift = shift;
-      _jamPulang = AbsensiSetupService.autoDetectJamPulang(shift: shift);
     });
   }
 
@@ -250,12 +247,10 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     final jam = _customShiftJamCtrl.text.trim();
     if (nama.isEmpty && jam.isEmpty) {
       _selectedShift = 'Shift Khusus';
-      _jamPulang = '18:00';
       return;
     }
     final namaShift = nama.isEmpty ? 'Shift Khusus' : nama;
     _selectedShift = jam.isEmpty ? namaShift : '$namaShift ($jam)';
-    _jamPulang = AbsensiSetupService.autoDetectJamPulang(shift: _selectedShift);
   }
 
   /// Isi ulang kolom nama & jam dari shift yang tersimpan (mis. dialog dibuka lagi).
@@ -284,7 +279,6 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
         _customShiftCtrl.text = '';
         _customShiftJamCtrl.text = '';
         _selectedShift = _shiftCards[0]['full']!;
-        _jamPulang = AbsensiSetupService.autoDetectJamPulang(shift: _selectedShift);
       }
     });
   }
@@ -354,12 +348,7 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
       }
     }
 
-    setState(() {
-      _tipeLaporan = tipe;
-      if (tipe == 'Pulang') {
-        _jamPulang = AbsensiSetupService.autoDetectJamPulang(shift: _selectedShift);
-      }
-    });
+    setState(() => _tipeLaporan = tipe);
   }
 
   Future<void> _saveData() async {
@@ -412,7 +401,6 @@ class _AbsensiKategoriDialogState extends State<AbsensiKategoriDialog> {
     }
 
     setup.updateTipe(_tipeLaporan);
-    setup.updateJamPulang(_jamPulang);
 
     HapticFeedback.mediumImpact();
     if (mounted) {
