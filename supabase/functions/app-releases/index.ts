@@ -16,13 +16,21 @@ import {
   validateLatestInput,
   validateTargetCabang,
 } from './logic.ts';
+import {
+  type R2Config,
+  presignR2Url,
+  r2Delete,
+  r2GetBytes,
+  readR2Config,
+} from './r2.ts';
 
 const MAX_BODY_BYTES = 32 * 1024;
 const BUCKET_NAME = 'app-releases';
 const SIGNED_DOWNLOAD_TTL_SECONDS = 900;
+const SIGNED_UPLOAD_TTL_SECONDS = 900;
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ADMIN_SELECT_COLUMNS =
-  'id, app, abi, version_code, base_version_code, version_name, sha256, size_bytes, changelog, mandatory, min_supported_version, target_cabang, status, created_by, created_at, published_at';
+  'id, app, abi, version_code, base_version_code, version_name, sha256, size_bytes, changelog, mandatory, min_supported_version, target_cabang, backend, status, created_by, created_at, published_at';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -54,10 +62,11 @@ async function runRetention(
   // deno-lint-ignore no-explicit-any
   supabase: SupabaseClient<any>,
   row: { id: string; abi: string; version_code: number; apk_path: string | null },
+  r2: R2Config | null,
 ): Promise<number> {
   const { data: olderRows, error: olderErr } = await supabase
     .from('app_releases')
-    .select('id, apk_path')
+    .select('id, apk_path, backend')
     .eq('app', APP_ID)
     .eq('abi', row.abi)
     .in('status', ['published', 'rolled_back'])
@@ -72,16 +81,43 @@ async function runRetention(
     return 0;
   }
 
-  const pathsToRemove = olderRows
-    .map((r) => r.apk_path)
-    .filter((p): p is string => typeof p === 'string' && p.length > 0 && p !== row.apk_path);
+  const supabasePathsToRemove: string[] = [];
+  const r2PathsToRemove: string[] = [];
+  for (const r of olderRows) {
+    const p = r.apk_path;
+    if (typeof p !== 'string' || p.length === 0 || p === row.apk_path) {
+      continue;
+    }
+    if (r.backend === 'r2') {
+      r2PathsToRemove.push(p);
+    } else {
+      supabasePathsToRemove.push(p);
+    }
+  }
 
-  if (pathsToRemove.length > 0) {
+  if (supabasePathsToRemove.length > 0) {
     const { error: rmErr } = await supabase.storage
       .from(BUCKET_NAME)
-      .remove(pathsToRemove);
+      .remove(supabasePathsToRemove);
     if (rmErr) {
       console.error('app-releases retention storage remove error:', rmErr.message);
+    }
+  }
+
+  if (r2PathsToRemove.length > 0) {
+    if (!r2) {
+      console.error('app-releases retention R2 not configured; skipping R2 deletes');
+    } else {
+      for (const key of r2PathsToRemove) {
+        try {
+          await r2Delete(r2, key);
+        } catch (err) {
+          console.error(
+            'app-releases retention R2 delete error:',
+            err instanceof Error ? err.message : 'unknown',
+          );
+        }
+      }
     }
   }
 
@@ -141,6 +177,7 @@ export async function handleAppReleases(req: Request): Promise<Response> {
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  const r2 = readR2Config();
 
   const action = body.action;
 
@@ -156,7 +193,7 @@ export async function handleAppReleases(req: Request): Promise<Response> {
 
     const { data: rows, error: qErr } = await supabase
       .from('app_releases')
-      .select('id, version_name, version_code, size_bytes, sha256, changelog, mandatory, min_supported_version, apk_path, target_cabang')
+      .select('id, version_name, version_code, size_bytes, sha256, changelog, mandatory, min_supported_version, apk_path, target_cabang, backend')
       .eq('app', APP_ID)
       .eq('abi', abi)
       .eq('status', 'published')
@@ -190,13 +227,36 @@ export async function handleAppReleases(req: Request): Promise<Response> {
       return json({ error: 'server error' }, 500);
     }
 
-    const { data: signedData, error: signErr } = await supabase.storage
-      .from(BUCKET_NAME)
-      .createSignedUrl(row.apk_path, SIGNED_DOWNLOAD_TTL_SECONDS);
+    let downloadUrl: string;
+    if (row.backend === 'r2') {
+      if (!r2) {
+        console.error('app-releases latest R2 not configured');
+        return json({ error: 'server error' }, 500);
+      }
+      try {
+        downloadUrl = await presignR2Url({
+          method: 'GET',
+          config: r2,
+          key: row.apk_path,
+          expiresSeconds: SIGNED_DOWNLOAD_TTL_SECONDS,
+        });
+      } catch (err) {
+        console.error(
+          'app-releases presignR2Url download error:',
+          err instanceof Error ? err.message : 'unknown',
+        );
+        return json({ error: 'server error' }, 500);
+      }
+    } else {
+      const { data: signedData, error: signErr } = await supabase.storage
+        .from(BUCKET_NAME)
+        .createSignedUrl(row.apk_path, SIGNED_DOWNLOAD_TTL_SECONDS);
 
-    if (signErr || !signedData?.signedUrl) {
-      console.error('app-releases createSignedUrl error:', signErr?.message ?? 'missing signedUrl');
-      return json({ error: 'server error' }, 500);
+      if (signErr || !signedData?.signedUrl) {
+        console.error('app-releases createSignedUrl error:', signErr?.message ?? 'missing signedUrl');
+        return json({ error: 'server error' }, 500);
+      }
+      downloadUrl = signedData.signedUrl;
     }
 
     return json(
@@ -211,7 +271,7 @@ export async function handleAppReleases(req: Request): Promise<Response> {
           sha256: row.sha256,
           changelog: row.changelog ?? '',
         },
-        download_url: signedData.signedUrl,
+        download_url: downloadUrl,
       },
       200,
     );
@@ -270,6 +330,11 @@ export async function handleAppReleases(req: Request): Promise<Response> {
       );
     }
 
+    if (!r2) {
+      console.error('app-releases R2 not configured');
+      return json({ error: 'server error' }, 500);
+    }
+
     const apkPath = objectPath(v.abi, v.version_code);
     const { data: inserted, error: insErr } = await supabase
       .from('app_releases')
@@ -286,6 +351,7 @@ export async function handleAppReleases(req: Request): Promise<Response> {
         mandatory: v.mandatory,
         min_supported_version: v.min_supported_version,
         target_cabang: v.target_cabang,
+        backend: 'r2',
         status: 'draft',
         created_by: session.uid,
       })
@@ -300,12 +366,19 @@ export async function handleAppReleases(req: Request): Promise<Response> {
       return json({ error: 'server error' }, 500);
     }
 
-    const { data: uploadData, error: uploadErr } = await supabase.storage
-      .from(BUCKET_NAME)
-      .createSignedUploadUrl(apkPath);
-
-    if (uploadErr || !uploadData) {
-      console.error('app-releases createSignedUploadUrl error:', uploadErr?.message ?? 'missing data');
+    let signedUrl: string;
+    try {
+      signedUrl = await presignR2Url({
+        method: 'PUT',
+        config: r2,
+        key: apkPath,
+        expiresSeconds: SIGNED_UPLOAD_TTL_SECONDS,
+      });
+    } catch (err) {
+      console.error(
+        'app-releases presignR2Url upload error:',
+        err instanceof Error ? err.message : 'unknown',
+      );
       await supabase.from('app_releases').delete().eq('id', inserted.id).eq('status', 'draft');
       return json({ error: 'server error' }, 500);
     }
@@ -314,9 +387,9 @@ export async function handleAppReleases(req: Request): Promise<Response> {
       {
         id: inserted.id,
         upload: {
-          path: uploadData.path,
-          token: uploadData.token,
-          signedUrl: uploadData.signedUrl,
+          path: apkPath,
+          token: '',
+          signedUrl,
         },
       },
       201,
@@ -349,16 +422,38 @@ export async function handleAppReleases(req: Request): Promise<Response> {
       return json({ error: 'upload_missing' }, 422);
     }
 
-    const { data: blob, error: dlErr } = await supabase.storage
-      .from(BUCKET_NAME)
-      .download(row.apk_path);
+    let bytes: Uint8Array;
+    if (row.backend === 'r2') {
+      if (!r2) {
+        console.error('app-releases publish R2 not configured');
+        return json({ error: 'server error' }, 500);
+      }
+      try {
+        const fetched = await r2GetBytes(r2, row.apk_path);
+        if (!fetched) {
+          return json({ error: 'upload_missing' }, 422);
+        }
+        bytes = fetched;
+      } catch (err) {
+        console.error(
+          'app-releases publish R2 download error:',
+          err instanceof Error ? err.message : 'unknown',
+        );
+        return json({ error: 'server error' }, 500);
+      }
+    } else {
+      const { data: blob, error: dlErr } = await supabase.storage
+        .from(BUCKET_NAME)
+        .download(row.apk_path);
 
-    if (dlErr || !blob) {
-      console.error('app-releases publish download error:', dlErr?.message ?? 'empty blob');
-      return json({ error: 'upload_missing' }, 422);
+      if (dlErr || !blob) {
+        console.error('app-releases publish download error:', dlErr?.message ?? 'empty blob');
+        return json({ error: 'upload_missing' }, 422);
+      }
+
+      bytes = new Uint8Array(await blob.arrayBuffer());
     }
 
-    const bytes = new Uint8Array(await blob.arrayBuffer());
     const actualSha = await computeSha256Hex(bytes);
     if (bytes.byteLength !== Number(row.size_bytes) || actualSha !== row.sha256) {
       return json({ error: 'hash_mismatch' }, 422);
@@ -383,12 +478,16 @@ export async function handleAppReleases(req: Request): Promise<Response> {
 
     const archivedCount =
       updated.target_cabang == null
-        ? await runRetention(supabase, {
-            id,
-            abi: row.abi,
-            version_code: Number(row.version_code),
-            apk_path: row.apk_path,
-          })
+        ? await runRetention(
+            supabase,
+            {
+              id,
+              abi: row.abi,
+              version_code: Number(row.version_code),
+              apk_path: row.apk_path,
+            },
+            r2,
+          )
         : 0;
 
     return json({ release: updated, archived_count: archivedCount }, 200);
@@ -480,12 +579,16 @@ export async function handleAppReleases(req: Request): Promise<Response> {
 
     const archivedCount =
       updated.status === 'published' && targetResult.value === null
-        ? await runRetention(supabase, {
-            id,
-            abi: row.abi,
-            version_code: Number(row.version_code),
-            apk_path: row.apk_path,
-          })
+        ? await runRetention(
+            supabase,
+            {
+              id,
+              abi: row.abi,
+              version_code: Number(row.version_code),
+              apk_path: row.apk_path,
+            },
+            r2,
+          )
         : 0;
 
     return json({ release: updated, archived_count: archivedCount }, 200);
@@ -499,7 +602,7 @@ export async function handleAppReleases(req: Request): Promise<Response> {
 
     const { data: row, error: fetchErr } = await supabase
       .from('app_releases')
-      .select('id, status, apk_path')
+      .select('id, status, apk_path, backend')
       .eq('id', id)
       .maybeSingle();
 
@@ -515,11 +618,26 @@ export async function handleAppReleases(req: Request): Promise<Response> {
     }
 
     if (typeof row.apk_path === 'string' && row.apk_path.length > 0) {
-      const { error: rmErr } = await supabase.storage
-        .from(BUCKET_NAME)
-        .remove([row.apk_path]);
-      if (rmErr) {
-        console.error('app-releases delete_draft storage remove warning:', rmErr.message);
+      if (row.backend === 'r2') {
+        if (!r2) {
+          console.error('app-releases delete_draft R2 not configured');
+        } else {
+          try {
+            await r2Delete(r2, row.apk_path);
+          } catch (err) {
+            console.error(
+              'app-releases delete_draft R2 delete warning:',
+              err instanceof Error ? err.message : 'unknown',
+            );
+          }
+        }
+      } else {
+        const { error: rmErr } = await supabase.storage
+          .from(BUCKET_NAME)
+          .remove([row.apk_path]);
+        if (rmErr) {
+          console.error('app-releases delete_draft storage remove warning:', rmErr.message);
+        }
       }
     }
 

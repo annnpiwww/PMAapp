@@ -177,3 +177,14 @@ Staged rollout: publish to one branch (e.g. Manado) first, then widen to all.
 - **`set_targets`** (publisher allowlist, new): `{ "action": "set_targets", "id": "<uuid>", "target_cabang": null | ["manado", ...] }`. Allowed when `status in ('draft','published')` else `409 not_editable`. Updates the row; when the row is `published` and new value is `null`, runs the same retention as `publish`. Response `200 { "release": { ... }, "archived_count": n }`.
 - **Publish script**: `tools/publish_release.mjs --cabang manado[,bali]` (omit = all branches). Applied to both ABIs.
 - **Admin UI**: upload form (A2) has branch choice `Semua cabang` (default) / `Manado` / `Bali` / `HO` (multi-select chips; selecting a branch clears `Semua`, clearing all returns to `Semua`). Release list (A1) shows a target badge (`Semua cabang` or `Manado, Bali`) and, on a published targeted release, action `Rilis ke semua cabang` (confirm dialog) -> `set_targets` with `null`.
+
+---
+
+## 6. Storage Backend
+
+- **Column**: `app_releases.backend text not null default 'supabase'` with check constraint `backend in ('supabase', 'r2')`. Existing rows remain `'supabase'`.
+- **New uploads**: `create_upload` always inserts `backend = 'r2'` and returns a SigV4 presigned `PUT` URL (`X-Amz-SignedHeaders=host`, TTL 900s) targeting Cloudflare R2 bucket `pmapp` (object key `prod/<version_code>-<abi>.apk`). Clients (`tools/publish_release.mjs`, `AppReleaseAdminService`) `PUT` directly to `upload.signedUrl` unchanged.
+- **Secrets**: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` live only in the `app-releases` Edge Function environment; never shipped to clients or logged.
+- **Downloads (`latest`)**: Routes per row `backend` — `'r2'` returns a presigned R2 `GET` URL (TTL 900s), `'supabase'` keeps returning a Supabase Storage signed URL until retention archives the row. Public `latest` response shape is unchanged and never exposes `backend`.
+- **Verification, retention & draft cleanup**: `publish` downloads bytes from the row's `backend` (`r2` or `supabase`) before SHA-256/size verification. `runRetention` and `delete_draft` delete objects from each row's matching backend (logging and continuing on best-effort delete errors).
+
