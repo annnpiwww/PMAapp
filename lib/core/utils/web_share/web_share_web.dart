@@ -22,11 +22,18 @@ Future<WebShareOutcome> shareFilesOnWeb({
     return WebShareOutcome.failed;
   }
 
-  final shareTitle = title ?? 'Laporan PMAapp';
   final shareText = text?.trim() ?? '';
-  final data = shareText.isEmpty
-      ? web.ShareData(files: jsFiles.toJS, title: shareTitle)
-      : web.ShareData(files: jsFiles.toJS, title: shareTitle, text: shareText);
+  final shareTitle = title?.trim() ?? '';
+  final web.ShareData data;
+  if (shareText.isEmpty && shareTitle.isEmpty) {
+    data = web.ShareData(files: jsFiles.toJS);
+  } else if (shareText.isEmpty) {
+    data = web.ShareData(files: jsFiles.toJS, title: shareTitle);
+  } else if (shareTitle.isEmpty) {
+    data = web.ShareData(files: jsFiles.toJS, text: shareText);
+  } else {
+    data = web.ShareData(files: jsFiles.toJS, title: shareTitle, text: shareText);
+  }
 
   try {
     if (!web.window.navigator.canShare(data)) {
@@ -44,6 +51,31 @@ Future<WebShareOutcome> shareFilesOnWeb({
     return _download(files);
   } catch (_) {
     return _download(files);
+  }
+}
+
+/// Membuka share sheet browser khusus teks tanpa lampiran file.
+/// Dipanggil tanpa await sebelum fungsi ini agar user activation Safari valid.
+Future<WebShareOutcome> shareTextOnWeb({
+  required String text,
+  String? title,
+}) async {
+  final shareText = text.trim();
+  if (shareText.isEmpty) return WebShareOutcome.failed;
+
+  final shareTitle = title?.trim() ?? '';
+  final data = shareTitle.isEmpty
+      ? web.ShareData(text: shareText)
+      : web.ShareData(text: shareText, title: shareTitle);
+
+  try {
+    await web.window.navigator.share(data).toDart;
+    return WebShareOutcome.shared;
+  } on web.DOMException catch (e) {
+    if (e.name == 'AbortError') return WebShareOutcome.cancelled;
+    return WebShareOutcome.failed;
+  } catch (_) {
+    return WebShareOutcome.failed;
   }
 }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import '../../../core/constants/tiket_colors.dart';
 import '../../../core/utils/image_watermark_processor.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/utils/web_bytes/web_bytes.dart';
+import '../../../core/utils/web_photo_store/web_photo_store.dart';
 import '../../../core/widgets/app_file_image.dart';
 import '../../../core/widgets/tiket/tiket.dart';
 import '../../../data/models/maintenance_submission.dart';
@@ -62,18 +64,41 @@ class PhotoPreviewDialog extends StatefulWidget {
 class _PhotoPreviewDialogState extends State<PhotoPreviewDialog> {
   bool _analyzing = false;
   late MaintenancePointResult? _pointResult;
+  Uint8List? _webBytes;
 
   @override
   void initState() {
     super.initState();
     _pointResult = widget.pointResult;
+    if (kIsWeb) {
+      final mem = widget.pointResult?.shareImageBytes;
+      if (mem != null && mem.isNotEmpty) {
+        _webBytes = mem;
+      } else {
+        unawaited(_preloadWebBytes());
+      }
+    }
+  }
+
+  // Preload before tap so saving via navigator.share stays inside Safari user activation.
+  Future<void> _preloadWebBytes() async {
+    final path = widget.imagePath.trim();
+    if (path.isEmpty) return;
+    final stored = await getPhotoBlob(path);
+    final resolved = (stored != null && stored.isNotEmpty)
+        ? stored
+        : (path.startsWith('blob:') ? await fetchWebBytes(path) : null);
+    if (!mounted || resolved == null || resolved.isEmpty) return;
+    setState(() => _webBytes = resolved);
   }
 
   Future<String?> _resolveBase64() async {
     final path = widget.imagePath;
     if (path.startsWith('data:image')) return path;
     Uint8List? bytes;
-    if (path.startsWith('http://') || path.startsWith('https://')) {
+    if (kIsWeb && _webBytes != null && _webBytes!.isNotEmpty) {
+      bytes = _webBytes;
+    } else if (path.startsWith('http://') || path.startsWith('https://')) {
       try {
         final res = await http.get(Uri.parse(path)).timeout(const Duration(seconds: 15));
         if (res.statusCode == 200) bytes = res.bodyBytes;
@@ -81,8 +106,10 @@ class _PhotoPreviewDialogState extends State<PhotoPreviewDialog> {
         return null;
       }
     } else if (path.startsWith('blob:')) {
-      // Foto kamera web disimpan sebagai blob URL: ambil isinya lewat fetch.
-      bytes = await fetchWebBytes(path);
+      final stored = await getPhotoBlob(path);
+      bytes = (stored != null && stored.isNotEmpty)
+          ? stored
+          : await fetchWebBytes(path);
       if (bytes == null) return null;
     }
     return ImageWatermarkProcessor.generateAiVisionBase64(path, bytes);
@@ -207,18 +234,49 @@ class _PhotoPreviewDialogState extends State<PhotoPreviewDialog> {
                             TiketIconButton(
                               icon: Icons.download_rounded,
                               semanticLabel: 'Download ke Galeri HP',
-                              onPressed: () async {
+                              onPressed: () {
                                 final messenger = ScaffoldMessenger.of(context);
-                                final success = await ShareHelper.savePhotoToGallery(widget.imagePath);
-                                messenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(success
-                                        ? (kIsWeb ? 'Foto diunduh ke Files/Downloads (bukan Galeri)' : 'Foto tersimpan di Galeri HP')
-                                        : (kIsWeb ? 'Gagal mengunduh foto' : 'Gagal menyimpan foto ke Galeri HP')),
-                                    backgroundColor: success ? colors.ok : colors.danger,
-                                    duration: const Duration(seconds: 2),
-                                  ),
-                                );
+                                if (kIsWeb) {
+                                  final future = ShareHelper.savePhotoToGalleryOutcome(
+                                    widget.imagePath,
+                                    imageBytes: _webBytes,
+                                    shareSheetOnWeb: true,
+                                  );
+                                  unawaited(future.then((outcome) {
+                                    if (!mounted || outcome == WebShareOutcome.cancelled) {
+                                      return;
+                                    }
+                                    final ok = outcome == WebShareOutcome.shared ||
+                                        outcome == WebShareOutcome.downloaded ||
+                                        outcome == WebShareOutcome.savedToGallery;
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          outcome == WebShareOutcome.shared
+                                              ? 'Pilih Simpan Gambar untuk masuk ke Galeri'
+                                              : (ok
+                                                  ? 'Foto diunduh ke Files/Downloads (bukan Galeri)'
+                                                  : 'Gagal menyimpan foto'),
+                                        ),
+                                        backgroundColor: ok ? colors.ok : colors.danger,
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }));
+                                  return;
+                                }
+                                unawaited(ShareHelper.savePhotoToGallery(widget.imagePath).then((success) {
+                                  if (!mounted) return;
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text(success
+                                          ? 'Foto tersimpan di Galeri HP'
+                                          : 'Gagal menyimpan foto ke Galeri HP'),
+                                      backgroundColor: success ? colors.ok : colors.danger,
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }));
                               },
                             ),
                           ],
@@ -238,6 +296,7 @@ class _PhotoPreviewDialogState extends State<PhotoPreviewDialog> {
                               child: Center(
                                 child: AppFileImage(
                                   path: widget.imagePath,
+                                  bytes: kIsWeb ? _webBytes : null,
                                   cacheWidth: 1280,
                                   fit: BoxFit.contain,
                                 ),

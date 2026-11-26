@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/utils/share_helper.dart';
 import '../../core/utils/web_bytes/web_bytes.dart';
+import '../../core/utils/web_photo_store/web_photo_store.dart';
 import '../models/maintenance_submission.dart';
 import '../models/maintenance_temuan_fix.dart';
 import '../models/template_model.dart';
@@ -2253,8 +2254,7 @@ Terima Kasih''';
     }
   }
 
-  /// Foto siap-share di web: pakai byte ber-watermark dari kamera (browser tidak
-  /// punya file lokal untuk ditulisi), fallback baca ulang dari path-nya.
+  /// Foto siap-share di web: memori -> IndexedDB -> fetch blob URL.
   @visibleForTesting
   static Future<List<WebShareFile>> buildWebShareFiles(
     MaintenanceSubmission submission,
@@ -2263,14 +2263,46 @@ Terima Kasih''';
       ..sort(_comparePoints);
     final files = <WebShareFile>[];
     for (final pt in sortedPoints) {
-      final bytes = (pt.shareImageBytes != null && pt.shareImageBytes!.isNotEmpty)
-          ? pt.shareImageBytes!
-          : await fetchWebBytes(pt.imagePath ?? '');
+      Uint8List? bytes;
+      if (pt.shareImageBytes != null && pt.shareImageBytes!.isNotEmpty) {
+        bytes = pt.shareImageBytes;
+      } else {
+        final path = pt.imagePath ?? '';
+        if (path.isNotEmpty) {
+          final stored = await getPhotoBlob(path);
+          bytes = (stored != null && stored.isNotEmpty)
+              ? stored
+              : await fetchWebBytes(path);
+        }
+      }
       if (bytes == null || bytes.isEmpty) continue;
       final seq = (files.length + 1).toString().padLeft(2, '0');
       files.add(WebShareFile(bytes: bytes, name: '${seq}_${pt.pointId}.jpg'));
     }
     return files;
+  }
+
+  /// Siapkan teks laporan dan daftar foto terurut untuk batch share sheet di web.
+  static Future<({String text, List<WebShareFile> files})> prepareWebShare({
+    required MaintenanceSubmission submission,
+    required TemplateCategory category,
+    int? unitCount,
+    String? gateOutNotes,
+    String? additionalNotes,
+    required bool telegram,
+  }) async {
+    final rawText = generateReportText(
+      submission: submission,
+      category: category,
+      unitCount: unitCount,
+      gateOutNotes: gateOutNotes,
+      additionalNotes: additionalNotes,
+    );
+    final text = telegram
+        ? ShareHelper.convertMarkdownBoldToUnicode(rawText)
+        : rawText;
+    final files = await buildWebShareFiles(submission);
+    return (text: text, files: files);
   }
 
   /// Bagikan laporan teks dan file-file foto sekaligus ke WhatsApp
@@ -2281,6 +2313,7 @@ Terima Kasih''';
     String? gateOutNotes,
     String? additionalNotes,
   }) async {
+    if (kIsWeb) return;
     final text = generateReportText(
       submission: submission,
       category: category,
@@ -2289,12 +2322,10 @@ Terima Kasih''';
       additionalNotes: additionalNotes,
     );
 
-    final webFiles = kIsWeb ? await buildWebShareFiles(submission) : null;
     final filePaths = await prepareSortedSharePhotos(submission);
     await ShareHelper.shareToWhatsApp(
       text: text,
       imagePaths: filePaths.isNotEmpty ? filePaths : null,
-      webFiles: webFiles != null && webFiles.isNotEmpty ? webFiles : null,
     );
   }
 
@@ -2306,6 +2337,7 @@ Terima Kasih''';
     String? gateOutNotes,
     String? additionalNotes,
   }) async {
+    if (kIsWeb) return;
     final text = generateReportText(
       submission: submission,
       category: category,
@@ -2318,7 +2350,6 @@ Terima Kasih''';
     await ShareHelper.shareToTelegram(
       text: text,
       imagePaths: filePaths.isNotEmpty ? filePaths : null,
-      webFiles: kIsWeb ? await buildWebShareFiles(submission) : null,
     );
   }
 }

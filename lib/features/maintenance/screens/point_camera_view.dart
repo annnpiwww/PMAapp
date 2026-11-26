@@ -9,6 +9,7 @@ import '../../../core/widgets/tiket/tiket.dart';
 import '../../../core/services/logger_service.dart';
 import '../../../core/utils/verification_code.dart';
 import '../../../core/utils/image_watermark_processor.dart';
+import '../../../core/utils/web_photo_store/web_photo_store.dart';
 import '../../../core/widgets/verification_step_card.dart';
 import '../../../data/models/watermark_config.dart';
 import '../../../data/models/template_model.dart';
@@ -707,6 +708,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
           confidence: 1.0,
           providerName: mockOverride ? 'Mock GPS Guard' : 'Offline Fast Mode',
         );
+        _persistWebPhoto(file.path, shareBytes, bytes);
 
         if (mounted) {
           Navigator.pop(context, result);
@@ -806,6 +808,7 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
         confidence: aiResult.confidenceScore,
         providerName: mockOverride ? 'Mock GPS Guard' : aiResult.providerName,
       );
+      _persistWebPhoto(file.path, shareBytes, bytes);
 
       if (mounted) {
         Navigator.pop(context, result);
@@ -819,6 +822,14 @@ class _PointCameraViewState extends State<PointCameraView> with WidgetsBindingOb
         });
       }
     }
+  }
+
+  // Web blob: URLs die when Safari reloads the PWA; persist bytes in IndexedDB.
+  void _persistWebPhoto(String path, Uint8List? wmBytes, Uint8List rawBytes) {
+    if (!kIsWeb || path.isEmpty) return;
+    final data = (wmBytes != null && wmBytes.isNotEmpty) ? wmBytes : rawBytes;
+    if (data.isEmpty) return;
+    unawaited(putPhotoBlob(path, data).catchError((_) {}));
   }
 
   Widget _buildTopRow() {

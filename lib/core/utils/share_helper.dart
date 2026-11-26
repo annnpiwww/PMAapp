@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'web_bytes/web_bytes.dart';
+import 'web_photo_store/web_photo_store.dart';
 import 'web_share/web_share.dart';
 export 'web_share/web_share_types.dart';
 
@@ -110,8 +111,10 @@ class ShareHelper {
         return null;
       }
     }
-    // blob: URL (hasil kamera web) tidak bisa diambil lewat http, harus fetch.
+    // blob: URL (hasil kamera web) tidak bisa diambil lewat http, harus IndexedDB atau fetch.
     if (path.startsWith('blob:')) {
+      final stored = await getPhotoBlob(path);
+      if (stored != null && stored.isNotEmpty) return stored;
       return fetchWebBytes(path);
     }
     try {
@@ -167,6 +170,19 @@ class ShareHelper {
     try {
       await Clipboard.setData(ClipboardData(text: text));
     } catch (_) {}
+  }
+
+  /// Bagikan teks murni di web: coba Web Share API ({text}) dulu sebelum await
+  /// agar user activation Safari terjaga, fallback ke link WA/Telegram jika gagal.
+  static Future<WebShareOutcome> shareWebTextOnly({
+    required String text,
+    required bool telegram,
+  }) async {
+    final outcome = await shareTextOnWeb(text: text);
+    if (outcome == WebShareOutcome.shared || outcome == WebShareOutcome.cancelled) {
+      return outcome;
+    }
+    return _openWebTextOnly(text: text, telegram: telegram);
   }
 
   static Future<WebShareOutcome> _openWebTextOnly({

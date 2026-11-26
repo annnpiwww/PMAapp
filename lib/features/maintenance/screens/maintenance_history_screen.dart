@@ -5,6 +5,7 @@ import '../../../core/constants/tiket_colors.dart';
 import '../../../core/widgets/app_file_image.dart';
 import '../../../core/widgets/tiket/tiket.dart';
 import '../../../core/utils/timemark_formatter.dart';
+import '../../../core/utils/web_photo_store/web_photo_store.dart';
 import '../../../data/models/maintenance_submission.dart';
 import '../../../data/models/template_model.dart';
 import '../../../data/repositories/template_repository.dart';
@@ -12,6 +13,7 @@ import '../../../data/services/storage_service.dart';
 import '../../../data/services/ai_vision_service.dart';
 import '../../../data/services/whatsapp_report_service.dart';
 import '../widgets/photo_preview_dialog.dart';
+import '../widgets/web_share_batch_sheet.dart';
 import 'maintenance_checklist_screen.dart';
 
 class MaintenanceHistoryScreen extends StatefulWidget {
@@ -104,6 +106,17 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen>
     );
 
     if (confirmed == true && mounted) {
+      if (kIsWeb) {
+        for (final sub in _submissions) {
+          if (sub.id != id) continue;
+          for (final pt in sub.points) {
+            final path = pt.imagePath;
+            if (path != null && path.isNotEmpty) {
+              await deletePhotoBlob(path);
+            }
+          }
+        }
+      }
       await StorageService.deleteMaintenanceSubmission(id);
       _loadSubmissions();
       if (mounted) {
@@ -629,11 +642,17 @@ class _MaintenanceDetailModal extends StatelessWidget {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: hasImage
-                                ? AppFileImage(
-                                    path: p.imagePath!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image, size: 24, color: colors.mute),
-                                  )
+                                ? (kIsWeb
+                                    ? _WebHistoryThumbnail(
+                                        imagePath: p.imagePath!,
+                                        memoryBytes: p.shareImageBytes,
+                                        muteColor: colors.mute,
+                                      )
+                                    : AppFileImage(
+                                        path: p.imagePath!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image, size: 24, color: colors.mute),
+                                      ))
                                 : Icon(Icons.camera_alt_outlined, color: colors.mute, size: 24),
                           ),
                         ),
@@ -734,6 +753,21 @@ class _MaintenanceDetailModal extends StatelessWidget {
                         height: 36,
                         expand: true,
                         onPressed: () async {
+                          if (kIsWeb) {
+                            final prepared = await WhatsAppReportService.prepareWebShare(
+                              submission: submission,
+                              category: category,
+                              telegram: false,
+                            );
+                            if (!context.mounted) return;
+                            await showWebShareBatchSheet(
+                              context,
+                              text: prepared.text,
+                              files: prepared.files,
+                              telegram: false,
+                            );
+                            return;
+                          }
                           await WhatsAppReportService.shareToWhatsApp(
                             submission: submission,
                             category: category,
@@ -759,6 +793,21 @@ class _MaintenanceDetailModal extends StatelessWidget {
                         height: 36,
                         expand: true,
                         onPressed: () async {
+                          if (kIsWeb) {
+                            final prepared = await WhatsAppReportService.prepareWebShare(
+                              submission: submission,
+                              category: category,
+                              telegram: true,
+                            );
+                            if (!context.mounted) return;
+                            await showWebShareBatchSheet(
+                              context,
+                              text: prepared.text,
+                              files: prepared.files,
+                              telegram: true,
+                            );
+                            return;
+                          }
                           await WhatsAppReportService.shareToTelegram(
                             submission: submission,
                             category: category,
@@ -802,8 +851,86 @@ class _MaintenanceDetailModal extends StatelessWidget {
                 ),
               ),
             ),
-        ],
+          ],
       ),
+    );
+  }
+}
+
+class _WebHistoryThumbnail extends StatefulWidget {
+  final String imagePath;
+  final Uint8List? memoryBytes;
+  final Color muteColor;
+
+  const _WebHistoryThumbnail({
+    required this.imagePath,
+    required this.memoryBytes,
+    required this.muteColor,
+  });
+
+  @override
+  State<_WebHistoryThumbnail> createState() => _WebHistoryThumbnailState();
+}
+
+class _WebHistoryThumbnailState extends State<_WebHistoryThumbnail> {
+  Future<Uint8List?>? _blobFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _initLookup();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WebHistoryThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imagePath != widget.imagePath ||
+        oldWidget.memoryBytes != widget.memoryBytes) {
+      _initLookup();
+    }
+  }
+
+  void _initLookup() {
+    if (widget.memoryBytes != null && widget.memoryBytes!.isNotEmpty) {
+      _blobFuture = null;
+    } else {
+      _blobFuture = getPhotoBlob(widget.imagePath);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mem = widget.memoryBytes;
+    if (mem != null && mem.isNotEmpty) {
+      return Image.memory(
+        mem,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) =>
+            Icon(Icons.broken_image, size: 24, color: widget.muteColor),
+      );
+    }
+    return FutureBuilder<Uint8List?>(
+      future: _blobFuture,
+      builder: (context, snapshot) {
+        final bytes = snapshot.data;
+        if (bytes != null && bytes.isNotEmpty) {
+          return Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) =>
+                Icon(Icons.broken_image, size: 24, color: widget.muteColor),
+          );
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Icon(Icons.photo_rounded, size: 22, color: widget.muteColor);
+        }
+        return AppFileImage(
+          path: widget.imagePath,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) =>
+              Icon(Icons.broken_image, size: 24, color: widget.muteColor),
+        );
+      },
     );
   }
 }

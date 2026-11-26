@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
@@ -19,6 +20,7 @@ import '../../../data/services/daily_task_service.dart';
 import '../../../data/services/whatsapp_report_service.dart';
 import '../../../data/services/maintenance_log_service.dart';
 import '../widgets/photo_preview_dialog.dart';
+import '../widgets/web_share_batch_sheet.dart';
 import 'point_camera_view.dart';
 import 'maintenance_history_screen.dart';
 
@@ -996,6 +998,24 @@ class _MaintenanceChecklistScreenState
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (sheetCtx) {
         Future<void> share(bool telegram) async {
+          if (kIsWeb) {
+            final prepared = await WhatsAppReportService.prepareWebShare(
+              submission: _submission,
+              category: widget.template.jenis,
+              unitCount: units.length,
+              gateOutNotes: gateOutNotes,
+              telegram: telegram,
+            );
+            if (sheetCtx.mounted) Navigator.of(sheetCtx).pop();
+            if (!context.mounted) return;
+            await showWebShareBatchSheet(
+              context,
+              text: prepared.text,
+              files: prepared.files,
+              telegram: telegram,
+            );
+            return;
+          }
           final send = telegram ? WhatsAppReportService.shareToTelegram : WhatsAppReportService.shareToWhatsApp;
           await send(submission: _submission, category: widget.template.jenis, unitCount: units.length, gateOutNotes: gateOutNotes);
           if (sheetCtx.mounted) Navigator.of(sheetCtx).pop();

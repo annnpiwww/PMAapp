@@ -9,6 +9,14 @@ Future<WebShareOutcome> shareFilesOnWeb({
   return WebShareOutcome.failed;
 }
 
+/// Fallback untuk platform non-web: tidak ada share sheet browser.
+Future<WebShareOutcome> shareTextOnWeb({
+  required String text,
+  String? title,
+}) async {
+  return WebShareOutcome.failed;
+}
+
 /// Fallback untuk platform non-web: unduhan browser tidak tersedia.
 Future<WebShareOutcome> downloadFilesOnWeb({
   required List<WebShareFile> files,
