@@ -43,6 +43,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
   final _pekerjaanCtrl = TextEditingController();
   final _catatanCtrl = TextEditingController();
   String _taskCategory = 'khusus'; // 'khusus' atau 'maintenance'
+  static const _backupJudul = 'Backup server, hapus foto, upload cloud & HDD';
   String? _selectedTemplateId = 'tpl_maint_pos';
   final Set<String> _pesertaTerpilih = {}; // teknisi tambahan (tugas bareng)
   bool _pesertaTerbuka = false; // daftar teknisi tambahan terbuka/tertutup
@@ -954,7 +955,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
     final colors = TiketColors.of(context);
 
     final lokasi = _lokasiCtrl.text.trim();
-    final pekerjaan = _pekerjaanCtrl.text.trim();
+    final pekerjaan = _formTab == 'backup' ? _backupJudul : _pekerjaanCtrl.text.trim();
 
     if (lokasi.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1143,6 +1144,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
               if (isManado) ('rutin', 'Rutin'),
               ('maintenance', 'Maintenance'),
               ('khusus', 'Tugas Khusus'),
+              ('backup', 'Backup Server'),
             ];
 
             return Padding(
@@ -1233,7 +1235,7 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
                                     onChanged: (val) => apply(() {
                                       _formTab = val;
                                       if (val != 'rutin') {
-                                        _taskCategory = val;
+                                        _taskCategory = val == 'backup' ? 'khusus' : val;
                                       }
                                     }),
                                   ),
@@ -1530,22 +1532,31 @@ class _SpvTaskDispatcherScreenState extends State<SpvTaskDispatcherScreen> {
           ),
           const SizedBox(height: 16),
 
-          inputContainer(
-            label: 'Detail Pekerjaan',
-            child: TextField(
-              controller: _pekerjaanCtrl,
-              maxLines: 2,
-              style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: colors.ink),
-              onChanged: (_) => apply(() {}),
-              decoration: InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                hintText: 'Contoh: Pemasangan lampu pos',
-                hintStyle: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 14, color: colors.body),
+          if (_formTab == 'backup')
+            inputContainer(
+              label: 'Pekerjaan',
+              child: Text(
+                _backupJudul,
+                style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: colors.ink),
+              ),
+            )
+          else
+            inputContainer(
+              label: 'Detail Pekerjaan',
+              child: TextField(
+                controller: _pekerjaanCtrl,
+                maxLines: 2,
+                style: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: colors.ink),
+                onChanged: (_) => apply(() {}),
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  hintText: 'Contoh: Pemasangan lampu pos',
+                  hintStyle: TextStyle(fontFamily: TiketType.fontFamily, fontSize: 14, color: colors.body),
+                ),
               ),
             ),
-          ),
           const SizedBox(height: 16),
         ],
 

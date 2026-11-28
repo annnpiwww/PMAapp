@@ -11,7 +11,7 @@ class TiketSegmented<T> extends StatelessWidget {
     required this.options,
     required this.selected,
     required this.onChanged,
-  }) : assert(options.length <= 3, 'TiketSegmented supports at most 3 options');
+  }) : assert(options.length <= 4, 'TiketSegmented supports at most 4 options');
 
   @override
   Widget build(BuildContext context) {
@@ -77,17 +77,19 @@ class TiketSegmented<T> extends StatelessWidget {
           onTap: () => onChanged(option.$1),
           child: Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontFamily: TiketType.fontFamily,
-                  fontSize: 14.0,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected ? colors.onPrimary : colors.ink,
+              padding: EdgeInsets.symmetric(horizontal: options.length > 3 ? 4.0 : 8.0),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: TiketType.fontFamily,
+                    fontSize: options.length > 3 ? 12.0 : 14.0,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected ? colors.onPrimary : colors.ink,
+                  ),
+                  maxLines: 1,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),

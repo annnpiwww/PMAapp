@@ -456,6 +456,8 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
     }
 
     final colors = TiketColors.of(context);
+    // Tap berulang saat WA/Telegram masih loading = intent dobel, laporan terkirim berkali-kali.
+    var shared = false;
 
     showDialog<void>(
       context: context,
@@ -550,6 +552,8 @@ class _CustomTaskExecutionScreenState extends State<CustomTaskExecutionScreen> {
                             height: 48,
                             child: ElevatedButton.icon(
                               onPressed: () async {
+                                if (shared) return;
+                                shared = true;
                                 HapticFeedback.lightImpact();
                                 final rootNav = Navigator.of(context);
                                 final dlgNav = Navigator.of(ctx);

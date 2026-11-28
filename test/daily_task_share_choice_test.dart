@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -40,5 +43,47 @@ void main() {
     expect(find.text('WhatsApp'), findsOneWidget);
     expect(find.text('Telegram'), findsOneWidget);
     expect(find.text('Bagikan ke Grup'), findsNothing);
+  });
+
+  testWidgets('repeated WhatsApp taps while share is loading send the report once', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final pending = Completer<void>();
+    var clipboardWrites = 0;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        clipboardWrites++;
+        await pending.future; // share masih loading
+      }
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+
+    final task = DailyTaskModel(
+      id: 'task_double_tap',
+      tanggal: '2026-11-28',
+      teknisiId: 'tek_01',
+      teknisiNama: 'Farhan Lakoro',
+      posName: 'PBM',
+      posTag: 'PBM',
+      judul: 'Backup server, hapus foto, upload cloud & HDD',
+    );
+
+    await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: CustomTaskExecutionScreen(task: task)));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final dynamic state = tester.state(find.byType(CustomTaskExecutionScreen));
+    state.showPostSaveDialogForTesting();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    for (var i = 0; i < 4; i++) {
+      await tester.tap(find.text('WhatsApp'));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(clipboardWrites, 1);
   });
 }

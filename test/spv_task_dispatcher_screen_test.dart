@@ -374,6 +374,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('TUGAS RUTIN SHIFT 1 KC MANADO'), findsOneWidget);
       expect(find.text('Tugaskan 2 Rutin Shift 1'), findsOneWidget);
+
+      await tester.tap(find.text('Backup Server'));
+      await tester.pumpAndSettle();
+      expect(find.text('Backup server, hapus foto, upload cloud & HDD'), findsOneWidget);
+      expect(find.text('Lokasi Pekerjaan'), findsOneWidget);
+      expect(find.text('Detail Pekerjaan'), findsNothing);
     });
   });
 
