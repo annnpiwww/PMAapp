@@ -30,15 +30,15 @@ class WhatsNewService {
 
   /// Diisi ulang tiap versi naik, bareng bump di pubspec.yaml.
   static const WhatsNewRelease current = WhatsNewRelease(
-    version: '2.0.144',
-    date: '22 November 2026',
+    version: '2.0.145',
+    date: '28 November 2026',
     features: [
-      'Saat memasang update, aplikasi sekarang memberi tahu langkahnya. Kalau pemasangan belum selesai, tinggal tekan Pasang lagi tanpa unduh ulang',
+      'SPV bisa membuat tugas Backup Server. Lokasi diisi SPV, pekerjaannya otomatis: backup server, hapus foto, upload cloud & HDD',
     ],
     aiNote: null,
     mapNote: null,
     bugfix:
-        'Tombol Pasang sekarang tidak lagi diam saja saat pemasang Android gagal terbuka',
+        'Laporan tugas tidak lagi terkirim berkali-kali ke grup WhatsApp atau Telegram saat tombol ditekan lebih dari sekali',
   );
 
   /// `seen` kosong berarti aplikasi belum pernah mencatat versi di perangkat ini.

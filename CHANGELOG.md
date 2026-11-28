@@ -2,6 +2,19 @@
 
 Semua pembaruan, perbaikan bug, dan penambahan fitur aplikasi **BSS Parking TimeMark** dicatat secara kronologis di dokumen ini.
 
+## [2.0.145+2158] - 2026-11-28
+
+### 🎯 Fitur
+- SPV bisa membuat tugas Backup Server (Manado: Rutin, Maintenance, Tugas Khusus, Backup Server; HO dan Bali: Maintenance, Tugas Khusus, Backup Server). Lokasi diisi SPV, pekerjaan otomatis "Backup server, hapus foto, upload cloud & HDD".
+
+### 🐛 Perbaikan
+- Laporan tugas tidak lagi terkirim berkali-kali ke grup WhatsApp atau Telegram saat tombol ditekan lebih dari sekali.
+
+### 🚀 Rilis
+- Wajib update untuk semua cabang (arm64 dan arm32).
+
+---
+
 ## [2.0.144+2157] - 2026-11-22
 
 ### 🎯 Fitur
